@@ -1,14 +1,19 @@
 {
-  "name": "codespaces-blank",
+  "name": "vitalix-ai",
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "fuser -k 3000/tcp 2>/dev/null || true && next dev -H 0.0.0.0 -p 3000",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
   },
   "dependencies": {
+    "@google/genai": "^2.13.0",
+    "@supabase/supabase-js": "^2.110.7",
+    "html2canvas-pro": "^2.3.2",
+    "jspdf": "^4.2.1",
+    "lucide-react": "^1.27.0",
     "next": "16.2.10",
     "react": "19.2.4",
     "react-dom": "19.2.4"

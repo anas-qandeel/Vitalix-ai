@@ -195,12 +195,6 @@ export default function SingleVitalViewPage({ params }: PageProps) {
   const [recommendations, setRecommendations] = useState<RecommendationItem[]>([]);
   const [errorMsg, setErrorMsg] = useState('');
 
-  useEffect(() => {
-    if (visitId) {
-      fetchVisitDetails();
-    }
-  }, [visitId]);
-
   const fetchVisitDetails = async () => {
     try {
       setLoading(true);
@@ -222,6 +216,13 @@ export default function SingleVitalViewPage({ params }: PageProps) {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (visitId) {
+      fetchVisitDetails();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visitId]);
 
   const previousVisits = patientHistory.filter((visit) => visit.id !== currentVisit?.id);
 

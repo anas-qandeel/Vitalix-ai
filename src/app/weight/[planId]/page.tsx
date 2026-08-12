@@ -1,0 +1,484 @@
+'use client';
+
+import { useEffect, useState, use, useRef } from 'react';
+
+// ════════════════════════════════════════════════════════════════════════
+// TYPES
+// ════════════════════════════════════════════════════════════════════════
+interface PharmacyProduct {
+  name:        string;
+  reason:      string;
+  instruction: string;
+}
+interface NutritionData {
+  personal_message:   string;
+  smart_habits:       string[];
+  breakfast:          string[];
+  lunch:              string[];
+  dinner:             string[];
+  snacks:             string[];
+  pharmacy_products:  PharmacyProduct[];
+  medications_alert:  string;
+  lab_alerts:         string[];
+}
+interface WeightPlan {
+  id: string; weight_kg: number; height_cm: number; bmi: number; bmi_category: string;
+  ideal_weight_min: number; ideal_weight_max: number; target_loss_kg: number;
+  first_goal_kg: number; nutrition_plan: string | null; created_at: string;
+}
+interface PatientInfo { name: string; gender: string; birth_date: string | null; }
+interface PageData { plan: WeightPlan; patient: PatientInfo; pharmacyName: string; pharmacyPhone: string; }
+interface PageProps { params: Promise<{ planId: string }>; }
+
+// ════════════════════════════════════════════════════════════════════════
+// HELPERS
+// ════════════════════════════════════════════════════════════════════════
+function formatDate(d: string) {
+  return new Date(d).toLocaleDateString('ar-EG', { numberingSystem: 'latn', year: 'numeric', month: 'long', day: 'numeric' });
+}
+function getBMIStyle(cat: string) {
+  switch (cat) {
+    case 'underweight': return { label:'نحافة',             color:'text-blue-700',   bg:'bg-blue-50',   border:'border-blue-200',   dot:'bg-blue-500',   emoji:'🔵' };
+    case 'normal':      return { label:'وزن صحي',          color:'text-teal-700',   bg:'bg-teal-50',   border:'border-teal-200',   dot:'bg-teal-500',   emoji:'🟢' };
+    case 'overweight':  return { label:'زيادة وزن',        color:'text-amber-700',  bg:'bg-amber-50',  border:'border-amber-200',  dot:'bg-amber-500',  emoji:'🟡' };
+    case 'obese_1':     return { label:'سمنة درجة أولى',   color:'text-orange-700', bg:'bg-orange-50', border:'border-orange-200', dot:'bg-orange-500', emoji:'🟠' };
+    default:            return { label:'سمنة درجة ثانية+', color:'text-rose-700',   bg:'bg-rose-50',   border:'border-rose-200',   dot:'bg-rose-500',   emoji:'🔴' };
+  }
+}
+function parseNutrition(raw: string | null): NutritionData | null {
+  if (!raw) return null;
+  try {
+    const p = JSON.parse(raw);
+    if (p.breakfast && p.pharmacy_products) return p as NutritionData;
+  } catch {}
+  return null;
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// COMPONENTS
+// ════════════════════════════════════════════════════════════════════════
+function BMIBar({ bmi }: { bmi: number }) {
+  const pos = Math.min(Math.max(((bmi - 10) / 40) * 100, 2), 97);
+  return (
+    <div>
+      <div className="relative h-2 rounded-full overflow-hidden" dir="ltr">
+        <div className="absolute inset-0 flex">
+          <div className="h-full bg-blue-300"   style={{ width: '15%' }} />
+          <div className="h-full bg-teal-400"   style={{ width: '26%' }} />
+          <div className="h-full bg-amber-400"  style={{ width: '20%' }} />
+          <div className="h-full bg-orange-400" style={{ width: '20%' }} />
+          <div className="h-full bg-rose-400"   style={{ width: '19%' }} />
+        </div>
+        <div className="absolute top-1/2 w-3.5 h-3.5 bg-white border-2 border-slate-700 rounded-full shadow-md"
+          style={{ left: `${pos}%`, transform: 'translateX(-50%) translateY(-50%)' }} />
+      </div>
+      <div className="flex justify-between mt-1.5" dir="ltr">
+        {[{ v:'10', l:'نحافة' }, { v:'18.5', l:'طبيعي' }, { v:'25', l:'زيادة' }, { v:'30', l:'سمنة' }, { v:'35+', l:'مفرطة' }].map(({ v, l }) => (
+          <div key={v} className="flex flex-col items-center">
+            <span className="text-[7px] font-mono text-slate-400">{v}</span>
+            <span className="text-[7px] text-slate-300">{l}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+type MealColor = { bg: string; border: string; headerBg: string; headerBorder: string; dot: string; };
+function MealSection({ icon, title, color, items }: { icon: string; title: string; color: MealColor; items: string[]; }) {
+  return (
+    <div className={`bg-white border ${color.border} rounded-2xl shadow-sm overflow-hidden`}>
+      <div className={`${color.headerBg} px-5 py-3.5 border-b ${color.headerBorder} flex items-center justify-between`}>
+        <div className="flex items-center gap-2">
+          <span className={`w-1.5 h-1.5 rounded-full ${color.dot}`} />
+          <p className="text-sm font-bold text-slate-900">{title}</p>
+        </div>
+        <span className="text-base">{icon}</span>
+      </div>
+      <ul className="px-5 py-4 space-y-3">
+        {items.map((item, i) => (
+          <li key={i} className="flex items-start gap-3">
+            <div className={`w-5 h-5 rounded-lg border ${color.border} ${color.bg} flex items-center justify-center shrink-0 mt-0.5`}>
+              <span className="text-[9px] font-black text-slate-500">{i + 1}</span>
+            </div>
+            <p className="text-sm text-slate-700 leading-relaxed">{item}</p>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function SkeletonCard() {
+  return (
+    <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+      <div className="bg-slate-50/60 px-5 py-3.5 border-b border-slate-100 flex items-center gap-2">
+        <div className="w-1.5 h-1.5 rounded-full bg-slate-200 animate-pulse" />
+        <div className="h-3 w-24 bg-slate-200 rounded animate-pulse" />
+      </div>
+      <div className="px-5 py-4 space-y-3">
+        {[90, 75, 85, 65].map((w, i) => (
+          <div key={i} className="flex items-center gap-3">
+            <div className="w-5 h-5 rounded-lg bg-slate-100 animate-pulse shrink-0" />
+            <div className="h-3 bg-slate-100 rounded animate-pulse" style={{ width:`${w}%`, animationDelay:`${i*0.1}s` }} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// MAIN PAGE
+// ════════════════════════════════════════════════════════════════════════
+export default function WeightPlanPage({ params }: PageProps) {
+  const { planId }  = use(params);
+  const [loading,    setLoading]    = useState(true);
+  const [pageData,   setPageData]   = useState<PageData | null>(null);
+  const [error,      setError]      = useState('');
+  const [newArrival, setNewArrival] = useState(false);
+  const hadNutritionRef = useRef(false);
+  const pollingRef      = useRef<NodeJS.Timeout | null>(null);
+
+  const stopPolling = () => {
+    if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
+  };
+  const fetchData = async (silent = false) => {
+    try {
+      if (!silent) setLoading(true);
+      const res  = await fetch(`/api/weight-plan?id=${planId}`, { cache: 'no-store' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'رابط غير صالح');
+      const nowHas = !!data.plan?.nutrition_plan;
+      if (!hadNutritionRef.current && nowHas) { setNewArrival(true); stopPolling(); setTimeout(() => setNewArrival(false), 3500); }
+      hadNutritionRef.current = nowHas;
+      setPageData(data);
+    } catch (e: any) { setError(e.message); }
+    finally { if (!silent) setLoading(false); }
+  };
+
+  useEffect(() => { fetchData(); return () => stopPolling(); }, [planId]);
+  useEffect(() => {
+    if (!pageData) return;
+    if (!pageData.plan.nutrition_plan) {
+      if (!pollingRef.current) pollingRef.current = setInterval(() => fetchData(true), 4000);
+    } else { stopPolling(); }
+  }, [pageData?.plan?.nutrition_plan]);
+
+  if (loading) return (
+    <div className="min-h-screen bg-slate-50/50 flex items-center justify-center" dir="rtl">
+      <style jsx global>{`@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700;800&display=swap'); body{font-family:'IBM Plex Sans Arabic',system-ui,sans-serif;}`}</style>
+      <div className="flex flex-col items-center gap-3">
+        <div className="w-8 h-8 border-2 border-slate-200 border-t-purple-600 rounded-full animate-spin" />
+        <p className="text-xs font-bold text-slate-400 animate-pulse">جاري تحميل خطتك الصحية...</p>
+      </div>
+    </div>
+  );
+  if (error || !pageData) return (
+    <div className="min-h-screen bg-slate-50/50 flex items-center justify-center p-6" dir="rtl">
+      <div className="bg-white border border-slate-200 rounded-2xl shadow-sm px-8 py-10 text-center max-w-xs w-full">
+        <p className="text-3xl mb-3">⚠️</p>
+        <p className="text-sm font-bold text-slate-900">تعذر تحميل الخطة</p>
+        <p className="text-xs text-slate-400 mt-1">{error || 'الرابط غير صالح'}</p>
+      </div>
+    </div>
+  );
+
+  const { plan, patient, pharmacyName, pharmacyPhone } = pageData;
+  const bmiStyle  = getBMIStyle(plan.bmi_category);
+  const nutrition = parseNutrition(plan.nutrition_plan);
+  const hasData   = !!nutrition;
+  const age       = patient.birth_date ? new Date().getFullYear() - new Date(patient.birth_date).getFullYear() : null;
+  const waPhone   = pharmacyPhone?.replace(/[^0-9]/g, '').replace(/^0/, '962') || '';
+
+  const mealColors: Record<string, MealColor> = {
+    breakfast: { bg:'bg-amber-50',  border:'border-amber-200',  headerBg:'bg-amber-50/60',  headerBorder:'border-amber-100',  dot:'bg-amber-500'  },
+    lunch:     { bg:'bg-teal-50',   border:'border-teal-200',   headerBg:'bg-teal-50/60',   headerBorder:'border-teal-100',   dot:'bg-teal-500'   },
+    dinner:    { bg:'bg-blue-50',   border:'border-blue-200',   headerBg:'bg-blue-50/60',   headerBorder:'border-blue-100',   dot:'bg-blue-500'   },
+    snacks:    { bg:'bg-purple-50', border:'border-purple-200', headerBg:'bg-purple-50/60', headerBorder:'border-purple-100', dot:'bg-purple-500' },
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50/50 antialiased text-slate-900 pb-20" dir="rtl">
+      <style jsx global>{`
+        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700;800&display=swap');
+        body { font-family: 'IBM Plex Sans Arabic', system-ui, sans-serif; background: #F8FAFC; }
+        @keyframes saasSlideUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+        .saas-slide-up { animation: saasSlideUp 0.25s ease both; }
+        @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+        .fade-in { animation: fadeIn 0.3s ease both; }
+      `}</style>
+
+      {/* Toast */}
+      {newArrival && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 saas-slide-up">
+          <div className="bg-teal-600 text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow-xl flex items-center gap-2">
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+            وصلت خطتك الشخصية من {pharmacyName}!
+          </div>
+        </div>
+      )}
+
+      {/* Header */}
+      <div className="sticky top-0 z-40 h-1 bg-slate-900" />
+      <header className="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-1 z-30">
+        <div className="max-w-2xl mx-auto px-4 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center shadow-sm">
+              <svg className="w-5 h-5" viewBox="0 0 32 32" fill="none">
+                <path d="M6 8L14.5 25C14.8 25.6 15.6 25.6 15.9 25L20 17" stroke="white" strokeWidth="3.5" strokeLinecap="round"/>
+                <path d="M24 6C24 9.3 26.7 12 30 12C26.7 12 24 14.7 24 18C24 14.7 21.3 12 18 12C21.3 12 24 9.3 24 6Z" fill="#8B5CF6"/>
+              </svg>
+            </div>
+            <div>
+              <p className="text-[15px] font-black tracking-tight text-slate-900">Vitalix<span className="text-purple-600">.ai</span></p>
+              <p className="text-[10px] text-slate-500 font-semibold">مستشار التغذية الشخصي</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 bg-gradient-to-r from-teal-50/50 to-emerald-50/50 border border-teal-100/60 px-3 py-1.5 rounded-full shadow-sm">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]" />
+            <span className="text-sm font-bold text-teal-900 max-w-[150px] truncate">{pharmacyName}</span>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-2xl mx-auto px-4 pt-5 space-y-4">
+
+        {/* بطاقة المريض */}
+        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden saas-slide-up">
+          <div className="bg-slate-50/50 px-5 py-4 border-b border-slate-100 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center font-bold text-slate-700 text-base shadow-sm shrink-0">
+              {patient.name.charAt(0)}
+            </div>
+            <div>
+              <p className="text-sm font-bold text-slate-900">{patient.name}</p>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                {patient.gender === 'female' ? 'أنثى' : 'ذكر'}{age ? ` · ${age} سنة` : ''} · {formatDate(plan.created_at)}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* بطاقة تحليل الوزن */}
+        <div className="bg-white border border-purple-200 rounded-2xl shadow-sm overflow-hidden saas-slide-up">
+          <div className="bg-purple-50/60 px-5 py-3.5 border-b border-purple-100 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <svg className="w-4 h-4 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v17.25m0 0c-1.472 0-2.882.265-4.185.75M12 20.25c1.472 0 2.882.265 4.185.75M18.75 4.97A48.416 48.416 0 0012 4.5c-2.291 0-4.545.16-6.75.47m13.5 0c1.01.143 2.01.317 3 .52m-3-.52l2.62 10.726c.122.499-.106 1.028-.589 1.202a5.988 5.988 0 01-2.031.352 5.988 5.988 0 01-2.031-.352c-.483-.174-.711-.703-.59-1.202L18.75 4.971zm-16.5.52c.99-.203 1.99-.377 3-.52m0 0l2.62 10.726c.122.499-.106 1.028-.589 1.202a5.989 5.989 0 01-2.031.352 5.989 5.989 0 01-2.031-.352c-.483-.174-.711-.703-.59-1.202L5.25 4.971z" />
+              </svg>
+              <p className="text-sm font-bold text-slate-900">تحليل وزنك الحالي</p>
+            </div>
+            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border ${bmiStyle.border} ${bmiStyle.bg}`}>
+              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${bmiStyle.dot}`} />
+              <span className={`text-[10px] font-bold ${bmiStyle.color}`}>{bmiStyle.emoji} {bmiStyle.label}</span>
+            </div>
+          </div>
+          <div className="px-5 pt-4">
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-center">
+                <p className="text-[9px] font-bold text-slate-400 mb-1">الوزن الحالي</p>
+                <p className="text-lg font-black text-slate-900">{plan.weight_kg}<span className="text-xs font-normal text-slate-400"> كغ</span></p>
+              </div>
+              <div className={`rounded-xl px-3 py-2.5 text-center border ${bmiStyle.border} ${bmiStyle.bg}`}>
+                <p className="text-[9px] font-bold text-slate-400 mb-1">الوزن المثالي</p>
+                <p className={`text-sm font-black ${bmiStyle.color}`}>{plan.ideal_weight_min}–{plan.ideal_weight_max}<span className="text-[9px] font-normal"> كغ</span></p>
+              </div>
+              {plan.target_loss_kg > 0 ? (
+                <div className="bg-purple-50 border border-purple-200 rounded-xl px-3 py-2.5 text-center">
+                  <p className="text-[9px] font-bold text-slate-400 mb-1">الهدف المبدئي</p>
+                  <p className="text-lg font-black text-purple-700">{plan.first_goal_kg}<span className="text-xs font-normal text-purple-500"> كغ</span></p>
+                </div>
+              ) : plan.bmi_category === 'underweight' ? (
+                <div className="bg-blue-50 border border-blue-200 rounded-xl px-3 py-2.5 text-center">
+                  <p className="text-[9px] font-bold text-slate-400 mb-1">المطلوب زيادته</p>
+                  <p className="text-lg font-black text-blue-700">{(plan.ideal_weight_min - plan.weight_kg).toFixed(1)}<span className="text-xs font-normal text-blue-500"> كغ</span></p>
+                </div>
+              ) : (
+                <div className="bg-teal-50 border border-teal-200 rounded-xl px-3 py-2.5 text-center flex items-center justify-center">
+                  <p className="text-[10px] font-bold text-teal-700">وزن مثالي 🎯</p>
+                </div>
+              )}
+            </div>
+            <BMIBar bmi={plan.bmi} />
+            {plan.target_loss_kg > 0 && (
+              <div className="mt-4 bg-purple-50/60 border border-purple-100 rounded-xl px-4 py-3">
+                <p className="text-xs font-bold text-purple-900 text-center">ابدأ بـ {plan.first_goal_kg} كغ فقط — هدف قابل للتحقيق خلال 4–8 أسابيع</p>
+                <p className="text-[10px] text-purple-600 text-center mt-1">هذه النسبة الصغيرة تُحسّن طاقتك وتخفف الضغط على مفاصلك</p>
+              </div>
+            )}
+            {plan.bmi_category === 'underweight' && (
+              <div className="mt-4 bg-blue-50/60 border border-blue-100 rounded-xl px-4 py-3">
+                <p className="text-xs font-bold text-blue-900 text-center">وزنك أقل من المعدل الطبيعي — الخطة أدناه تساعدك على الوصول لوزن صحي تدريجياً</p>
+              </div>
+            )}
+          </div>
+          {/* الرسالة الشخصية */}
+          {nutrition?.personal_message && (
+            <div className="px-5 pb-4 pt-3">
+              <p className="text-sm text-slate-700 leading-relaxed font-medium bg-slate-50 border border-slate-100 rounded-xl p-4">
+                {nutrition.personal_message}
+              </p>
+            </div>
+          )}
+          {!nutrition?.personal_message && <div className="pb-4" />}
+        </div>
+
+        {/* المحتوى الكامل */}
+        {hasData ? (
+          <div className="space-y-4 fade-in">
+
+            {/* العادات الذكية */}
+            {nutrition.smart_habits && nutrition.smart_habits.length > 0 && (
+              <div className="bg-white border border-teal-200 rounded-2xl shadow-sm overflow-hidden">
+                <div className="bg-teal-50/60 px-5 py-3.5 border-b border-teal-100 flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-teal-500" />
+                  <p className="text-sm font-bold text-slate-900">عادات ذكية تُسرّع نتائجك</p>
+                  <span className="text-base mr-auto">💡</span>
+                </div>
+                <ul className="px-5 py-4 space-y-3">
+                  {nutrition.smart_habits.map((habit, i) => (
+                    <li key={i} className="flex items-start gap-3">
+                      <div className="w-5 h-5 rounded-lg bg-teal-50 border border-teal-200 flex items-center justify-center shrink-0 mt-0.5">
+                        <span className="text-[9px] font-black text-teal-600">{i + 1}</span>
+                      </div>
+                      <p className="text-sm text-slate-700 leading-relaxed">{habit}</p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* تحذير دوائي */}
+            {nutrition.medications_alert && (
+              <div className="bg-white border border-amber-200 rounded-2xl shadow-sm overflow-hidden">
+                <div className="bg-amber-50/60 px-5 py-3.5 border-b border-amber-100 flex items-center gap-2">
+                  <svg className="w-4 h-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                  </svg>
+                  <p className="text-sm font-bold text-slate-900">تنبيه مهم بخصوص أدويتك</p>
+                </div>
+                <div className="px-5 py-4">
+                  <p className="text-sm text-slate-700 leading-relaxed">{nutrition.medications_alert}</p>
+                </div>
+              </div>
+            )}
+
+            {/* الفاصل */}
+            <div className="flex items-center gap-2 px-1">
+              <div className="flex-1 h-px bg-slate-200" />
+              <p className="text-[11px] font-bold text-slate-400 whitespace-nowrap">اختر من هذه الخيارات يومياً</p>
+              <div className="flex-1 h-px bg-slate-200" />
+            </div>
+
+            {/* قوائم الوجبات */}
+            <MealSection icon="☀️" title="خيارات الإفطار"      color={mealColors.breakfast} items={nutrition.breakfast} />
+            <MealSection icon="🍽️" title="خيارات الغداء"        color={mealColors.lunch}     items={nutrition.lunch}     />
+            <MealSection icon="🌙" title="خيارات العشاء"        color={mealColors.dinner}    items={nutrition.dinner}    />
+            <MealSection icon="🍎" title="وجبات خفيفة صحية"     color={mealColors.snacks}    items={nutrition.snacks}    />
+
+            {/* منتجات الصيدلية — Trojan Horse */}
+            {nutrition.pharmacy_products && nutrition.pharmacy_products.length > 0 && (
+              <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                <div className="bg-slate-50/50 px-5 py-4 border-b border-slate-100 flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-slate-900 flex items-center justify-center shrink-0">
+                    <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 21v-7.5a.75.75 0 01.75-.75h3a.75.75 0 01.75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349m-16.5 11.65V9.35m0 0a3.001 3.001 0 003.75-.615A2.993 2.993 0 009.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 002.25 1.016c.896 0 1.7-.393 2.25-1.016a3.001 3.001 0 003.75.614m-16.5 0a3.004 3.004 0 01-.621-4.72L4.318 3.44A1.5 1.5 0 015.378 3h13.243a1.5 1.5 0 011.06.44l1.19 1.189a3 3 0 01-.621 4.72m-13.5 8.65h3.75a.75.75 0 00.75-.75V13.5a.75.75 0 00-.75-.75H6.75a.75.75 0 00-.75.75v3.75c0 .415.336.75.75.75z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-slate-900">مقترحات من {pharmacyName}</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">منتجات مختارة لحالتك تحديداً</p>
+                  </div>
+                </div>
+                <div className="divide-y divide-slate-100">
+                  {nutrition.pharmacy_products.map((prod, i) => (
+                    <div key={i} className="px-5 py-4">
+                      <div className="flex items-start gap-3">
+                        <div className="w-7 h-7 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0 mt-0.5">
+                          <span className="text-[10px] font-black text-slate-500">{i + 1}</span>
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-bold text-slate-900">{prod.name}</p>
+                          <p className="text-xs text-slate-600 mt-1 leading-relaxed">{prod.reason}</p>
+                          <p className="text-[10px] font-bold text-teal-700 mt-1.5 bg-teal-50 border border-teal-100 rounded-lg px-2.5 py-1 inline-block">
+                            {prod.instruction}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {waPhone && (
+                  <div className="px-5 pb-5 pt-2">
+                    <a href={`https://wa.me/${waPhone}`} target="_blank" rel="noreferrer"
+                      className="w-full flex items-center justify-center gap-2 py-3 bg-[#25D366] hover:bg-[#20BD5A] text-white rounded-xl text-xs font-bold transition shadow-sm active:scale-[0.98]">
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                      </svg>
+                      استشر صيدليانك الآن
+                    </a>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* فحوصات مطلوبة */}
+            {nutrition.lab_alerts && nutrition.lab_alerts.length > 0 && (
+              <div className="bg-white border border-blue-200 rounded-2xl shadow-sm overflow-hidden">
+                <div className="bg-blue-50/60 px-5 py-3.5 border-b border-blue-100 flex items-center gap-2">
+                  <svg className="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" />
+                  </svg>
+                  <p className="text-sm font-bold text-slate-900">فحوصات يُنصح بإجرائها</p>
+                </div>
+                <ul className="px-5 py-4 space-y-2.5">
+                  {nutrition.lab_alerts.map((alert, i) => (
+                    <li key={i} className="flex items-start gap-3">
+                      <div className="w-5 h-5 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center shrink-0 mt-0.5">
+                        <span className="text-[9px] font-black text-blue-600">{i + 1}</span>
+                      </div>
+                      <p className="text-sm text-slate-700 leading-relaxed">{alert}</p>
+                    </li>
+                  ))}
+                </ul>
+                <div className="px-5 pb-4">
+                  <p className="text-[11px] text-slate-400">هذه الفحوصات استرشادية — استشر صيدليانك للمزيد.</p>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          /* حالة الانتظار */
+          <div className="space-y-4">
+            <div className="bg-white border border-purple-200 rounded-2xl shadow-sm overflow-hidden saas-slide-up">
+              <div className="bg-purple-50/60 px-5 py-3.5 border-b border-purple-100 flex items-center gap-2.5">
+                <div className="w-3.5 h-3.5 border-2 border-purple-400 border-t-purple-700 rounded-full animate-spin shrink-0" />
+                <div>
+                  <p className="text-sm font-bold text-purple-900">مستشار التغذية يُعد خطتك الشخصية</p>
+                  <p className="text-[10px] text-purple-500 mt-0.5">ستظهر هنا تلقائياً خلال لحظات</p>
+                </div>
+              </div>
+              <div className="px-5 py-4 space-y-2.5">
+                {[85, 70, 90, 65].map((w, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <div className="w-5 h-5 rounded-lg bg-slate-100 animate-pulse shrink-0" />
+                    <div className="h-3 bg-slate-100 rounded animate-pulse" style={{ width:`${w}%`, animationDelay:`${i*0.12}s` }} />
+                  </div>
+                ))}
+              </div>
+            </div>
+            <SkeletonCard /><SkeletonCard />
+          </div>
+        )}
+
+        {/* Footer */}
+        <div className="text-center pt-2 pb-4">
+          <p className="text-[11px] text-slate-400 font-medium">Vitalix<span className="text-slate-600">.ai</span> — v1.0.0 · © {new Date().getFullYear()} جميع الحقوق محفوظة</p>
+          <p className="text-[10px] text-slate-300 mt-0.5">أُعدّ هذا التقرير بواسطة {pharmacyName}</p>
+        </div>
+      </main>
+    </div>
+  );
+}

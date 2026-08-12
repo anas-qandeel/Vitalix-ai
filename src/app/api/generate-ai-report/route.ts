@@ -13,23 +13,60 @@ const GEMINI_MODELS_FALLBACK = [
 ].filter(Boolean) as string[];
 
 // ملاحظة: الاسم والصيدلية لا يُطلب من Gemini كتابتهما — يُبنيان بالكود لضمان دقة 100%
-const SYSTEM_INSTRUCTION = `أنت صيدلاني ذكي في منصة Vitalix.ai. مهمتك كتابة تقرير تحليلي سريري دقيق لقراءات مريض — بأسلوب مهني ودافئ وواثق.
+const SYSTEM_INSTRUCTION = `أنت مساعد تحليلي متقدم في منصة Vitalix.ai. مهمتك كتابة تقرير موجّه للمريض يشرح قراءاته الحيوية بأسلوب دافئ ومهني ومفهوم.
 
-ابدأ مباشرة بالتحليل دون ترحيب أو اسم مريض أو اسم صيدلية.
+## قواعد الإخراج (إلزامية)
+- فقرة نثرية واحدة متصلة ومكتملة، بلا عناوين أو Markdown أو ترقيم.
+- لا تكتب اسم المريض أو اسم الصيدلية — يُضافان تلقائياً.
+- ابدأ مباشرةً بالتحليل.
+- تجنب المصطلحات الطبية المعقدة — خاطب المريض بلغة واضحة.
+- لا تقترح تعديل الجرعة أو العلاج — هذا من اختصاص الطبيب حصراً. اكتفِ بالتوجيه لمراجعته.
+- ممنوع ذكر أي جملة تتعلق بعدم تعديل الجرعات أو الالتزام بالعلاج — لا تنهِ التقرير بهذا المعنى أبداً.
 
-قواعد صارمة:
-1. فقرة واحدة متصلة مكتملة. بلا عناوين أو Markdown أو قوائم أو ترقيم. أقصر من 5 جمل.
-2. لا تُسمِّ أي مرض جديد. اوصف القراءات فقط (أعلى/أقل/ضمن الطبيعي).
-3. معدل النبض: إذا أُعطي اذكره صراحةً مع الضغط في نفس الجملة — نبض 95 مع ضغط 150/90 يختلف عن نبض 60 مع نفس الضغط. لا تتجاهله أبداً إذا وُجد. إذا لم يُعطَ فتجاهله.
-4. إذا فُحص الضغط والسكري معاً: ادمجهما في صورة سريرية واحدة متكاملة — استنتج حالة المريض الكلية بدلاً من ذكرهما منفصلَين.
-5. الأعراض المذكورة: ادمجها مع القراءات في السياق — لا تذكرها كقائمة بل اجعلها جزءاً من الاستنتاج.
-6. العوامل المؤثرة (قهوة/مجهود/وجبة/توتر): اذكرها كتفسير محتمل واقترح إعادة القياس في ظروف أهدأ. إذا لم تُذكر فتجاهلها.
-7. الحالة السريرية والدواء:
-   - مشخّص + أخذ دواءه + قراءة مرتفعة: الارتفاع رغم الدواء مؤشر يستوجب مراجعة الجرعة.
-   - مشخّص + لم يؤكد الدواء: اكتفِ بوصف القراءة.
+## معايير التصنيف الطبية المعتمدة
+
+### سكر الدم
+صائم: أقل من 55 → هبوط طارئ 🔴 | 55–79 (فوق 60 سنة) أو 55–69 (60 سنة أو أقل) → انخفاض 🟡 | 70–100 → طبيعي 🟢 | 101–125 → ارتفاع طفيف 🟡 | أكثر من 125 → ارتفاع ملحوظ 🔴
+غير صائم/بعد الأكل: أقل من 54 → هبوط طارئ 🔴 | أقل من 70 → انخفاض 🟡 | 70–140 → طبيعي 🟢 | 141–180 → ارتفاع بعد الأكل 🟡 | أكثر من 180 → ارتفاع ملحوظ 🔴
+
+### ضغط الدم
+أقل من 80/50 → انخفاض شديد 🔴 | أقل من 90/60 → انخفاض 🟡
+أكثر من 160/100 → ارتفاع شديد 🔴
+131–160 انقباضي أو 91–100 انبساطي → ارتفاع ملحوظ 🟡
+131–140 / 81–90 → ارتفاع خفيف 🟡
+130/80 أو أقل → طبيعي 🟢
+
+تعديل المعايير حسب الحالة السريرية:
+- مشخّص بارتفاع الضغط: الهدف العلاجي أقل من 130/80 — أي قراءة بين 130/80 و140/90 تُصنَّف تنبيهاً 🟡 وليس طبيعياً
+- فوق 60 سنة أو مشخّص بارتفاع الضغط: 150/90 أو أقل يُعتبر مقبولاً 🟢 — اذكر أن المعيار مختلف لهذه الفئة
+- شخص غير مشخّص: اعتمد المعايير العامة فقط
+
+### سكر الدم — تعديل حسب الحالة السريرية
+- مشخّص بالسكري صائم: الهدف 80–130 (وليس 70–100) — ما بين 130 و180 يُعدّ مرتفعاً نسبياً 🟡
+- مشخّص بالسكري بعد الأكل: الهدف أقل من 180 — ما بين 180 و250 مرتفع 🟡 — أكثر من 250 مرتفع جداً 🔴
+- غير مشخّص: اعتمد المعايير العامة فقط
+
+### معدل النبض
+أكثر من 100 → مرتفع 🟡 | أقل من 60 → منخفض 🟡 | 60–100 → طبيعي 🟢
+
+### BMI
+أقل من 18.5 → نحافة | 18.5–24.9 → صحي | 25–29.9 → زيادة وزن | 30 فما فوق → سمنة
+
+## آلية بناء التقرير
+1. صنّف كل قراءة حسب المعايير أعلاه مع رمزها الدلالي 🔴🟡🟢.
+2. معدل النبض: إذا أُعطي اذكره مع الضغط في نفس الجملة.
+3. إذا فُحص الضغط والسكري معاً: ادمجهما في صورة واحدة متكاملة.
+4. الأعراض: ادمجها في السياق — لا تسردها كقائمة.
+5. العوامل المؤثرة (قهوة/مجهود/وجبة/توتر): اذكرها كتفسير محتمل للارتفاع واقترح إعادة القياس في ظروف أهدأ.
+6. الدواء المزمن:
+   - مشخّص وأكّد أخذ دوائه + قراءة غير طبيعية: اذكر صراحةً أن القراءة جاءت مرتفعة رغم الالتزام بالعلاج، وأن هذا يستوجب مراجعة الطبيب.
+   - مشخّص ولم يؤكد أخذ الدواء: اكتفِ بوصف القراءة.
    - غير مشخّص: اكتفِ بوصف القراءة.
-8. آخر الزيارات: إذا تكرر النمط في زيارتين أو أكثر أشر إليه صراحةً.
-9. اختم بتوصية واضحة (مراجعة الطبيب / إعادة القياس / الطمأنينة) بحسب الحالة.`;
+7. آخر الزيارات: إذا تكرر النمط في زيارتين أو أكثر أشر إليه.
+8. إذا كانت جميع القراءات طبيعية: اكتفِ بجملة تطمين مع 🟢.
+9. إذا فُحص الوزن: احسب BMI واذكر تصنيفه. إذا كان المريض مشخّصاً بالسكري أو الضغط اربط الوزن الزائد بأهمية السيطرة على المرض المزمن — الوزن الزائد يُصعّب التوازن.
+10. اختم بتوصية واضحة: مراجعة الطبيب / إعادة القياس في ظروف أهدأ / طمأنينة — دون اقتراح علاج أو تعديل جرعة.
+10. أعراض الطوارئ: إذا وُجد ألم في الصدر أو ضيق في التنفس بغض النظر عن القراءة، شدّد على التوجه الفوري لأقرب طوارئ أو مركز صحي — هذه الأعراض لا تنتظر موعداً.`;
 
 // استخراج كود HTTP من أي شكل يأتي به خطأ الـ API
 function getErrStatus(e: any): number {
@@ -50,19 +87,29 @@ export async function POST(req: Request) {
 
     // بناء وصف الحالة السريرية
     const tookMedication = currentVisit?.took_medication === true;
+    // الدواءان المنفصلان (من الإصدار الجديد) مع fallback للحقل القديم
+    const tookBpMed = currentVisit?.took_bp_medication === true || (tookMedication && !!(currentVisit?.bp_systolic) && !(currentVisit?.sugar_value));
+    const tookSugarMed = currentVisit?.took_sugar_medication === true || (tookMedication && !!(currentVisit?.sugar_value) && !(currentVisit?.bp_systolic));
+    const hasBpTest = !!(currentVisit?.bp_systolic);
+    const hasSugarTest = !!(currentVisit?.sugar_value);
     const conditionLines: string[] = [];
+
     if (diagnosedConditions.includes('hypertension')) {
       conditionLines.push(
-        tookMedication
-          ? 'مشخّص بارتفاع الضغط وأكّد الصيدلاني أنه أخذ دواءه اليوم'
-          : 'مشخّص بارتفاع الضغط — لم يُأكَّد أخذ الدواء اليوم'
+        hasBpTest
+          ? (tookBpMed
+              ? 'مشخّص بارتفاع الضغط وأكّد الصيدلاني أنه أخذ دواء الضغط اليوم'
+              : 'مشخّص بارتفاع الضغط — لم يُأكَّد أخذ دواء الضغط اليوم')
+          : 'مشخّص بارتفاع الضغط'
       );
     }
     if (diagnosedConditions.includes('diabetes')) {
       conditionLines.push(
-        tookMedication
-          ? 'مشخّص بالسكري وأكّد الصيدلاني أنه أخذ دواءه اليوم'
-          : 'مشخّص بالسكري — لم يُأكَّد أخذ الدواء اليوم'
+        hasSugarTest
+          ? (tookSugarMed
+              ? 'مشخّص بالسكري وأكّد الصيدلاني أنه أخذ دواء السكري اليوم'
+              : 'مشخّص بالسكري — لم يُأكَّد أخذ دواء السكري اليوم')
+          : 'مشخّص بالسكري'
       );
     }
     if (conditionLines.length === 0) {
@@ -83,8 +130,21 @@ export async function POST(req: Request) {
       ? (Number(currentVisit.weight) / (hMeters * hMeters)).toFixed(1)
       : null;
 
-    // آخر 3 زيارات للمقارنة
-    const recentVisits: any[] = Array.isArray(history) ? history.slice(0, 3) : [];
+    // آخر 3 زيارات للمقارنة — مُصفّاة حسب نوع الفحص الحالي
+    const allRecentVisits: any[] = Array.isArray(history) ? history.slice(0, 10) : [];
+    const hasBpNow = currentVisit?.bp_systolic;
+    const hasSugarNow = currentVisit?.sugar_value;
+    const hasWeightNow = currentVisit?.weight;
+
+    // نُرسل فقط الزيارات التي تحتوي على نفس نوع الفحص
+    const recentVisits = allRecentVisits
+      .filter((v: any) => {
+        if (hasBpNow && v.bp_systolic) return true;
+        if (hasSugarNow && v.sugar_value) return true;
+        if (hasWeightNow && v.weight) return true;
+        return false;
+      })
+      .slice(0, 3);
     const lastVisit = recentVisits.length > 0 ? recentVisits[0] : null;
 
     const geminiApiKey = process.env.GEMINI_API_KEY;
@@ -93,20 +153,20 @@ export async function POST(req: Request) {
       try {
         const ai = new GoogleGenAI({ apiKey: geminiApiKey });
 
-        // بناء ملخص الزيارات السابقة
-        let recentVisitsLine = 'لا توجد زيارات سابقة للمقارنة';
+        // بناء ملخص الزيارات السابقة — فقط نفس نوع الفحص الحالي
+        let recentVisitsLine = 'لا توجد زيارات سابقة للمقارنة بنفس نوع الفحص';
         if (recentVisits.length > 0) {
           const labels = ['آخر زيارة', 'قبل الأخيرة', 'قبل ذلك'];
           const summaries = recentVisits
             .map((v: any, idx: number) => {
-              const bp = v.bp_systolic ? `ضغط ${v.bp_systolic}/${v.bp_diastolic}` : '';
-              const hr = v.heart_rate ? `نبض ${v.heart_rate}` : '';
-              const sg = v.sugar_value ? `سكري ${v.sugar_value}` : '';
-              const combined = [bp, hr, sg].filter(Boolean).join(' - ');
-              return combined ? `${labels[idx] || 'أقدم'}: ${combined}` : null;
+              const parts: string[] = [];
+              if (hasBpNow && v.bp_systolic) parts.push(`ضغط ${v.bp_systolic}/${v.bp_diastolic}${v.heart_rate ? ` نبض ${v.heart_rate}` : ''}`);
+              if (hasSugarNow && v.sugar_value) parts.push(`سكري ${v.sugar_value}${v.sugar_test_type ? ` (${v.sugar_test_type === 'fasting' ? 'صائم' : v.sugar_test_type === 'postprandial' ? 'بعد الأكل' : 'عشوائي'})` : ''}`);
+              if (hasWeightNow && v.weight) parts.push(`وزن ${v.weight} كغ`);
+              return parts.length > 0 ? `${labels[idx] || 'أقدم'}: ${parts.join(' - ')}` : null;
             })
             .filter(Boolean) as string[];
-          if (summaries.length > 0) recentVisitsLine = `آخر الزيارات: ${summaries.join(' | ')}`;
+          if (summaries.length > 0) recentVisitsLine = `زيارات سابقة بنفس الفحص: ${summaries.join(' | ')}`;
         }
 
         const bpLine = currentVisit?.bp_systolic && currentVisit?.bp_diastolic
@@ -141,7 +201,12 @@ export async function POST(req: Request) {
           ? `عوامل خارجية مؤثرة: ${contextFactors.join(' - ')}`
           : 'عوامل خارجية: لا يوجد';
 
-        const userPrompt = `الجنس: ${genderLine} - العمر: ${patientAge}
+        const ageNum = patient?.birth_date
+          ? new Date().getFullYear() - new Date(patient.birth_date).getFullYear()
+          : null;
+        const ageCategory = ageNum ? (ageNum > 60 ? 'فوق 60 سنة' : '60 سنة أو أقل') : 'غير محدد';
+
+        const userPrompt = `الجنس: ${genderLine} - العمر: ${patientAge} (${ageCategory})
 ${clinicalStatusLine}
 ضغط الدم: ${bpLine}
 معدل النبض: ${heartRateLine}
@@ -151,41 +216,80 @@ ${clinicalStatusLine}
 ${contextLine}
 ${recentVisitsLine}`;
 
-        // نُجرّب النماذج بالترتيب — 429 يعني مشكلة quota، نذهب للـ fallback فوراً
+        // ═══════════════════════════════════════════════════════
+        // الطلب الأول: توليد التقرير الخام بحرية كاملة
+        // الطلب الثاني: ضغطه وتنقيته في 3-4 جمل مكتملة
+        // هذا يحل القطع + الهلوسة + الطول الزائد دفعة واحدة
+        // ═══════════════════════════════════════════════════════
         let reportText: string | null = null;
         let lastModelErr: any = null;
 
+        const COMPRESS_INSTRUCTION = `أنت محرر طبي. سيُعطيك تقرير طبي خام. مهمتك:
+1. احذف أي جملة غير مكتملة في النهاية.
+2. احذف الهلوسة أو الكلام المكرر أو الخروج عن الموضوع.
+3. أعِد صياغته في فقرة واحدة نثرية مكتملة من 3 إلى 5 جمل فقط — بلا ترقيم أو عناوين.
+4. احتفظ بجميع الأرقام والرموز 🔴🟡🟢 والتوصيات الأساسية.
+5. لا تضف معلومات جديدة — فقط نقّح ما هو موجود.`;
+
         for (const modelName of GEMINI_MODELS_FALLBACK) {
           try {
-            const response = await ai.models.generateContent({
+            // ── الطلب الأول: توليد خام ──
+            const rawResponse = await ai.models.generateContent({
               model: modelName,
               contents: userPrompt,
               config: {
                 systemInstruction: SYSTEM_INSTRUCTION,
-                maxOutputTokens: 1200,
+                maxOutputTokens: 4096,
               },
             });
-            const txt = response.text;
-            if (txt && txt.trim()) {
-              // تنظيف أي مخلفات thinking — بدون /s flag لتوافق TypeScript
-              // إزالة أي ترقيم أو markdown أو أسطر مرقمة
-              const cleaned = txt.trim()
-                .replace(/^\d+\.\s*/gm, '')
-                .replace(/\*[^*]*\*/g, '')
-                .replace(/\[[^\]]*\]/g, '')
-                .replace(/^[\s\/\-\*#]+/gm, '')
-                .replace(/\n+/g, ' ')
-                .trim();
-              reportText = cleaned || txt.trim();
-              console.log(`[Gemini] ✅ success: ${modelName}`);
+            const rawTxt = rawResponse.text?.trim() || '';
+            const finishReason = rawResponse.candidates?.[0]?.finishReason;
+            console.log(`[Gemini] raw finishReason: ${finishReason}, length: ${rawTxt.length}`);
+
+            if (!rawTxt) break;
+
+            let finalText = '';
+
+            // إذا كان الطلب الأول مكتملاً ومعقولاً — استخدمه مباشرة
+            if (finishReason === 'STOP' && rawTxt.length >= 200 && rawTxt.length <= 1200) {
+              console.log(`[Gemini] raw complete — skipping compression`);
+              finalText = rawTxt;
+            } else {
+              // ── الطلب الثاني: ضغط وتنقية (فقط عند الحاجة) ──
+              console.log(`[Gemini] compressing (reason: ${finishReason}, len: ${rawTxt.length})`);
+              const compressResponse = await ai.models.generateContent({
+                model: modelName,
+                contents: `التقرير الخام:\n${rawTxt}`,
+                config: {
+                  systemInstruction: COMPRESS_INSTRUCTION,
+                  maxOutputTokens: 600,
+                },
+              });
+              const compressed = compressResponse.text?.trim() || '';
+              console.log(`[Gemini] compressed length: ${compressed.length}`);
+              finalText = compressed.length > 100 ? compressed : rawTxt;
+            }
+
+            // تنظيف نهائي
+            const cleanedFinal = finalText
+              .replace(/^\d+\.\s*/gm, '')
+              .replace(/\*[^*]*\*/g, '')
+              .replace(/\[[^\]]*\]/g, '')
+              .replace(/^[\s\/\-\*#]+/gm, '')
+              .replace(/\n+/g, ' ')
+              .trim();
+
+            if (cleanedFinal) {
+              reportText = cleanedFinal;
+              console.log(`[Gemini] ✅ success: ${modelName} (final: ${reportText.length} chars)`);
             }
             break;
           } catch (modelErr: any) {
             lastModelErr = modelErr;
             const status = getErrStatus(modelErr);
             console.warn(`[Gemini] ${modelName} → ${status || 'err'}:`, modelErr?.message || modelErr);
-            if (status === 404) continue; // النموذج غير متاح — جرّب التالي
-            break; // 429 أو أي خطأ آخر — اذهب للـ fallback فوراً
+            if (status === 404) continue;
+            break;
           }
         }
 

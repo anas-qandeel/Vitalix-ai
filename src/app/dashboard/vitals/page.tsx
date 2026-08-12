@@ -276,6 +276,116 @@ function NewPatientModal({ phone, onClose, onCreated }: {
 // ═══════════════════════════════════════════════════════
 // MAIN PAGE
 // ═══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════
+// HeightEditor — عرض وتعديل طول المريض داخل sidebar الفحوصات
+// يظهر فقط عند تفعيل قياس الوزن
+// ══════════════════════════════════════════════════════════════════════
+function HeightEditor({
+  patient,
+  onUpdate,
+}: {
+  patient: { id: string; height?: number | null };
+  onUpdate: (height: number) => void;
+}) {
+  const [editing, setEditing]   = useState(false);
+  const [value, setValue]       = useState(patient.height ? String(patient.height) : '');
+  const [saving, setSaving]     = useState(false);
+  const [saved, setSaved]       = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editing) setTimeout(() => inputRef.current?.focus(), 50);
+  }, [editing]);
+
+  const handleSave = async () => {
+    const h = Number(value);
+    if (!h || h < 100 || h > 250) return;
+    setSaving(true);
+    const { createClient } = await import('@supabase/supabase-js');
+    const sb = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+    const { error } = await sb.from('patients').update({ height: h }).eq('id', patient.id);
+    setSaving(false);
+    if (!error) {
+      onUpdate(h);
+      setEditing(false);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    }
+  };
+
+  const hasHeight = !!patient.height;
+
+  if (!editing) {
+    return (
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          {/* أيقونة الطول */}
+          <div className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 ${hasHeight ? 'bg-teal-100' : 'bg-amber-100'}`}>
+            <svg className={`w-3.5 h-3.5 ${hasHeight ? 'text-teal-600' : 'text-amber-600'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 7h4m0 0V3m0 4v4M3 17h4m0 0v4m0-4v-4M17 7h4m-4 0V3m0 4v4m4 6h-4m0 0v4m0-4v-4" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-[10px] font-bold text-slate-500">الطول</p>
+            {hasHeight ? (
+              <p className="text-sm font-black text-slate-900">
+                {patient.height} <span className="text-[10px] font-normal text-slate-400">سم</span>
+                {saved && <span className="text-[10px] text-teal-600 font-bold mr-1">✓ تم الحفظ</span>}
+              </p>
+            ) : (
+              <p className="text-[10px] font-bold text-amber-600">لم يُدخَل — مطلوب لحساب BMI</p>
+            )}
+          </div>
+        </div>
+        <button
+          onClick={() => { setValue(patient.height ? String(patient.height) : ''); setEditing(true); }}
+          className={`text-[10px] font-bold px-2.5 py-1.5 rounded-lg border transition shrink-0 ${
+            hasHeight
+              ? 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+              : 'bg-amber-500 border-amber-500 text-white hover:bg-amber-600'
+          }`}>
+          {hasHeight ? 'تعديل' : '+ إدخال الطول'}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      <p className="text-[10px] font-bold text-slate-500">
+        {hasHeight ? 'تعديل الطول' : 'إدخال الطول'} (سم)
+      </p>
+      <div className="flex items-center gap-2">
+        <input
+          ref={inputRef}
+          type="number"
+          value={value}
+          onChange={e => setValue(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') setEditing(false); }}
+          placeholder="مثال: 175"
+          min="100" max="250"
+          className="flex-1 px-3 py-2 text-sm font-bold text-center bg-white border-2 border-purple-400 rounded-xl focus:outline-none focus:border-purple-600 transition"
+        />
+        <button
+          onClick={handleSave}
+          disabled={saving || !value || Number(value) < 100}
+          className="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-xl transition disabled:opacity-50 shrink-0">
+          {saving ? '...' : 'حفظ'}
+        </button>
+        <button
+          onClick={() => setEditing(false)}
+          className="px-3 py-2 bg-white border border-slate-200 text-slate-600 text-xs font-bold rounded-xl hover:bg-slate-50 transition shrink-0">
+          إلغاء
+        </button>
+      </div>
+      <p className="text-[9px] text-slate-400">بين 100 و250 سم · يُحفظ في ملف المريض تلقائياً</p>
+    </div>
+  );
+}
+
 export default function VitalsPage() {
   const router = useRouter();
   const { pharmacyName } = usePharmacyInfo();
@@ -315,21 +425,36 @@ export default function VitalsPage() {
   const [latestGeneratedReport, setLatestGeneratedReport] = useState<string | null>(null);
   const [latestVisitId, setLatestVisitId] = useState<string | null>(null);
 
+  // ── نظام إدارة الوزن ────────────────────────────────────────────────
+  // bmiLive     : BMI فوري أثناء الإدخال — لا AI
+  // weightPlanId: ID السجل في weight_plans
+  // weightPlanUrl: رابط صفحة المريض /weight/[planId]
+  // weightStatus: 'idle'|'saving'|'generating'|'sent'|'error'
+  const [bmiLive, setBmiLive] = useState<{
+    value: number;
+    label: string; labelShort: string;
+    color: string; bgColor: string; borderColor: string; dot: string; emoji: string;
+    idealMin: number; idealMax: number; toLoose: number; firstGoal: number;
+  } | null>(null);
+  const [weightPlanId,  setWeightPlanId]  = useState<string | null>(null);
+  const [weightPlanUrl, setWeightPlanUrl] = useState<string | null>(null);
+  const [weightStatus,  setWeightStatus]  = useState<'idle'|'saving'|'generating'|'sent'|'error'>('idle');
+
   // ── العوامل المؤثرة ──
   const [bpFactors, setBpFactors] = useState<string[]>([]);
   const [sugarFactors, setSugarFactors] = useState<string[]>([]);
+  const [tookBpMed, setTookBpMed] = useState(false);
+  const [tookSugarMed, setTookSugarMed] = useState(false);
 
   const bpSymptomsList = ['صداع', 'دوخة', 'زغللة عين', 'طنين أذن', 'ألم بالصدر', 'ضيق تنفس'];
   const bpFactorsList = [
     { key: 'had_stimulants', label: 'شرب قهوة / شاي / مكيّف' },
     { key: 'recent_exertion', label: 'مجهود بدني مؤخراً' },
     { key: 'is_stressed', label: 'يشعر بتوتر أو قلق' },
-    { key: 'took_medication', label: 'أخذ دواء الضغط اليوم' },
   ];
   const sugarFactorsList = [
     { key: 'recent_heavy_meal', label: 'تناول وجبة دسمة مؤخراً' },
     { key: 'is_stressed', label: 'يشعر بتوتر أو قلق' },
-    { key: 'took_medication', label: 'أخذ دواء السكري اليوم' },
   ];
   const sugarSymptomsList = ['عطش شديد', 'تبول متكرر', 'جفاف فم', 'خدران أطراف', 'تعرق بارد', 'جوع مفاجئ'];
 
@@ -346,6 +471,28 @@ export default function VitalsPage() {
     : Number(bpDia1);
 
   const hasAnyReading = (activeTests.bp && bpSys1) || (activeTests.sugar && sugarValue) || (activeTests.weight && weightValue);
+
+  // ── حساب BMI الفوري أثناء الإدخال ──
+  useEffect(() => {
+    const w = Number(weightValue);
+    const h = currentPatient?.height ? Number(currentPatient.height) : null;
+    if (!activeTests.weight || !w || !h || w < 10 || h < 50) { setBmiLive(null); return; }
+    const hm = h / 100;
+    const bmi = w / (hm * hm);
+    const idealMin = Math.round(18.5 * hm * hm * 10) / 10;
+    const idealMax = Math.round(24.9 * hm * hm * 10) / 10;
+    const toLoose = w > idealMax ? Math.round((w - idealMax) * 10) / 10 : 0;
+    const firstGoalUncapped = Math.round(w * 0.05 * 2) / 2;
+    const firstGoal = toLoose > 0 ? Math.min(firstGoalUncapped, toLoose) : firstGoalUncapped;
+    // تصنيف BMI
+    let label = 'وزن صحي', labelShort = 'طبيعي', color = 'text-teal-700',
+        bgColor = 'bg-teal-50', borderColor = 'border-teal-200', dot = 'bg-teal-500', emoji = '🟢';
+    if (bmi < 18.5) { label = 'نحافة'; labelShort = 'نحافة'; color = 'text-blue-700'; bgColor = 'bg-blue-50'; borderColor = 'border-blue-200'; dot = 'bg-blue-500'; emoji = '🔵'; }
+    else if (bmi >= 25 && bmi < 30) { label = 'زيادة وزن'; labelShort = 'زيادة'; color = 'text-amber-700'; bgColor = 'bg-amber-50'; borderColor = 'border-amber-200'; dot = 'bg-amber-500'; emoji = '🟡'; }
+    else if (bmi >= 30 && bmi < 35) { label = 'سمنة درجة أولى'; labelShort = 'سمنة'; color = 'text-orange-700'; bgColor = 'bg-orange-50'; borderColor = 'border-orange-200'; dot = 'bg-orange-500'; emoji = '🟠'; }
+    else if (bmi >= 35) { label = 'سمنة درجة ثانية أو أعلى'; labelShort = 'سمنة'; color = 'text-rose-700'; bgColor = 'bg-rose-50'; borderColor = 'border-rose-200'; dot = 'bg-rose-500'; emoji = '🔴'; }
+    setBmiLive({ value: Math.round(bmi * 10) / 10, label, labelShort, color, bgColor, borderColor, dot, emoji, idealMin, idealMax, toLoose, firstGoal });
+  }, [weightValue, currentPatient?.height, activeTests.weight]);
 
   // ── تحميل كاش المرضى ──
   useEffect(() => {
@@ -407,6 +554,7 @@ export default function VitalsPage() {
     setSelectedSymptoms([]); setBpFactors([]); setSugarFactors([]);
     setErrorMsg(''); setSoftWarningMsg(''); setSoftWarningConfirmed(false);
     setLatestGeneratedReport(null); setLatestVisitId(null);
+    setWeightPlanId(null); setWeightPlanUrl(null); setWeightStatus('idle'); setBmiLive(null);
     setSearchingPatient(true);
     try { await loadHistory(p); } catch { }
     finally { setSearchingPatient(false); }
@@ -467,14 +615,34 @@ export default function VitalsPage() {
   // ── حساب الحالة الكلية ──
   const getStatus = () => {
     let level: 'normal' | 'medium' | 'high' = 'normal';
+
+    // حساب عمر المريض لتطبيق استثناء فوق 60 سنة
+    const patientAge = currentPatient?.birth_date
+      ? new Date().getFullYear() - new Date(currentPatient.birth_date).getFullYear()
+      : null;
+    const isOver60 = patientAge !== null && patientAge > 60;
+    const hasHypertension = currentPatient?.diagnosed_conditions?.includes('hypertension') ?? false;
+    // استثناء: 150/90 مقبول لفوق 60 سنة أو المشخّص بارتفاع الضغط
+    const bpHighThresholdSys = (isOver60 || hasHypertension) ? 150 : 140;
+    const bpHighThresholdDia = (isOver60 || hasHypertension) ? 90 : 90;
+
     if (activeTests.bp && bpSys1) {
       if (finalSys >= 180 || finalDia >= 120 || finalSys < 90 || finalDia < 60) level = 'high';
-      else if (finalSys >= 140 || finalDia >= 90) level = 'medium';
+      else if (finalSys > bpHighThresholdSys || finalDia > bpHighThresholdDia) level = 'medium';
     }
     if (activeTests.sugar && sugarValue) {
       const s = Number(sugarValue);
       if (s >= 300 || s < 70) level = 'high';
       else if (s >= 180 && level !== 'high') level = 'medium';
+    }
+    // الوزن / BMI — أي خروج عن النطاق الطبيعي يرفع المستوى
+    if (activeTests.weight && weightValue && currentPatient?.height) {
+      const h = Number(currentPatient.height) / 100;
+      const bmiVal = Number(weightValue) / (h * h);
+      if (bmiVal >= 30 && level !== 'high')                        level = 'high';   // سمنة → يستدعي انتباهاً
+      else if (bmiVal >= 25 && level === 'normal')                 level = 'medium'; // زيادة وزن → يحتاج متابعة
+      else if (bmiVal < 18.5 && level === 'normal')                level = 'medium'; // نحافة → يحتاج متابعة
+      else if (bmiVal < 16 && level !== 'high')                    level = 'high';   // نحافة شديدة → يستدعي انتباهاً
     }
     if (level === 'high') return { label: 'يستدعي انتباهاً', color: 'text-rose-600', dot: 'bg-rose-500', border: 'border-rose-200', bg: 'bg-rose-50' };
     if (level === 'medium') return { label: 'يحتاج متابعة', color: 'text-amber-600', dot: 'bg-amber-500', border: 'border-amber-200', bg: 'bg-amber-50' };
@@ -545,7 +713,7 @@ export default function VitalsPage() {
   const resetSoftWarning = () => { setSoftWarningConfirmed(false); setSoftWarningMsg(''); };
 
   // ── حفظ الزيارة ──
-  const handleSave = async () => {
+  const handleSave = async (forceConfirmed = false) => {
     if (latestVisitId) { setErrorMsg('تم حفظ هذه الزيارة مسبقاً.'); return; }
     if (!currentPatient) return;
 
@@ -555,7 +723,7 @@ export default function VitalsPage() {
       setErrorMsg(validation.msg);
       return;
     }
-    if (validation.type === 'soft' && !softWarningConfirmed) {
+    if (validation.type === 'soft' && !softWarningConfirmed && !forceConfirmed) {
       setSoftWarningMsg(validation.msg);
       return;
     }
@@ -579,42 +747,59 @@ export default function VitalsPage() {
         recent_exertion: bpFactors.includes('recent_exertion'),
         recent_heavy_meal: sugarFactors.includes('recent_heavy_meal'),
         is_stressed: bpFactors.includes('is_stressed') || sugarFactors.includes('is_stressed'),
-        took_medication: bpFactors.includes('took_medication') || sugarFactors.includes('took_medication'),
+        took_medication: tookBpMed || tookSugarMed,
+        took_bp_medication: tookBpMed,
+        took_sugar_medication: tookSugarMed,
       };
 
-      let report = '';
-      try {
-        const res = await fetch('/api/generate-ai-report', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ patient: currentPatient, currentVisit: visitPayload, history: patientHistory, pharmacyName }),
-        });
-        if (res.ok) { const d = await res.json(); if (d.report) report = d.report; }
-      } catch { }
+      // payload للـ AI فقط — يشمل الحقول الإضافية بدون إرسالها لـ DB
+      const aiPayload = { ...visitPayload, took_bp_medication: tookBpMed, took_sugar_medication: tookSugarMed };
+      // payload لـ DB فقط — بدون الحقول غير الموجودة في الجدول حتى يتم تنفيذ الـ migration
+      const { took_bp_medication: _tbp, took_sugar_medication: _tsg, ...dbPayload } = visitPayload;
 
-      if (!report) {
-        const parts: string[] = [];
-        if (visitPayload.bp_systolic && visitPayload.bp_diastolic) {
-          const s = visitPayload.bp_systolic, d = visitPayload.bp_diastolic;
-          if (s >= 180 || d >= 120) parts.push(`ضغط الدم (${s}/${d}) مرتفع جداً، يُنصح بمراجعة الطبيب فوراً.`);
-          else if (s >= 140 || d >= 90) parts.push(`ضغط الدم (${s}/${d}) أعلى من الطبيعي، يُنصح بالمتابعة.`);
-          else parts.push(`ضغط الدم (${s}/${d}) ضمن الطبيعي.`);
+      let report = '';
+
+      // الوزن وحده: لا نستدعي generate-ai-report — تقرير إدارة الوزن المنفصل يتولى ذلك
+      const isWeightOnly = activeTests.weight && !activeTests.bp && !activeTests.sugar;
+
+      if (!isWeightOnly) {
+        try {
+          const res = await fetch('/api/generate-ai-report', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ patient: currentPatient, currentVisit: aiPayload, history: patientHistory, pharmacyName }),
+          });
+          if (res.ok) { const d = await res.json(); if (d.report) report = d.report; }
+        } catch { }
+
+        if (!report) {
+          const parts: string[] = [];
+          if (visitPayload.bp_systolic && visitPayload.bp_diastolic) {
+            const s = visitPayload.bp_systolic, d = visitPayload.bp_diastolic;
+            if (s >= 180 || d >= 120) parts.push(`ضغط الدم (${s}/${d}) مرتفع جداً، يُنصح بمراجعة الطبيب فوراً.`);
+            else if (s >= 140 || d >= 90) parts.push(`ضغط الدم (${s}/${d}) أعلى من الطبيعي، يُنصح بالمتابعة.`);
+            else parts.push(`ضغط الدم (${s}/${d}) ضمن الطبيعي.`);
+          }
+          if (visitPayload.sugar_value) {
+            const sv = visitPayload.sugar_value;
+            if (sv < 70 || sv >= 300) parts.push(`سكري الدم (${sv}) خارج النطاق الطبيعي.`);
+            else if (sv >= 180) parts.push(`سكري الدم (${sv}) أعلى قليلاً من الطبيعي.`);
+            else parts.push(`سكري الدم (${sv}) ضمن الطبيعي.`);
+          }
+          if (parts.length === 0) parts.push('تم توثيق الزيارة بنجاح ولا توجد قراءات خارج الطبيعي.');
+          report = `مرحباً ${currentPatient.name}، من فريق ${pharmacyName || 'صيدليتك'} 👋 ${parts.join(' ')}`;
         }
-        if (visitPayload.sugar_value) {
-          const sv = visitPayload.sugar_value;
-          if (sv < 70 || sv >= 300) parts.push(`سكري الدم (${sv}) خارج النطاق الطبيعي.`);
-          else if (sv >= 180) parts.push(`سكري الدم (${sv}) أعلى قليلاً من الطبيعي.`);
-          else parts.push(`سكري الدم (${sv}) ضمن الطبيعي.`);
-        }
-        if (parts.length === 0) parts.push('تم توثيق الزيارة بنجاح ولا توجد قراءات خارج الطبيعي.');
-        report = `مرحباً ${currentPatient.name}، من فريق ${pharmacyName || 'صيدليتك'} 👋 ${parts.join(' ')}`;
+      }
+      // الوزن وحده: نضع رسالة حفظ بسيطة بدلاً من تقرير AI
+      if (isWeightOnly) {
+        report = `مرحباً ${currentPatient.name}، من فريق ${pharmacyName || 'صيدليتك'} 👋 تم تسجيل وزنك بنجاح. راجع تقرير إدارة الوزن أدناه للاطلاع على تحليلك الشخصي.`;
       }
 
       setLatestGeneratedReport(report);
       const { data: inserted, error: visitError } = await supabase.from('visitations').insert({
         pharmacy_id: session.user.id,
         patient_id: currentPatient.id,
-        ...visitPayload,
+        ...dbPayload,
         ai_report_output: report,
       }).select().single();
       if (visitError) throw new Error('تعذر حفظ بيانات الفحص');
@@ -625,6 +810,82 @@ export default function VitalsPage() {
         setTimeout(() => {
           reportRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }, 150);
+
+        // ── نظام الوزن: POST weight_plan + PATCH nutrition (بالتوازي بعد الحفظ) ───
+        if (activeTests.weight && weightValue && currentPatient?.height) {
+          const { data: { session: s } } = await supabase.auth.getSession();
+          setWeightStatus('saving');
+
+          // الخطوة 1: إنشاء weight_plan (فوري، بدون AI)
+          const planRes = await fetch('/api/weight-plan', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              patient_id:   currentPatient.id,
+              pharmacy_id:  s?.user.id,
+              weight_kg:    Number(weightValue),
+              height_cm:    Number(currentPatient.height),
+              performed_by: getActivePharmacist() || null,
+            }),
+          }).then(r => r.json()).catch(() => null);
+
+          if (planRes?.plan_id) {
+            const planId  = planRes.plan_id;
+            const planUrl = `${window.location.origin}/weight/${planId}`;
+            setWeightPlanId(planId);
+            setWeightPlanUrl(planUrl);
+            setWeightStatus('generating');
+
+            // الخطوة 2: توليد قائمة الأغذية (AI — في الخلفية)
+            const age = currentPatient.birth_date
+              ? new Date().getFullYear() - new Date(currentPatient.birth_date).getFullYear()
+              : null;
+            const { data: meds } = await supabase
+              .from('chronic_medications')
+              .select('medication_name')
+              .eq('pharmacy_id', s?.user.id)
+              .eq('patient_id', currentPatient.id)
+              .eq('status', 'active');
+            const medications = (meds || []).map((m: any) => m.medication_name);
+
+            fetch('/api/weight-plan', {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                plan_id:              planId,
+                patient_name:         currentPatient.name,
+                age,
+                gender:               currentPatient.gender,
+                diagnosed_conditions: currentPatient.diagnosed_conditions || [],
+                medications,
+                pharmacy_name:        pharmacyName,
+              }),
+            })
+              .then(r => r.json())
+              .then(d => { if (d.success) setWeightStatus('sent'); })
+              .catch(() => setWeightStatus('error'));
+
+            // الخطوة 3: فتح WhatsApp فوراً بعد إنشاء الـ plan_id
+            const phone = currentPatient.phone_number.replace(/[^0-9]/g, '');
+            const cleanPhone = phone.startsWith('0') ? '962' + phone.substring(1) : phone;
+            const msg =
+`مرحباً ${currentPatient.name} 👋
+من فريق ${pharmacyName}
+
+تم تحليل وزنك وإعداد خطتك الصحية الشخصية.
+افتح الرابط أدناه لتطّلع على نتائجك وقائمة الأغذية المناسبة لك:
+
+${planUrl}
+
+مع تحيات ${pharmacyName} 💜`;
+            window.open(
+              `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(msg)}`,
+              '_blank'
+            );
+          } else {
+            setWeightStatus('error');
+          }
+        }
       }
     } catch (e: any) { setErrorMsg(e.message || 'حدث خطأ'); }
     finally { setSubmitting(false); }
@@ -656,9 +917,11 @@ export default function VitalsPage() {
     setSugarValue(''); setSugarType(''); setWeightValue('');
     setSelectedSymptoms([]);
     setBpFactors([]); setSugarFactors([]);
+    setTookBpMed(false); setTookSugarMed(false);
     setIsDualBp(true);
     setLatestGeneratedReport(null);
     setLatestVisitId(null);
+    setWeightPlanId(null); setWeightPlanUrl(null); setWeightStatus('idle'); setBmiLive(null);
     setErrorMsg('');
   };
 
@@ -863,6 +1126,16 @@ export default function VitalsPage() {
                       })}
                       <span className="text-[10px] text-slate-400 mr-auto">اضغط لتعديل التشخيص</span>
                     </div>
+
+                    {/* ── عرض/تعديل الطول — يظهر عند تفعيل قياس الوزن فقط ── */}
+                    {activeTests.weight && (
+                      <div className="px-4 pb-3.5 border-t border-teal-100 pt-3">
+                        <HeightEditor
+                          patient={currentPatient}
+                          onUpdate={(newHeight) => setCurrentPatient({ ...currentPatient, height: newHeight })}
+                        />
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -1139,18 +1412,45 @@ export default function VitalsPage() {
                         <div className="flex flex-wrap gap-1.5">
                           {bpFactorsList.map(f => {
                             const sel = bpFactors.includes(f.key);
+                            // إذا كان المريض صائماً — تعطيل خيار المنبهات تلقائياً
+                            const disabledByFasting = f.key === 'had_stimulants' && activeTests.sugar && sugarType === 'fasting';
                             return (
-                              <button key={f.key} onClick={() => setBpFactors(prev => sel ? prev.filter(x => x !== f.key) : [...prev, f.key])}
-                                className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition ${sel ? 'bg-slate-900 text-white border-slate-900' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-white'}`}>
-                                {sel ? '✓ ' : ''}{f.label}
+                              <button key={f.key}
+                                disabled={disabledByFasting}
+                                title={disabledByFasting ? 'المريض صائم — لا يمكن اختيار المنبهات' : ''}
+                                onClick={() => !disabledByFasting && setBpFactors(prev => sel ? prev.filter(x => x !== f.key) : [...prev, f.key])}
+                                className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition ${
+                                  disabledByFasting ? 'bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed line-through' :
+                                  sel ? 'bg-slate-900 text-white border-slate-900' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-white'
+                                }`}>
+                                {sel && !disabledByFasting ? '✓ ' : ''}{f.label}
+                                {disabledByFasting && <span className="text-[9px] mr-1 no-underline">(صائم)</span>}
                               </button>
                             );
                           })}
                         </div>
+                        {activeTests.sugar && sugarType === 'fasting' && bpFactors.includes('had_stimulants') && (
+                          // إزالة المنبهات تلقائياً إذا اختار الصيدلاني "صائم" لاحقاً
+                          <>{setBpFactors(prev => prev.filter(x => x !== 'had_stimulants'))}</>
+                        )}
                         {bpFactors.length > 0 && (
                           <p className="text-[10px] text-slate-400 mt-2">
                             سيذكر التقرير الذكي هذه العوامل عند تحليل القراءة
                           </p>
+                        )}
+
+                        {/* دواء الضغط */}
+                        {currentPatient?.diagnosed_conditions?.includes('hypertension') && (
+                          <div className="mt-3 pt-3 border-t border-slate-100">
+                            <button
+                              onClick={() => setTookBpMed(!tookBpMed)}
+                              className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl border text-xs font-bold transition ${
+                                tookBpMed ? 'bg-slate-900 border-slate-900 text-white' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-400'
+                              }`}>
+                              <span>💊 أخذ دواء الضغط اليوم</span>
+                              <span>{tookBpMed ? '✓ نعم' : 'لم يُحدَّد'}</span>
+                            </button>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -1222,25 +1522,152 @@ export default function VitalsPage() {
                             سيذكر التقرير الذكي هذه العوامل عند تحليل القراءة
                           </p>
                         )}
+
+                        {/* دواء السكري */}
+                        {currentPatient?.diagnosed_conditions?.includes('diabetes') && (
+                          <div className="mt-3 pt-3 border-t border-slate-100">
+                            <button
+                              onClick={() => setTookSugarMed(!tookSugarMed)}
+                              className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl border text-xs font-bold transition ${
+                                tookSugarMed ? 'bg-slate-900 border-slate-900 text-white' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-400'
+                              }`}>
+                              <span>💊 أخذ دواء السكري اليوم</span>
+                              <span>{tookSugarMed ? '✓ نعم' : 'لم يُحدَّد'}</span>
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
                 )}
 
-                {/* الوزن */}
+                {/* ══════════════════════════════════════════════
+                    الوزن — النظام الذكي
+                ══════════════════════════════════════════════ */}
                 {activeTests.weight && (
                   <div className="bg-white border border-purple-200 rounded-2xl shadow-sm overflow-hidden saas-slide-up">
+
+                    {/* Header */}
                     <div className="bg-purple-50/60 px-5 py-3.5 border-b border-purple-100 flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <IconScale className="w-4 h-4 text-purple-600" />
                         <span className="text-sm font-bold text-slate-900">الوزن</span>
                         <span className="text-[10px] text-slate-400">(kg)</span>
                       </div>
+                      {/* مؤشر BMI الفوري في الـ header */}
+                      {bmiLive && (
+                        <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border ${bmiLive.borderColor} ${bmiLive.bgColor}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${bmiLive.dot}`} />
+                          <span className={`text-[10px] font-bold ${bmiLive.color}`}>
+                            BMI {bmiLive.value} · {bmiLive.labelShort}
+                          </span>
+                        </div>
+                      )}
                     </div>
-                    <div className="p-5">
-                      <input type="number" placeholder="0" value={weightValue}
-                        min="0" onKeyDown={e => ["-","e","E","+"].includes(e.key) && e.preventDefault()} onChange={e => { setWeightValue(e.target.value); resetSoftWarning(); }} onWheel={e => e.currentTarget.blur()}
-                        className="w-full px-4 py-4 text-4xl font-black text-center bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-purple-500 transition num-input placeholder:text-slate-200" />
+
+                    <div className="p-5 space-y-4">
+
+                      {/* حقل الوزن */}
+                      <input
+                        type="number" placeholder="0" value={weightValue}
+                        min="0"
+                        onKeyDown={e => ["-","e","E","+"].includes(e.key) && e.preventDefault()}
+                        onChange={e => { setWeightValue(e.target.value); resetSoftWarning(); }}
+                        onWheel={e => e.currentTarget.blur()}
+                        className="w-full px-4 py-4 text-4xl font-black text-center bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-purple-500 transition num-input placeholder:text-slate-200"
+                      />
+
+                      {/* ── لوحة BMI — تظهر فور إدخال وزن صحيح ── */}
+                      {bmiLive && (
+                        <div className="space-y-3">
+
+                          {/* صف المعلومات الثلاثة */}
+                          <div className="grid grid-cols-3 gap-2">
+                            {/* مؤشر كتلة الجسم */}
+                            <div className={`rounded-xl border ${bmiLive.borderColor} ${bmiLive.bgColor} px-3 py-2.5 text-center`}>
+                              <p className="text-[9px] font-bold text-slate-400 mb-1">مؤشر الجسم</p>
+                              <p className={`text-xl font-black tabular-nums ${bmiLive.color}`}>{bmiLive.value}</p>
+                              <p className={`text-[9px] font-bold mt-0.5 ${bmiLive.color}`}>{bmiLive.emoji} {bmiLive.labelShort}</p>
+                            </div>
+                            {/* الوزن المثالي */}
+                            <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-center">
+                              <p className="text-[9px] font-bold text-slate-400 mb-1">الوزن المثالي</p>
+                              <p className="text-sm font-black text-slate-700">{bmiLive.idealMin}–{bmiLive.idealMax}</p>
+                              <p className="text-[9px] text-slate-400 mt-0.5">كيلوغرام</p>
+                            </div>
+                            {/* الهدف المبدئي أو وزن مثالي */}
+                            {bmiLive.toLoose > 0 ? (
+                              <div className="bg-purple-50 border border-purple-200 rounded-xl px-3 py-2.5 text-center">
+                                <p className="text-[9px] font-bold text-slate-400 mb-1">الهدف المبدئي</p>
+                                <p className="text-xl font-black text-purple-700">{bmiLive.firstGoal}</p>
+                                <p className="text-[9px] text-purple-500 mt-0.5">كغ · 5٪</p>
+                              </div>
+                            ) : bmiLive.value < 18.5 ? (
+                              <div className="bg-blue-50 border border-blue-200 rounded-xl px-3 py-2.5 text-center">
+                                <p className="text-[9px] font-bold text-slate-400 mb-1">المطلوب</p>
+                                <p className="text-sm font-black text-blue-700">زيادة</p>
+                                <p className="text-[9px] text-blue-500 mt-0.5">{(bmiLive.idealMin - Number(weightValue)).toFixed(1)} كغ</p>
+                              </div>
+                            ) : (
+                              <div className="bg-teal-50 border border-teal-200 rounded-xl px-3 py-2.5 text-center flex items-center justify-center">
+                                <p className="text-[10px] font-bold text-teal-700">وزن مثالي 🎯</p>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* شريط BMI — نفس نمط النظام */}
+                          <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-3">
+                            <div className="relative h-2 rounded-full overflow-hidden" dir="ltr">
+                              <div className="absolute inset-0 flex">
+                                <div className="h-full bg-blue-300"   style={{ width: '15%' }} />
+                                <div className="h-full bg-teal-400"   style={{ width: '26%' }} />
+                                <div className="h-full bg-amber-400"  style={{ width: '20%' }} />
+                                <div className="h-full bg-orange-400" style={{ width: '20%' }} />
+                                <div className="h-full bg-rose-400"   style={{ width: '19%' }} />
+                              </div>
+                              <div
+                                className="absolute top-1/2 w-3.5 h-3.5 bg-white border-2 border-slate-700 rounded-full shadow-md transition-all duration-500"
+                                style={{ left: `${Math.min(Math.max(((bmiLive.value - 10) / 40) * 100, 2), 97)}%`, transform: 'translateX(-50%) translateY(-50%)' }}
+                              />
+                            </div>
+                            <div className="flex justify-between mt-1.5" dir="ltr">
+                              {[{ v: '10', l: 'نحافة' }, { v: '18.5', l: 'طبيعي' }, { v: '25', l: 'زيادة' }, { v: '30', l: 'سمنة' }, { v: '35+', l: 'مفرطة' }].map(({ v, l }) => (
+                                <div key={v} className="flex flex-col items-center">
+                                  <span className="text-[7px] font-mono text-slate-400">{v}</span>
+                                  <span className="text-[7px] text-slate-300">{l}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                        </div>
+                      )}
+
+                      {/* تنبيه: لا يوجد طول مسجّل */}
+                      {activeTests.weight && weightValue && !currentPatient?.height && (
+                        <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">
+                          <svg className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                          </svg>
+                          <div>
+                            <p className="text-[10px] font-bold text-amber-800">لا يوجد طول مسجّل لهذا المريض</p>
+                            <p className="text-[9px] text-amber-600 mt-0.5">
+                              أضف الطول من{' '}
+                              <button
+                                onClick={() => {
+                                  sessionStorage.setItem('vitalix_current_patient', JSON.stringify({ patient: currentPatient, history: patientHistory, searchQuery }));
+                                  router.push(`/dashboard/patients/${currentPatient!.id}`);
+                                }}
+                                className="underline font-bold"
+                              >
+                                بطاقة المريض
+                              </button>
+                              {' '}لحساب BMI تلقائياً
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
                     </div>
                   </div>
                 )}
@@ -1281,7 +1708,7 @@ export default function VitalsPage() {
                     </div>
                     <div className="flex gap-2">
                       <button
-                        onClick={() => { setSoftWarningConfirmed(true); setSoftWarningMsg(''); handleSave(); }}
+                        onClick={() => { setSoftWarningConfirmed(true); setSoftWarningMsg(''); handleSave(true); }}
                         className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition">
                         تأكيد الحفظ رغم القراءة الحرجة
                       </button>
@@ -1295,7 +1722,7 @@ export default function VitalsPage() {
                 )}
 
                 <button
-                  onClick={handleSave}
+                  onClick={() => handleSave()}
                   disabled={submitting || !hasAnyReading || !!softWarningMsg}
                   className="w-full py-4 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl text-sm font-black transition shadow-sm active:scale-[0.98] disabled:opacity-40 flex items-center justify-center gap-2">
                   {submitting ? (
@@ -1353,6 +1780,7 @@ export default function VitalsPage() {
                       </svg>
                       طباعة PDF
                     </button>
+                    {/* وزن وحده: WhatsApp يفتح تلقائياً عند الحفظ — هنا نعرض زر التقرير العام فقط */}
                     <button onClick={sendWhatsApp}
                       className="flex items-center justify-center gap-2 py-3 bg-[#25D366] hover:bg-[#20BD5A] text-white rounded-xl text-xs font-bold transition shadow-sm">
                       <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
@@ -1362,6 +1790,138 @@ export default function VitalsPage() {
                     </button>
                   </div>
                 </div>
+
+                {/* ══ بطاقة الوزن — تظهر بعد بدء الحفظ ══ */}
+                {activeTests.weight && weightValue && bmiLive && weightStatus !== 'idle' && (
+                  <div className="bg-white border border-purple-200 rounded-2xl shadow-sm overflow-hidden saas-slide-up">
+
+                    {/* Header — نفس نمط بطاقات الضغط والسكر */}
+                    <div className="bg-purple-50/60 px-5 py-3.5 border-b border-purple-100 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <IconScale className="w-4 h-4 text-purple-600" />
+                        <div>
+                          <p className="text-sm font-bold text-slate-900">تقرير إدارة الوزن</p>
+                          <p className="text-[10px] text-slate-400 mt-0.5">Vitalix Weight AI · {currentPatient?.name}</p>
+                        </div>
+                      </div>
+                      {/* badge BMI */}
+                      <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border ${bmiLive.borderColor} ${bmiLive.bgColor}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${bmiLive.dot}`} />
+                        <span className={`text-[10px] font-bold ${bmiLive.color}`}>{bmiLive.emoji} {bmiLive.labelShort} · {bmiLive.value}</span>
+                      </div>
+                    </div>
+
+                    {/* أرقام الوزن */}
+                    <div className="px-5 pt-4 grid grid-cols-3 gap-3">
+                      <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-center">
+                        <p className="text-[9px] font-bold text-slate-400 mb-1">الوزن الحالي</p>
+                        <p className="text-lg font-black text-slate-900">{weightValue}<span className="text-xs font-normal text-slate-400"> كغ</span></p>
+                      </div>
+                      <div className={`rounded-xl px-3 py-2.5 text-center border ${bmiLive.borderColor} ${bmiLive.bgColor}`}>
+                        <p className="text-[9px] font-bold text-slate-400 mb-1">الوزن المثالي</p>
+                        <p className={`text-sm font-black ${bmiLive.color}`}>{bmiLive.idealMin}–{bmiLive.idealMax}<span className="text-[9px] font-normal"> كغ</span></p>
+                      </div>
+                      {bmiLive.toLoose > 0 ? (
+                        <div className="bg-purple-50 border border-purple-200 rounded-xl px-3 py-2.5 text-center">
+                          <p className="text-[9px] font-bold text-slate-400 mb-1">الهدف المبدئي</p>
+                          <p className="text-lg font-black text-purple-700">{bmiLive.firstGoal}<span className="text-xs font-normal text-purple-500"> كغ</span></p>
+                        </div>
+                      ) : bmiLive.value < 18.5 ? (
+                        <div className="bg-blue-50 border border-blue-200 rounded-xl px-3 py-2.5 text-center">
+                          <p className="text-[9px] font-bold text-slate-400 mb-1">المطلوب زيادته</p>
+                          <p className="text-lg font-black text-blue-700">{(bmiLive.idealMin - Number(weightValue)).toFixed(1)}<span className="text-xs font-normal text-blue-500"> كغ</span></p>
+                        </div>
+                      ) : (
+                        <div className="bg-teal-50 border border-teal-200 rounded-xl px-3 py-2.5 text-center flex items-center justify-center">
+                          <p className="text-[10px] font-bold text-teal-700">وزن مثالي 🎯</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* شريط BMI */}
+                    <div className="px-5 pt-3 pb-4">
+                      <div className="relative h-2 rounded-full overflow-hidden" dir="ltr">
+                        <div className="absolute inset-0 flex">
+                          <div className="h-full bg-blue-300"   style={{ width: '15%' }} />
+                          <div className="h-full bg-teal-400"   style={{ width: '26%' }} />
+                          <div className="h-full bg-amber-400"  style={{ width: '20%' }} />
+                          <div className="h-full bg-orange-400" style={{ width: '20%' }} />
+                          <div className="h-full bg-rose-400"   style={{ width: '19%' }} />
+                        </div>
+                        <div className="absolute top-1/2 w-3.5 h-3.5 bg-white border-2 border-slate-700 rounded-full shadow-md"
+                          style={{ left: `${Math.min(Math.max(((bmiLive.value - 10) / 40) * 100, 2), 97)}%`, transform: 'translateX(-50%) translateY(-50%)' }} />
+                      </div>
+                      <div className="flex justify-between mt-1.5" dir="ltr">
+                        {[{ v: '10', l: 'نحافة' }, { v: '18.5', l: 'طبيعي' }, { v: '25', l: 'زيادة' }, { v: '30', l: 'سمنة' }, { v: '35+', l: 'مفرطة' }].map(({ v, l }) => (
+                          <div key={v} className="flex flex-col items-center">
+                            <span className="text-[7px] font-mono text-slate-400">{v}</span>
+                            <span className="text-[7px] text-slate-300">{l}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* حالة الإرسال + زر عرض صفحة المريض */}
+                    {weightPlanUrl && (
+                      <div className="px-5 pb-5 border-t border-purple-100 pt-4 space-y-3">
+
+                        {/* حالة التوليد */}
+                        <div className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border ${
+                          weightStatus === 'generating'
+                            ? 'bg-purple-50 border-purple-200'
+                            : weightStatus === 'sent'
+                            ? 'bg-teal-50 border-teal-200'
+                            : 'bg-rose-50 border-rose-200'
+                        }`}>
+                          {weightStatus === 'generating' ? (
+                            <div className="w-3.5 h-3.5 border-2 border-purple-400 border-t-purple-700 rounded-full animate-spin shrink-0" />
+                          ) : weightStatus === 'sent' ? (
+                            <div className="w-5 h-5 rounded-full bg-teal-500 flex items-center justify-center shrink-0">
+                              <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                              </svg>
+                            </div>
+                          ) : (
+                            <svg className="w-3.5 h-3.5 text-rose-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                            </svg>
+                          )}
+                          <div>
+                            <p className={`text-xs font-bold ${
+                              weightStatus === 'generating' ? 'text-purple-800'
+                              : weightStatus === 'sent' ? 'text-teal-800'
+                              : 'text-rose-800'
+                            }`}>
+                              {weightStatus === 'generating' && 'خبير التغذية يُعد قائمة الأغذية...'}
+                              {weightStatus === 'sent'       && 'تم الإرسال وقائمة الأغذية جاهزة'}
+                              {weightStatus === 'error'      && 'تعذر توليد القائمة — الرابط أُرسل'}
+                            </p>
+                            <p className={`text-[10px] mt-0.5 ${
+                              weightStatus === 'generating' ? 'text-purple-500'
+                              : weightStatus === 'sent' ? 'text-teal-600'
+                              : 'text-rose-500'
+                            }`}>
+                              {weightStatus === 'generating' && 'ستظهر على صفحة المريض تلقائياً عند اكتمالها'}
+                              {weightStatus === 'sent'       && `تم إرسال الرابط لـ ${currentPatient?.name} عبر WhatsApp`}
+                              {weightStatus === 'error'      && 'يمكن للمريض رؤية BMI والأهداف في الرابط'}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* زر عرض صفحة المريض */}
+                        <button
+                          onClick={() => window.open(weightPlanUrl, '_blank')}
+                          className="w-full flex items-center justify-center gap-2 py-3 bg-white border border-purple-200 text-purple-700 rounded-xl text-xs font-bold transition hover:bg-purple-50 shadow-sm">
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                          </svg>
+                          عرض صفحة المريض
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
               </div>
             )}
 

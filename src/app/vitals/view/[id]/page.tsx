@@ -55,6 +55,56 @@ function formatTime(dateStr: string) {
   });
 }
 
+function sugarTypeLabel(t: string | null) {
+  if (t === 'fasting') return 'صائم';
+  if (t === 'postprandial') return 'بعد الأكل';
+  return 'عشوائي';
+}
+
+function bmiCalc(weight: number | null, height?: number | null) {
+  if (!weight || !height) return null;
+  return (weight / (height / 100) ** 2).toFixed(1);
+}
+
+function getVisitStatus(v: { bp_systolic: number | null; bp_diastolic: number | null; sugar_value: number | null }) {
+  let level: 'normal' | 'medium' | 'high' = 'normal';
+  if (v.bp_systolic) {
+    if (v.bp_systolic >= 180 || (v.bp_diastolic ?? 0) >= 120) level = 'high';
+    else if (v.bp_systolic >= 140 || (v.bp_diastolic ?? 0) >= 90) level = 'medium';
+  }
+  if (v.sugar_value) {
+    if (v.sugar_value >= 300) level = 'high';
+    else if (v.sugar_value >= 180 && level === 'normal') level = 'medium';
+  }
+  if (level === 'high') return { label: 'يستدعي انتباهاً', bg: 'bg-rose-50', border: 'border-rose-200', text: 'text-rose-700', dot: 'bg-rose-500' };
+  if (level === 'medium') return { label: 'يحتاج متابعة', bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-700', dot: 'bg-amber-500' };
+  return { label: 'ضمن الطبيعي', bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', dot: 'bg-emerald-500' };
+}
+
+function IconHeart({ className = 'w-4 h-4' }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
+    </svg>
+  );
+}
+
+function IconDroplet({ className = 'w-4 h-4' }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 3.75S6 10.5 6 14.25a6 6 0 0012 0C18 10.5 12 3.75 12 3.75z" />
+    </svg>
+  );
+}
+
+function IconScale({ className = 'w-4 h-4' }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v17.25m0 0c-1.472 0-2.882.265-4.185.75M12 20.25c1.472 0 2.882.265 4.185.75M18.75 4.97A48.416 48.416 0 0012 4.5c-2.291 0-4.545.16-6.75.47m13.5 0c1.01.143 2.01.317 3 .52m-3-.52l2.62 10.726c.122.499-.106 1.028-.589 1.202a5.988 5.988 0 01-2.031.352 5.988 5.988 0 01-2.031-.352c-.483-.174-.711-.703-.59-1.202L18.75 4.971zm-16.5.52c.99-.203 1.99-.377 3-.52m0 0l2.62 10.726c.122.499-.106 1.028-.589 1.202a5.989 5.989 0 01-2.031.352 5.989 5.989 0 01-2.031-.352c-.483-.174-.711-.703-.59-1.202L5.25 4.971z" />
+    </svg>
+  );
+}
+
 /**
  * يحوّل عنصر DOM إلى ملف PDF ويُنزّله، مع دعم صفحات متعددة إن كان المحتوى أطول من صفحة A4 واحدة.
  */
@@ -224,7 +274,11 @@ export default function SingleVitalViewPage({ params }: PageProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visitId]);
 
-  const previousVisits = patientHistory.filter((visit) => visit.id !== currentVisit?.id);
+  // سجل الطبيب المعالج يجب أن يعرض كل القراءات الموثقة لهذا المريض بما فيها الزيارة
+  // الحالية نفسها (لا يُستثنى شيء) — الترتيب يصل جاهزاً تنازلياً من الـ API.
+  const allVisits = patientHistory.length > 0 ? patientHistory : [currentVisit].filter(Boolean) as VisitationRecord[];
+  const currentStatus = currentVisit ? getVisitStatus(currentVisit) : null;
+  const currentBmi = currentVisit ? bmiCalc(currentVisit.weight, currentVisit.patient?.height) : null;
 
   const handlePrintCurrentVisit = async () => {
     if (!currentVisit) return;
@@ -270,7 +324,7 @@ export default function SingleVitalViewPage({ params }: PageProps) {
     const headerHtml = `
       <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #059669; padding-bottom: 12px; margin-bottom: 20px;">
         <div style="font-size: 22px; font-weight: 900; color: #0F172A;">Vitalix<span style="color: #0D9488;">.ai</span></div>
-        <div style="background: #ECFDF5; border: 1px solid #A7F3D0; color: #065F46; padding: 6px 14px; border-radius: 10px; font-size: 12px; font-weight: bold;">👨‍⚕️ سجل القراءات السابقة للطبيب المعالج</div>
+        <div style="background: #ECFDF5; border: 1px solid #A7F3D0; color: #065F46; padding: 6px 14px; border-radius: 10px; font-size: 12px; font-weight: bold;">👨‍⚕️ سجل القراءات الكاملة للطبيب المعالج</div>
       </div>
       <div style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 12px 18px; border-radius: 12px; margin-bottom: 20px; font-size: 12px; display: flex; justify-content: space-between; font-weight: bold;">
         <div>اسم المريض: ${patientName}</div>
@@ -291,7 +345,7 @@ export default function SingleVitalViewPage({ params }: PageProps) {
     const footerHtml = `<div style="margin-top: 35px; border-top: 1px solid #E2E8F0; padding-top: 12px; text-align: center; font-size: 11px; color: #64748B;">تم توثيق سجل القراءات السابقة آلياً عبر منصة Vitalix.ai لصالح (${pharmacyName})</div>`;
 
     try {
-      if (previousVisits.length === 0) {
+      if (allVisits.length === 0) {
         const container = document.createElement('div');
         container.setAttribute('dir', 'rtl');
         container.style.cssText =
@@ -299,7 +353,7 @@ export default function SingleVitalViewPage({ params }: PageProps) {
         container.innerHTML = `
           ${headerHtml}
           <div style="padding: 30px; text-align: center; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; color: #64748B; font-size: 12px;">
-            لا توجد قراءات سابقة موثقة لهذا المريض.
+            لا توجد قراءات موثقة لهذا المريض.
           </div>
           ${footerHtml}
         `;
@@ -310,16 +364,16 @@ export default function SingleVitalViewPage({ params }: PageProps) {
           document.body.removeChild(container);
         }
       } else {
-        const rowsHtml = previousVisits.map((visit) => `
-          <tr>
+        const rowsHtml = allVisits.map((visit) => `
+          <tr style="${visit.id === currentVisit.id ? 'background-color: #F0FDFA;' : ''}">
             <td style="padding: 10px; border: 1px solid #E2E8F0; font-family: monospace;">
-              ${formatDate(visit.created_at)} (${formatTime(visit.created_at)})
+              ${formatDate(visit.created_at)} (${formatTime(visit.created_at)})${visit.id === currentVisit.id ? ' — الحالية' : ''}
             </td>
             <td style="padding: 10px; border: 1px solid #E2E8F0; font-family: monospace; font-weight: bold; color: ${visit.bp_systolic && visit.bp_systolic >= 140 ? '#DC2626' : '#1D4ED8'};">
               ${visit.bp_systolic && visit.bp_diastolic ? `${visit.bp_systolic} / ${visit.bp_diastolic} mmHg` : '-'}
             </td>
             <td style="padding: 10px; border: 1px solid #E2E8F0; font-family: monospace; font-weight: bold; color: ${visit.sugar_value && visit.sugar_value >= 180 ? '#D97706' : '#059669'};">
-              ${visit.sugar_value ? `${visit.sugar_value} (${visit.sugar_test_type === 'fasting' ? 'صائم' : 'عشوائي'})` : '-'}
+              ${visit.sugar_value ? `${visit.sugar_value} (${sugarTypeLabel(visit.sugar_test_type)})` : '-'}
             </td>
             <td style="padding: 10px; border: 1px solid #E2E8F0; font-family: monospace; font-weight: bold; color: #7E22CE;">
               ${visit.weight ? `${visit.weight} kg` : '-'}
@@ -388,6 +442,11 @@ export default function SingleVitalViewPage({ params }: PageProps) {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 font-sans antialiased pb-16" dir="rtl">
+      <style jsx global>{`
+        @keyframes saasSlideUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        .slide-up { animation: saasSlideUp 0.25s ease both; }
+      `}</style>
+
       {/* طبقة تحميل PDF */}
       {pdfGenerating && (
         <div className="fixed inset-0 bg-white/90 backdrop-blur-sm z-[9999] flex flex-col items-center justify-center gap-4">
@@ -426,19 +485,67 @@ export default function SingleVitalViewPage({ params }: PageProps) {
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 pt-8 space-y-6">
-        
-        {/* 1. كارت تفاصيل الزيارة والتقرير المباشر */}
+      <main className="max-w-4xl mx-auto px-4 pt-8 space-y-6 slide-up">
+
+        {/* 0. هوية المريض وملخّص القياسات الحالية */}
+        <section className="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden">
+          <div className="p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center justify-between gap-5">
+            <div className="flex items-center gap-4 min-w-0">
+              <div className="w-14 h-14 rounded-2xl bg-slate-900 text-white flex items-center justify-center text-xl font-black shrink-0">
+                {(currentVisit.patient?.name || 'م').trim().charAt(0)}
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-lg font-bold text-slate-900 truncate">{currentVisit.patient?.name || 'المريض'}</h1>
+                <p className="text-xs text-slate-500 mt-1 tabular-nums">
+                  📅 {formatDate(currentVisit.created_at)} — ⏰ {formatTime(currentVisit.created_at)}
+                </p>
+              </div>
+            </div>
+
+            {currentStatus && (
+              <div className={`flex items-center gap-2 px-4 py-2 rounded-xl border shrink-0 ${currentStatus.bg} ${currentStatus.border}`}>
+                <span className={`w-2 h-2 rounded-full ${currentStatus.dot}`} />
+                <span className={`text-xs font-bold ${currentStatus.text}`}>{currentStatus.label}</span>
+              </div>
+            )}
+          </div>
+
+          <div className="px-6 sm:px-8 pb-6 flex flex-wrap gap-2.5">
+            {currentVisit.bp_systolic != null && currentVisit.bp_diastolic != null && (
+              <span className="flex items-center gap-1.5 text-xs font-bold text-blue-700 bg-blue-50 border border-blue-100 px-3 py-1.5 rounded-xl">
+                <IconHeart className="w-3.5 h-3.5" />
+                {currentVisit.bp_systolic} / {currentVisit.bp_diastolic}
+                <span className="text-[10px] font-normal opacity-70">mmHg</span>
+              </span>
+            )}
+            {currentVisit.sugar_value != null && (
+              <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 px-3 py-1.5 rounded-xl">
+                <IconDroplet className="w-3.5 h-3.5" />
+                {currentVisit.sugar_value}
+                <span className="text-[10px] font-normal opacity-70">({sugarTypeLabel(currentVisit.sugar_test_type)})</span>
+              </span>
+            )}
+            {currentVisit.weight != null && (
+              <span className="flex items-center gap-1.5 text-xs font-bold text-purple-700 bg-purple-50 border border-purple-100 px-3 py-1.5 rounded-xl">
+                <IconScale className="w-3.5 h-3.5" />
+                {currentVisit.weight} kg
+                {currentBmi && <span className="text-[10px] font-normal opacity-70">BMI {currentBmi}</span>}
+              </span>
+            )}
+            {currentVisit.symptoms && currentVisit.symptoms.length > 0 && currentVisit.symptoms.map((s, i) => (
+              <span key={i} className="text-xs font-bold text-slate-600 bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-xl">
+                {s}
+              </span>
+            ))}
+          </div>
+        </section>
+
+        {/* 1. كارت التقرير الطبي للفحص الحالي */}
         <section className="bg-white border border-slate-200 p-6 sm:p-8 rounded-3xl shadow-sm space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
-            <div>
-              <h1 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <span>تفاصيل الزيارة والفحص الحالي</span>
-              </h1>
-              <p className="text-xs text-slate-500 mt-1 tabular-nums">
-                📅 {formatDate(currentVisit.created_at)} - ⏰ {formatTime(currentVisit.created_at)}
-              </p>
-            </div>
+            <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <span>🩺 التقرير الطبي للفحص الحالي</span>
+            </h2>
 
             <button
               onClick={handlePrintCurrentVisit}
@@ -533,14 +640,14 @@ export default function SingleVitalViewPage({ params }: PageProps) {
           </section>
         )}
 
-        {/* 3. سجل القراءات السابقة للطبيب المعالج */}
+        {/* 3. سجل القراءات الكاملة للطبيب المعالج (تشمل الزيارة الحالية) */}
         <section className="bg-white border border-slate-200 p-6 sm:p-8 rounded-3xl shadow-sm space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
             <div>
               <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <span>📈 سجل القراءات السابقة للطبيب المعالج</span>
+                <span>📈 سجل القراءات الكاملة للطبيب المعالج</span>
               </h2>
-              <p className="text-xs text-slate-500 mt-1">مرتب تسلسلياً حسب الخط الزمني للفحوصات السابقة</p>
+              <p className="text-xs text-slate-500 mt-1">مرتب تسلسلياً حسب الخط الزمني، ويشمل الزيارة الحالية</p>
             </div>
 
             <button
@@ -553,7 +660,7 @@ export default function SingleVitalViewPage({ params }: PageProps) {
             </button>
           </div>
 
-          {previousVisits.length > 0 ? (
+          {allVisits.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full text-right border-collapse text-sm">
                 <thead>
@@ -566,65 +673,80 @@ export default function SingleVitalViewPage({ params }: PageProps) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {previousVisits.map((visit) => (
-                    <tr key={visit.id} className="hover:bg-slate-50/50 text-slate-700 transition-colors">
-                      <td className="p-4 tabular-nums">
-                        {formatDate(visit.created_at)}
-                        <span className="text-[11px] text-slate-400 block mt-0.5">
-                          {formatTime(visit.created_at)}
-                        </span>
-                      </td>
-                      <td className="p-4 tabular-nums">
-                        {visit.bp_systolic && visit.bp_diastolic ? (
-                          <span className={`inline-flex items-center px-3 py-1 rounded-xl text-sm font-semibold ${visit.bp_systolic >= 140 || visit.bp_diastolic >= 90 ? 'bg-rose-50 text-rose-700 border border-rose-100' : 'bg-blue-50 text-blue-700 border border-blue-100'}`}>
-                            {visit.bp_systolic} / {visit.bp_diastolic}
-                            <span className="text-[10px] ml-1 opacity-70">mmHg</span>
-                          </span>
-                        ) : (
-                          <span className="text-slate-300">-</span>
-                        )}
-                      </td>
-                      <td className="p-4 tabular-nums">
-                        {visit.sugar_value ? (
-                          <span className={`inline-flex items-center px-3 py-1 rounded-xl text-sm font-semibold ${visit.sugar_value >= 180 ? 'bg-amber-50 text-amber-700 border border-amber-100' : 'bg-emerald-50 text-emerald-700 border border-emerald-100'}`}>
-                            {visit.sugar_value}
-                            <span className="text-[10px] ml-1 opacity-70">({visit.sugar_test_type === 'fasting' ? 'صائم' : 'عشوائي'})</span>
-                          </span>
-                        ) : (
-                          <span className="text-slate-300">-</span>
-                        )}
-                      </td>
-                      <td className="p-4 tabular-nums">
-                        {visit.weight ? (
-                          <span className="inline-flex items-center px-3 py-1 rounded-xl text-sm font-semibold bg-purple-50 text-purple-700 border border-purple-100">
-                            {visit.weight}
-                            <span className="text-[10px] ml-1 opacity-70">kg</span>
-                          </span>
-                        ) : (
-                          <span className="text-slate-300">-</span>
-                        )}
-                      </td>
-                      <td className="p-4">
-                        {visit.symptoms && visit.symptoms.length > 0 ? (
-                          <div className="flex flex-wrap gap-1.5">
-                            {visit.symptoms.map((s, i) => (
-                              <span key={i} className="bg-slate-100 border border-slate-200 text-slate-600 px-2.5 py-1 rounded-lg text-xs font-medium">
-                                {s}
+                  {allVisits.map((visit) => {
+                    const isCurrent = visit.id === currentVisit.id;
+                    return (
+                      <tr
+                        key={visit.id}
+                        className={`transition-colors text-slate-700 ${isCurrent ? 'bg-teal-50/60 hover:bg-teal-50' : 'hover:bg-slate-50/50'}`}
+                      >
+                        <td className="p-4 tabular-nums">
+                          <div className="flex items-center gap-2">
+                            <div>
+                              {formatDate(visit.created_at)}
+                              <span className="text-[11px] text-slate-400 block mt-0.5">
+                                {formatTime(visit.created_at)}
                               </span>
-                            ))}
+                            </div>
+                            {isCurrent && (
+                              <span className="text-[9px] font-bold text-teal-700 bg-teal-100 border border-teal-200 px-2 py-0.5 rounded-md shrink-0">
+                                الحالية
+                              </span>
+                            )}
                           </div>
-                        ) : (
-                          <span className="text-slate-400 text-xs">لا يوجد أعراض</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="p-4 tabular-nums">
+                          {visit.bp_systolic && visit.bp_diastolic ? (
+                            <span className={`inline-flex items-center px-3 py-1 rounded-xl text-sm font-semibold ${visit.bp_systolic >= 140 || visit.bp_diastolic >= 90 ? 'bg-rose-50 text-rose-700 border border-rose-100' : 'bg-blue-50 text-blue-700 border border-blue-100'}`}>
+                              {visit.bp_systolic} / {visit.bp_diastolic}
+                              <span className="text-[10px] ml-1 opacity-70">mmHg</span>
+                            </span>
+                          ) : (
+                            <span className="text-slate-300">-</span>
+                          )}
+                        </td>
+                        <td className="p-4 tabular-nums">
+                          {visit.sugar_value ? (
+                            <span className={`inline-flex items-center px-3 py-1 rounded-xl text-sm font-semibold ${visit.sugar_value >= 180 ? 'bg-amber-50 text-amber-700 border border-amber-100' : 'bg-emerald-50 text-emerald-700 border border-emerald-100'}`}>
+                              {visit.sugar_value}
+                              <span className="text-[10px] ml-1 opacity-70">({sugarTypeLabel(visit.sugar_test_type)})</span>
+                            </span>
+                          ) : (
+                            <span className="text-slate-300">-</span>
+                          )}
+                        </td>
+                        <td className="p-4 tabular-nums">
+                          {visit.weight ? (
+                            <span className="inline-flex items-center px-3 py-1 rounded-xl text-sm font-semibold bg-purple-50 text-purple-700 border border-purple-100">
+                              {visit.weight}
+                              <span className="text-[10px] ml-1 opacity-70">kg</span>
+                            </span>
+                          ) : (
+                            <span className="text-slate-300">-</span>
+                          )}
+                        </td>
+                        <td className="p-4">
+                          {visit.symptoms && visit.symptoms.length > 0 ? (
+                            <div className="flex flex-wrap gap-1.5">
+                              {visit.symptoms.map((s, i) => (
+                                <span key={i} className="bg-slate-100 border border-slate-200 text-slate-600 px-2.5 py-1 rounded-lg text-xs font-medium">
+                                  {s}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-slate-400 text-xs">لا يوجد أعراض</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           ) : (
             <div className="p-8 text-center text-slate-400 text-sm bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-              لا توجد قراءات سابقة موثقة لهذا المريض حتى الآن.
+              لا توجد قراءات موثقة لهذا المريض حتى الآن.
             </div>
           )}
         </section>

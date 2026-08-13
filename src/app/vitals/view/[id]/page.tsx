@@ -289,7 +289,25 @@ export default function SingleVitalViewPage({ params }: PageProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visitId]);
 
-  const allVisits = patientHistory.length > 0 ? patientHistory : [currentVisit].filter(Boolean) as VisitationRecord[];
+  // نضمن أن الزيارة الحالية موجودة دائماً في القائمة حتى لو لم يُرجعها التاريخ
+  const allVisits = (() => {
+    const base = patientHistory.length > 0 ? patientHistory : [];
+    if (!currentVisit) return base;
+    const alreadyIncluded = base.some((v) => v.id === currentVisit.id);
+    return alreadyIncluded ? base : [currentVisit, ...base];
+  })();
+  const [showAllVisits, setShowAllVisits] = useState(false);
+  const [visitFilter, setVisitFilter] = useState<'all' | 'bp' | 'sugar' | 'weight'>('all');
+  const VISITS_PREVIEW = 3;
+
+  // تطبيق الفلتر — زيارة تظهر إذا احتوت على القراءة المطلوبة (وليس بالضرورة أن تكون الزيارة مخصصة لها فقط)
+  const filteredVisits = allVisits.filter((v) => {
+    if (visitFilter === 'bp')     return v.bp_systolic != null;
+    if (visitFilter === 'sugar')  return v.sugar_value != null;
+    if (visitFilter === 'weight') return v.weight != null;
+    return true;
+  });
+  const visitsToShow = showAllVisits ? filteredVisits : filteredVisits.slice(0, VISITS_PREVIEW);
   const currentStatus = currentVisit ? getVisitStatus(currentVisit) : null;
   const currentBmi = currentVisit ? bmiCalc(currentVisit.weight, currentVisit.patient?.height) : null;
 
@@ -363,7 +381,8 @@ export default function SingleVitalViewPage({ params }: PageProps) {
     const footerHtml = `<div style="margin-top: 35px; border-top: 1px solid #E2E8F0; padding-top: 12px; text-align: center; font-size: 11px; color: #64748B;">تم توثيق سجل القراءات السابقة آلياً عبر منصة Vitalix.ai لصالح (${displayPharmacyName})</div>`;
 
     try {
-      if (allVisits.length === 0) {
+      const pdfVisits = filteredVisits;
+      if (pdfVisits.length === 0) {
         const container = document.createElement('div');
         container.setAttribute('dir', 'rtl');
         container.style.cssText =
@@ -382,7 +401,7 @@ export default function SingleVitalViewPage({ params }: PageProps) {
           document.body.removeChild(container);
         }
       } else {
-        const rowsHtml = allVisits.map((visit: VisitationRecord) => `
+        const rowsHtml = pdfVisits.map((visit: VisitationRecord) => `
           <tr style="${visit.id === currentVisit.id ? 'background-color: #F0FDFA;' : ''}">
             <td style="padding: 10px; border: 1px solid #E2E8F0; font-family: monospace;">
               ${formatDate(visit.created_at)} (${formatTime(visit.created_at)})${visit.id === currentVisit.id ? ' — الحالية' : ''}
@@ -822,7 +841,7 @@ export default function SingleVitalViewPage({ params }: PageProps) {
         <section className="vcard" style={{ padding: '24px 24px 28px' }}>
           {/* section title */}
           <div style={{ marginBottom: 20 }}>
-            <p className="section-title">🩺 التقرير الطبي للفحص الحالي</p>
+            <p className="section-title">📋 سجل قراءات الفحص الحالي</p>
           </div>
 
           {/* زر التنزيل */}
@@ -833,7 +852,7 @@ export default function SingleVitalViewPage({ params }: PageProps) {
               disabled={pdfGenerating !== null}
             >
               <IconDownload className="w-4 h-4" />
-              {pdfGenerating === 'report' ? 'جاري التحضير...' : 'تنزيل التقرير (PDF)'}
+              {pdfGenerating === 'report' ? 'جاري التحضير...' : 'تنزيل سجل القراءات (PDF)'}
             </button>
           </div>
 
@@ -989,7 +1008,50 @@ export default function SingleVitalViewPage({ params }: PageProps) {
             </button>
           </div>
 
-          {allVisits.length > 0 ? (
+          {/* ── أزرار الفلترة ── */}
+          {(() => {
+            const filters: { key: 'all' | 'bp' | 'sugar' | 'weight'; label: string; count: number }[] = [
+              { key: 'all',    label: 'الكل',      count: allVisits.length },
+              { key: 'bp',     label: 'ضغط الدم',  count: allVisits.filter(v => v.bp_systolic != null).length },
+              { key: 'sugar',  label: 'السكري',    count: allVisits.filter(v => v.sugar_value != null).length },
+              { key: 'weight', label: 'الوزن',     count: allVisits.filter(v => v.weight != null).length },
+            ];
+            return (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+                {filters.map((f) => {
+                  const active = visitFilter === f.key;
+                  return (
+                    <button
+                      key={f.key}
+                      onClick={() => { setVisitFilter(f.key); setShowAllVisits(false); }}
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 6,
+                        padding: '6px 14px',
+                        borderRadius: 20,
+                        border: active ? '1.5px solid #0d9488' : '1.5px solid #e2e8f0',
+                        background: active ? '#f0fdfa' : '#fff',
+                        color: active ? '#0f766e' : '#64748b',
+                        fontSize: 12, fontWeight: 600,
+                        cursor: 'pointer', fontFamily: 'inherit',
+                        transition: 'all 0.15s',
+                      }}
+                    >
+                      {f.label}
+                      <span style={{
+                        background: active ? '#0d9488' : '#f1f5f9',
+                        color: active ? '#fff' : '#94a3b8',
+                        borderRadius: 10, padding: '1px 7px', fontSize: 11, fontWeight: 700,
+                      }}>
+                        {f.count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })()}
+
+          {filteredVisits.length > 0 ? (
             <>
               {/* ─ جدول عادي على الشاشات الكبيرة ─ */}
               <div style={{ overflowX: 'auto' }}>
@@ -1010,7 +1072,7 @@ export default function SingleVitalViewPage({ params }: PageProps) {
                     </tr>
                   </thead>
                   <tbody>
-                    {allVisits.map((visit) => {
+                    {visitsToShow.map((visit) => {
                       const isCurrent = visit.id === currentVisit.id;
                       return (
                         <tr
@@ -1127,6 +1189,48 @@ export default function SingleVitalViewPage({ params }: PageProps) {
                   </tbody>
                 </table>
               </div>
+              {/* زر عرض الكل / إخفاء */}
+              {filteredVisits.length > VISITS_PREVIEW && (
+                <button
+                  onClick={() => setShowAllVisits((v) => !v)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 6,
+                    width: '100%',
+                    marginTop: 12,
+                    padding: '10px 0',
+                    background: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: 12,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: '#0d9488',
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                    transition: 'background 0.15s',
+                  }}
+                  onMouseOver={(e) => (e.currentTarget.style.background = '#f0fdfa')}
+                  onMouseOut={(e) => (e.currentTarget.style.background = '#f8fafc')}
+                >
+                  {showAllVisits ? (
+                    <>
+                      <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
+                      </svg>
+                      إخفاء الزيارات القديمة
+                    </>
+                  ) : (
+                    <>
+                      <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                      </svg>
+                      عرض جميع الزيارات ({filteredVisits.length})
+                    </>
+                  )}
+                </button>
+              )}
             </>
           ) : (
             <div
@@ -1140,7 +1244,9 @@ export default function SingleVitalViewPage({ params }: PageProps) {
                 fontSize: 13,
               }}
             >
-              لا توجد قراءات موثقة لهذا المريض حتى الآن.
+              {visitFilter === 'all'
+                ? 'لا توجد قراءات موثقة لهذا المريض حتى الآن.'
+                : 'لا توجد زيارات تحتوي على هذا النوع من القراءات.'}
             </div>
           )}
         </section>

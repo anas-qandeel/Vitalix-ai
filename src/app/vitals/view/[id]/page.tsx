@@ -41,7 +41,6 @@ interface PageProps {
   params: Promise<{ id: string }>;
 }
 
-// تنسيق موحّد للتاريخ والوقت: عربي في الصياغة، لكن بأرقام إنجليزية (numberingSystem: 'latn').
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('ar-EG', { numberingSystem: 'latn' });
 }
@@ -76,9 +75,9 @@ function getVisitStatus(v: { bp_systolic: number | null; bp_diastolic: number | 
     if (v.sugar_value >= 300) level = 'high';
     else if (v.sugar_value >= 180 && level === 'normal') level = 'medium';
   }
-  if (level === 'high') return { label: 'يستدعي انتباهاً', bg: 'bg-rose-50', border: 'border-rose-200', text: 'text-rose-700', dot: 'bg-rose-500' };
-  if (level === 'medium') return { label: 'يحتاج متابعة', bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-700', dot: 'bg-amber-500' };
-  return { label: 'ضمن الطبيعي', bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', dot: 'bg-emerald-500' };
+  if (level === 'high') return { label: 'يستدعي انتباهاً', chipBg: '#fee2e2', chipColor: '#991b1b' };
+  if (level === 'medium') return { label: 'يحتاج متابعة', chipBg: '#fef3c7', chipColor: '#92400e' };
+  return { label: 'ضمن الطبيعي', chipBg: '#d1fae5', chipColor: '#065f46' };
 }
 
 function IconHeart({ className = 'w-4 h-4' }: { className?: string }) {
@@ -101,6 +100,22 @@ function IconScale({ className = 'w-4 h-4' }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v17.25m0 0c-1.472 0-2.882.265-4.185.75M12 20.25c1.472 0 2.882.265 4.185.75M18.75 4.97A48.416 48.416 0 0012 4.5c-2.291 0-4.545.16-6.75.47m13.5 0c1.01.143 2.01.317 3 .52m-3-.52l2.62 10.726c.122.499-.106 1.028-.589 1.202a5.988 5.988 0 01-2.031.352 5.988 5.988 0 01-2.031-.352c-.483-.174-.711-.703-.59-1.202L18.75 4.971zm-16.5.52c.99-.203 1.99-.377 3-.52m0 0l2.62 10.726c.122.499-.106 1.028-.589 1.202a5.989 5.989 0 01-2.031.352 5.989 5.989 0 01-2.031-.352c-.483-.174-.711-.703-.59-1.202L5.25 4.971z" />
+    </svg>
+  );
+}
+
+function IconDownload({ className = 'w-4 h-4' }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+    </svg>
+  );
+}
+
+function IconWhatsapp({ className = 'w-4 h-4' }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
     </svg>
   );
 }
@@ -240,7 +255,7 @@ export default function SingleVitalViewPage({ params }: PageProps) {
   const [pdfGenerating, setPdfGenerating] = useState<'report' | 'history' | null>(null);
   const [currentVisit, setCurrentVisit] = useState<VisitationRecord | null>(null);
   const [patientHistory, setPatientHistory] = useState<VisitationRecord[]>([]);
-  const [pharmacyName, setPharmacyName] = useState<string>('صيدليتك المعتمدة');
+  const [pharmacyName, setPharmacyName] = useState<string>('');
   const [pharmacyPhone, setPharmacyPhone] = useState<string>('');
   const [recommendations, setRecommendations] = useState<RecommendationItem[]>([]);
   const [errorMsg, setErrorMsg] = useState('');
@@ -256,7 +271,7 @@ export default function SingleVitalViewPage({ params }: PageProps) {
       }
 
       setCurrentVisit(data.visit);
-      setPharmacyName(data.pharmacyName || 'صيدليتك المعتمدة');
+      setPharmacyName(data.pharmacyName || '');
       setPharmacyPhone(data.pharmacyPhone || '');
       setPatientHistory(data.history || []);
       setRecommendations(data.recommendations || []);
@@ -274,11 +289,14 @@ export default function SingleVitalViewPage({ params }: PageProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visitId]);
 
-  // سجل الطبيب المعالج يجب أن يعرض كل القراءات الموثقة لهذا المريض بما فيها الزيارة
-  // الحالية نفسها (لا يُستثنى شيء) — الترتيب يصل جاهزاً تنازلياً من الـ API.
   const allVisits = patientHistory.length > 0 ? patientHistory : [currentVisit].filter(Boolean) as VisitationRecord[];
   const currentStatus = currentVisit ? getVisitStatus(currentVisit) : null;
   const currentBmi = currentVisit ? bmiCalc(currentVisit.weight, currentVisit.patient?.height) : null;
+
+  // اسم الصيدلية المعروض: إذا جاء بدون "صيدلية" نضيفها، وإذا كان فارغاً نضع fallback
+  const displayPharmacyName = pharmacyName
+    ? (pharmacyName.startsWith('صيدلية') ? pharmacyName : `صيدلية ${pharmacyName}`)
+    : 'صيدليتك المعتمدة';
 
   const handlePrintCurrentVisit = async () => {
     if (!currentVisit) return;
@@ -290,18 +308,18 @@ export default function SingleVitalViewPage({ params }: PageProps) {
     const container = document.createElement('div');
     container.setAttribute('dir', 'rtl');
     container.style.cssText =
-      'position: fixed; top: 0; left: 0; width: 700px; background: #fff; font-family: system-ui, -apple-system, sans-serif; padding: 35px; color: #0F172A; line-height: 1.6;';
+      'position: fixed; top: -99999px; left: 0; width: 700px; background: #fff; font-family: system-ui, -apple-system, sans-serif; padding: 35px; color: #0F172A; line-height: 1.6;';
     container.innerHTML = `
       <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0D9488; padding-bottom: 12px; margin-bottom: 20px;">
         <div style="font-size: 22px; font-weight: 900; color: #0F172A;">Vitalix<span style="color: #0D9488;">.ai</span></div>
-        <div style="background: #F0FDFA; border: 1px solid #CCFBF1; color: #0F766E; padding: 6px 14px; border-radius: 10px; font-size: 12px; font-weight: bold;">🏥 ${pharmacyName}</div>
+        <div style="background: #F0FDFA; border: 1px solid #CCFBF1; color: #0F766E; padding: 6px 14px; border-radius: 10px; font-size: 12px; font-weight: bold;">🏥 ${displayPharmacyName}</div>
       </div>
       <div style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 12px 18px; border-radius: 12px; margin-bottom: 20px; font-size: 12px; display: flex; justify-content: space-between; font-weight: bold;">
         <div>المريض: ${patientName}</div>
         <div>تاريخ الفحص: ${visitDate} (${visitTime})</div>
       </div>
       <div style="background: #FFFFFF; border: 1px solid #CBD5E1; padding: 22px; border-radius: 12px; font-family: monospace; white-space: pre-line; font-size: 13px; line-height: 1.8;">${currentVisit.ai_report_output}</div>
-      <div style="margin-top: 35px; border-top: 1px solid #E2E8F0; padding-top: 12px; text-align: center; font-size: 11px; color: #64748B;">تم توثيق وصدور هذا التقرير آلياً عبر منصة Vitalix.ai لصالح (${pharmacyName})</div>
+      <div style="margin-top: 35px; border-top: 1px solid #E2E8F0; padding-top: 12px; text-align: center; font-size: 11px; color: #64748B;">تم توثيق وصدور هذا التقرير آلياً عبر منصة Vitalix.ai لصالح (${displayPharmacyName})</div>
     `;
     document.body.appendChild(container);
 
@@ -309,7 +327,7 @@ export default function SingleVitalViewPage({ params }: PageProps) {
       await renderElementToPdf(container, `تقرير-${patientName}.pdf`);
     } catch (err: any) {
       console.error('[PDF] خطأ فعلي أثناء التوليد:', err);
-      alert('حدث خطأ أثناء توليد ملف PDF:\n' + (err?.message || String(err)) + '\n\nيرجى إرسال هذه الرسالة كما هي.');
+      alert('حدث خطأ أثناء توليد ملف PDF:\n' + (err?.message || String(err)));
     } finally {
       document.body.removeChild(container);
       setPdfGenerating(null);
@@ -328,7 +346,7 @@ export default function SingleVitalViewPage({ params }: PageProps) {
       </div>
       <div style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 12px 18px; border-radius: 12px; margin-bottom: 20px; font-size: 12px; display: flex; justify-content: space-between; font-weight: bold;">
         <div>اسم المريض: ${patientName}</div>
-        <div>جهة التوثيق: ${pharmacyName}</div>
+        <div>جهة التوثيق: ${displayPharmacyName}</div>
       </div>
     `;
 
@@ -342,14 +360,14 @@ export default function SingleVitalViewPage({ params }: PageProps) {
       </tr>
     `;
 
-    const footerHtml = `<div style="margin-top: 35px; border-top: 1px solid #E2E8F0; padding-top: 12px; text-align: center; font-size: 11px; color: #64748B;">تم توثيق سجل القراءات السابقة آلياً عبر منصة Vitalix.ai لصالح (${pharmacyName})</div>`;
+    const footerHtml = `<div style="margin-top: 35px; border-top: 1px solid #E2E8F0; padding-top: 12px; text-align: center; font-size: 11px; color: #64748B;">تم توثيق سجل القراءات السابقة آلياً عبر منصة Vitalix.ai لصالح (${displayPharmacyName})</div>`;
 
     try {
       if (allVisits.length === 0) {
         const container = document.createElement('div');
         container.setAttribute('dir', 'rtl');
         container.style.cssText =
-          'position: fixed; top: 0; left: 0; width: 700px; background: #fff; font-family: system-ui, -apple-system, sans-serif; padding: 35px; color: #0F172A;';
+          'position: fixed; top: -99999px; left: 0; width: 700px; background: #fff; font-family: system-ui, -apple-system, sans-serif; padding: 35px; color: #0F172A;';
         container.innerHTML = `
           ${headerHtml}
           <div style="padding: 30px; text-align: center; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; color: #64748B; font-size: 12px;">
@@ -364,7 +382,7 @@ export default function SingleVitalViewPage({ params }: PageProps) {
           document.body.removeChild(container);
         }
       } else {
-        const rowsHtml = allVisits.map((visit) => `
+        const rowsHtml = allVisits.map((visit: VisitationRecord) => `
           <tr style="${visit.id === currentVisit.id ? 'background-color: #F0FDFA;' : ''}">
             <td style="padding: 10px; border: 1px solid #E2E8F0; font-family: monospace;">
               ${formatDate(visit.created_at)} (${formatTime(visit.created_at)})${visit.id === currentVisit.id ? ' — الحالية' : ''}
@@ -388,7 +406,7 @@ export default function SingleVitalViewPage({ params }: PageProps) {
       }
     } catch (err: any) {
       console.error('[PDF] خطأ فعلي أثناء التوليد:', err);
-      alert('حدث خطأ أثناء توليد ملف PDF:\n' + (err?.message || String(err)) + '\n\nيرجى إرسال هذه الرسالة كما هي.');
+      alert('حدث خطأ أثناء توليد ملف PDF:\n' + (err?.message || String(err)));
     } finally {
       setPdfGenerating(null);
     }
@@ -400,8 +418,8 @@ export default function SingleVitalViewPage({ params }: PageProps) {
     const cleanPhone = formattedPhone.startsWith('0') ? '962' + formattedPhone.substring(1) : formattedPhone;
     const patientName = currentVisit?.patient?.name || 'المريض';
 
-    const text = 
-`مرحباً ${pharmacyName} 👋
+    const text =
+`مرحباً ${displayPharmacyName} 👋
 أنا المريض (${patientName})، أود الاستفسار وطلب التوصية الطبية الموضحة في تقريري الطبي:
 📦 الجهاز/المنتج: ${item.brand_name}
 💰 السعر: ${item.price} دينار
@@ -419,219 +437,531 @@ export default function SingleVitalViewPage({ params }: PageProps) {
     window.open(whatsappUrl, '_blank');
   };
 
+  /* ─── شاشة التحميل ─── */
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center text-slate-500 font-sans p-4" dir="rtl">
-        <div className="w-10 h-10 border-4 border-slate-200 border-t-teal-600 rounded-full animate-spin mb-4"></div>
-        <p className="text-sm font-medium">جاري تحميل السجل الطبي الموثق...</p>
+      <div
+        className="min-h-screen flex flex-col items-center justify-center gap-4 p-4"
+        dir="rtl"
+        style={{ background: '#f8fafc', fontFamily: "'IBM Plex Sans Arabic', sans-serif" }}
+      >
+        <div
+          className="w-12 h-12 rounded-full border-4 animate-spin"
+          style={{ borderColor: '#e2e8f0', borderTopColor: '#0d9488' }}
+        />
+        <p style={{ color: '#64748b', fontSize: 14, fontWeight: 600 }}>جاري تحميل السجل الطبي الموثق...</p>
       </div>
     );
   }
 
+  /* ─── شاشة الخطأ ─── */
   if (errorMsg || !currentVisit) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans" dir="rtl">
-        <div className="bg-white border border-slate-200 p-8 rounded-3xl max-w-md w-full text-center space-y-4 shadow-sm">
-          <div className="text-5xl">⚠️</div>
-          <h2 className="text-lg font-bold text-slate-800">تعذر عرض التقرير</h2>
-          <p className="text-sm text-slate-500">{errorMsg || 'التقرير المطلوب غير موجود'}</p>
+      <div
+        className="min-h-screen flex items-center justify-center p-4"
+        dir="rtl"
+        style={{ background: '#f8fafc', fontFamily: "'IBM Plex Sans Arabic', sans-serif" }}
+      >
+        <div
+          className="w-full max-w-sm text-center space-y-4 p-8"
+          style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 20, boxShadow: '0 4px 20px rgba(0,0,0,0.06)' }}
+        >
+          <div style={{ fontSize: 48 }}>⚠️</div>
+          <h2 style={{ fontSize: 17, fontWeight: 700, color: '#0f172a' }}>تعذر عرض التقرير</h2>
+          <p style={{ fontSize: 13, color: '#64748b', lineHeight: 1.6 }}>{errorMsg || 'التقرير المطلوب غير موجود'}</p>
         </div>
       </div>
     );
   }
 
+  /* ─── الصفحة الرئيسية ─── */
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans antialiased pb-16" dir="rtl">
-      <style jsx global>{`
-        @keyframes saasSlideUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    <div
+      dir="rtl"
+      style={{
+        minHeight: '100vh',
+        background: '#f8fafc',
+        fontFamily: "'IBM Plex Sans Arabic', sans-serif",
+        color: '#0f172a',
+        paddingBottom: 64,
+      }}
+    >
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap');
+
+        @keyframes saasSlideUp {
+          from { opacity: 0; transform: translateY(16px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes pulseDot {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50%       { opacity: 0.5; transform: scale(1.4); }
+        }
         .slide-up { animation: saasSlideUp 0.25s ease both; }
+        .pulse-dot { animation: pulseDot 2s ease-in-out infinite; }
+
+        /* ─── هيدر جرادييت ─── */
+        .page-header {
+          background: linear-gradient(135deg, #0f172a 0%, #115e59 100%);
+          position: relative;
+          overflow: hidden;
+        }
+        .page-header::before {
+          content: '';
+          position: absolute;
+          width: 280px; height: 280px;
+          border-radius: 50%;
+          background: rgba(255,255,255,0.04);
+          top: -80px; right: -80px;
+          pointer-events: none;
+        }
+        .page-header::after {
+          content: '';
+          position: absolute;
+          width: 180px; height: 180px;
+          border-radius: 50%;
+          background: rgba(255,255,255,0.03);
+          bottom: -60px; left: -40px;
+          pointer-events: none;
+        }
+
+        /* ─── section title ─── */
+        .section-title {
+          font-size: 13px;
+          font-weight: 600;
+          color: #0d9488;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+        .section-title::after {
+          content: '';
+          flex: 1;
+          height: 1px;
+          background: #e2e8f0;
+        }
+
+        /* ─── status chip ─── */
+        .chip {
+          display: inline-block;
+          border-radius: 20px;
+          padding: 3px 12px;
+          font-size: 11px;
+          font-weight: 600;
+        }
+
+        /* ─── card ─── */
+        .vcard {
+          background: #fff;
+          border: 1px solid #e2e8f0;
+          border-radius: 20px;
+          transition: box-shadow 0.2s ease;
+        }
+        .vcard:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.06); }
+
+        /* ─── تحسينات الجدول للموبايل ─── */
+        @media (max-width: 640px) {
+          .history-table thead { display: none; }
+          .history-table tbody tr {
+            display: block;
+            border: 1px solid #e2e8f0;
+            border-radius: 16px;
+            margin-bottom: 12px;
+            padding: 14px;
+            background: #fff;
+          }
+          .history-table tbody td {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 0;
+            border: none;
+            font-size: 13px;
+          }
+          .history-table tbody td::before {
+            content: attr(data-label);
+            font-weight: 600;
+            color: #64748b;
+            font-size: 11px;
+            flex-shrink: 0;
+            margin-left: 8px;
+          }
+        }
+
+        /* ─── pdf overlay ─── */
+        .pdf-overlay {
+          position: fixed; inset: 0;
+          background: rgba(255,255,255,0.92);
+          backdrop-filter: blur(6px);
+          z-index: 9999;
+          display: flex; flex-direction: column;
+          align-items: center; justify-content: center;
+          gap: 16px;
+        }
+
+        /* ─── btn primary ─── */
+        .btn-primary {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          padding: 10px 20px;
+          background: #0f172a;
+          color: #fff;
+          border: none;
+          border-radius: 12px;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: background 0.15s, transform 0.1s;
+          font-family: inherit;
+          white-space: nowrap;
+        }
+        .btn-primary:hover { background: #1e293b; }
+        .btn-primary:active { transform: scale(0.97); }
+        .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
+
+        .btn-whatsapp {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          width: 100%;
+          padding: 12px;
+          background: #16a34a;
+          color: #fff;
+          border: none;
+          border-radius: 12px;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: background 0.15s, transform 0.1s;
+          font-family: inherit;
+          margin-top: 16px;
+        }
+        .btn-whatsapp:hover { background: #15803d; }
+        .btn-whatsapp:active { transform: scale(0.97); }
       `}</style>
 
-      {/* طبقة تحميل PDF */}
+      {/* ─── PDF overlay ─── */}
       {pdfGenerating && (
-        <div className="fixed inset-0 bg-white/90 backdrop-blur-sm z-[9999] flex flex-col items-center justify-center gap-4">
-          <div className="w-12 h-12 border-4 border-slate-200 border-t-teal-600 rounded-full animate-spin"></div>
-          <p className="text-sm font-bold text-slate-700">جاري تحضير ملف PDF احترافي...</p>
+        <div className="pdf-overlay">
+          <div
+            className="w-12 h-12 rounded-full border-4 animate-spin"
+            style={{ borderColor: '#e2e8f0', borderTopColor: '#0d9488' }}
+          />
+          <p style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>جاري تحضير ملف PDF...</p>
         </div>
       )}
 
-      {/* الهيدر العلوي */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-30 px-6 py-4 shadow-sm">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-[#0F172A] flex items-center justify-center shadow-sm border border-slate-800 shrink-0">
-              <svg 
-                className="w-5 h-5 text-white" 
-                viewBox="0 0 32 32" 
-                fill="none" 
-                xmlns="http://www.w3.org/2000/svg"
+      {/* ══════════════════════════════════════════════
+          HEADER — gradient داكن مع دوائر زخرفية
+      ══════════════════════════════════════════════ */}
+      <header className="page-header">
+        <div
+          style={{
+            maxWidth: 860,
+            margin: '0 auto',
+            padding: '28px 20px 32px',
+            position: 'relative',
+            zIndex: 1,
+          }}
+        >
+          {/* شعار + اسم الصيدلية */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+            {/* الشعار */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div
+                style={{
+                  width: 44, height: 44,
+                  borderRadius: 12,
+                  background: 'rgba(255,255,255,0.1)',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  flexShrink: 0,
+                }}
               >
-                <path d="M6 8L14.5 25C14.8 25.6 15.6 25.6 15.9 25L20 17" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" />
-                <path d="M24 6C24 9.3 26.7 12 30 12C26.7 12 24 14.7 24 18C24 14.7 21.3 12 18 12C21.3 12 24 9.3 24 6Z" fill="#0D9488" />
-              </svg>
+                <svg width="22" height="22" viewBox="0 0 32 32" fill="none">
+                  <path d="M6 8L14.5 25C14.8 25.6 15.6 25.6 15.9 25L20 17" stroke="white" strokeWidth="3.5" strokeLinecap="round" />
+                  <path d="M24 6C24 9.3 26.7 12 30 12C26.7 12 24 14.7 24 18C24 14.7 21.3 12 18 12C21.3 12 24 9.3 24 6Z" fill="#0D9488" />
+                </svg>
+              </div>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontWeight: 700, fontSize: 20, color: '#fff', letterSpacing: '-0.3px' }}>
+                    Vitalix<span style={{ color: '#2dd4bf' }}>.ai</span>
+                  </span>
+                  <span
+                    className="pulse-dot"
+                    style={{ width: 7, height: 7, borderRadius: '50%', background: '#2dd4bf', display: 'inline-block' }}
+                  />
+                </div>
+                <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', marginTop: 2 }}>صحتك.. متابعة باستمرار</p>
+              </div>
             </div>
-            <div>
-              <span className="font-bold text-lg tracking-tight text-slate-900 font-brand">
-                Vitalix<span className="text-teal-600">.ai</span>
-              </span>
-              <p className="text-[10px] text-slate-500 font-medium -mt-1">صحتك.. متابعة باستمرار</p>
+
+            {/* اسم الصيدلية — pill */}
+            <div
+              style={{
+                background: 'rgba(255,255,255,0.1)',
+                border: '1px solid rgba(255,255,255,0.2)',
+                borderRadius: 20,
+                padding: '6px 14px',
+                fontSize: 12,
+                fontWeight: 600,
+                color: '#fff',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+              }}
+            >
+              <span>🏥</span>
+              <span>{displayPharmacyName}</span>
             </div>
           </div>
 
-          <div className="bg-slate-50 border border-slate-200 text-slate-700 px-4 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-2 shadow-sm">
-            <span>🏥</span>
-            <span>{pharmacyName}</span>
+          {/* بيانات المريض داخل الهيدر */}
+          <div style={{ marginTop: 28 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+              {/* أفاتار المريض */}
+              <div
+                style={{
+                  width: 52, height: 52,
+                  borderRadius: 14,
+                  background: 'rgba(255,255,255,0.15)',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 22, fontWeight: 900, color: '#fff',
+                  flexShrink: 0,
+                }}
+              >
+                {(currentVisit.patient?.name || 'م').trim().charAt(0)}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <h1 style={{ fontSize: 20, fontWeight: 700, color: '#fff', margin: 0 }}>
+                  {currentVisit.patient?.name || 'المريض'}
+                </h1>
+                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginTop: 4 }}>
+                  📅 {formatDate(currentVisit.created_at)} &nbsp;⏰ {formatTime(currentVisit.created_at)}
+                </p>
+              </div>
+              {/* status chip في الهيدر */}
+              {currentStatus && (
+                <span
+                  className="chip"
+                  style={{ background: currentStatus.chipBg, color: currentStatus.chipColor, flexShrink: 0 }}
+                >
+                  {currentStatus.label}
+                </span>
+              )}
+            </div>
+
+            {/* قراءات مختصرة كـ pills */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 16 }}>
+              {currentVisit.bp_systolic != null && currentVisit.bp_diastolic != null && (
+                <span
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    background: 'rgba(255,255,255,0.12)',
+                    border: '1px solid rgba(255,255,255,0.2)',
+                    borderRadius: 20, padding: '5px 12px',
+                    fontSize: 12, fontWeight: 600, color: '#fff',
+                  }}
+                >
+                  ❤️ {currentVisit.bp_systolic}/{currentVisit.bp_diastolic}
+                  <span style={{ fontSize: 10, opacity: 0.7 }}>mmHg</span>
+                </span>
+              )}
+              {currentVisit.sugar_value != null && (
+                <span
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    background: 'rgba(255,255,255,0.12)',
+                    border: '1px solid rgba(255,255,255,0.2)',
+                    borderRadius: 20, padding: '5px 12px',
+                    fontSize: 12, fontWeight: 600, color: '#fff',
+                  }}
+                >
+                  🩸 {currentVisit.sugar_value}
+                  <span style={{ fontSize: 10, opacity: 0.7 }}>({sugarTypeLabel(currentVisit.sugar_test_type)})</span>
+                </span>
+              )}
+              {currentVisit.weight != null && (
+                <span
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    background: 'rgba(255,255,255,0.12)',
+                    border: '1px solid rgba(255,255,255,0.2)',
+                    borderRadius: 20, padding: '5px 12px',
+                    fontSize: 12, fontWeight: 600, color: '#fff',
+                  }}
+                >
+                  ⚖️ {currentVisit.weight} kg
+                  {currentBmi && <span style={{ fontSize: 10, opacity: 0.7 }}>BMI {currentBmi}</span>}
+                </span>
+              )}
+              {currentVisit.symptoms && currentVisit.symptoms.map((s, i) => (
+                <span
+                  key={i}
+                  style={{
+                    background: 'rgba(255,255,255,0.08)',
+                    border: '1px solid rgba(255,255,255,0.15)',
+                    borderRadius: 20, padding: '5px 12px',
+                    fontSize: 12, color: 'rgba(255,255,255,0.8)',
+                  }}
+                >
+                  {s}
+                </span>
+              ))}
+            </div>
           </div>
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 pt-8 space-y-6 slide-up">
+      {/* ══════════════════════════════════════════════
+          MAIN CONTENT
+      ══════════════════════════════════════════════ */}
+      <main
+        className="slide-up"
+        style={{ maxWidth: 860, margin: '0 auto', padding: '28px 16px', display: 'flex', flexDirection: 'column', gap: 20 }}
+      >
 
-        {/* 0. هوية المريض وملخّص القياسات الحالية */}
-        <section className="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden">
-          <div className="p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center justify-between gap-5">
-            <div className="flex items-center gap-4 min-w-0">
-              <div className="w-14 h-14 rounded-2xl bg-slate-900 text-white flex items-center justify-center text-xl font-black shrink-0">
-                {(currentVisit.patient?.name || 'م').trim().charAt(0)}
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-lg font-bold text-slate-900 truncate">{currentVisit.patient?.name || 'المريض'}</h1>
-                <p className="text-xs text-slate-500 mt-1 tabular-nums">
-                  📅 {formatDate(currentVisit.created_at)} — ⏰ {formatTime(currentVisit.created_at)}
-                </p>
-              </div>
-            </div>
-
-            {currentStatus && (
-              <div className={`flex items-center gap-2 px-4 py-2 rounded-xl border shrink-0 ${currentStatus.bg} ${currentStatus.border}`}>
-                <span className={`w-2 h-2 rounded-full ${currentStatus.dot}`} />
-                <span className={`text-xs font-bold ${currentStatus.text}`}>{currentStatus.label}</span>
-              </div>
-            )}
+        {/* ─── 1. التقرير الطبي ─── */}
+        <section className="vcard" style={{ padding: '24px 24px 28px' }}>
+          {/* section title */}
+          <div style={{ marginBottom: 20 }}>
+            <p className="section-title">🩺 التقرير الطبي للفحص الحالي</p>
           </div>
 
-          <div className="px-6 sm:px-8 pb-6 flex flex-wrap gap-2.5">
-            {currentVisit.bp_systolic != null && currentVisit.bp_diastolic != null && (
-              <span className="flex items-center gap-1.5 text-xs font-bold text-blue-700 bg-blue-50 border border-blue-100 px-3 py-1.5 rounded-xl">
-                <IconHeart className="w-3.5 h-3.5" />
-                {currentVisit.bp_systolic} / {currentVisit.bp_diastolic}
-                <span className="text-[10px] font-normal opacity-70">mmHg</span>
-              </span>
-            )}
-            {currentVisit.sugar_value != null && (
-              <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 px-3 py-1.5 rounded-xl">
-                <IconDroplet className="w-3.5 h-3.5" />
-                {currentVisit.sugar_value}
-                <span className="text-[10px] font-normal opacity-70">({sugarTypeLabel(currentVisit.sugar_test_type)})</span>
-              </span>
-            )}
-            {currentVisit.weight != null && (
-              <span className="flex items-center gap-1.5 text-xs font-bold text-purple-700 bg-purple-50 border border-purple-100 px-3 py-1.5 rounded-xl">
-                <IconScale className="w-3.5 h-3.5" />
-                {currentVisit.weight} kg
-                {currentBmi && <span className="text-[10px] font-normal opacity-70">BMI {currentBmi}</span>}
-              </span>
-            )}
-            {currentVisit.symptoms && currentVisit.symptoms.length > 0 && currentVisit.symptoms.map((s, i) => (
-              <span key={i} className="text-xs font-bold text-slate-600 bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-xl">
-                {s}
-              </span>
-            ))}
-          </div>
-        </section>
-
-        {/* 1. كارت التقرير الطبي للفحص الحالي */}
-        <section className="bg-white border border-slate-200 p-6 sm:p-8 rounded-3xl shadow-sm space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
-            <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <span>🩺 التقرير الطبي للفحص الحالي</span>
-            </h2>
-
+          {/* زر التنزيل */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
             <button
+              className="btn-primary"
               onClick={handlePrintCurrentVisit}
               disabled={pdfGenerating !== null}
-              className="px-5 py-2.5 bg-gradient-to-l from-slate-900 to-teal-800 hover:from-slate-800 hover:to-teal-700 disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-xl text-sm font-medium transition-all shadow-sm cursor-pointer flex items-center justify-center gap-2 active:scale-95"
             >
-              <span>📄</span>
-              <span>{pdfGenerating === 'report' ? 'جاري التحضير...' : 'تنزيل التقرير (PDF)'}</span>
+              <IconDownload className="w-4 h-4" />
+              {pdfGenerating === 'report' ? 'جاري التحضير...' : 'تنزيل التقرير (PDF)'}
             </button>
           </div>
 
-          <div className="p-6 bg-slate-50/80 rounded-2xl border border-slate-200 text-sm text-slate-700 leading-loose shadow-sm">
+          {/* نص التقرير */}
+          <div
+            style={{
+              background: '#f8fafc',
+              border: '1px solid #e2e8f0',
+              borderRadius: 14,
+              padding: '20px 22px',
+              fontSize: 14,
+              color: '#334155',
+              lineHeight: 1.9,
+              whiteSpace: 'pre-line',
+            }}
+          >
             {currentVisit.ai_report_output}
           </div>
         </section>
 
-        {/* 2. كارت التوصيات الذكية */}
+        {/* ─── 2. التوصيات الذكية ─── */}
         {recommendations.length > 0 && (
-          <section className="bg-white border border-slate-200 p-6 sm:p-8 rounded-3xl shadow-sm space-y-6 no-print">
-            <div className="border-b border-slate-100 pb-5">
-              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <span className="text-teal-600">💡</span>
-                <span>توصية صيدلانية لمتابعة حالتك الصحية من المنزل</span>
-              </h3>
-              <p className="text-xs text-slate-500 mt-1">
-                بناءً على قراءاتك الحالية، يوصي فريق ({pharmacyName}) بالخيارات التالية للمتابعة:
-              </p>
+          <section className="vcard" style={{ padding: '24px 24px 28px' }}>
+            <div style={{ marginBottom: 6 }}>
+              <p className="section-title">💡 توصية صيدلانية لمتابعة حالتك</p>
             </div>
+            <p style={{ fontSize: 12, color: '#64748b', marginBottom: 20, lineHeight: 1.6 }}>
+              بناءً على قراءاتك الحالية، يوصي فريق ({displayPharmacyName}) بالخيارات التالية:
+            </p>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 280px), 1fr))',
+                gap: 16,
+              }}
+            >
               {recommendations.map((item) => {
                 const isWeightLoss = item.category === 'weight_loss_med';
-
                 return (
-                  <div 
-                    key={item.id} 
-                    className="bg-slate-50 border border-slate-200 rounded-3xl p-5 flex flex-col justify-between shadow-sm hover:shadow-md transition-all duration-300"
+                  <div
+                    key={item.id}
+                    style={{
+                      background: '#f8fafc',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: 16,
+                      padding: 18,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                    }}
                   >
-                    <div className="space-y-4">
+                    {/* صورة / أيقونة + اسم + سعر */}
+                    <div
+                      style={{
+                        display: 'flex',
+                        gap: 12,
+                        alignItems: 'center',
+                        background: '#fff',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: 12,
+                        padding: '12px 14px',
+                        marginBottom: 12,
+                      }}
+                    >
                       {isWeightLoss ? (
-                        <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-                          <div className="flex items-center gap-3">
-                            <span className="text-2xl">⚖️</span>
-                            <div>
-                              <span className="text-sm font-bold text-slate-900 block">{item.brand_name}</span>
-                              <span className="text-xs text-slate-500 font-medium">إدارة الوزن والآيض المعتمد</span>
-                            </div>
-                          </div>
-                          <span className="text-sm font-bold text-slate-900 tabular-nums bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200">
-                            {item.price} JOD
-                          </span>
-                        </div>
+                        <span style={{ fontSize: 28, flexShrink: 0 }}>⚖️</span>
+                      ) : item.image_url ? (
+                        <img
+                          src={item.image_url}
+                          alt={item.brand_name}
+                          style={{ width: 54, height: 54, objectFit: 'cover', borderRadius: 10, flexShrink: 0, border: '1px solid #e2e8f0' }}
+                        />
                       ) : (
-                        <div className="flex gap-4 items-center bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-                          {item.image_url ? (
-                            <img 
-                              src={item.image_url} 
-                              alt={item.brand_name} 
-                              className="w-16 h-16 object-cover rounded-xl border border-slate-100 shrink-0" 
-                            />
-                          ) : (
-                            <div className="w-16 h-16 bg-slate-100 text-slate-400 rounded-xl flex items-center justify-center font-bold text-2xl shrink-0">
-                              🩺
-                            </div>
-                          )}
-                          <div className="space-y-2 flex-1">
-                            <span className="text-sm font-bold text-slate-900 block">{item.brand_name}</span>
-                            <span className="inline-block text-xs font-bold text-slate-800 tabular-nums bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200">
-                              {item.price} JOD
-                            </span>
-                          </div>
+                        <div
+                          style={{
+                            width: 54, height: 54, background: '#f1f5f9',
+                            borderRadius: 10, display: 'flex', alignItems: 'center',
+                            justifyContent: 'center', fontSize: 22, flexShrink: 0,
+                          }}
+                        >
+                          🩺
                         </div>
                       )}
-
-                      <p className="text-xs text-slate-600 leading-relaxed font-sans px-1">
-                        {item.ai_pitch_prompt}
-                      </p>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontWeight: 700, fontSize: 14, color: '#0f172a', margin: 0, lineHeight: 1.3 }}>
+                          {item.brand_name}
+                        </p>
+                        <span
+                          style={{
+                            display: 'inline-block',
+                            marginTop: 6,
+                            background: '#f0fdfa',
+                            border: '1px solid #ccfbf1',
+                            color: '#0f766e',
+                            borderRadius: 8,
+                            padding: '2px 10px',
+                            fontSize: 12,
+                            fontWeight: 700,
+                          }}
+                        >
+                          {item.price} JOD
+                        </span>
+                      </div>
                     </div>
 
+                    {/* النص التسويقي */}
+                    <p style={{ fontSize: 12, color: '#64748b', lineHeight: 1.7, marginBottom: 0 }}>
+                      {item.ai_pitch_prompt}
+                    </p>
+
+                    {/* زر واتساب */}
                     <button
-                      type="button"
+                      className="btn-whatsapp"
                       onClick={() => handleOrderRecommendation(item)}
-                      className="mt-6 w-full py-3 bg-gradient-to-l from-slate-900 to-teal-800 hover:from-slate-800 hover:to-teal-700 text-white rounded-xl text-sm font-medium transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer active:scale-95"
                     >
-                      <span>💬</span>
-                      <span>طلب الجهاز عبر WhatsApp</span>
+                      <IconWhatsapp className="w-4 h-4" />
+                      طلب عبر WhatsApp
                     </button>
                   </div>
                 );
@@ -640,119 +970,196 @@ export default function SingleVitalViewPage({ params }: PageProps) {
           </section>
         )}
 
-        {/* 3. سجل القراءات الكاملة للطبيب المعالج (تشمل الزيارة الحالية) */}
-        <section className="bg-white border border-slate-200 p-6 sm:p-8 rounded-3xl shadow-sm space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
-            <div>
-              <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <span>📈 سجل القراءات الكاملة للطبيب المعالج</span>
-              </h2>
-              <p className="text-xs text-slate-500 mt-1">مرتب تسلسلياً حسب الخط الزمني، ويشمل الزيارة الحالية</p>
-            </div>
+        {/* ─── 3. سجل القراءات الكاملة ─── */}
+        <section className="vcard" style={{ padding: '24px 24px 28px' }}>
+          <div style={{ marginBottom: 6 }}>
+            <p className="section-title">📈 سجل القراءات الكاملة للطبيب المعالج</p>
+          </div>
 
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: 12,
+              marginBottom: 20,
+            }}
+          >
+            <p style={{ fontSize: 12, color: '#64748b', margin: 0 }}>
+              مرتب تسلسلياً حسب الخط الزمني، ويشمل الزيارة الحالية
+            </p>
             <button
+              className="btn-primary"
               onClick={handlePrintDoctorHistory}
               disabled={pdfGenerating !== null}
-              className="px-5 py-2.5 bg-gradient-to-l from-slate-900 to-teal-800 hover:from-slate-800 hover:to-teal-700 disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-xl text-sm font-medium transition-all shadow-sm cursor-pointer flex items-center justify-center gap-2 active:scale-95"
             >
-              <span>👨‍⚕️</span>
-              <span>{pdfGenerating === 'history' ? 'جاري التحضير...' : 'تنزيل تقرير الطبيب (PDF)'}</span>
+              <IconDownload className="w-4 h-4" />
+              {pdfGenerating === 'history' ? 'جاري التحضير...' : 'تنزيل تقرير الطبيب (PDF)'}
             </button>
           </div>
 
           {allVisits.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-right border-collapse text-sm">
-                <thead>
-                  <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
-                    <th className="p-4 font-semibold rounded-r-2xl">التاريخ والوقت</th>
-                    <th className="p-4 font-semibold">ضغط الدم</th>
-                    <th className="p-4 font-semibold">السكري</th>
-                    <th className="p-4 font-semibold">الوزن</th>
-                    <th className="p-4 font-semibold rounded-l-2xl">الأعراض الملاحظة</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {allVisits.map((visit) => {
-                    const isCurrent = visit.id === currentVisit.id;
-                    return (
-                      <tr
-                        key={visit.id}
-                        className={`transition-colors text-slate-700 ${isCurrent ? 'bg-teal-50/60 hover:bg-teal-50' : 'hover:bg-slate-50/50'}`}
-                      >
-                        <td className="p-4 tabular-nums">
-                          <div className="flex items-center gap-2">
-                            <div>
-                              {formatDate(visit.created_at)}
-                              <span className="text-[11px] text-slate-400 block mt-0.5">
-                                {formatTime(visit.created_at)}
-                              </span>
-                            </div>
-                            {isCurrent && (
-                              <span className="text-[9px] font-bold text-teal-700 bg-teal-100 border border-teal-200 px-2 py-0.5 rounded-md shrink-0">
-                                الحالية
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="p-4 tabular-nums">
-                          {visit.bp_systolic && visit.bp_diastolic ? (
-                            <span className={`inline-flex items-center px-3 py-1 rounded-xl text-sm font-semibold ${visit.bp_systolic >= 140 || visit.bp_diastolic >= 90 ? 'bg-rose-50 text-rose-700 border border-rose-100' : 'bg-blue-50 text-blue-700 border border-blue-100'}`}>
-                              {visit.bp_systolic} / {visit.bp_diastolic}
-                              <span className="text-[10px] ml-1 opacity-70">mmHg</span>
-                            </span>
-                          ) : (
-                            <span className="text-slate-300">-</span>
-                          )}
-                        </td>
-                        <td className="p-4 tabular-nums">
-                          {visit.sugar_value ? (
-                            <span className={`inline-flex items-center px-3 py-1 rounded-xl text-sm font-semibold ${visit.sugar_value >= 180 ? 'bg-amber-50 text-amber-700 border border-amber-100' : 'bg-emerald-50 text-emerald-700 border border-emerald-100'}`}>
-                              {visit.sugar_value}
-                              <span className="text-[10px] ml-1 opacity-70">({sugarTypeLabel(visit.sugar_test_type)})</span>
-                            </span>
-                          ) : (
-                            <span className="text-slate-300">-</span>
-                          )}
-                        </td>
-                        <td className="p-4 tabular-nums">
-                          {visit.weight ? (
-                            <span className="inline-flex items-center px-3 py-1 rounded-xl text-sm font-semibold bg-purple-50 text-purple-700 border border-purple-100">
-                              {visit.weight}
-                              <span className="text-[10px] ml-1 opacity-70">kg</span>
-                            </span>
-                          ) : (
-                            <span className="text-slate-300">-</span>
-                          )}
-                        </td>
-                        <td className="p-4">
-                          {visit.symptoms && visit.symptoms.length > 0 ? (
-                            <div className="flex flex-wrap gap-1.5">
-                              {visit.symptoms.map((s, i) => (
-                                <span key={i} className="bg-slate-100 border border-slate-200 text-slate-600 px-2.5 py-1 rounded-lg text-xs font-medium">
-                                  {s}
+            <>
+              {/* ─ جدول عادي على الشاشات الكبيرة ─ */}
+              <div style={{ overflowX: 'auto' }}>
+                <table
+                  className="history-table"
+                  style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, textAlign: 'right' }}
+                >
+                  <thead>
+                    <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                      {['التاريخ والوقت', 'ضغط الدم', 'السكري', 'الوزن', 'الأعراض'].map((h) => (
+                        <th
+                          key={h}
+                          style={{ padding: '12px 14px', fontWeight: 600, color: '#64748b', fontSize: 12 }}
+                        >
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {allVisits.map((visit) => {
+                      const isCurrent = visit.id === currentVisit.id;
+                      return (
+                        <tr
+                          key={visit.id}
+                          style={{
+                            background: isCurrent ? '#f0fdfa' : 'transparent',
+                            borderBottom: '1px solid #f1f5f9',
+                            transition: 'background 0.15s',
+                          }}
+                        >
+                          {/* التاريخ */}
+                          <td
+                            data-label="التاريخ"
+                            style={{ padding: '12px 14px', color: '#334155', verticalAlign: 'middle' }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                              <div>
+                                <span style={{ fontWeight: 600 }}>{formatDate(visit.created_at)}</span>
+                                <span style={{ display: 'block', fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
+                                  {formatTime(visit.created_at)}
                                 </span>
-                              ))}
+                              </div>
+                              {isCurrent && (
+                                <span
+                                  className="chip"
+                                  style={{ background: '#ccfbf1', color: '#0f766e', fontSize: 10, padding: '2px 8px' }}
+                                >
+                                  الحالية
+                                </span>
+                              )}
                             </div>
-                          ) : (
-                            <span className="text-slate-400 text-xs">لا يوجد أعراض</span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                          </td>
+
+                          {/* ضغط الدم */}
+                          <td data-label="ضغط الدم" style={{ padding: '12px 14px', verticalAlign: 'middle' }}>
+                            {visit.bp_systolic && visit.bp_diastolic ? (
+                              <span
+                                className="chip"
+                                style={
+                                  visit.bp_systolic >= 140 || visit.bp_diastolic >= 90
+                                    ? { background: '#fee2e2', color: '#991b1b' }
+                                    : { background: '#eff6ff', color: '#1d4ed8' }
+                                }
+                              >
+                                {visit.bp_systolic}/{visit.bp_diastolic}
+                                <span style={{ fontSize: 9, opacity: 0.7, marginRight: 3 }}>mmHg</span>
+                              </span>
+                            ) : (
+                              <span style={{ color: '#cbd5e1' }}>—</span>
+                            )}
+                          </td>
+
+                          {/* السكري */}
+                          <td data-label="السكري" style={{ padding: '12px 14px', verticalAlign: 'middle' }}>
+                            {visit.sugar_value ? (
+                              <span
+                                className="chip"
+                                style={
+                                  visit.sugar_value >= 180
+                                    ? { background: '#fef3c7', color: '#92400e' }
+                                    : { background: '#d1fae5', color: '#065f46' }
+                                }
+                              >
+                                {visit.sugar_value}
+                                <span style={{ fontSize: 9, opacity: 0.7, marginRight: 3 }}>
+                                  ({sugarTypeLabel(visit.sugar_test_type)})
+                                </span>
+                              </span>
+                            ) : (
+                              <span style={{ color: '#cbd5e1' }}>—</span>
+                            )}
+                          </td>
+
+                          {/* الوزن */}
+                          <td data-label="الوزن" style={{ padding: '12px 14px', verticalAlign: 'middle' }}>
+                            {visit.weight ? (
+                              <span className="chip" style={{ background: '#f3e8ff', color: '#6b21a8' }}>
+                                {visit.weight}
+                                <span style={{ fontSize: 9, opacity: 0.7, marginRight: 3 }}>kg</span>
+                              </span>
+                            ) : (
+                              <span style={{ color: '#cbd5e1' }}>—</span>
+                            )}
+                          </td>
+
+                          {/* الأعراض */}
+                          <td data-label="الأعراض" style={{ padding: '12px 14px', verticalAlign: 'middle' }}>
+                            {visit.symptoms && visit.symptoms.length > 0 ? (
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                                {visit.symptoms.map((s, i) => (
+                                  <span
+                                    key={i}
+                                    style={{
+                                      background: '#f1f5f9',
+                                      border: '1px solid #e2e8f0',
+                                      color: '#475569',
+                                      borderRadius: 8,
+                                      padding: '2px 8px',
+                                      fontSize: 11,
+                                      fontWeight: 500,
+                                    }}
+                                  >
+                                    {s}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <span style={{ fontSize: 12, color: '#94a3b8' }}>لا يوجد أعراض</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
           ) : (
-            <div className="p-8 text-center text-slate-400 text-sm bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+            <div
+              style={{
+                padding: '36px 20px',
+                textAlign: 'center',
+                background: '#f8fafc',
+                border: '1px dashed #e2e8f0',
+                borderRadius: 14,
+                color: '#94a3b8',
+                fontSize: 13,
+              }}
+            >
               لا توجد قراءات موثقة لهذا المريض حتى الآن.
             </div>
           )}
         </section>
 
-        <footer className="text-center text-xs text-slate-400 pt-4 pb-8">
-          تم توثيق الفحص وسجل القراءات آلياً عبر منصة Vitalix.ai لصالح ({pharmacyName})
+        {/* ─── Footer ─── */}
+        <footer style={{ textAlign: 'center', fontSize: 12, color: '#94a3b8', paddingTop: 8, paddingBottom: 24 }}>
+          تم توثيق الفحص وسجل القراءات آلياً عبر منصة{' '}
+          <span style={{ color: '#0d9488', fontWeight: 600 }}>Vitalix.ai</span>{' '}
+          لصالح ({displayPharmacyName})
         </footer>
       </main>
     </div>

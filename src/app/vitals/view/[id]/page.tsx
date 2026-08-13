@@ -657,166 +657,156 @@ export default function SingleVitalViewPage({ params }: PageProps) {
       )}
 
       {/* ══════════════════════════════════════════════
-          HEADER — gradient داكن مع دوائر زخرفية
+          HEADER — gradient مع هيكل واضح الأولويات
       ══════════════════════════════════════════════ */}
       <header className="page-header">
-        <div
-          style={{
-            maxWidth: 860,
-            margin: '0 auto',
-            padding: '28px 20px 32px',
-            position: 'relative',
-            zIndex: 1,
-          }}
-        >
-          {/* شعار + اسم الصيدلية */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-            {/* الشعار */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div
-                style={{
-                  width: 44, height: 44,
-                  borderRadius: 12,
-                  background: 'rgba(255,255,255,0.1)',
-                  border: '1px solid rgba(255,255,255,0.2)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  flexShrink: 0,
-                }}
-              >
-                <svg width="22" height="22" viewBox="0 0 32 32" fill="none">
-                  <path d="M6 8L14.5 25C14.8 25.6 15.6 25.6 15.9 25L20 17" stroke="white" strokeWidth="3.5" strokeLinecap="round" />
-                  <path d="M24 6C24 9.3 26.7 12 30 12C26.7 12 24 14.7 24 18C24 14.7 21.3 12 18 12C21.3 12 24 9.3 24 6Z" fill="#0D9488" />
-                </svg>
-              </div>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontWeight: 700, fontSize: 20, color: '#fff', letterSpacing: '-0.3px' }}>
-                    Vitalix<span style={{ color: '#2dd4bf' }}>.ai</span>
-                  </span>
-                  <span
-                    className="pulse-dot"
-                    style={{ width: 7, height: 7, borderRadius: '50%', background: '#2dd4bf', display: 'inline-block' }}
-                  />
-                </div>
-                <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', marginTop: 2 }}>صحتك.. متابعة باستمرار</p>
-              </div>
-            </div>
+        <div style={{ maxWidth: 860, margin: '0 auto', padding: '0 16px', position: 'relative', zIndex: 1 }}>
 
-            {/* اسم الصيدلية — pill */}
-            <div
-              style={{
-                background: 'rgba(255,255,255,0.1)',
-                border: '1px solid rgba(255,255,255,0.2)',
-                borderRadius: 20,
-                padding: '6px 14px',
-                fontSize: 12,
-                fontWeight: 600,
-                color: '#fff',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-              }}
-            >
-              <span>🏥</span>
-              <span>{displayPharmacyName}</span>
+          {/* ── شريط علوي: لوجو صغير فقط ── */}
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '16px 0 12px',
+            borderBottom: '1px solid rgba(255,255,255,0.08)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <svg width="18" height="18" viewBox="0 0 32 32" fill="none">
+                <path d="M6 8L14.5 25C14.8 25.6 15.6 25.6 15.9 25L20 17" stroke="white" strokeWidth="3.5" strokeLinecap="round" />
+                <path d="M24 6C24 9.3 26.7 12 30 12C26.7 12 24 14.7 24 18C24 14.7 21.3 12 18 12C21.3 12 24 9.3 24 6Z" fill="#2dd4bf" />
+              </svg>
+              <span style={{ fontWeight: 700, fontSize: 15, color: 'rgba(255,255,255,0.7)', letterSpacing: '0.2px' }}>
+                Vitalix<span style={{ color: '#2dd4bf' }}>.ai</span>
+              </span>
+              <span
+                className="pulse-dot"
+                style={{ width: 6, height: 6, borderRadius: '50%', background: '#2dd4bf', display: 'inline-block' }}
+              />
             </div>
           </div>
 
-          {/* بيانات المريض داخل الهيدر */}
-          <div style={{ marginTop: 28 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-              {/* أفاتار المريض */}
-              <div
-                style={{
-                  width: 52, height: 52,
-                  borderRadius: 14,
-                  background: 'rgba(255,255,255,0.15)',
-                  border: '1px solid rgba(255,255,255,0.2)',
+          {/* ── اسم الصيدلية — بارز في المنتصف ── */}
+          <div style={{ padding: '20px 0 8px', textAlign: 'center' }}>
+            {/* أيقونة الصيدلية */}
+            <div style={{
+              width: 48, height: 48, borderRadius: 14,
+              background: 'rgba(45,212,191,0.15)',
+              border: '1px solid rgba(45,212,191,0.3)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              margin: '0 auto 12px',
+            }}>
+              <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="#2dd4bf" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 21v-7.5A.75.75 0 0114.25 12h3a.75.75 0 01.75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349m-16.5 11.65V9.35m0 0a3.001 3.001 0 003.75-.615A2.993 2.993 0 009.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 002.25 1.016c.896 0 1.7-.393 2.25-1.016a3.001 3.001 0 003.75.614m-16.5 0a3.004 3.004 0 01-.621-4.72L4.318 3.44A1.5 1.5 0 015.378 3h13.243a1.5 1.5 0 011.06.44l1.19 1.189a3 3 0 01-.621 4.72m-13.5 8.65h3.75a.75.75 0 00.75-.75V13.5a.75.75 0 00-.75-.75H6.75a.75.75 0 00-.75.75v3.75c0 .415.336.75.75.75z" />
+              </svg>
+            </div>
+            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginBottom: 4, fontWeight: 500 }}>
+              تقريرك الطبي من
+            </p>
+            <h2 style={{ fontSize: 22, fontWeight: 800, color: '#fff', margin: 0, letterSpacing: '-0.3px' }}>
+              {displayPharmacyName}
+            </h2>
+          </div>
+
+          {/* ── بيانات المريض — كارد أبيض شفاف ── */}
+          <div style={{
+            background: 'rgba(255,255,255,0.07)',
+            border: '1px solid rgba(255,255,255,0.12)',
+            borderRadius: 16,
+            padding: '16px 18px',
+            margin: '16px 0 24px',
+          }}>
+            {/* اسم المريض + status */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{
+                  width: 40, height: 40, borderRadius: 10,
+                  background: 'rgba(255,255,255,0.12)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 22, fontWeight: 900, color: '#fff',
-                  flexShrink: 0,
-                }}
-              >
-                {(currentVisit.patient?.name || 'م').trim().charAt(0)}
+                  fontSize: 17, fontWeight: 800, color: '#fff', flexShrink: 0,
+                }}>
+                  {(currentVisit.patient?.name || 'م').trim().charAt(0)}
+                </div>
+                <div>
+                  <p style={{ fontSize: 17, fontWeight: 700, color: '#fff', margin: 0 }}>
+                    {currentVisit.patient?.name || 'المريض'}
+                  </p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                    {/* أيقونة تقويم SVG */}
+                    <svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="rgba(255,255,255,0.5)" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+                    </svg>
+                    <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>
+                      {formatDate(currentVisit.created_at)}
+                    </span>
+                    {/* أيقونة ساعة SVG */}
+                    <svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="rgba(255,255,255,0.5)" strokeWidth={2} style={{ marginRight: 4 }}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>
+                      {formatTime(currentVisit.created_at)}
+                    </span>
+                  </div>
+                </div>
               </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <h1 style={{ fontSize: 20, fontWeight: 700, color: '#fff', margin: 0 }}>
-                  {currentVisit.patient?.name || 'المريض'}
-                </h1>
-                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginTop: 4 }}>
-                  📅 {formatDate(currentVisit.created_at)} &nbsp;⏰ {formatTime(currentVisit.created_at)}
-                </p>
-              </div>
-              {/* status chip في الهيدر */}
               {currentStatus && (
-                <span
-                  className="chip"
-                  style={{ background: currentStatus.chipBg, color: currentStatus.chipColor, flexShrink: 0 }}
-                >
+                <span className="chip" style={{ background: currentStatus.chipBg, color: currentStatus.chipColor, flexShrink: 0 }}>
                   {currentStatus.label}
                 </span>
               )}
             </div>
 
-            {/* قراءات مختصرة كـ pills */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 16 }}>
-              {currentVisit.bp_systolic != null && currentVisit.bp_diastolic != null && (
-                <span
-                  style={{
+            {/* قراءات — pills بأيقونات SVG */}
+            {(currentVisit.bp_systolic != null || currentVisit.sugar_value != null || currentVisit.weight != null) && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 14, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                {currentVisit.bp_systolic != null && currentVisit.bp_diastolic != null && (
+                  <span style={{
                     display: 'flex', alignItems: 'center', gap: 6,
-                    background: 'rgba(255,255,255,0.12)',
-                    border: '1px solid rgba(255,255,255,0.2)',
-                    borderRadius: 20, padding: '5px 12px',
-                    fontSize: 12, fontWeight: 600, color: '#fff',
-                  }}
-                >
-                  ❤️ {currentVisit.bp_systolic}/{currentVisit.bp_diastolic}
-                  <span style={{ fontSize: 10, opacity: 0.7 }}>mmHg</span>
-                </span>
-              )}
-              {currentVisit.sugar_value != null && (
-                <span
-                  style={{
+                    background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)',
+                    borderRadius: 20, padding: '5px 12px', fontSize: 12, fontWeight: 600, color: '#fff',
+                  }}>
+                    <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="#f87171" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
+                    </svg>
+                    {currentVisit.bp_systolic}/{currentVisit.bp_diastolic}
+                    <span style={{ fontSize: 10, opacity: 0.6 }}>mmHg</span>
+                  </span>
+                )}
+                {currentVisit.sugar_value != null && (
+                  <span style={{
                     display: 'flex', alignItems: 'center', gap: 6,
-                    background: 'rgba(255,255,255,0.12)',
-                    border: '1px solid rgba(255,255,255,0.2)',
-                    borderRadius: 20, padding: '5px 12px',
-                    fontSize: 12, fontWeight: 600, color: '#fff',
-                  }}
-                >
-                  🩸 {currentVisit.sugar_value}
-                  <span style={{ fontSize: 10, opacity: 0.7 }}>({sugarTypeLabel(currentVisit.sugar_test_type)})</span>
-                </span>
-              )}
-              {currentVisit.weight != null && (
-                <span
-                  style={{
+                    background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)',
+                    borderRadius: 20, padding: '5px 12px', fontSize: 12, fontWeight: 600, color: '#fff',
+                  }}>
+                    <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="#34d399" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 3.75S6 10.5 6 14.25a6 6 0 0012 0C18 10.5 12 3.75 12 3.75z" />
+                    </svg>
+                    {currentVisit.sugar_value}
+                    <span style={{ fontSize: 10, opacity: 0.6 }}>({sugarTypeLabel(currentVisit.sugar_test_type)})</span>
+                  </span>
+                )}
+                {currentVisit.weight != null && (
+                  <span style={{
                     display: 'flex', alignItems: 'center', gap: 6,
-                    background: 'rgba(255,255,255,0.12)',
-                    border: '1px solid rgba(255,255,255,0.2)',
-                    borderRadius: 20, padding: '5px 12px',
-                    fontSize: 12, fontWeight: 600, color: '#fff',
-                  }}
-                >
-                  ⚖️ {currentVisit.weight} kg
-                  {currentBmi && <span style={{ fontSize: 10, opacity: 0.7 }}>BMI {currentBmi}</span>}
-                </span>
-              )}
-              {currentVisit.symptoms && currentVisit.symptoms.map((s, i) => (
-                <span
-                  key={i}
-                  style={{
-                    background: 'rgba(255,255,255,0.08)',
-                    border: '1px solid rgba(255,255,255,0.15)',
-                    borderRadius: 20, padding: '5px 12px',
-                    fontSize: 12, color: 'rgba(255,255,255,0.8)',
-                  }}
-                >
-                  {s}
-                </span>
-              ))}
-            </div>
+                    background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)',
+                    borderRadius: 20, padding: '5px 12px', fontSize: 12, fontWeight: 600, color: '#fff',
+                  }}>
+                    <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="#c084fc" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v17.25m0 0c-1.472 0-2.882.265-4.185.75M12 20.25c1.472 0 2.882.265 4.185.75M18.75 4.97A48.416 48.416 0 0012 4.5c-2.291 0-4.545.16-6.75.47m13.5 0c1.01.143 2.01.317 3 .52m-3-.52l2.62 10.726c.122.499-.106 1.028-.589 1.202a5.988 5.988 0 01-2.031.352 5.988 5.988 0 01-2.031-.352c-.483-.174-.711-.703-.59-1.202L18.75 4.971zm-16.5.52c.99-.203 1.99-.377 3-.52m0 0l2.62 10.726c.122.499-.106 1.028-.589 1.202a5.989 5.989 0 01-2.031.352 5.989 5.989 0 01-2.031-.352c-.483-.174-.711-.703-.59-1.202L5.25 4.971z" />
+                    </svg>
+                    {currentVisit.weight} kg
+                    {currentBmi && <span style={{ fontSize: 10, opacity: 0.6 }}>— BMI {currentBmi}</span>}
+                  </span>
+                )}
+                {currentVisit.symptoms && currentVisit.symptoms.map((s, i) => (
+                  <span key={i} style={{
+                    background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)',
+                    borderRadius: 20, padding: '5px 12px', fontSize: 12, color: 'rgba(255,255,255,0.7)',
+                  }}>
+                    {s}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
+
         </div>
       </header>
 

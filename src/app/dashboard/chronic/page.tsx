@@ -535,7 +535,7 @@ function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill }: {
                   }
                 </div>
                 <button onClick={() => { setFound(null); setResults([]); setFoundMeds([]); }}
-                  className="text-[11px] text-slate-400 hover:text-slate-700 font-medium shrink-0 transition-colors px-2 py-2 -m-2">
+                  className="text-[11px] text-slate-400 hover:text-slate-700 font-medium shrink-0 transition-colors px-2 py-2">
                   تغيير
                 </button>
               </div>
@@ -1454,7 +1454,7 @@ function InventoryTab({ cards, onClose }: {
                       </div>
                     </div>
                     <button onClick={() => handleUnconfirm(item.key)}
-                      className="text-[10px] text-slate-400 hover:text-rose-500 transition-colors font-medium shrink-0 cursor-pointer px-2 py-1.5 -m-1">
+                      className="text-[10px] text-slate-400 hover:text-rose-500 transition-colors font-medium shrink-0 cursor-pointer px-2 py-1.5">
                       تراجع
                     </button>
                   </div>
@@ -1544,7 +1544,7 @@ function NotesField({ notes, pipelineId, onSaved }: { notes: string; pipelineId?
   };
 
   if (!editing && !notes) return (
-    <button onClick={e => { e.stopPropagation(); setEditing(true); }} className="text-xs text-slate-400 hover:text-slate-700 transition-colors py-1.5 -my-1.5">
+    <button onClick={e => { e.stopPropagation(); setEditing(true); }} className="text-xs text-slate-400 hover:text-slate-700 transition-colors py-1.5">
       + إضافة ملاحظة
     </button>
   );
@@ -1552,7 +1552,7 @@ function NotesField({ notes, pipelineId, onSaved }: { notes: string; pipelineId?
   if (!editing) return (
     <div className="bg-slate-50 border border-slate-100 rounded-lg p-3 flex items-start justify-between gap-3">
       <p className="text-xs text-slate-600 leading-relaxed">{notes}</p>
-      <button onClick={e => { e.stopPropagation(); setEditing(true); }} className="text-[10px] text-slate-400 hover:text-slate-700 font-medium shrink-0 transition-colors py-2 -my-2 px-1">تعديل</button>
+      <button onClick={e => { e.stopPropagation(); setEditing(true); }} className="text-[10px] text-slate-400 hover:text-slate-700 font-medium shrink-0 transition-colors py-1 px-1">تعديل</button>
     </div>
   );
 
@@ -2101,21 +2101,24 @@ export default function ChronicPage() {
               {total > 0 ? `${total} مريض مسجّل` : 'ابدأ بإدارة مرضاك المزمنين'}
             </p>
           </div>
-          <div className="grid grid-cols-3 sm:flex sm:items-center gap-2 sm:gap-3">
+          {/* overflow-x-auto بدل grid-cols-3: نصوص الأزرار عند اللف كانت تكسر ارتفاع h-10 الثابت
+              وتجعل الزر أطول من إخوته (min-height:auto التلقائي لعناصر flex/grid) — التمرير الأفقي
+              يضمن عدم اللف أو التداخل مهما ضاق العرض */}
+          <div className="flex items-center gap-2 sm:gap-3 overflow-x-auto pb-1 -mb-1">
             <button onClick={() => { setShowStats(v => !v); setShowInventory(false); }}
-              className={`h-10 px-2 sm:px-4 flex items-center justify-center gap-2 rounded-lg text-xs sm:text-sm font-medium transition-all shadow-sm border ${
+              className={`h-10 shrink-0 whitespace-nowrap px-3 sm:px-4 flex items-center justify-center gap-2 rounded-lg text-xs sm:text-sm font-medium transition-all shadow-sm border ${
                 showStats ? 'bg-slate-900 text-white border-slate-900' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
               }`}>
               📊 نتائجك
             </button>
             <button onClick={() => { setShowInventory(v => !v); setShowStats(false); }}
-              className={`h-10 px-2 sm:px-4 flex items-center justify-center gap-2 rounded-lg text-xs sm:text-sm font-medium transition-all shadow-sm border ${
+              className={`h-10 shrink-0 whitespace-nowrap px-3 sm:px-4 flex items-center justify-center gap-2 rounded-lg text-xs sm:text-sm font-medium transition-all shadow-sm border ${
                 showInventory ? 'bg-slate-900 text-white border-slate-900' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
               }`}>
               📦 جهّز مخزونك
             </button>
             <button onClick={() => setAddModal(true)}
-              className="h-10 px-2 sm:px-4 flex items-center justify-center gap-2 rounded-lg bg-teal-600 text-white text-xs sm:text-sm font-medium hover:bg-teal-700 transition-all shadow-sm">
+              className="h-10 shrink-0 whitespace-nowrap px-3 sm:px-4 flex items-center justify-center gap-2 rounded-lg bg-teal-600 text-white text-xs sm:text-sm font-medium hover:bg-teal-700 transition-all shadow-sm">
               متابعة مريض
             </button>
           </div>

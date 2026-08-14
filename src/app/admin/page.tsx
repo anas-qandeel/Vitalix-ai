@@ -736,7 +736,7 @@ export default function SuperAdminPage() {
     <div className="min-h-screen bg-[#F8FAFC] font-sans antialiased text-slate-800" dir="rtl">
       {/* Header */}
       <header className="bg-[#0F172A] text-white border-b border-slate-800 sticky top-0 z-10 shadow-sm">
-        <div className="max-w-7xl mx-auto px-6 py-3.5 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-6 py-3.5 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-3.5">
             <div className="w-10 h-10 rounded-xl bg-[#0F172A] flex items-center justify-center shadow-md border border-slate-700/80">
               <svg className="w-5 h-5 text-white" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -815,23 +815,23 @@ export default function SuperAdminPage() {
         </div>
 
         {/* Tab Switcher */}
-        <div className="flex border-b border-slate-200/80 gap-6 text-sm font-semibold">
-          <button 
+        <div className="flex border-b border-slate-200/80 gap-6 text-sm font-semibold overflow-x-auto">
+          <button
             onClick={() => setActiveTab('pharmacies')}
-            className={`pb-3 border-b-2 transition cursor-pointer ${
-              activeTab === 'pharmacies' 
-                ? 'border-[#2563EB] text-[#2563EB]' 
+            className={`pb-3 border-b-2 transition cursor-pointer whitespace-nowrap ${
+              activeTab === 'pharmacies'
+                ? 'border-[#2563EB] text-[#2563EB]'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
             🏥 السجل العام للصيدليات
           </button>
 
-          <button 
+          <button
             onClick={() => setActiveTab('expiring')}
-            className={`pb-3 border-b-2 transition cursor-pointer flex items-center gap-2 ${
-              activeTab === 'expiring' 
-                ? 'border-amber-600 text-amber-600' 
+            className={`pb-3 border-b-2 transition cursor-pointer flex items-center gap-2 whitespace-nowrap ${
+              activeTab === 'expiring'
+                ? 'border-amber-600 text-amber-600'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
@@ -842,13 +842,13 @@ export default function SuperAdminPage() {
               </span>
             )}
           </button>
-          
+
           {userRole === 'super_admin' && (
-            <button 
+            <button
               onClick={() => setActiveTab('admins')}
-              className={`pb-3 border-b-2 transition cursor-pointer ${
-                activeTab === 'admins' 
-                  ? 'border-[#2563EB] text-[#2563EB]' 
+              className={`pb-3 border-b-2 transition cursor-pointer whitespace-nowrap ${
+                activeTab === 'admins'
+                  ? 'border-[#2563EB] text-[#2563EB]'
                   : 'border-transparent text-slate-500 hover:text-slate-800'
               }`}
             >
@@ -857,7 +857,7 @@ export default function SuperAdminPage() {
           )}
           <button
             onClick={() => setActiveTab('feedback')}
-            className={`pb-3 border-b-2 transition cursor-pointer flex items-center gap-1.5 ${
+            className={`pb-3 border-b-2 transition cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
               activeTab === 'feedback'
                 ? 'border-violet-600 text-violet-600'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -1218,12 +1218,12 @@ export default function SuperAdminPage() {
         {/* Tab 3: إدارة مسؤولين النظام */}
         {activeTab === 'admins' && userRole === 'super_admin' && (
           <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-[0_4px_20px_rgba(15,23,42,0.03)] space-y-5">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h3 className="text-lg font-bold text-[#0F172A]">إدارة مسؤولين النظام (Platform Admins)</h3>
                 <p className="text-xs text-slate-500 mt-0.5">إضافة مسؤولين وتعيين الأسماء والأدوار للتحكم في المنصة</p>
               </div>
-              <button 
+              <button
                 onClick={() => {
                   setErrorMsg('');
                   setEditingAdminId(null);
@@ -1674,7 +1674,7 @@ export default function SuperAdminPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3.5">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                 <div>
                   <label className="block text-xs font-semibold text-[#0F172A] mb-1">حالة الاشتراك</label>
                   <select value={editPharmacyData.status} onChange={(e) => setEditPharmacyData({...editPharmacyData, status: e.target.value})} className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl font-medium bg-slate-50/50">

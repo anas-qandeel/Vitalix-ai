@@ -218,13 +218,14 @@ export default function PharmacyCardPage({ params }: PageProps) {
   return (
     <div className="min-h-screen bg-[#F8FAFC] font-sans antialiased text-slate-800 pb-16" dir="rtl">
       <header className="bg-[#0F172A] text-white border-b border-slate-800 sticky top-0 z-10">
-        <div className="max-w-5xl mx-auto px-6 py-4 flex items-center gap-4">
+        <div className="max-w-5xl mx-auto px-6 py-4 flex flex-wrap items-center gap-4">
           <button onClick={() => router.push('/admin')} className="text-slate-300 hover:text-white text-sm font-semibold flex items-center gap-1.5 cursor-pointer">
             <span>→</span><span>رجوع للوحة الإدارة</span>
           </button>
           <div className="h-5 w-px bg-slate-700"></div>
-          <h1 className="text-base font-bold flex items-center gap-2">
-            🏥 كرت الصيدلية: {pharmacy.name}
+          <h1 className="text-base font-bold flex items-center gap-2 min-w-0 flex-1">
+            <span className="shrink-0">🏥 كرت الصيدلية:</span>
+            <span className="truncate">{pharmacy.name}</span>
           </h1>
           <span className={`text-[10px] px-2.5 py-1 rounded-md font-bold border ${statusColors[pharmacy.status] || ''}`}>
             {statusLabels[pharmacy.status] || pharmacy.status}
@@ -362,7 +363,7 @@ export default function PharmacyCardPage({ params }: PageProps) {
             )}
           </div>
 
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex gap-3">
               <button type="submit" disabled={saving} className="px-6 py-2.5 text-xs font-semibold text-white bg-[#0F172A] hover:bg-slate-800 disabled:opacity-60 rounded-xl shadow-md transition cursor-pointer">
                 {saving ? 'جاري الحفظ...' : '💾 حفظ كل التعديلات'}

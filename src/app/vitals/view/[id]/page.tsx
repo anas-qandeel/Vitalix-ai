@@ -642,6 +642,19 @@ export default function SingleVitalViewPage({ params }: PageProps) {
         .btn-primary:active { transform: scale(0.97); }
         .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
 
+        /* على الشاشات الضيقة جداً (~320px) padding الأفقي الأصلي (20px) + النص nowrap
+           يجعل الزر أعرض من مساحة البطاقة المتاحة (main padding 16px + section padding 24px
+           من كل جهة = 80px، فتبقى ~240px فقط على شاشة 320px) — نقلّص الـ padding الأفقي
+           والخط لضمان عدم تجاوز الزر لحدود البطاقة، ونزيد الـ padding العمودي قليلاً
+           لتقريب ارتفاع منطقة اللمس من 40px بدل ~35px الحالية */
+        @media (max-width: 400px) {
+          .btn-primary {
+            padding: 12px 14px;
+            font-size: 12px;
+            gap: 6px;
+          }
+        }
+
         .btn-whatsapp {
           display: inline-flex;
           align-items: center;

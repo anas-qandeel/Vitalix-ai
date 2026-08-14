@@ -357,7 +357,7 @@ export default function FeedbackInbox({ feedbackList, loading, adminName, onUpda
   return (
     <div className="rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
       {/* ── Header ── */}
-      <div className="bg-[#0F172A] px-6 py-5 flex items-center justify-between gap-4">
+      <div className="bg-[#0F172A] px-6 py-5 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-lg shrink-0">💡</div>
           <div>

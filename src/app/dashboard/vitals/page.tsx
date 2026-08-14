@@ -969,7 +969,7 @@ ${planUrl}
         <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-5 items-start">
 
           {/* ══ العمود الأيمن: المريض ══ */}
-          <div className="space-y-4 sticky top-4 self-start">
+          <div className="space-y-4 lg:sticky lg:top-4 self-start">
 
             {/* بطاقة البحث */}
             <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-visible">
@@ -1244,7 +1244,7 @@ ${planUrl}
                 {/* ضغط الدم */}
                 {activeTests.bp && (
                   <div className="bg-white border border-blue-200 rounded-2xl shadow-sm overflow-hidden saas-slide-up">
-                    <div className="bg-blue-50/60 px-5 py-3.5 border-b border-blue-100 flex items-center justify-between">
+                    <div className="bg-blue-50/60 px-5 py-3.5 border-b border-blue-100 flex flex-wrap items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
                         <IconHeart className="w-4 h-4 text-blue-600" />
                         <span className="text-sm font-bold text-slate-900">ضغط الدم</span>
@@ -1257,7 +1257,7 @@ ${planUrl}
                       </button>
                     </div>
                     <div className="p-5">
-                      <div className={`grid ${isDualBp ? 'grid-cols-2' : 'grid-cols-1'} gap-4`}>
+                      <div className={`grid ${isDualBp ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'} gap-4`}>
                         {/* القراءة الأولى */}
                         <div className="space-y-3">
                           {isDualBp && <p className="text-[10px] font-bold text-slate-400 text-center uppercase tracking-wider">القراءة الأولى</p>}
@@ -1269,7 +1269,7 @@ ${planUrl}
                               <div key={label}>
                                 <p className="text-[10px] font-bold text-slate-400 text-center mb-1.5">{label}</p>
                                 <input type="number" placeholder={ph} value={val} min="0" onKeyDown={e => ["-","e","E","+"].includes(e.key) && e.preventDefault()} onChange={e => { set(e.target.value); resetSoftWarning(); }} onWheel={e => e.currentTarget.blur()}
-                                  className="w-full px-2 py-3 text-2xl font-black text-center bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500 transition num-input placeholder:text-slate-200" />
+                                  className="w-full px-2 py-3 text-xl sm:text-2xl font-black text-center bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500 transition num-input placeholder:text-slate-200" />
                               </div>
                             ))}
                           </div>
@@ -1286,7 +1286,7 @@ ${planUrl}
                                 <div key={label}>
                                   <p className="text-[10px] font-bold text-slate-400 text-center mb-1.5">{label}</p>
                                   <input type="number" placeholder={ph} value={val} min="0" onKeyDown={e => ["-","e","E","+"].includes(e.key) && e.preventDefault()} onChange={e => set(e.target.value)} onWheel={e => e.currentTarget.blur()}
-                                    className="w-full px-2 py-3 text-2xl font-black text-center bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500 transition num-input placeholder:text-slate-200" />
+                                    className="w-full px-2 py-3 text-xl sm:text-2xl font-black text-center bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500 transition num-input placeholder:text-slate-200" />
                                 </div>
                               ))}
                             </div>
@@ -1486,7 +1486,7 @@ ${planUrl}
                       {/* القراءة */}
                       <input type="number" placeholder="0" value={sugarValue} disabled={!sugarType}
                         min="0" onKeyDown={e => ["-","e","E","+"].includes(e.key) && e.preventDefault()} onChange={e => { setSugarValue(e.target.value); resetSoftWarning(); }} onWheel={e => e.currentTarget.blur()}
-                        className="w-full px-4 py-4 text-4xl font-black text-center bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500 transition num-input placeholder:text-slate-200 disabled:opacity-40" />
+                        className="w-full px-4 py-4 text-3xl sm:text-4xl font-black text-center bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500 transition num-input placeholder:text-slate-200 disabled:opacity-40" />
                       {/* الأعراض */}
                       <div className="pt-3 border-t border-slate-100">
                         <p className="text-[11px] font-bold text-slate-500 mb-2">أعراض مصاحبة <span className="font-normal">(اختياري)</span></p>
@@ -1548,7 +1548,7 @@ ${planUrl}
                   <div className="bg-white border border-purple-200 rounded-2xl shadow-sm overflow-hidden saas-slide-up">
 
                     {/* Header */}
-                    <div className="bg-purple-50/60 px-5 py-3.5 border-b border-purple-100 flex items-center justify-between">
+                    <div className="bg-purple-50/60 px-5 py-3.5 border-b border-purple-100 flex flex-wrap items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
                         <IconScale className="w-4 h-4 text-purple-600" />
                         <span className="text-sm font-bold text-slate-900">الوزن</span>
@@ -1574,7 +1574,7 @@ ${planUrl}
                         onKeyDown={e => ["-","e","E","+"].includes(e.key) && e.preventDefault()}
                         onChange={e => { setWeightValue(e.target.value); resetSoftWarning(); }}
                         onWheel={e => e.currentTarget.blur()}
-                        className="w-full px-4 py-4 text-4xl font-black text-center bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-purple-500 transition num-input placeholder:text-slate-200"
+                        className="w-full px-4 py-4 text-3xl sm:text-4xl font-black text-center bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-purple-500 transition num-input placeholder:text-slate-200"
                       />
 
                       {/* ── لوحة BMI — تظهر فور إدخال وزن صحيح ── */}
@@ -1743,7 +1743,7 @@ ${planUrl}
             {latestVisitId && latestGeneratedReport && (
               <div ref={reportRef} className="space-y-4 saas-slide-up scroll-mt-24">
                 <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-                  <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+                  <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50 flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2.5">
                       <div className="w-8 h-8 rounded-xl bg-slate-900 flex items-center justify-center shrink-0">
                         <svg className="w-5 h-5" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -1796,7 +1796,7 @@ ${planUrl}
                   <div className="bg-white border border-purple-200 rounded-2xl shadow-sm overflow-hidden saas-slide-up">
 
                     {/* Header — نفس نمط بطاقات الضغط والسكر */}
-                    <div className="bg-purple-50/60 px-5 py-3.5 border-b border-purple-100 flex items-center justify-between">
+                    <div className="bg-purple-50/60 px-5 py-3.5 border-b border-purple-100 flex flex-wrap items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
                         <IconScale className="w-4 h-4 text-purple-600" />
                         <div>

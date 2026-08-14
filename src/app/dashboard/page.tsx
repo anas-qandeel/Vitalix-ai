@@ -361,7 +361,7 @@ export default function PharmacistDashboard() {
         {/* ═══ 2. أعياد الميلاد ═══ */}
         {birthdayPatients.length > 0 && (
           <div className="fu2 bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-5">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-5">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center">
                   <IconCalendar className="w-5 h-5 text-rose-500" />

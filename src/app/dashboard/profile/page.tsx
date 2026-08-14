@@ -253,7 +253,7 @@ export default function ProfilePage() {
 
         {/* ── بطاقة الاشتراك ── */}
         <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm overflow-hidden">
-          <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
+          <div className="px-5 py-3.5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-sm font-black text-[#0F172A]">حالة الاشتراك</h2>
             {profile && <StatusBadge status={profile.status} />}
           </div>
@@ -287,7 +287,7 @@ export default function ProfilePage() {
 
         {/* ── بيانات الصيدلية (قابلة للتعديل) ── */}
         <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm overflow-hidden">
-          <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
+          <div className="px-5 py-3.5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-sm font-black text-[#0F172A]">بيانات الصيدلية</h2>
             {!isEditing ? (
               <button
@@ -385,7 +385,7 @@ export default function ProfilePage() {
 
         {/* ── فريق العمل ── */}
         <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm overflow-hidden">
-          <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
+          <div className="px-5 py-3.5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
             <div>
               <h2 className="text-sm font-black text-[#0F172A]">فريق العمل</h2>
               <p className="text-[10px] text-slate-400 mt-0.5">الصيادلة المسجّلون في الصيدلية — يمكن التبديل بينهم من الهيدر</p>
@@ -463,7 +463,7 @@ export default function ProfilePage() {
             <p className="text-[11px] text-slate-400 mt-0.5">سيُرسل رابط التغيير إلى بريدك الإلكتروني</p>
           </div>
           <div className="px-5 py-4">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="text-xs text-slate-600 font-semibold">{email}</p>
               <button
                 onClick={handleResetPassword}

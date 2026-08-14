@@ -227,7 +227,7 @@ function ItemModal({ item, userId, onClose, onSaved }: {
 
           {/* الوصف التسويقي */}
           <div>
-            <div className="flex items-center justify-between mb-1.5">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
               <label className="text-xs font-bold text-slate-700">الوصف التسويقي</label>
               <button type="button" onClick={handleGeneratePitch} disabled={generating}
                 className="flex items-center gap-1.5 text-[11px] font-bold text-violet-700 bg-violet-50 hover:bg-violet-100 border border-violet-200 px-3 py-1.5 rounded-lg transition disabled:opacity-50">
@@ -492,7 +492,7 @@ export default function PharmacyCatalogManagerPage() {
         </div>
 
         {/* ── إحصاءات ── */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {[
             { label: 'إجمالي المنتجات', value: `${items.length} / ${MAX_ITEMS}`, sub: capacity >= 80 ? 'قارب الامتلاء' : `${MAX_ITEMS - items.length} متبق` },
             { label: 'منتجات مفعّلة', value: activeCount.toString(), sub: 'تُقترح للمرضى' },

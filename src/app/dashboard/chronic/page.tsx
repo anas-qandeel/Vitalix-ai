@@ -527,7 +527,7 @@ function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill }: {
                   {found.name.charAt(0)}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-semibold ${foundIsArchived ? 'text-amber-900' : 'text-slate-900'}`}>{found.name}</p>
+                  <p className={`text-sm font-semibold truncate ${foundIsArchived ? 'text-amber-900' : 'text-slate-900'}`}>{found.name}</p>
                   <p className="text-[11px] text-slate-400 font-mono mt-0.5">{found.phone_number}</p>
                   {foundIsArchived
                     ? <p className="text-xs text-amber-700 mt-0.5">🔄 كان متواجداً من قبل — سيُعاد تفعيل ملفه</p>
@@ -535,7 +535,7 @@ function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill }: {
                   }
                 </div>
                 <button onClick={() => { setFound(null); setResults([]); setFoundMeds([]); }}
-                  className="text-[11px] text-slate-400 hover:text-slate-700 font-medium shrink-0 transition-colors">
+                  className="text-[11px] text-slate-400 hover:text-slate-700 font-medium shrink-0 transition-colors px-2 py-2 -m-2">
                   تغيير
                 </button>
               </div>
@@ -830,8 +830,8 @@ function MedModal({ patientId, pharmacyId, existingMeds, patientName, onClose, o
     <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center sm:p-4 transition-all" onClick={onClose}>
       <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-xl max-h-[92vh] overflow-hidden shadow-2xl border border-slate-200 flex flex-col saas-slide-up" onClick={e => e.stopPropagation()}>
 
-        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-white shrink-0">
-          <div className="flex items-center gap-3">
+        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between gap-3 bg-white shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
             {/* زر الرجوع — يظهر فقط عند الفتح من modal البحث */}
             {onBack && (
               <button onClick={onBack}
@@ -842,16 +842,17 @@ function MedModal({ patientId, pharmacyId, existingMeds, patientName, onClose, o
                 </svg>
               </button>
             )}
-            <div>
-              <h3 className="text-base font-semibold text-slate-900">
+            <div className="min-w-0">
+              {/* truncate لاحتواء اسم مريض طويل بدل دفع زر الإغلاق خارج البطاقة */}
+              <h3 className="text-base font-semibold text-slate-900 truncate">
                 {isRenewal ? `تجديد أدوية ${patientName}` : `تسجيل أدوية ${patientName}`}
               </h3>
-              <p className="text-xs text-slate-500 mt-1">
+              <p className="text-xs text-slate-500 mt-1 truncate">
                 {isRenewal ? 'اختر الأدوية التي جدّدها المريض فعلاً' : 'أدخل الأدوية والجرعات لمتابعتها'}
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-full bg-slate-50 hover:bg-slate-100 text-slate-500 flex items-center justify-center transition-colors">✕</button>
+          <button onClick={onClose} className="w-8 h-8 rounded-full bg-slate-50 hover:bg-slate-100 text-slate-500 flex items-center justify-center transition-colors shrink-0">✕</button>
         </div>
 
         {/* ── banner تأكيد — يظهر فقط عند الفتح من modal البحث بوضع الإضافة ── */}
@@ -923,7 +924,7 @@ function MedModal({ patientId, pharmacyId, existingMeds, patientName, onClose, o
                     <button
                       onClick={e => { e.stopPropagation(); deleteMed(m.id, m.medication_name); }}
                       disabled={deleting === m.id || !m.id}
-                      className="w-7 h-7 rounded-full bg-white border border-slate-200 hover:bg-rose-50 hover:border-rose-300 text-slate-400 hover:text-rose-500 flex items-center justify-center transition-all shrink-0 disabled:opacity-40"
+                      className="w-8 h-8 rounded-full bg-white border border-slate-200 hover:bg-rose-50 hover:border-rose-300 text-slate-400 hover:text-rose-500 flex items-center justify-center transition-all shrink-0 disabled:opacity-40"
                       title="حذف الدواء من السجل">
                       {deleting === m.id
                         ? <div className="w-3 h-3 border border-rose-400 border-t-transparent rounded-full animate-spin" />
@@ -1227,18 +1228,18 @@ function PatientMedsModal({ patient, cards, onClose }: {
         onClick={e => e.stopPropagation()}>
 
         {/* Header — ثابت */}
-        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
+        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
             <div className="w-9 h-9 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center font-semibold text-slate-600 text-sm shrink-0">
               {card.patient.name.charAt(0)}
             </div>
-            <div>
-              <p className="text-sm font-semibold text-slate-900">{card.patient.name}</p>
-              <p className="text-xs text-slate-400 font-mono mt-0.5">{card.patient.phone_number}</p>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-slate-900 truncate">{card.patient.name}</p>
+              <p className="text-xs text-slate-400 font-mono mt-0.5 truncate">{card.patient.phone_number}</p>
             </div>
           </div>
           <button onClick={onClose}
-            className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center text-xs transition-colors">✕</button>
+            className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center text-xs transition-colors shrink-0">✕</button>
         </div>
 
         {/* أدوية المريض المزمنة — قابلة للتمرير */}
@@ -1387,7 +1388,7 @@ function InventoryTab({ cards, onClose }: {
                         {(item.patient_info || []).map(p => (
                           <button key={p.id}
                             onClick={() => setActivePatient(p)}
-                            className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-colors cursor-pointer">
+                            className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-1.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-colors cursor-pointer">
                             👤 {p.name}
                           </button>
                         ))}
@@ -1453,7 +1454,7 @@ function InventoryTab({ cards, onClose }: {
                       </div>
                     </div>
                     <button onClick={() => handleUnconfirm(item.key)}
-                      className="text-[10px] text-slate-400 hover:text-rose-500 transition-colors font-medium shrink-0 cursor-pointer">
+                      className="text-[10px] text-slate-400 hover:text-rose-500 transition-colors font-medium shrink-0 cursor-pointer px-2 py-1.5 -m-1">
                       تراجع
                     </button>
                   </div>
@@ -1462,7 +1463,7 @@ function InventoryTab({ cards, onClose }: {
                     {(item.patient_info || []).map(p => (
                       <button key={p.id}
                         onClick={() => setActivePatient(p)}
-                        className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200 transition-colors cursor-pointer">
+                        className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-1.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200 transition-colors cursor-pointer">
                         👤 {p.name}
                       </button>
                     ))}
@@ -1543,7 +1544,7 @@ function NotesField({ notes, pipelineId, onSaved }: { notes: string; pipelineId?
   };
 
   if (!editing && !notes) return (
-    <button onClick={e => { e.stopPropagation(); setEditing(true); }} className="text-xs text-slate-400 hover:text-slate-700 transition-colors">
+    <button onClick={e => { e.stopPropagation(); setEditing(true); }} className="text-xs text-slate-400 hover:text-slate-700 transition-colors py-1.5 -my-1.5">
       + إضافة ملاحظة
     </button>
   );
@@ -1551,7 +1552,7 @@ function NotesField({ notes, pipelineId, onSaved }: { notes: string; pipelineId?
   if (!editing) return (
     <div className="bg-slate-50 border border-slate-100 rounded-lg p-3 flex items-start justify-between gap-3">
       <p className="text-xs text-slate-600 leading-relaxed">{notes}</p>
-      <button onClick={e => { e.stopPropagation(); setEditing(true); }} className="text-[10px] text-slate-400 hover:text-slate-700 font-medium shrink-0 transition-colors">تعديل</button>
+      <button onClick={e => { e.stopPropagation(); setEditing(true); }} className="text-[10px] text-slate-400 hover:text-slate-700 font-medium shrink-0 transition-colors py-2 -my-2 px-1">تعديل</button>
     </div>
   );
 
@@ -1560,8 +1561,8 @@ function NotesField({ notes, pipelineId, onSaved }: { notes: string; pipelineId?
       <textarea value={val} onChange={e => setVal(e.target.value)} placeholder="اكتب ملاحظة..." rows={2} autoFocus
         className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-900 transition-all resize-none shadow-sm" />
       <div className="flex gap-2">
-        <button onClick={() => { setEditing(false); setVal(notes); }} className="flex-1 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 rounded-md hover:bg-slate-200 transition-colors">إلغاء</button>
-        <button onClick={save} disabled={saving} className="flex-1 py-1.5 text-xs font-medium text-white bg-slate-900 rounded-md hover:bg-slate-800 disabled:opacity-50 transition-colors">
+        <button onClick={() => { setEditing(false); setVal(notes); }} className="flex-1 py-2.5 text-xs font-medium text-slate-600 bg-slate-100 rounded-md hover:bg-slate-200 transition-colors">إلغاء</button>
+        <button onClick={save} disabled={saving} className="flex-1 py-2.5 text-xs font-medium text-white bg-slate-900 rounded-md hover:bg-slate-800 disabled:opacity-50 transition-colors">
           {saving ? 'جاري...' : 'حفظ'}
         </button>
       </div>
@@ -1619,12 +1620,12 @@ function WaMsgModal({ patient, meds, pharmacyName, msgType, onClose, onConfirm }
       <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md shadow-2xl border border-slate-200 saas-slide-up flex flex-col max-h-[88vh] sm:max-h-[82vh]" onClick={e => e.stopPropagation()}>
 
         {/* Header */}
-        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between shrink-0">
-          <div>
+        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0">
+          <div className="min-w-0">
             <h3 className="text-base font-semibold text-slate-900">تخصيص رسالة الواتساب</h3>
-            <p className="text-xs text-slate-400 mt-0.5">{patient.name}</p>
+            <p className="text-xs text-slate-400 mt-0.5 truncate">{patient.name}</p>
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-full bg-slate-50 hover:bg-slate-100 text-slate-500 flex items-center justify-center transition-colors">✕</button>
+          <button onClick={onClose} className="w-8 h-8 rounded-full bg-slate-50 hover:bg-slate-100 text-slate-500 flex items-center justify-center transition-colors shrink-0">✕</button>
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
@@ -2244,7 +2245,7 @@ export default function ChronicPage() {
                   <p className="text-teal-400 text-[11px] font-bold uppercase tracking-widest mb-4">ملخص أداء الصيدلية</p>
                   <div className="flex items-center gap-5">
                     <div className="text-white">
-                      <p className="text-7xl font-black tabular-nums leading-none">{renewed.length}</p>
+                      <p className="text-5xl sm:text-7xl font-black tabular-nums leading-none">{renewed.length}</p>
                       <p className="text-slate-300 text-base mt-2 font-medium">مريض جدّد أدويته من صيدليتك</p>
                       <p className="text-slate-500 text-xs mt-1">نتيجة متابعتك المنتظمة ومبادرتك بالتواصل</p>
                     </div>

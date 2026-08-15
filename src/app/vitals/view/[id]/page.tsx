@@ -443,7 +443,7 @@ export default function SingleVitalViewPage({ params }: PageProps) {
 📦 الجهاز/المنتج: ${item.brand_name}
 💰 السعر: ${item.price} دينار
 
-يرجى تأكيد التوفر والتوصيل، وشكراً! 🌿`;
+يرجى تأكيد التوفر، وشكراً! 🌿`;
 
     const encodedMessage = encodeURIComponent(text)
       .replace(/!/g, '%21')

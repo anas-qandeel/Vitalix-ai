@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import DashboardHeader, { usePharmacyInfo } from '../components/DashboardHeader';
+import AppFooter from '../../components/AppFooter';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -2469,6 +2470,8 @@ export default function ChronicPage() {
           )}
         </div>
       )}
+
+      <AppFooter className="max-w-4xl mx-auto px-6 py-8 border-t border-slate-200/60 mt-4" />
 
       {/* WaMsgModal — تخصيص رسالة الواتساب */}
       {waMsgModal && (

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import DashboardHeader from '../components/DashboardHeader';
+import AppFooter from '../../components/AppFooter';
 
 interface PharmacyProfile {
   id: string;
@@ -483,12 +484,9 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* ── Footer ── */}
-        <p className="text-center text-[10px] text-slate-400 pb-4">
-          Vitalix<span className="text-teal-500">.ai</span> — {getPharmacyDisplayName()}
-        </p>
-
       </main>
+
+      <AppFooter className="max-w-2xl mx-auto px-4 py-8 border-t border-slate-200/60 mt-2" />
     </div>
   );
 }

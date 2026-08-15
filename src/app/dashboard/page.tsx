@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import DashboardHeader, { usePharmacyInfo, getActivePharmacist } from './components/DashboardHeader';
+import AppFooter from '../components/AppFooter';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -517,14 +518,7 @@ export default function PharmacistDashboard() {
         <BirthdayModal patients={birthdayPatients} pharmacyName={pharmacyName} onClose={() => setBirthdayModalOpen(false)} />
       )}
 
-      <footer className="max-w-6xl mx-auto px-6 py-8 text-center border-t border-slate-200/60 mt-4 flex flex-col items-center justify-center gap-2">
-        <div className="text-[11px] text-slate-500 font-medium select-none" style={{ direction: 'ltr', unicodeBidi: 'bidi-override' }}>
-          Made <span className="text-rose-500 text-[10px]">♥</span> in <span className="font-bold tracking-wider text-slate-700">ΛMMΛN</span>
-        </div>
-        <p className="text-[11px] text-slate-400 font-medium">
-          Vitalix<span className="text-slate-900">.ai</span> — v1.0.0 · © {new Date().getFullYear()} جميع الحقوق محفوظة
-        </p>
-      </footer>
+      <AppFooter className="max-w-6xl mx-auto px-6 py-8 border-t border-slate-200/60 mt-4" />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, use } from 'react';
+import AppFooter from '../../../components/AppFooter';
 
 interface Patient {
   id: string;
@@ -1265,11 +1266,12 @@ export default function SingleVitalViewPage({ params }: PageProps) {
         </section>
 
         {/* ─── Footer ─── */}
-        <footer style={{ textAlign: 'center', fontSize: 12, color: '#94a3b8', paddingTop: 8, paddingBottom: 24 }}>
+        <footer style={{ textAlign: 'center', fontSize: 12, color: '#94a3b8', paddingTop: 8, paddingBottom: 8 }}>
           تم توثيق الفحص وسجل القراءات آلياً عبر منصة{' '}
           <span style={{ color: '#0d9488', fontWeight: 600 }}>Vitalix.ai</span>{' '}
           لصالح ({displayPharmacyName})
         </footer>
+        <AppFooter className="pb-8" />
       </main>
     </div>
   );

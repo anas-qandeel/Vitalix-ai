@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, use, useRef } from 'react';
+import AppFooter from '../../components/AppFooter';
 
 // ════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -477,8 +478,8 @@ export default function WeightPlanPage({ params }: PageProps) {
 
         {/* Footer */}
         <div className="text-center pt-2 pb-4">
-          <p className="text-[11px] text-slate-400 font-medium">Vitalix<span className="text-slate-600">.ai</span> — v1.0.0 · © {new Date().getFullYear()} جميع الحقوق محفوظة</p>
-          <p className="text-[10px] text-slate-300 mt-0.5">أُعدّ هذا التقرير بواسطة {pharmacyName}</p>
+          <AppFooter />
+          <p className="text-[10px] text-slate-300 mt-2">أُعدّ هذا التقرير بواسطة {pharmacyName}</p>
         </div>
       </main>
     </div>

@@ -4,6 +4,7 @@ import React, { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import DashboardHeader from '../../components/DashboardHeader';
+import AppFooter from '../../../components/AppFooter';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -538,6 +539,8 @@ export default function PatientCardPage({ params }: PageProps) {
         </div>
 
       </main>
+
+      <AppFooter className="max-w-5xl mx-auto px-6 py-8 border-t border-slate-200/60 mt-4" />
     </div>
   );
 }

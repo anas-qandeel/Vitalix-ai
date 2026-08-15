@@ -3,6 +3,7 @@
 import { useEffect, useState, Suspense } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useSearchParams } from 'next/navigation';
+import AppFooter from './components/AppFooter';
 
 function LoginContent() {
   const [email, setEmail] = useState('');
@@ -201,9 +202,7 @@ function LoginContent() {
           )}
         </div>
 
-        <p className="text-center text-xs text-slate-400 mt-8 font-medium">
-          Vitalix.ai &copy; 2026
-        </p>
+        <AppFooter className="mt-8" />
       </div>
     </div>
   );

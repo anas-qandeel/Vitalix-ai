@@ -4,6 +4,7 @@ import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { adminFetch } from '@/lib/admin-fetch';
+import AppFooter from '../../../components/AppFooter';
 
 interface PharmacyDetail {
   id: string;
@@ -381,6 +382,8 @@ export default function PharmacyCardPage({ params }: PageProps) {
           </div>
         </form>
       </main>
+
+      <AppFooter className="max-w-5xl mx-auto px-6 py-8 border-t border-slate-200/60 mt-4" />
     </div>
   );
 }

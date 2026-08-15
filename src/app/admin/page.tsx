@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import FeedbackInbox from './FeedbackInbox';
+import AppFooter from '../components/AppFooter';
 import { supabase } from '@/lib/supabase';
 import { adminFetch } from '@/lib/admin-fetch';
 import { useRouter } from 'next/navigation';
@@ -1327,6 +1328,8 @@ export default function SuperAdminPage() {
           </div>
         )}
       </main>
+
+      <AppFooter className="max-w-7xl mx-auto px-6 py-8 border-t border-slate-200/60 mt-4" />
 
       {/* Modal التجديد السريع الذكي */}
       {isQuickRenewModalOpen && selectedPharmacyForRenew && (

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, ThinkingLevel } from '@google/genai';
 
 // قائمة نماذج مرتبة — يُجرَّب الأول فإن أعطى 404 ينتقل للتالي
 const GEMINI_MODELS_FALLBACK = [
@@ -92,14 +92,20 @@ export async function POST(req: Request) {
               contents: parts,
               config: {
                 systemInstruction: SYSTEM_INSTRUCTION,
-                // 350 غير كافٍ هنا لأن أداة googleSearch تستهلك جزءاً من نفس ميزانية التوكنات
-                // في التفكير/البحث قبل النص النهائي، فكان النص التسويقي يخرج مقطوعاً منتصف الجملة
+                // نماذج Gemini 3.x نماذج "تفكير" بميزانية تفكير تلقائية شبه غير محدودة؛
+                // دمجها مع أداة googleSearch كان يستهلك معظم maxOutputTokens في التفكير/البحث
+                // الداخلي قبل النص الظاهر، فيخرج النص قصيراً جداً بشكل غير ثابت مهما رفعنا
+                // الحد — لذا نُقيّد عمق التفكير صراحة بدل الاعتماد على maxOutputTokens وحده
+                thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
                 maxOutputTokens: 900,
                 tools: [{ googleSearch: {} }],
               },
             });
             const txt = response.text?.trim();
-            if (txt) { pitchText = txt; break; }
+            // نص أقصر من هذا فعلياً مقطوع (المطلوب فقرة من 40-70 كلمة، أي 150 حرفاً على الأقل) —
+            // نرفضه ونجرّب النموذج التالي بدل عرض وصف مبتور للمريض
+            if (txt && txt.length >= 150) { pitchText = txt; break; }
+            if (txt) console.warn(`[Gemini pitch] ${modelName} → نص قصير جداً (${txt.length} حرفاً)، يُتجاهل`);
           } catch (modelErr: any) {
             lastModelErr = modelErr;
             const status = getErrStatus(modelErr);

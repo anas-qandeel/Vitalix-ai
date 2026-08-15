@@ -67,6 +67,10 @@ export function usePharmacyInfo() {
           localStorage.setItem(STAFF_OWNER_KEY, session.user.id);
           setActivePharmacist(mainPharmacistName);
           setActivePharmacistState(mainPharmacistName);
+          // بعض المكوّنات (مثل بطاقة الترحيب في dashboard/page.tsx) تقرأ الصيدلاني النشط بنسختها
+          // المحلية الخاصة عبر getActivePharmacist() مباشرة عند أول رسم، لا عبر هذا الـ hook —
+          // بدون هذا الحدث تبقى عالقة على اسم صيدلاني الحساب السابق حتى تبديل يدوي جديد
+          window.dispatchEvent(new Event('vitalix_pharmacist_changed'));
         } else {
           const stored = getActivePharmacist();
           if (!stored && mainPharmacistName) {

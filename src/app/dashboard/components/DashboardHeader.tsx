@@ -194,7 +194,9 @@ export default function DashboardHeader({ breadcrumb, onBack }: DashboardHeaderP
   const handleSignOut = async () => {
     setDropdownOpen(false);
     await supabase.auth.signOut();
-    router.push('/');
+    // إعادة تحميل كاملة لا تنقّل داخلي — تضمن تفريغ كل حالة React المحلية لهذا الحساب
+    // (راجع التعليق في redirectBasedOnRole بصفحة تسجيل الدخول لنفس السبب بالتفصيل)
+    window.location.href = '/';
   };
 
   const handleSelectPharmacist = (name: string) => {

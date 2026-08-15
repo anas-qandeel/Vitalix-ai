@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react';
 import { supabase } from '@/lib/supabase';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 
 function LoginContent() {
   const [email, setEmail] = useState('');
@@ -10,10 +10,13 @@ function LoginContent() {
   const [loading, setLoading] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [message, setMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
-  const router = useRouter();
   const searchParams = useSearchParams();
 
-  // دالة توجيه ذكية بناءً على الصلاحيات
+  // دالة توجيه ذكية بناءً على الصلاحيات — تعمّدنا استخدام تنقّل صريح (window.location.href) بدل
+  // router.push: التنقّل الداخلي لـ Next.js قد يُعيد استخدام شجرة مكوّنات /dashboard المخبّأة من
+  // جلسة سابقة بلا إعادة تركيب فعلية، فتبقى حالة React محليّة (مثل اسم الصيدلاني النشط في
+  // localStorage) عالقة من الحساب السابق حتى يعمل المستخدم تحديثاً يدوياً للصفحة. إعادة تحميل
+  // كاملة عند كل تسجيل دخول تضمن بداية نظيفة تماماً لكل حساب، بلا أي حالة موروثة من حساب آخر
   const redirectBasedOnRole = async (userId: string) => {
     const { data: adminRecord } = await supabase
       .from('platform_admins')
@@ -22,9 +25,9 @@ function LoginContent() {
       .maybeSingle();
 
     if (adminRecord) {
-      router.push('/admin');
+      window.location.href = '/admin';
     } else {
-      router.push('/dashboard');
+      window.location.href = '/dashboard';
     }
   };
 
@@ -43,8 +46,7 @@ function LoginContent() {
       }
     };
     checkExistingSession();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router, searchParams]);
+  }, [searchParams]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

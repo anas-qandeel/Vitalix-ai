@@ -116,7 +116,7 @@ function ItemModal({ item, userId, onClose, onSaved }: {
       const res = await fetch('/api/generate-ai-pitch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ category: form.category, brandName: form.brand_name }),
+        body: JSON.stringify({ category: form.category, brandName: form.brand_name, imageUrl: form.image_url || undefined }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'فشل التوليد');

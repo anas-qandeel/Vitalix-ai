@@ -2086,6 +2086,12 @@ export default function ChronicPage() {
         .animate-soft-pulse { animation: softPulse 3s cubic-bezier(0.4,0,0.6,1) infinite; }
         .scrollbar-none::-webkit-scrollbar { display: none; }
         .scrollbar-none { scrollbar-width: none; }
+        /* التلميحات (tooltips) تعتمد على group-hover — على شاشات اللمس لا يوجد "مغادرة" فأرة
+           تُخفي التلميح، فيبقى عالقاً فوق باقي المحتوى بعد أول لمسة (سلوك معروف في iOS Safari
+           تحديداً يُفعّل :hover عند اللمس). نُخفيها كلياً على الأجهزة التي لا تدعم hover حقيقي. */
+        @media (hover: none) {
+          .chronic-tab-tooltip { display: none !important; }
+        }
       `}</style>
 
       <DashboardHeader />
@@ -2184,8 +2190,8 @@ export default function ChronicPage() {
                     }`}>{s.count}</span>
                   </button>
 
-                  {/* Tooltip — هادئ وبطيء */}
-                  <div className="absolute bottom-full mb-3 right-0 w-64 z-50 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-500 ease-in-out">
+                  {/* Tooltip — هادئ وبطيء، يظهر فقط على الأجهزة التي تدعم hover حقيقي (راجع @media (hover: none) أعلاه) */}
+                  <div className="chronic-tab-tooltip absolute bottom-full mb-3 right-0 w-64 max-w-[85vw] z-50 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-500 ease-in-out">
                     <div className={`bg-white border ${tooltipBorder} rounded-xl p-4 shadow-lg`} dir="rtl">
                       <div className="flex items-center gap-2 mb-2">
                         <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${tooltipDot}`} />

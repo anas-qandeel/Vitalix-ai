@@ -92,7 +92,9 @@ export async function POST(req: Request) {
               contents: parts,
               config: {
                 systemInstruction: SYSTEM_INSTRUCTION,
-                maxOutputTokens: 350,
+                // 350 غير كافٍ هنا لأن أداة googleSearch تستهلك جزءاً من نفس ميزانية التوكنات
+                // في التفكير/البحث قبل النص النهائي، فكان النص التسويقي يخرج مقطوعاً منتصف الجملة
+                maxOutputTokens: 900,
                 tools: [{ googleSearch: {} }],
               },
             });

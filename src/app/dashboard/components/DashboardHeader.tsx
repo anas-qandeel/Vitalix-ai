@@ -8,6 +8,9 @@ import { supabase } from '@/lib/supabase';
 // STAFF localStorage helpers
 // ═══════════════════════════════════════════════════════
 const STAFF_KEY = 'vitalix_active_pharmacist';
+// يحفظ id الصيدلية صاحبة القيمة المخزّنة في STAFF_KEY — بدونه، تسجيل الدخول بحساب صيدلية
+// أخرى على نفس المتصفح كان "يرث" اسم صيدلاني الحساب السابق حتى يُختار يدوياً
+const STAFF_OWNER_KEY = 'vitalix_active_pharmacist_owner';
 
 export function getActivePharmacist(): string {
   if (typeof window === 'undefined') return '';
@@ -56,13 +59,22 @@ export function usePharmacyInfo() {
         setPharmacyStatus(data?.status || '');
         setExpiryDate(data?.expiry_date || null);
 
-        // تحميل الصيدلاني النشط من localStorage — الافتراضي هو الصيدلاني الرئيسي
-        const stored = getActivePharmacist();
-        if (!stored && mainPharmacistName) {
+        // الصيدلاني النشط المخزّن في localStorage تابع لآخر صيدلية سُجّل الدخول بها على هذا
+        // المتصفح — إن كان الحساب الحالي مختلفاً (تبديل حسابات) نتجاهل القيمة المخزّنة كلياً
+        // ونبدأ من الصيدلاني الرئيسي لهذا الحساب، بدل توريث اسم صيدلاني حساب آخر
+        const storedOwner = localStorage.getItem(STAFF_OWNER_KEY);
+        if (storedOwner !== session.user.id) {
+          localStorage.setItem(STAFF_OWNER_KEY, session.user.id);
           setActivePharmacist(mainPharmacistName);
           setActivePharmacistState(mainPharmacistName);
         } else {
-          setActivePharmacistState(stored || mainPharmacistName);
+          const stored = getActivePharmacist();
+          if (!stored && mainPharmacistName) {
+            setActivePharmacist(mainPharmacistName);
+            setActivePharmacistState(mainPharmacistName);
+          } else {
+            setActivePharmacistState(stored || mainPharmacistName);
+          }
         }
       } catch { }
       finally { setLoading(false); }

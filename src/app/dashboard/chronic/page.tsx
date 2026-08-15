@@ -453,7 +453,7 @@ function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill }: {
   };
 
   return (
-    <div className="fixed inset-0 w-screen h-screen bg-slate-900/40 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center sm:p-4 transition-all" onClick={onClose}>
+    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center sm:p-4 transition-all" onClick={onClose}>
       <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md shadow-2xl border border-slate-200 saas-slide-up flex flex-col h-[82vh] sm:h-[78vh]" onClick={e => e.stopPropagation()}>
 
         {/* Header — ثابت */}
@@ -827,7 +827,7 @@ function MedModal({ patientId, pharmacyId, existingMeds, patientName, onClose, o
   const selectedCount = meds.filter(m => m.selected).length;
 
   return (
-    <div className="fixed inset-0 w-screen h-screen bg-slate-900/40 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center sm:p-4 transition-all" onClick={onClose}>
+    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center sm:p-4 transition-all" onClick={onClose}>
       <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-xl max-h-[92vh] overflow-hidden shadow-2xl border border-slate-200 flex flex-col saas-slide-up" onClick={e => e.stopPropagation()}>
 
         <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between gap-3 bg-white shrink-0">
@@ -1222,7 +1222,7 @@ function PatientMedsModal({ patient, cards, onClose }: {
   if (!card) return null;
 
   return (
-    <div className="fixed inset-0 w-screen h-screen bg-slate-900/40 backdrop-blur-sm z-[9999] flex items-end sm:items-center justify-center sm:p-4"
+    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[9999] flex items-end sm:items-center justify-center sm:p-4"
       onClick={onClose}>
       <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md shadow-2xl border border-slate-200 overflow-hidden saas-slide-up flex flex-col max-h-[85vh] sm:max-h-[80vh]"
         onClick={e => e.stopPropagation()}>
@@ -1616,7 +1616,7 @@ function WaMsgModal({ patient, meds, pharmacyName, msgType, onClose, onConfirm }
   useEffect(() => { if (!userEdited) setCustomMsg(previewMsg); }, [previewMsg, userEdited]);
 
   return (
-    <div className="fixed inset-0 w-screen h-screen bg-slate-900/40 backdrop-blur-sm z-[9999] flex items-end sm:items-center justify-center sm:p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[9999] flex items-end sm:items-center justify-center sm:p-4" onClick={onClose}>
       <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md shadow-2xl border border-slate-200 saas-slide-up flex flex-col max-h-[88vh] sm:max-h-[82vh]" onClick={e => e.stopPropagation()}>
 
         {/* Header */}
@@ -2478,7 +2478,7 @@ export default function ChronicPage() {
 
       {/* Confirm Send Dialog */}
       {confirmSent && (
-        <div className="fixed inset-0 w-screen h-screen bg-slate-900/40 backdrop-blur-sm z-[9998] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[9998] flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-sm border border-slate-200 overflow-hidden saas-slide-up">
             <div className="p-6 text-center">
               <h4 className="text-lg font-semibold text-slate-900 mb-2">هل تم الإرسال بنجاح؟</h4>

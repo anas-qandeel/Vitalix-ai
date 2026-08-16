@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Patient, ChronicMed, calcDaysLeft } from '@/lib/chronic';
+import { Patient, ChronicMed, calcDaysLeft, pluralizeDays } from '@/lib/chronic';
 
 export default function WaMsgModal({ patient, meds, pharmacyName, msgType, onClose, onConfirm }: {
   patient: Patient;
@@ -29,10 +29,31 @@ export default function WaMsgModal({ patient, meds, pharmacyName, msgType, onClo
     ...urgentMeds,
     ...optionalMeds.filter(m => optionalSelected.has(m.id)),
   ];
-  const names = previewMeds.map(m => m.medication_name).join(' و');
+  const names = previewMeds.map(m => m.medication_name).join(' و'); // لا يزال يُستخدم في msg2 فقط
   const firstName = patient.name.split(' ')[0];
+
+  // حالة الدواء بصياغة القائمة (سطر لكل دواء): "يكفي {مدة}" بلا "كم"
+  const medStatusForList = (m: ChronicMed): string => {
+    const d = calcDaysLeft(m.next_refill_date);
+    if (d < 0) return 'بحاجة للتجديد';
+    if (d === 0) return 'ينفد اليوم';
+    return `يكفي ${pluralizeDays(d)}`;
+  };
+
+  // حالة الدواء بصياغة الجملة المفردة: "يكفيكم {مدة}"
+  const medStatusSingular = (m: ChronicMed): string => {
+    const d = calcDaysLeft(m.next_refill_date);
+    if (d < 0) return 'بحاجة للتجديد';
+    if (d === 0) return 'ينفد اليوم';
+    return `يكفيكم ${pluralizeDays(d)}`;
+  };
+
   const previewMsg = msgType === 'msg1'
-    ? `مرحباً ${firstName} 😊\nنتمنى أن تكونوا بأتم الصحة والعافية.\n\nنُبلّغكم من ${pharmacyName} بأن دواء (${names || '...'}) سيكفيكم لأيام قليلة.\n\nنحن هنا متى احتجتمونا 🌿`
+    ? previewMeds.length === 0
+      ? `مرحباً ${firstName} 😊\nنودّ تذكيركم بمواعيد أدويتكم. نسعد بخدمتكم في أقرب وقت. 🌿`
+      : previewMeds.length === 1
+        ? `مرحباً ${firstName} 😊\nنودّ تذكيركم بأن دواء (${previewMeds[0].medication_name}) ${medStatusSingular(previewMeds[0])}. نسعد بخدمتكم في أقرب وقت. 🌿`
+        : `مرحباً ${firstName} 😊\nنودّ تذكيركم بأدويتكم:\n${previewMeds.map(m => `- ${m.medication_name} — ${medStatusForList(m)}`).join('\n')}\nنسعد بخدمتكم لتجديدها في أقرب وقت. 🌿`
     : `مرحباً ${firstName} 🌿\nمعكم ${pharmacyName}.\n\nتذكّرنا بكم واحتفظنا بـ (${names || '...'}) جاهزاً لكم.\n\nعندما يناسبكم، نحن هنا 😊`;
 
   const allSelectedIds = new Set([

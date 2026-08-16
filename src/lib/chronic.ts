@@ -26,7 +26,7 @@ export function calcDaysLeft(d: string): number {
   return Math.ceil((next.getTime() - today.getTime()) / 86400000);
 }
 
-function pluralizeDays(days: number): string {
+export function pluralizeDays(days: number): string {
   if (days === 1) return 'يوم واحد';
   if (days === 2) return 'يومان';
   if (days <= 10) return `${days} أيام`;

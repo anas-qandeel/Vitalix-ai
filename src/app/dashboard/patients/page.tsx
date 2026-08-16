@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import DashboardHeader from '../components/DashboardHeader';
 import AppFooter from '../../components/AppFooter';
+import AddPatientForm from '@/components/AddPatientForm';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -20,16 +21,6 @@ interface PatientRow {
 // ═══════════════════════════════════════════════════════
 // HELPERS
 // ═══════════════════════════════════════════════════════
-function normalizePhone(phone: string): string {
-  let c = phone.replace(/[^0-9]/g, '');
-  if (c.startsWith('00962')) c = '0' + c.substring(5);
-  else if (c.startsWith('962') && c.length > 10) c = '0' + c.substring(3);
-  return c;
-}
-function isValidPhone(phone: string): boolean {
-  const digits = phone.replace(/[^0-9]/g, '');
-  return digits.length >= 9 && digits.length <= 10;
-}
 function calculateAge(birthDate: string): number | null {
   if (!birthDate) return null;
   const today = new Date(), birth = new Date(birthDate);
@@ -70,95 +61,6 @@ function IconArrow({ className = 'w-4 h-4' }: { className?: string }) {
     </svg>
   );
 }
-
-// ═══════════════════════════════════════════════════════
-// MODAL: مريض جديد
-// ═══════════════════════════════════════════════════════
-function AddPatientModal({ onClose, onCreated }: {
-  onClose: () => void;
-  onCreated: (p: PatientRow) => void;
-}) {
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [gender, setGender] = useState('male');
-  const [dob, setDob] = useState('1975-01-01');
-  const [saving, setSaving] = useState(false);
-  const [err, setErr] = useState('');
-
-  const save = async () => {
-    if (!name.trim()) { setErr('يرجى إدخال اسم المريض'); return; }
-    if (!isValidPhone(phone)) { setErr('رقم هاتف غير صحيح — أرقام فقط بطول معقول'); return; }
-    setSaving(true); setErr('');
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error('انتهت الجلسة');
-      const { data, error } = await supabase.from('patients').insert({
-        pharmacy_id: session.user.id,
-        name: name.trim(),
-        phone_number: normalizePhone(phone),
-        gender,
-        birth_date: dob,
-        diagnosed_conditions: [],
-      }).select().single();
-      if (error || !data) throw new Error('تعذر الحفظ — تأكد من عدم تكرار رقم الهاتف');
-      onCreated(data as PatientRow);
-    } catch (e: any) { setErr(e.message); setSaving(false); }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center sm:p-4" onClick={onClose}>
-      <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-sm shadow-2xl border border-slate-200 saas-slide-up" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-          <h3 className="text-sm font-bold text-slate-900">إضافة مريض جديد</h3>
-          <button onClick={onClose} className="w-8 h-8 rounded-full bg-slate-50 hover:bg-slate-100 text-slate-500 flex items-center justify-center transition-colors text-sm cursor-pointer">✕</button>
-        </div>
-
-        <div className="p-5 space-y-4">
-          <div>
-            <label className="block text-xs font-bold text-slate-600 mb-1.5">الاسم الكامل</label>
-            <input autoFocus type="text" value={name} onChange={e => setName(e.target.value)}
-              className="w-full px-4 py-3 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-slate-900 transition text-slate-900" />
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-slate-600 mb-1.5">رقم الهاتف</label>
-            <input type="tel" dir="ltr" value={phone} onChange={e => setPhone(e.target.value)} placeholder="07XXXXXXXX"
-              className="w-full px-4 py-3 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-slate-900 transition text-slate-900 font-mono text-left" />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-bold text-slate-600 mb-1.5">الجنس</label>
-              <div className="flex bg-slate-100 p-1 rounded-lg">
-                {[{ v: 'male', l: 'ذكر' }, { v: 'female', l: 'أنثى' }].map(g => (
-                  <button key={g.v} type="button" onClick={() => setGender(g.v)}
-                    className={`flex-1 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${gender === g.v ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500'}`}>
-                    {g.l}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-600 mb-1.5">تاريخ الميلاد</label>
-              <input type="date" value={dob} onChange={e => setDob(e.target.value)}
-                className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 transition text-slate-900" />
-            </div>
-          </div>
-
-          {err && <p className="text-xs text-rose-600 font-medium bg-rose-50 border border-rose-200 px-3 py-2 rounded-lg">{err}</p>}
-        </div>
-
-        <div className="px-5 pb-5">
-          <button onClick={save} disabled={saving || !name.trim()}
-            className="w-full py-3 bg-gradient-to-l from-slate-900 to-teal-800 hover:from-slate-800 hover:to-teal-700 text-white rounded-xl text-sm font-bold transition active:scale-[0.98] disabled:opacity-50 shadow-sm cursor-pointer">
-            {saving ? 'جاري الحفظ...' : 'حفظ المريض'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ═══════════════════════════════════════════════════════
 // MAIN PAGE
 // ═══════════════════════════════════════════════════════
@@ -261,9 +163,9 @@ export default function PatientsListPage() {
       </main>
 
       {showAddModal && (
-        <AddPatientModal
+        <AddPatientForm
           onClose={() => setShowAddModal(false)}
-          onCreated={(p) => { setPatients(prev => [...prev, p].sort((a, b) => a.name.localeCompare(b.name, 'ar'))); setShowAddModal(false); }}
+          onSaved={(p) => { setPatients(prev => [...prev, p].sort((a, b) => a.name.localeCompare(b.name, 'ar'))); setShowAddModal(false); }}
         />
       )}
 

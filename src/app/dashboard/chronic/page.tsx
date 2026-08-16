@@ -114,6 +114,15 @@ function calcDaysLeft(d: string): number {
   return Math.ceil((next.getTime() - today.getTime()) / 86400000);
 }
 
+function formatDaysLeft(days: number): string {
+  if (days < 0) return `متأخر ${Math.abs(days)} أيام`;
+  if (days === 0) return 'ينفد اليوم';
+  if (days === 1) return 'متبقي يوم واحد';
+  if (days === 2) return 'متبقي يومان';
+  if (days <= 10) return `متبقي ${days} أيام`;
+  return `متبقي ${days} يوماً`;
+}
+
 function calcNextRefill(last: string, ppb: number, boxes: number, dose: number): string {
   const base = new Date(last || new Date().toISOString().split('T')[0]);
   if (isNaN(base.getTime())) return new Date().toISOString().split('T')[0];
@@ -1764,7 +1773,7 @@ function PatientCard({ card, pharmacyName, onAction, onNotesUpdate }: {
           {stage === 'renewed' ? 'مجدد ✓' :
            stage === 'messaged' ? 'تم الإرسال' :
            stage === 'no_response' ? 'بدون رد' :
-           (daysLeft <= 0 ? 'نفد' : `${daysLeft} ${daysLeft === 1 ? 'Day' : 'Days'}`)}
+           formatDaysLeft(daysLeft)}
         </span>
         <svg className={`w-5 h-5 text-slate-400 transition-transform duration-200 shrink-0 ${open ? 'rotate-180' : ''}`}
           fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>

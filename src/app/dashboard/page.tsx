@@ -212,7 +212,6 @@ export default function PharmacistDashboard() {
       const today    = new Date();
       const todayMM  = today.getMonth() + 1;
       const todayDD  = today.getDate();
-      const todayStr = today.toISOString().split('T')[0];
 
       const [pharmRes, patientsRes, allPatientsRes, visitsRes, monthVisitsRes, alertsRes] = await Promise.all([
         supabase.from('pharmacies').select('id, pharmacist_name, expiry_date, status').eq('id', uid).single(),
@@ -224,8 +223,8 @@ export default function PharmacistDashboard() {
         supabase.from('chronic_medications')
           .select('id, medication_name, next_refill_date, patient_id, patients!inner(name, phone_number)')
           .eq('pharmacy_id', uid).eq('status', 'active')
-          .lte('next_refill_date', new Date(today.getTime() + 7 * 86400000).toISOString().split('T')[0])
-          .gte('next_refill_date', todayStr)
+          .lte('next_refill_date', new Date(today.getTime() + 3 * 86400000).toISOString().split('T')[0])
+          .gte('next_refill_date', new Date(today.getTime() - 3 * 86400000).toISOString().split('T')[0])
           .order('next_refill_date', { ascending: true })
           .limit(15), // أكبر من 5 لأن بعض النتائج ستُستثنى لاحقاً حسب مرحلتها في refill_tracking_pipeline
       ]);

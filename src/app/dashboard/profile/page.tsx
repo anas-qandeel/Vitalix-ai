@@ -164,6 +164,13 @@ export default function ProfilePage() {
     return Math.max(0, profile.total_amount_due - profile.paid_amount);
   };
 
+  const pluralizeDays = (days: number): string => {
+    if (days === 1) return 'يوم واحد';
+    if (days === 2) return 'يومان';
+    if (days <= 10) return `${days} أيام`;
+    return `${days} يوماً`;
+  };
+
   const handleSaveProfile = async () => {
     if (!profile) return;
     try {
@@ -266,7 +273,7 @@ export default function ProfilePage() {
                   : '—'}
                 {isExpiringSoon && (
                   <span className="mr-2 text-[10px] bg-amber-100 text-amber-700 font-black px-2 py-0.5 rounded-full border border-amber-200">
-                    ⚠️ {daysLeft} يوم متبقي
+                    ⚠️ متبقي {pluralizeDays(daysLeft)}
                   </span>
                 )}
               </span>

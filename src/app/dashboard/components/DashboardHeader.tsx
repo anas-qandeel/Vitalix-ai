@@ -34,6 +34,13 @@ function resolvePharmacyName(row: { name?: string | null; pharmacy_name?: string
   return raw.startsWith('صيدلية') ? raw : `صيدلية ${raw}`;
 }
 
+function pluralizeDays(days: number): string {
+  if (days === 1) return 'يوم واحد';
+  if (days === 2) return 'يومان';
+  if (days <= 10) return `${days} أيام`;
+  return `${days} يوماً`;
+}
+
 export function usePharmacyInfo() {
   const [pharmacyName, setPharmacyName] = useState('');
   const [pharmacistName, setPharmacistName] = useState('');
@@ -387,7 +394,7 @@ export default function DashboardHeader({ breadcrumb, onBack }: DashboardHeaderP
                         isExpiringSoon ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
                       }`}>
                         <span className={`w-1.5 h-1.5 rounded-full ${isExpiringSoon ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}`} />
-                        اشتراك {pharmacyStatus === 'active' ? 'نشط' : 'تجريبي'} ({daysLeft} يوم)
+                        اشتراك {pharmacyStatus === 'active' ? 'نشط' : 'تجريبي'} ({pluralizeDays(daysLeft)})
                       </span>
                     </div>
                   </div>

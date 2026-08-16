@@ -66,6 +66,13 @@ const getDefaultSecondPaymentDate = () => {
   return d.toISOString().split('T')[0];
 };
 
+function pluralizeDays(days: number): string {
+  if (days === 1) return 'يوم واحد';
+  if (days === 2) return 'يومان';
+  if (days <= 10) return `${days} أيام`;
+  return `${days} يوماً`;
+}
+
 export default function SuperAdminPage() {
   const [activeTab, setActiveTab] = useState<'pharmacies' | 'expiring' | 'admins' | 'feedback'>('pharmacies');
   
@@ -1162,7 +1169,7 @@ export default function SuperAdminPage() {
                           </td>
                           <td className="px-5 py-3.5 font-bold">
                             <span className={daysLeft <= 3 ? 'text-rose-600 animate-pulse' : 'text-amber-700'}>
-                              {daysLeft < 0 ? 'منتهي كلياً' : `${daysLeft} أيام متبقية`}
+                              {daysLeft < 0 ? 'منتهي كلياً' : `${pluralizeDays(daysLeft)} متبقية`}
                             </span>
                           </td>
                           <td className="px-5 py-3.5 text-slate-500">

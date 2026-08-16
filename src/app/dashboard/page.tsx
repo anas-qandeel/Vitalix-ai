@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import DashboardHeader, { usePharmacyInfo, getActivePharmacist } from './components/DashboardHeader';
 import AppFooter from '../components/AppFooter';
+import { upsertPipeline } from '@/lib/pipeline';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -29,6 +30,7 @@ interface BirthdayPatient {
 }
 interface QuickAlert {
   id: string;
+  patient_id: string;
   patient_name: string;
   phone: string;
   medication_name: string;
@@ -175,6 +177,8 @@ export default function PharmacistDashboard() {
   const [loading, setLoading]         = useState(true);
   const [stats, setStats]             = useState<RealStats>({ totalPatients: 0, totalVisits: 0, visitsThisMonth: 0, patientsWithVisits: 0 });
   const [todayAlerts, setTodayAlerts] = useState<QuickAlert[]>([]);
+  const [pharmacyId, setPharmacyId]   = useState('');
+  const [confirmSent, setConfirmSent] = useState<{ patientId: string; patientName: string } | null>(null);
   const [birthdayPatients, setBirthdayPatients]   = useState<BirthdayPatient[]>([]);
   const [birthdayModalOpen, setBirthdayModalOpen] = useState(false);
   const [activePharmacist, setActivePharmacistDisplay] = useState(() => getActivePharmacist());
@@ -200,6 +204,7 @@ export default function PharmacistDashboard() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { router.push('/'); return; }
       const uid = session.user.id;
+      setPharmacyId(uid);
 
       const today    = new Date();
       const todayMM  = today.getMonth() + 1;
@@ -219,7 +224,7 @@ export default function PharmacistDashboard() {
           .lte('next_refill_date', new Date(today.getTime() + 7 * 86400000).toISOString().split('T')[0])
           .gte('next_refill_date', todayStr)
           .order('next_refill_date', { ascending: true })
-          .limit(5),
+          .limit(15), // أكبر من 5 لأن بعض النتائج ستُستثنى لاحقاً حسب مرحلتها في refill_tracking_pipeline
       ]);
 
       if (pharmRes.data) setPharmacy(pharmRes.data as PharmacyDetails);
@@ -239,13 +244,43 @@ export default function PharmacistDashboard() {
         return parts.length >= 3 && parseInt(parts[1]) === todayMM && parseInt(parts[2]) === todayDD;
       }));
 
-      setTodayAlerts(((alertsRes.data as any[]) || []).map(item => {
-        const d = Math.max(0, Math.ceil((new Date(item.next_refill_date).getTime() - today.getTime()) / 86400000));
-        const patient = item.patients as { name: string; phone_number: string };
-        return { id: item.id, patient_name: patient?.name || 'مريض', phone: patient?.phone_number || '', medication_name: item.medication_name, days_left: d };
-      }));
+      // نجلب مراحل المرضى الظاهرين في التنبيه من refill_tracking_pipeline
+      // لاستثناء من تم التواصل معهم بالفعل (نفس منطق صفحة chronic)
+      const alertPatientIds = ((alertsRes.data as any[]) || []).map(item => item.patient_id);
+      const { data: pipelineData } = alertPatientIds.length
+        ? await supabase.from('refill_tracking_pipeline')
+            .select('patient_id, pipeline_stage')
+            .eq('pharmacy_id', uid).eq('payment_type', 'cash')
+            .in('patient_id', alertPatientIds)
+        : { data: [] as any[] };
+
+      const pipelineStageMap = new Map<string, string>();
+      (pipelineData || []).forEach((row: any) => pipelineStageMap.set(row.patient_id, row.pipeline_stage));
+
+      setTodayAlerts(
+        ((alertsRes.data as any[]) || [])
+          .filter(item => {
+            const stage = pipelineStageMap.get(item.patient_id);
+            return !stage || stage === 'due'; // بدون سجل = لم يبدأ التعامل بعد، أبقِه
+          })
+          .map(item => {
+            const d = Math.max(0, Math.ceil((new Date(item.next_refill_date).getTime() - today.getTime()) / 86400000));
+            const patient = item.patients as { name: string; phone_number: string };
+            return { id: item.id, patient_id: item.patient_id, patient_name: patient?.name || 'مريض', phone: patient?.phone_number || '', medication_name: item.medication_name, days_left: d };
+          })
+          .slice(0, 5)
+      );
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
+  };
+
+  const handleConfirmSent = async (confirmed: boolean) => {
+    if (!confirmSent) return;
+    const { patientId } = confirmSent;
+    setConfirmSent(null);
+    if (!confirmed) return; // لم يُرسَل — لا تغيير
+    await upsertPipeline(pharmacyId, patientId, 'messaged', { reminded_at: new Date().toISOString() });
+    setTodayAlerts(prev => prev.filter(a => a.patient_id !== patientId));
   };
 
   const daysLeft       = !pharmacy?.expiry_date ? 0 : Math.max(0, Math.ceil((new Date(pharmacy.expiry_date).getTime() - Date.now()) / 86400000));
@@ -331,10 +366,14 @@ export default function PharmacistDashboard() {
                         }`}>
                           {item.days_left === 0 ? 'نفد اليوم' : `متبقي ${pluralizeDays(item.days_left)}`}
                         </span>
-                        <a href={`https://wa.me/962${item.phone.replace(/^0/, '')}?text=${encodeURIComponent(msg)}`} target="_blank" rel="noreferrer"
+                        <button
+                          onClick={() => {
+                            window.open(`https://wa.me/962${item.phone.replace(/^0/, '')}?text=${encodeURIComponent(msg)}`, '_blank');
+                            setTimeout(() => setConfirmSent({ patientId: item.patient_id, patientName: item.patient_name }), 1500);
+                          }}
                           className="flex items-center justify-center w-9 h-9 bg-slate-900 hover:bg-slate-800 text-white rounded-lg transition-all shadow-sm">
                           <IconWhatsapp className="w-4 h-4" />
-                        </a>
+                        </button>
                       </div>
                     </div>
                   );
@@ -545,6 +584,21 @@ export default function PharmacistDashboard() {
 
       {birthdayModalOpen && (
         <BirthdayModal patients={birthdayPatients} pharmacyName={pharmacyName} onClose={() => setBirthdayModalOpen(false)} />
+      )}
+
+      {confirmSent && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[9998] flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm border border-slate-200 overflow-hidden saas-slide-up">
+            <div className="p-6 text-center">
+              <h4 className="text-lg font-semibold text-slate-900 mb-2">هل تم الإرسال بنجاح؟</h4>
+              <p className="text-sm text-slate-500 mb-6">يرجى التأكيد لنقل {confirmSent.patientName} إلى قائمة "تم الإرسال".</p>
+              <div className="grid grid-cols-2 gap-3">
+                <button onClick={() => handleConfirmSent(false)} className="py-2.5 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">لم يُرسَل</button>
+                <button onClick={() => handleConfirmSent(true)} className="py-2.5 text-sm font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-lg shadow-sm transition-colors">نعم، تم الإرسال ✓</button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       <AppFooter className="max-w-6xl mx-auto px-6 py-8 border-t border-slate-200/60 mt-4" />

@@ -406,7 +406,7 @@ export default function PharmacistDashboard() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <h3 className="text-base font-bold text-slate-900">ما في حدا بحاجة تذكير اليوم</h3>
+              <h3 className="text-base font-bold text-slate-900">لا يوجد مرضى بحاجة للتذكير اليوم</h3>
             </div>
           )}
         </div>

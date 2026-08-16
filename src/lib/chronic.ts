@@ -4,6 +4,7 @@ export interface Patient {
   phone_number: string;
   gender: string;
   birth_date: string;
+  diagnosed_conditions?: string[] | null;
 }
 
 export interface ChronicMed {

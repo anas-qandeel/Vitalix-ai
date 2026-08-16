@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
+import { upsertPipeline } from '@/lib/pipeline';
 import { useRouter } from 'next/navigation';
 import DashboardHeader, { usePharmacyInfo, getActivePharmacist } from '../components/DashboardHeader';
 import AppFooter from '../../components/AppFooter';
@@ -165,6 +166,7 @@ function NewPatientModal({ phone, onClose, onCreated }: {
   const [gender, setGender] = useState('male');
   const [dob, setDob] = useState('1975-01-01');
   const [conditions, setConditions] = useState<string[]>([]);
+  const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
 
@@ -187,6 +189,11 @@ function NewPatientModal({ phone, onClose, onCreated }: {
         diagnosed_conditions: conditions,
       }).select().single();
       if (error || !data) throw new Error('تعذر الحفظ');
+      if (note.trim()) {
+        await upsertPipeline(session.user.id, data.id, 'due', {});
+        await supabase.from('refill_tracking_pipeline').update({ insurance_status: note.trim() })
+          .eq('pharmacy_id', session.user.id).eq('patient_id', data.id).eq('payment_type', 'cash');
+      }
       onCreated(data as Patient);
     } catch (e: any) { setErr(e.message); setSaving(false); }
   };
@@ -258,6 +265,15 @@ function NewPatientModal({ phone, onClose, onCreated }: {
                 );
               })}
             </div>
+          </div>
+
+          {/* ملاحظة */}
+          <div>
+            <label className="block text-xs font-bold text-slate-600 mb-1.5">ملاحظة <span className="font-normal text-slate-400">(اختياري)</span></label>
+            <textarea value={note} onChange={e => setNote(e.target.value)}
+              placeholder="مثال: خصم ثابت 10%"
+              rows={2}
+              className="w-full px-4 py-3 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-slate-900 transition text-slate-900 resize-none" />
           </div>
 
           {err && <p className="text-xs text-rose-600 font-medium bg-rose-50 border border-rose-200 px-3 py-2 rounded-lg">{err}</p>}

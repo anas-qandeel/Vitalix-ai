@@ -256,6 +256,7 @@ function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill }: {
   const [name, setName]     = useState(prefill?.patient.name || '');
   const [gender, setGender] = useState('male');
   const [dob, setDob]       = useState('1975-01-01');
+  const [conditions, setConditions] = useState<string[]>([]);
   const [searching, setSearching] = useState(false);
   const [found, setFound]   = useState<Patient | null>(prefill?.patient || null);
   const [results, setResults] = useState<Patient[]>([]); // نتائج متعددة
@@ -266,6 +267,10 @@ function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill }: {
   const [foundMeds, setFoundMeds] = useState<ChronicMed[]>(prefill?.meds || []);
   const [allPatients, setAllPatients] = useState<Patient[]>([]); // كاش محلي للمرضى
   const [allMeds, setAllMeds]         = useState<ChronicMed[]>([]); // كاش الأدوية للبحث
+
+  const toggleCondition = (key: string) => {
+    setConditions(prev => prev.includes(key) ? prev.filter(c => c !== key) : [...prev, key]);
+  };
 
   // ── تطبيع النص: يوحّد الهمزات ويزيل التشكيل ────────────────────────────
   const normalizeAr = (s: string) =>
@@ -403,7 +408,7 @@ function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill }: {
       const { data: { session } } = await supabase.auth.getSession();
       const pid = pharmacyId || session?.user?.id || '';
       const { data, error } = await supabase.from('patients').insert({
-        pharmacy_id: pid, name: name.trim(), phone_number: normalizePhone(query), gender, birth_date: dob, diagnosed_conditions: [],
+        pharmacy_id: pid, name: name.trim(), phone_number: normalizePhone(query), gender, birth_date: dob, diagnosed_conditions: conditions,
       }).select().single();
       if (error || !data) throw error;
       onAdded(data as Patient, patientNote.trim(), false); // مريض جديد
@@ -550,6 +555,25 @@ function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill }: {
                   <label className="block text-xs font-semibold text-slate-600 mb-2">تاريخ الميلاد</label>
                   <input type="date" value={dob} onChange={e => setDob(e.target.value)}
                     className="w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-all shadow-sm text-slate-900" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-2">التشخيصات المزمنة <span className="font-normal text-slate-400">(اختياري)</span></label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { key: 'hypertension', label: 'ضغط الدم' },
+                    { key: 'diabetes', label: 'السكري' },
+                  ].map(({ key, label }) => {
+                    const active = conditions.includes(key);
+                    return (
+                      <button key={key} type="button" onClick={() => toggleCondition(key)}
+                        className={`py-2.5 rounded-lg border text-xs font-semibold transition-all ${
+                          active ? 'bg-slate-900 border-slate-900 text-white' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
+                        }`}>
+                        {active ? '✓ ' : ''}{label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
               <div>

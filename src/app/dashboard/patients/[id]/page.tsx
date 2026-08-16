@@ -76,6 +76,16 @@ function bmiCalc(weight: number | null, height: number | null) {
 function cleanPhone(p: string) {
   return p.replace(/[^0-9]/g, '').replace(/^0/, '962');
 }
+function normalizePhone(phone: string): string {
+  let c = phone.replace(/[^0-9]/g, '');
+  if (c.startsWith('00962')) c = '0' + c.substring(5);
+  else if (c.startsWith('962') && c.length > 10) c = '0' + c.substring(3);
+  return c;
+}
+function isValidPhone(phone: string): boolean {
+  const digits = phone.replace(/[^0-9]/g, '');
+  return digits.length >= 9 && digits.length <= 10;
+}
 function sugarTypeLabel(t: string | null) {
   if (t === 'fasting') return 'صائم';
   if (t === 'postprandial') return 'بعد الأكل';
@@ -172,6 +182,14 @@ export default function PatientCardPage({ params }: PageProps) {
   const [savingHeight, setSavingHeight] = useState(false);
   const [editingHeight, setEditingHeight] = useState(false);
 
+  const [editingInfo, setEditingInfo] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editGender, setEditGender] = useState('male');
+  const [editDob, setEditDob] = useState('');
+  const [savingInfo, setSavingInfo] = useState(false);
+  const [infoErr, setInfoErr] = useState('');
+
   useEffect(() => { fetchData(); }, [patientId]);
 
   const fetchData = async () => {
@@ -217,6 +235,36 @@ export default function PatientCardPage({ params }: PageProps) {
     finally { setSavingHeight(false); }
   };
 
+  const startEditInfo = () => {
+    if (!patient) return;
+    setEditName(patient.name);
+    setEditPhone(patient.phone_number);
+    setEditGender(patient.gender);
+    setEditDob(patient.birth_date);
+    setInfoErr('');
+    setEditingInfo(true);
+  };
+
+  const saveInfo = async () => {
+    if (!patient) return;
+    if (!editName.trim()) { setInfoErr('يرجى إدخال اسم المريض'); return; }
+    if (!isValidPhone(editPhone)) { setInfoErr('رقم هاتف غير صحيح'); return; }
+    setSavingInfo(true); setInfoErr('');
+    try {
+      const updated = {
+        name: editName.trim(),
+        phone_number: normalizePhone(editPhone),
+        gender: editGender,
+        birth_date: editDob,
+      };
+      const { error } = await supabase.from('patients').update(updated).eq('id', patient.id);
+      if (error) throw new Error('تعذر الحفظ — تأكد من عدم تكرار رقم الهاتف');
+      setPatient({ ...patient, ...updated });
+      setEditingInfo(false);
+    } catch (e: any) { setInfoErr(e.message); }
+    finally { setSavingInfo(false); }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50/50 flex items-center justify-center" dir="rtl">
@@ -251,43 +299,83 @@ export default function PatientCardPage({ params }: PageProps) {
         .slide-up { animation: saasSlideUp 0.25s ease both; }
       `}</style>
 
-      <DashboardHeader breadcrumb="كرت المريض" onBack={() => router.push('/dashboard/vitals')} />
+      <DashboardHeader breadcrumb="كرت المريض" onBack={() => router.back()} />
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 pt-8 pb-12 slide-up">
 
         {/* ── هوية المريض — يمتد فوق العمودين ── */}
         <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
           <div className="px-6 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-slate-900 text-white flex items-center justify-center text-xl font-black shrink-0">
-                {patient.name.trim().charAt(0)}
-              </div>
-              <div>
-                <h1 className="text-lg font-bold text-slate-900">{patient.name}</h1>
-                <div className="flex flex-wrap items-center gap-2 mt-1.5">
-                  <span className="text-[11px] font-medium text-slate-500">
-                    {patient.gender === 'female' ? 'أنثى' : 'ذكر'}
-                  </span>
-                  <span className="text-slate-300">·</span>
-                  <span className="text-[11px] font-medium text-slate-500">{age} سنة</span>
-                  <span className="text-slate-300">·</span>
-                  <span className="text-[11px] font-medium text-slate-500">منذ {formatDate(patient.created_at)}</span>
-                  {conditions.includes('hypertension') && (
-                    <span className="flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-md">
-                      <IconHeart className="w-3 h-3" /> ضغط
-                    </span>
-                  )}
-                  {conditions.includes('diabetes') && (
-                    <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
-                      <IconDroplet className="w-3 h-3" /> سكري
-                    </span>
-                  )}
+            {editingInfo ? (
+              <div className="flex-1 space-y-3">
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <input value={editName} onChange={e => setEditName(e.target.value)} placeholder="الاسم الكامل"
+                    className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 transition text-slate-900" />
+                  <input value={editPhone} onChange={e => setEditPhone(e.target.value)} placeholder="رقم الهاتف" dir="ltr"
+                    className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 transition text-slate-900 font-mono text-left" />
+                </div>
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <div className="flex bg-slate-100 p-1 rounded-lg w-fit">
+                    {[{ v: 'male', l: 'ذكر' }, { v: 'female', l: 'أنثى' }].map(g => (
+                      <button key={g.v} type="button" onClick={() => setEditGender(g.v)}
+                        className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${editGender === g.v ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500'}`}>
+                        {g.l}
+                      </button>
+                    ))}
+                  </div>
+                  <input type="date" value={editDob} onChange={e => setEditDob(e.target.value)}
+                    className="px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 transition text-slate-900" />
+                </div>
+                {infoErr && <p className="text-xs text-rose-600 font-medium bg-rose-50 border border-rose-200 px-3 py-2 rounded-lg">{infoErr}</p>}
+                <div className="flex gap-2">
+                  <button onClick={saveInfo} disabled={savingInfo}
+                    className="px-4 py-2 bg-gradient-to-l from-slate-900 to-teal-800 text-white rounded-lg text-xs font-bold disabled:opacity-50 cursor-pointer">
+                    {savingInfo ? 'جاري الحفظ...' : 'حفظ'}
+                  </button>
+                  <button onClick={() => setEditingInfo(false)}
+                    className="px-4 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-lg text-xs font-bold cursor-pointer">
+                    إلغاء
+                  </button>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-slate-900 text-white flex items-center justify-center text-xl font-black shrink-0">
+                  {patient.name.trim().charAt(0)}
+                </div>
+                <div>
+                  <h1 className="text-lg font-bold text-slate-900">{patient.name}</h1>
+                  <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                    <span className="text-[11px] font-medium text-slate-500">
+                      {patient.gender === 'female' ? 'أنثى' : 'ذكر'}
+                    </span>
+                    <span className="text-slate-300">·</span>
+                    <span className="text-[11px] font-medium text-slate-500">{age} سنة</span>
+                    <span className="text-slate-300">·</span>
+                    <span className="text-[11px] font-medium text-slate-500">منذ {formatDate(patient.created_at)}</span>
+                    {conditions.includes('hypertension') && (
+                      <span className="flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-md">
+                        <IconHeart className="w-3 h-3" /> ضغط
+                      </span>
+                    )}
+                    {conditions.includes('diabetes') && (
+                      <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
+                        <IconDroplet className="w-3 h-3" /> سكري
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* أزرار التواصل */}
             <div className="flex items-center gap-2 shrink-0">
+              {!editingInfo && (
+                <button onClick={startEditInfo}
+                  className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 transition cursor-pointer">
+                  ✎ تعديل
+                </button>
+              )}
               <a href={callUrl}
                 className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 transition">
                 <IconPhone className="w-3.5 h-3.5" />

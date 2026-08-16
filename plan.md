@@ -1,177 +1,139 @@
-# تجميع "اتصل اليوم" — صف واحد لكل مريض بدل صف لكل دواء
+# استكشاف: بنية المرضى قبل ميزة "إدارة المرضى"
 
-استكشاف أولاً، ثم اقتراح — بلا تطبيق. الملف: `src/app/dashboard/page.tsx`.
+استكشاف فقط — لا تعديل على أي كود.
 
-## 1. كيف تُبنى todayAlerts حالياً؟
+## 1. حقول جدول `patients` الكاملة
 
-الاستعلام (سطر 223-229) — **صف واحد لكل دواء**، لا تجميع حسب المريض:
+لا يوجد ملف schema مركزي — الحقول 
+استُنتجت من كل الاستعلامات والـ interfaces عبر الكود:
+
+**من `src/app/dashboard/patients/[id]/page.tsx` (سطر 12-21) — الأشمل:**
 ```ts
-supabase.from('chronic_medications')
-  .select('id, medication_name, next_refill_date, patient_id, patients!inner(name, phone_number)')
-  .eq('pharmacy_id', uid).eq('status', 'active')
-  .lte('next_refill_date', new Date(today.getTime() + 3 * 86400000).toISOString().split('T')[0])
-  .gte('next_refill_date', new Date(today.getTime() - 3 * 86400000).toISOString().split('T')[0])
-  .order('next_refill_date', { ascending: true })
-  .limit(15),
-```
-
-البناء النهائي (سطر 262-274) — فلترة على `pipeline_stage` ثم `.map` **مباشر بلا تجميع** ثم `.slice(0,5)`:
-```ts
-setTodayAlerts(
-  ((alertsRes.data as any[]) || [])
-    .filter(item => {
-      const stage = pipelineStageMap.get(item.patient_id);
-      return !stage || stage === 'due';
-    })
-    .map(item => {
-      const d = Math.ceil((new Date(item.next_refill_date).getTime() - today.getTime()) / 86400000);
-      const patient = item.patients as { name: string; phone_number: string };
-      return { id: item.id, patient_id: item.patient_id, patient_name: patient?.name || 'مريض', phone: patient?.phone_number || '', medication_name: item.medication_name, days_left: d };
-    })
-    .slice(0, 5)
-);
-```
-كل صف مصدره صف `chronic_medications` واحد (`id: item.id` = معرّف صف الدواء) — لو مريض له دواءان ضمن النافذة الزمنية، يظهر **صفّين منفصلين** بنفس `patient_id` لكن `id` مختلف.
-
-## 2. آلية تجميع chronic حسب المريض
-
-`src/app/dashboard/chronic/page.tsx`، سطر 1730-1746 — `patientMap`:
-```ts
-const { data: medsData } = await supabase.from('chronic_medications')
-  .select('*, patients!inner(id, name, phone_number, gender, birth_date)')
-  .eq('pharmacy_id', pid).eq('status', 'active');   // ← بلا فلترة تاريخ على مستوى الاستعلام إطلاقاً
-...
-const patientMap = new Map<string, { patient: Patient; meds: ChronicMed[] }>();
-(medsData || []).forEach((row: any) => {
-  const p: Patient = row.patients;
-  const m: ChronicMed = { ...row };
-  delete (m as any).patients;
-  if (!patientMap.has(p.id)) patientMap.set(p.id, { patient: p, meds: [] });
-  patientMap.get(p.id)!.meds.push(m);
-});
-```
-ثم حساب "الأعجل" لكل مريض (سطر 1750):
-```ts
-const daysLeft = Math.min(...meds.map(m => calcDaysLeft(m.next_refill_date)));
-```
-**ملاحظة مهمة:** `Math.min` تُعطي الأولوية تلقائياً لـ"نافد" (أيام سالبة، أصغر رقم) قبل "اليوم" (0) قبل "الأقرب" (موجب) — بلا حاجة لمنطق شرطي إضافي، لأن الترتيب العددي الطبيعي يطابق ترتيب الأولوية المطلوب تماماً. وأخيراً: `list.sort((a, b) => a.daysLeft - b.daysLeft)` (سطر 1773) يرتّب المرضى تصاعدياً حسب هذا الرقم (الأعجل أولاً).
-
-## 3. بنية QuickAlert الحالية
-
-```ts
-interface QuickAlert {
-  id: string;              // معرّف صف chronic_medications (دواء واحد)
-  patient_id: string;
-  patient_name: string;
-  phone: string;
-  medication_name: string; // ← مفرد، دواء واحد فقط
-  days_left: number;
+interface PatientDetail {
+  id: string;
+  name: string;
+  phone_number: string;
+  gender: string;
+  birth_date: string;
+  height: number | null;
+  diagnosed_conditions: string[] | null;
+  created_at: string;
 }
 ```
-تحمل **دواءً واحداً**، لا مصفوفة. هذا هو سبب ظهور المريض مرتين.
 
----
+**من عمليات الإنشاء (`insert`)** — يُضاف أيضاً `pharmacy_id` (غير موجود في الـ interfaces أعلاه لأنه لا يُعرض للصيدلي، لكنه عمود فعلي):
+- `src/app/dashboard/vitals/page.tsx` سطر 181-188:
+  ```ts
+  const { data, error } = await supabase.from('patients').insert({
+    pharmacy_id: session.user.id,
+    name: name.trim(),
+    phone_number: normalizePhone(phone),
+    gender,
+    birth_date: dob,
+    diagnosed_conditions: conditions,
+  }).select().single();
+  ```
+- `src/app/dashboard/chronic/page.tsx` سطر 405-407:
+  ```ts
+  const { data, error } = await supabase.from('patients').insert({
+    pharmacy_id: pid, name: name.trim(), phone_number: normalizePhone(query), gender, birth_date: dob, diagnosed_conditions: [],
+  }).select().single();
+  ```
 
-## الخطة المقترحة (بلا تطبيق)
-
-**لن أغيّر استعلام قاعدة البيانات نفسه** (يبقى ±3 أيام كما هو) — التجميع سيحدث client-side بعد الجلب، بنفس فكرة `patientMap` في chronic لكن مطبّقة على الصفوف المفلترة زمنياً أصلاً (وليس كل الأدوية النشطة كما تفعل chronic، لأن استعلام dashboard يبقى محدوداً بالنافذة الزمنية عمداً — قرار سابق متفق عليه).
-
-### أ) `QuickAlert` — إزالة `id`، `medication_name` مصفوفة
-```diff
-interface QuickAlert {
--  id: string;
-  patient_id: string;
-  patient_name: string;
-  phone: string;
--  medication_name: string;
-+  medication_names: string[];
-  days_left: number;
+**النسخة المُصغَّرة المشتركة** (`src/lib/chronic.ts`، تُستخدم في `WaMsgModal`/`chronic`/`dashboard`) لا تحمل إلا الحقول الأساسية:
+```ts
+export interface Patient {
+  id: string;
+  name: string;
+  phone_number: string;
+  gender: string;
+  birth_date: string;
 }
 ```
-`id` غير مستخدم في أي مكان سوى `key` في React (سطر 369) — سيُستبدل بـ `patient_id` مباشرة (فريد الآن أصلاً بعد التجميع). تحققت: `openWaModal` لا يستخدم `item.id` ولا `item.medication_name` إطلاقاً (فقط `patient_id`/`patient_name`/`phone`) — **لا حاجة لأي تعديل داخل `openWaModal` أو `handleWaConfirm`**.
 
-### ب) بناء `todayAlerts` — تجميع بعد الفلترة، قبل `setTodayAlerts` (يستبدل سطر 262-274)
+**الحقول الكاملة المؤكَّدة فعلياً في الجدول:**
+`id, pharmacy_id, name, phone_number, gender, birth_date, height, diagnosed_conditions, created_at`
+
+لا يوجد عمود بريد إلكتروني، عنوان، أو رقم هوية — فقط ما سبق.
+
+## 2. كيف يُنشأ مريض جديد حالياً؟
+
+**شاشة الفحوصات** (`vitals/page.tsx`) — مودال إنشاء مريض ضمن نفس الصفحة (سطر 175-192، معروض أعلاه) — نموذج بسيط: اسم، هاتف، جنس، تاريخ ميلاد، أمراض مشخَّصة (`diagnosed_conditions` كمصفوفة نصوص).
+
+**شاشة الأدوية المزمنة** (`chronic/page.tsx`) — نفس الفكرة، جزء من مودال "إضافة مريض/تجديد" (سطر 405-408) — نفس الحقول تقريباً، لكن `diagnosed_conditions: []` تُترك فارغة دائماً عند الإنشاء من هنا (لا يوجد حقل لإدخالها في هذا المسار تحديداً).
+
+**لا يوجد مسار إنشاء ثالث مستقل** — الإنشاء يحدث فقط كجزء من تدفق "فحص جديد" أو "دواء جديد"، وليس كشاشة "إضافة مريض" قائمة بذاتها.
+
+## 3. هل يوجد شاشة عرض/تعديل بيانات المريض؟
+
+**عرض:** نعم — `src/app/dashboard/patients/[id]/page.tsx` (546 سطر) — صفحة ملف مريض واحد، تعرض بياناته الأساسية + سجل زياراته/فحوصاته.
+
+**تعديل:** **جزئي جداً فقط** — تحققت عبر بحث شامل عن كل عمليات `update`/`delete` على `patients`:
+```
+src/app/dashboard/patients/[id]/page.tsx:214  → update({ height: newHeight })
+src/app/dashboard/vitals/page.tsx:310         → update({ height: h })
+src/app/dashboard/vitals/page.tsx:1118        → update({ diagnosed_conditions: updated })
+```
+فقط حقلان قابلان للتعديل، وبشكل inline محدود جداً (سطر واحد قابل للنقر، ليس نموذج تعديل كامل):
+- `height` (الطول) — قابل للتعديل من صفحة الملف الشخصي وأثناء تسجيل فحص جديد.
+- `diagnosed_conditions` (الأمراض المشخَّصة) — قابلة للتعديل أثناء تسجيل فحص جديد فقط.
+
+**لا يوجد أي مكان يمكن فيه تعديل `name`, `phone_number`, `gender`, `birth_date` بعد الإنشاء.** ولا يوجد أي `delete` على جدول `patients` في كامل الكود — **لا وجود لميزة حذف مريض حالياً إطلاقاً.**
+
+## 4. الجداول المرتبطة بـ `patient_id` (للانتباه عند أي حذف مستقبلي)
+
+بحثت في كل الكود عن كل جدول يُستعلَم أو يُدرَج فيه بعمود `patient_id`:
+
+| الجدول | الاستخدام | ملف مرجعي |
+|---|---|---|
+| `visitations` | سجل الفحوصات الحيوية (ضغط/سكري/وزن/نبض) | `vitals/page.tsx` سطر 540، 800 |
+| `chronic_medications` | الأدوية المزمنة النشطة والمؤرشفة | `lib/chronic.ts`, `chronic/page.tsx` |
+| `refill_tracking_pipeline` | مرحلة متابعة التجديد (due/messaged/...) | `lib/pipeline.ts` |
+| `weight_plans` | خطط إنقاص الوزن | `api/weight-plan/route.ts` سطر 183 |
+
+**لم أجد** أي عمود `patient_id` في `feedback` (ملاحظات الصيدليات للأدمن — غير مرتبطة بمريض) ولا في `pharmacy_catalog`/`pharmacy_staff` (لا علاقة بالمرضى).
+
+**تنبيه صريح (بلا تنفيذ):** أي حذف مستقبلي لمريض يجب أن يتعامل مع **أربعة** جداول فرعية مرتبطة (`visitations`, `chronic_medications`, `refill_tracking_pipeline`, `weight_plans`) — إما بحذف تسلسلي (cascade) صريح في الكود (لا يوجد ORM ولا `ON DELETE CASCADE` مؤكَّد من الكود نفسه)، أو بمنع الحذف إن وُجدت سجلات مرتبطة، أو بأرشفة (soft delete) بدل حذف فعلي — القرار يحتاج نقاشاً منفصلاً عند بناء الميزة.
+
+## 5. أين المكان المناسب لزر "إدارة المرضى"؟
+
+يوجد موضعان محتملان في البنية الحالية لـ `dashboard/page.tsx`:
+
+**أ) شريط التنقل العلوي المشترك** — `src/app/dashboard/components/DashboardHeader.tsx` سطر 104-108:
 ```ts
-const filteredAlerts = ((alertsRes.data as any[]) || []).filter(item => {
-  const stage = pipelineStageMap.get(item.patient_id);
-  return !stage || stage === 'due';
-});
-
-// تجميع الأدوية حسب المريض — صف واحد لكل مريض، بنفس فكرة patientMap في chronic
-const alertPatientMap = new Map<string, { patient_id: string; patient_name: string; phone: string; medNames: string[]; daysLeft: number }>();
-filteredAlerts.forEach(item => {
-  const d = Math.ceil((new Date(item.next_refill_date).getTime() - today.getTime()) / 86400000);
-  const patient = item.patients as { name: string; phone_number: string };
-  const existing = alertPatientMap.get(item.patient_id);
-  if (!existing) {
-    alertPatientMap.set(item.patient_id, {
-      patient_id: item.patient_id,
-      patient_name: patient?.name || 'مريض',
-      phone: patient?.phone_number || '',
-      medNames: [item.medication_name],
-      daysLeft: d,
-    });
-  } else {
-    existing.medNames.push(item.medication_name);
-    existing.daysLeft = Math.min(existing.daysLeft, d); // الأعجل بين أدوية نفس المريض — مطابق لمنطق chronic
-  }
-});
-
-setTodayAlerts(
-  Array.from(alertPatientMap.values())
-    .sort((a, b) => a.daysLeft - b.daysLeft) // الأعجل أولاً — مطابق لترتيب chronic (سطر 1773)
-    .slice(0, 5)
-    .map(p => ({ patient_id: p.patient_id, patient_name: p.patient_name, phone: p.phone, medication_names: p.medNames, days_left: p.daysLeft }))
-);
+const NAV_LINKS = [
+  { label: 'الرئيسية', href: '/dashboard', exact: true },
+  { label: 'الفحوصات', href: '/dashboard/vitals', exact: false },
+  { label: 'المزمنون', href: '/dashboard/chronic', exact: false },
+];
 ```
+هذه القائمة تظهر في كل صفحات `/dashboard/**` (ديسكتوب سطر 277-289، موبايل سطر 448-460) — إضافة `{ label: 'المرضى', href: '/dashboard/patients', exact: false }` هنا يجعل الوصول متاحاً من أي شاشة.
 
-### ج) العرض (سطر 367-378)
-```diff
-  {todayAlerts.map(item => {
-    return (
--     <div key={item.id} className="px-6 py-4 ...">
-+     <div key={item.patient_id} className="px-6 py-4 ...">
-        ...
-        <div className="text-xs font-medium text-slate-500 flex items-center w-fit gap-1" dir="ltr">
--          <span className="truncate">{item.medication_name}</span>
-+          <span className="truncate">{item.medication_names.join(' · ')}</span>
-        </div>
+**ب) شبكة "بطاقات التنقل" في الصفحة الرئيسية** — `dashboard/page.tsx` سطر 564-615، نمط بطاقة ببيانات إحصائية + رابط، مطابقة تماماً لبطاقتَي "إدارة الأدوية المزمنة" (سطر 586-598) و"كتالوج الأجهزة" (سطر 601-613):
+```tsx
+<div onClick={() => router.push('/dashboard/chronic')}
+  className="group bg-white border border-slate-200 rounded-xl p-5 cursor-pointer shadow-sm hover:shadow-md transition-all flex items-center justify-between gap-4">
+  ...
+</div>
 ```
-الفاصل `' · '` مطابق حرفياً لأسلوب chronic نفسه في عرض أدوية المريض المتعددة (`chronic/page.tsx` سطر 1563: `meds.map(m => m.medication_name).join(' · ')`).
+إضافة بطاقة ثالثة بنفس النمط لـ"إدارة المرضى" تتناسب مع التصميم الحالي مباشرة.
 
-### د) الضغط على الزر → WaMsgModal بكل الأدوية
-
-**لا تغيير مطلوب هنا فعلياً.** `openWaModal` (الموجودة حالياً) تجلب أصلاً *كل* الأدوية النشطة للمريض من `chronic_medications` عند الضغط (بغضّ النظر عمّا في `item`)، وليس فقط تلك التي ضمن نافذة ±3 أيام:
-```ts
-const openWaModal = async (item: QuickAlert) => {
-  const { data } = await supabase.from('chronic_medications')
-    .select('*')
-    .eq('pharmacy_id', pharmacyId).eq('patient_id', item.patient_id).eq('status', 'active');
-  setWaMsgModal({ patient: {...}, meds: (data as ChronicMed[]) || [] });
-};
+**ج) بطاقة إحصائية موجودة بالفعل، غير قابلة للنقر حالياً** — "إجمالي المرضى" في شبكة الإحصائيات (سطر 460-472):
+```tsx
+<div className="p-5 sm:p-6 flex flex-col justify-center border-b lg:border-b-0 border-l border-slate-200 hover:bg-slate-100/50 transition-colors">
+  ...
+  <span className="text-3xl font-black text-slate-900 tabular-nums tracking-tight">{stats.totalPatients}</span>
+  ...
+</div>
 ```
-هذا يعني أن `WaMsgModal` كانت تعمل بكل أدوية المريض **حتى قبل هذا التعديل** — المشكلة كانت فقط في **عرض القائمة** (صف مكرر لكل دواء)، وليس في سلوك الفتح. لا لمس لـ `handleWaConfirm`/`upsertPipeline`/`WaMsgModal` — كل ما يخص الإرسال والتأكيد يبقى كما هو 100%.
+يمكن جعلها قابلة للنقر (`onClick={() => router.push('/dashboard/patients')}`) كاختصار إضافي، لكنها ليست بديلاً كافياً وحدها عن (أ) أو (ب) لأنها تبدو حالياً كبطاقة إحصائية بحتة لا كرابط.
 
-## نقطة تحتاج قرارك: هل `limit(15)` كافٍ بعد التجميع؟
+**لا يوجد حالياً أي مسار `/dashboard/patients` (بدون `[id]`) لعرض قائمة كل المرضى** — فقط `/dashboard/patients/[id]` لملف مريض واحد معروف مسبقاً (يُفتح من نتائج البحث في vitals/chronic). بناء "إدارة المرضى" يتطلب صفحة قائمة جديدة بالكامل.
 
-قبل هذا التعديل: 15 صف دواء → بعد فلترة pipeline → `slice(0,5)` صفوف (كل صف = دواء واحد، أي حتى 5 أدوية معروضة كحد أقصى بغضّ النظر عن عدد المرضى).
+## خلاصة للتخطيط اللاحق
 
-بعد التعديل: 15 صف دواء → فلترة → **تجميع حسب المريض** → `slice(0,5)` مرضى. بما أن أغلب المرضى المزمنين لديهم دواء أو دواءين ضمن أي نافذة زمنية معطاة (وليس 15)، فإن 15 صف دواء غالباً ستكفي لتغطية 5 مرضى مختلفين أو أكثر في الحالة النموذجية. **لكن نظرياً**: لو صادف أن مريضاً واحداً له عدد كبير من الأدوية ضمن النافذة (حالة نادرة لكن ممكنة)، فقد تُستهلك حصة كبيرة من الـ 15 صفاً على مريض واحد، فيظهر عدد مرضى أقل من 5 رغم وجود مرضى آخرين مؤهلين لم تصلهم الحصة.
-
-**خياران:**
-1. الإبقاء على `limit(15)` كما هو (تقدير كافٍ في الغالبية العظمى من الحالات، ولا داعٍ للتعقيد لحالة نادرة).
-2. رفعه إلى رقم أعلى (مثلاً `limit(30)`) كهامش أمان إضافي بعد التجميع.
-
-أميل إلى الخيار 1 (الإبقاء على 15) ما لم تُخبرني أن الصيدليات الفعلية لديها مرضى بعدد كبير من الأدوية المزمنة المتزامنة — لكن القرار لك.
-
-## التحقق من القيود
-
-- `WaMsgModal` المشترك و`upsertPipeline` المشتركة — **لم يُلمَسا، لا تغيير في الاستيراد أو الاستخدام**.
-- منطق الإرسال/التأكيد (`handleWaConfirm`, `handleConfirmSent`) — **لم يُلمَس إطلاقاً**.
-- `chronic/page.tsx` — **لم يُلمَس**.
-- `limit`/`slice` — نوقشت أعلاه، بانتظار قرارك.
-
-## بانتظار القرار
-
-1. الموافقة على خطة التجميع (أ-د) كما هي.
-2. `limit(15)` يبقى أم يُرفع؟ وإلى كم؟
+- الإنشاء موجود ومكرَّر في مكانين (vitals + chronic) بنفس الحقول تقريباً.
+- التعديل شبه معدوم (فقط height و diagnosed_conditions، بلا واجهة تعديل حقيقية).
+- الحذف غير موجود إطلاقاً، وله أربعة جداول مرتبطة يجب التعامل معها بحذر عند إضافته.
+- لا صفحة قائمة مرضى حالياً — `/dashboard/patients/[id]` فقط لملف فردي.
+- مكانان طبيعيان للدخول: `NAV_LINKS` في الهيدر المشترك، وبطاقة جديدة في شبكة التنقل بالصفحة الرئيسية.

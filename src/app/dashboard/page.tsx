@@ -105,6 +105,16 @@ function IconUsers({ className = 'w-4 h-4' }: { className?: string }) {
 }
 
 // ═══════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════
+function pluralizeDays(days: number): string {
+  if (days === 1) return 'يوم واحد';
+  if (days === 2) return 'يومان';
+  if (days <= 10) return `${days} أيام`;
+  return `${days} يوماً`;
+}
+
+// ═══════════════════════════════════════════════════════
 // BIRTHDAY MODAL
 // ═══════════════════════════════════════════════════════
 function BirthdayModal({ patients, pharmacyName, onClose }: {
@@ -477,7 +487,7 @@ export default function PharmacistDashboard() {
             
             <div className="divide-y divide-slate-100">
               {todayAlerts.map(item => {
-                const msg = `مرحباً ${item.patient_name}، معكم ${pharmacyName}. نود تذكيركم بقرب نفاذ دواء (${item.medication_name}) خلال ${item.days_left} ${item.days_left === 1 ? 'يوم' : 'أيام'}. نسعد بزيارتكم. 🌿`;
+                const msg = `مرحباً ${item.patient_name}، معكم ${pharmacyName}. نود تذكيركم بقرب نفاذ دواء (${item.medication_name}) خلال ${pluralizeDays(item.days_left)}. نسعد بزيارتكم. 🌿`;
                 return (
                   <div key={item.id} className="px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50 transition-colors">
                     <div className="flex items-center gap-4 min-w-0">
@@ -498,7 +508,7 @@ export default function PharmacistDashboard() {
                         item.days_left <= 2  ? 'text-amber-700 bg-amber-50 border-amber-200' :
                         'text-slate-700 bg-slate-100 border-slate-200'
                       }`}>
-                        {item.days_left === 0 ? 'نفد اليوم' : `متبقي ${item.days_left} ${item.days_left === 1 ? 'يوم' : 'أيام'}`}
+                        {item.days_left === 0 ? 'نفد اليوم' : `متبقي ${pluralizeDays(item.days_left)}`}
                       </span>
                       <a href={`https://wa.me/962${item.phone.replace(/^0/, '')}?text=${encodeURIComponent(msg)}`} target="_blank" rel="noreferrer"
                         className="flex items-center justify-center w-9 h-9 bg-slate-900 hover:bg-slate-800 text-white rounded-lg transition-all shadow-sm">

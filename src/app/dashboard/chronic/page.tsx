@@ -2457,7 +2457,7 @@ export default function ChronicPage() {
       </main>
 
       {/* Archived */}
-      {!showInventory && !showStats && (
+      {!showInventory && !showStats && cards.filter(c => c.stage === ('archived' as DisplayStage)).length > 0 && (
         <div className="max-w-4xl mx-auto px-4 sm:px-6 pb-10 mt-8">
           <button onClick={() => setShowArchived(v => !v)}
             className="w-full h-12 flex items-center justify-center gap-2 border border-dashed border-slate-300 rounded-xl text-sm font-medium text-slate-500 hover:bg-slate-50 transition-colors">

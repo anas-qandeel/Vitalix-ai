@@ -2087,7 +2087,7 @@ export default function ChronicPage() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50/50 antialiased text-slate-900 pb-20" dir="rtl">
+    <div className="min-h-screen bg-slate-50/50 antialiased text-slate-900 pb-20 overflow-x-hidden" dir="rtl">
 
       <style jsx global>{`
         @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700;800&display=swap');
@@ -2188,19 +2188,19 @@ export default function ChronicPage() {
               const tooltipTitle  = tc === 'rose' ? 'text-rose-700'      : tc === 'blue' ? 'text-blue-700'      : tc === 'amber' ? 'text-amber-700'      : 'text-emerald-700';
               const tooltipDot    = tc === 'rose' ? 'bg-rose-400'        : tc === 'blue' ? 'bg-blue-400'        : tc === 'amber' ? 'bg-amber-400'        : 'bg-emerald-400';
               return (
-                <div key={s.stage} className="relative group">
+                <div key={s.stage} className="relative group min-w-0">
                   <button
                     onClick={() => { setActiveTab(s.stage); setShowInventory(false); setShowStats(false); }}
-                    className={`w-full bg-white rounded-xl border p-5 shadow-sm flex flex-col justify-between hover:shadow-md transition-all text-right ${
+                    className={`w-full bg-white rounded-xl border shadow-sm hover:shadow-md transition-all text-right flex flex-row items-center justify-between px-3 py-3 md:flex-col md:items-stretch md:justify-between md:p-5 ${
                       activeTab === s.stage && !showInventory ? 'ring-2 ring-slate-900 border-transparent' : 'border-slate-200'
                     } ${isUrgent ? 'border-rose-200 bg-rose-50/30 animate-soft-pulse' : ''
                     } ${isWarning ? 'border-amber-200 bg-amber-50/30 animate-soft-pulse' : ''}`}>
-                    <div className="flex items-center justify-between w-full">
-                      <span className="text-sm font-medium text-slate-500">{s.label}</span>
-                      {isUrgent  && <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />}
-                      {isWarning && <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />}
+                    <div className="relative flex items-center justify-between w-full min-w-0">
+                      <span className="text-sm font-medium text-slate-500 truncate">{s.label}</span>
+                      {isUrgent  && <span className="absolute left-0 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-rose-500 animate-ping" />}
+                      {isWarning && <span className="absolute left-0 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-amber-500 animate-ping" />}
                     </div>
-                    <span className={`text-3xl font-bold mt-2 ${
+                    <span className={`text-xl md:text-3xl font-bold md:mt-2 ${
                       isUrgent ? 'text-rose-700' : isWarning ? 'text-amber-700' : 'text-slate-900'
                     }`}>{s.count}</span>
                   </button>

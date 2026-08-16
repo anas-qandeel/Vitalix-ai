@@ -43,6 +43,13 @@ function getDaysLeft(expiryDateStr: string) {
   return Math.ceil((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 }
 
+function pluralizeDays(days: number): string {
+  if (days === 1) return 'يوم واحد';
+  if (days === 2) return 'يومان';
+  if (days <= 10) return `${days} أيام`;
+  return `${days} يوماً`;
+}
+
 export default function PharmacyCardPage({ params }: PageProps) {
   const resolvedParams = use(params);
   const pharmacyId = resolvedParams.id;
@@ -331,7 +338,7 @@ export default function PharmacyCardPage({ params }: PageProps) {
 
             {pharmacy.status === 'trial' && (
               <div className="p-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-xs font-semibold">
-                ⏳ متبقي {Math.max(0, getDaysLeft(pharmacy.expiry_date))} يوم من الفترة التجريبية. عند تحويلها لـ"نشط" من هنا يدويًا،
+                ⏳ متبقي {pluralizeDays(Math.max(0, getDaysLeft(pharmacy.expiry_date)))} من الفترة التجريبية. عند تحويلها لـ"نشط" من هنا يدويًا،
                 تذكّر إضافة هذه الأيام لتاريخ الانتهاء الجديد — أو استخدم "⚡ تجديد سريع" من اللوحة الرئيسية لضمان الحساب الصحيح تلقائيًا.
               </div>
             )}

@@ -1153,7 +1153,7 @@ export default function SuperAdminPage() {
                       else if (p.total_amount_due === 25) subTypeText = 'اشتراك 6 أشهر (25 JOD)';
                       if (isTrial) subTypeText = 'فترة تجريبية مرنة';
                       
-                      const trialMsg = `مرحباً د. ${p.pharmacist_name}، معك فريق منصة Vitalix.ai. نتمنى أن تجربة النظام نالت إعجابكم! أود التذكير بوجود ${daysLeft < 0 ? 'انتهت' : `متبقي ${daysLeft} أيام على`} الفترة التجريبية لصيدلية ${p.name}. نرحب بأسئلتكم ولترقية اشتراككم الآن.`;
+                      const trialMsg = `مرحباً د. ${p.pharmacist_name}، معك فريق منصة Vitalix.ai. نتمنى أن تجربة النظام نالت إعجابكم! أود التذكير بوجود ${daysLeft < 0 ? 'انتهت' : `متبقي ${pluralizeDays(daysLeft)} على`} الفترة التجريبية لصيدلية ${p.name}. نرحب بأسئلتكم ولترقية اشتراككم الآن.`;
                       const paidMsg = `مرحباً د. ${p.pharmacist_name}، معك إدارة منصة Vitalix.ai. نود تذكيركم بقرب موعد تجديد اشتراك صيدلية ${p.name} (${subTypeText}) بتاريخ ${p.expiry_date}. نسعد بخدمتكم وتجديد اشتراككم بنفس المزايا.`;
 
                       return (
@@ -1655,7 +1655,7 @@ export default function SuperAdminPage() {
             {selectedPharmacyForEdit.status === 'trial' && (
               <div className="p-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-xs font-semibold">
                 ⏳ هذه الصيدلية لا تزال في الفترة التجريبية، ومتبقي لها{' '}
-                {Math.max(0, getDaysLeft(selectedPharmacyForEdit.expiry_date))} يوم. عند تحويلها لحالة "نشط"،
+                {pluralizeDays(Math.max(0, getDaysLeft(selectedPharmacyForEdit.expiry_date)))}. عند تحويلها لحالة "نشط"،
                 تأكد من إضافة هذه الأيام المتبقية لتاريخ الانتهاء الجديد حتى لا تفقد الصيدلية حقها في الفترة
                 التجريبية الكاملة — الطريقة الأضمن لهذا هي استخدام "⚡ تجديد سريع" بدل التعديل اليدوي للتاريخ هنا.
               </div>

@@ -235,7 +235,7 @@ function getSmartTip(card: CareCard): { icon: string; text: string; accent: stri
     const daysSince = Math.floor((Date.now() - new Date(pipeline.reminded_at).getTime()) / 86400000);
     if (daysSince >= MSG_EXPIRY_DAYS) return {
       icon: '🔔',
-      text: `مضت ${daysSince} أيام بدون رد — انقله الآن لقائمة "لم يستجيبوا" حتى لا يُنسى.`,
+      text: `مضت ${pluralizeDays(daysSince)} بدون رد — انقله الآن لقائمة "لم يستجيبوا" حتى لا يُنسى.`,
       accent: 'rose'
     };
     if (daysSince >= 3) return {
@@ -925,8 +925,8 @@ function MedModal({ patientId, pharmacyId, existingMeds, patientName, onClose, o
                           daysRemaining <= 0 ? 'text-rose-600' : daysRemaining <= 7 ? 'text-amber-600' : 'text-slate-500'
                         }`}>
                           {daysRemaining <= 0 ? 'نفد الدواء' :
-                           daysRemaining <= 7 ? `⚠️ ينفد خلال ${daysRemaining} أيام` :
-                           `✓ كافٍ لـ ${daysRemaining} يوم — لا يحتاج تجديد الآن`}
+                           daysRemaining <= 7 ? `⚠️ ينفد خلال ${pluralizeDays(daysRemaining)}` :
+                           `✓ كافٍ لـ ${pluralizeDays(daysRemaining)} — لا يحتاج تجديد الآن`}
                         </p>
                       )}
                     </div>
@@ -1013,7 +1013,7 @@ function MedModal({ patientId, pharmacyId, existingMeds, patientName, onClose, o
                           <div>
                             <p className="text-xs text-amber-800 font-medium">
                               {Number(m.remaining_pills) > 0 && Number(m.daily_dosage) > 0
-                                ? `تكفيه ${Math.floor(Number(m.remaining_pills) / Number(m.daily_dosage))} يوم`
+                                ? `تكفيه ${pluralizeDays(Math.floor(Number(m.remaining_pills) / Number(m.daily_dosage)))}`
                                 : 'لا يوجد متبقٍ'}
                             </p>
                             <p className="text-[10px] text-amber-600 mt-0.5">يمكنك تعديل هذا الرقم إذا كان غير دقيق</p>
@@ -1038,11 +1038,11 @@ function MedModal({ patientId, pharmacyId, existingMeds, patientName, onClose, o
                         <div className="text-left">
                           <p className="text-[10px] text-slate-500">يكفي لمدة</p>
                           <p className="text-sm font-bold text-slate-900 mt-1">
-                            {Math.floor(
+                            {pluralizeDays(Math.floor(
                               (Number(m.pills_per_box)*Number(m.boxes_count) +
                               (m.remaining_pills !== null && m.remaining_pills >= 0 ? Number(m.remaining_pills) : 0))
                               / Math.max(Number(m.daily_dosage), 0.5)
-                            )} يوم
+                            ))}
                           </p>
                         </div>
                       </div>

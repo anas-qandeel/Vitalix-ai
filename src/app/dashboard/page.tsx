@@ -301,7 +301,7 @@ export default function PharmacistDashboard() {
                 </span>
                 <div>
                   <p className="text-amber-900 text-xs font-bold">تنبيه الاشتراك</p>
-                  <p className="text-amber-700 text-[10px] mt-0.5 font-medium">ينتهي خلال {daysLeft} يوم</p>
+                  <p className="text-amber-700 text-[10px] mt-0.5 font-medium">ينتهي خلال {pluralizeDays(daysLeft)}</p>
                 </div>
               </div>
             )}

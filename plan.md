@@ -1,86 +1,42 @@
-# نقل WaMsgModal إلى ملف مشترك — الاعتماديات وخطة النقل
+# المرحلة الأخيرة: استخدام WaMsgModal في الشاشة الرئيسية
 
-## 1. اعتماديات `WaMsgModal` (chronic/page.tsx، السطور 1561-1710)
+## إجابات الأسئلة
 
-فحصت جسم المكوّن بالكامل. القائمة الكاملة لما يحتاجه ليعمل مستقلاً:
+### 1. كيف تُجلب كل أدوية المريض؟
 
-| الاعتمادية | أين مُعرَّفة الآن | هل تُستخدم في أماكن أخرى بـ chronic؟ |
-|---|---|---|
-| `useState`, `useEffect` | `'react'` (مكتبة خارجية) | — استيراد مباشر عادي |
-| `interface Patient` | سطر 12-18 في chronic/page.tsx | **نعم، بكثرة** — `CareCard.patient`, `AddPatientModal`, `MedModal`, نتائج البحث... |
-| `interface ChronicMed` | سطر 20-32 في chronic/page.tsx | **نعم، بكثرة** — نفس الأماكن أعلاه + `fetchAll` |
-| `function calcDaysLeft(d: string): number` | سطر 102 في chronic/page.tsx | **نعم، +13 استخدام آخر** في الملف (عرض البطاقات، `MedModal`، `AddPatientModal`، حساب `daysLeft` في `fetchAll`...) |
-| كلاس CSS `.saas-slide-up` | `<style jsx global>` داخل chronic/page.tsx (~سطر 2062) | لا حاجة لنقله — كلاس **global** (`style jsx global`)، يبقى متاحاً في runtime طالما chronic/page.tsx نفسها مُركَّبة في الشجرة، و`WaMsgModal` لا يُعرض إلا داخل chronic أصلاً. لا إجراء مطلوب، فقط اعتماد ضمني (runtime coupling) أذكره للتوثيق |
+**الأنسب: جلب عند الضغط على الزر (on-demand)، وليس تعديل استعلام `todayAlerts`.**
 
-**ملاحظة مهمة:** لا وجود لدالتين باسم `buildWaMsg1`/`buildWaMsg2` — بناء نص الرسالة (`previewMsg`) مكتوب inline داخل `WaMsgModal` نفسه (ternary حسب `msgType`)، وهو **مكتفٍ ذاتياً بالكامل** ولا يعتمد على أي دالة خارجية لبناء النص. كذلك `buildWaLink` (بناء رابط wa.me الفعلي) **لا يُستخدم داخل WaMsgModal إطلاقاً** — يُستدعى في الأصل (`handleWaConfirm` في المكوّن الأب) بعد أن يُعيد `WaMsgModal` النتيجة عبر `onConfirm`. لا شيء آخر (لا `supabase`، لا `CareCard`، لا `PipelineRecord`/`CareStage`) — المكوّن عرضي بحت (props + state محلي فقط).
+السبب:
+- استعلام `todayAlerts` الحالي (المرحلة الثانية) هو بالفعل **صف واحد لكل دواء** وليس لكل مريض — مفلتَر بـ `next_refill_date` بين اليوم و7 أيام، ثم مُصفَّى حسب `pipeline_stage`، ثم `slice(0,5)`. لو مريض عنده دواءان مستحقّان قريباً، يظهر حالياً **كسطرين منفصلين** في القائمة (سلوك موجود مسبقاً، لم يُطلب مني تغييره الآن).
+- تحويل هذا الاستعلام ليجمع كل أدوية كل مريض (`meds[]` متداخلة لكل صف) يعني إعادة هيكلة منطق التصفية/القصّ (`limit 15 → فلترة pipeline → slice 5`) الذي بنيناه للتو في المرحلة الثانية، ويغيّر شكل عرض البطاقة (سطر لكل دواء حالياً). هذا مساس أكبر بكثير من المطلوب.
+- **البديل الأخف:** عند الضغط على زر الواتساب لأي سطر، أجلب **كل الأدوية النشطة لذلك المريض** (`chronic_medications` حيث `patient_id` = مريض هذا السطر و`status='active'`) بنداء واحد صغير، ثم أفتح `WaMsgModal` بها. هذا **يطابق فعلياً منطق chronic**: هناك أيضاً `WaMsgModal` يعرض كل الأدوية النشطة للمريض (وليس فقط الدواء "المُلِح")، مقسّمة داخلياً إلى `urgentMeds`/`optionalMeds` حسب الأيام المتبقية — تماماً نفس ما سيحدث هنا. لو مريض له سطران في القائمة، الضغط على أيهما سيفتح نفس النافذة بنفس كل أدويته — وهذا سلوك صحيح ومتوقّع، لا خطأ.
+- لا تعديل إطلاقاً على استعلام `fetchAll`/`todayAlerts` الحالي — فقط دالة جديدة صغيرة تُستدعى عند الضغط.
+
+### 2. هل الحقول المطلوبة متوفرة أم تحتاج جلباً إضافياً؟
+
+- **الأدوية (`meds: ChronicMed[]`):** بما أننا سنجلبها بنداء مستقل عند الضغط (`select('*')` من `chronic_medications`)، ستأتي كل الحقول تلقائياً (`id`, `medication_name`, `next_refill_date`, `pills_per_box`... إلخ) — بلا نقص. هذا `select('*')` مقبول هنا لأنه **نفس نمط chronic نفسها بالضبط** (`chronic/page.tsx` سطر ~341: `.select('*, patients!inner(...))`) — القاعدة في AGENTS.md ضد `select('*')` تخص الـ routes العامة غير المسجّلة (صفحات المريض)، وليس استعلامات لوحة الصيدلية المصادَق عليها.
+- **المريض (`patient: Patient`):** هنا نقطة تحتاج قرار المستخدم. `WaMsgModal` يتوقّع كائن `Patient` كاملاً (`id, name, phone_number, gender, birth_date`)، لكن `QuickAlert` الحالي يملك فقط `patient_id`, `patient_name`, `phone`. فحصت جسم `WaMsgModal` فعلياً: **لا يستخدم `gender` ولا `birth_date` في أي منطق أو عرض** — فقط `patient.name` (لعرض الاسم واستخراج الاسم الأول). المقترح: بناء كائن `Patient` من البيانات المتوفرة فعلاً + قيم فارغة للحقلين غير المستخدمين (`gender: '', birth_date: ''`) بدل عمل استعلام إضافي لجلبهما — أقل مساساً وأسرع، ولا يغيّر أي سلوك ظاهر لأن القيمتين غير مُستخدمتين أصلاً. البديل: جلب المريض الحقيقي بنداء إضافي إن أُريدت الدقة الكاملة.
 
 ---
 
-## 2. خطة النقل المقترحة
+## الخطة المقترحة (بلا كود بعد)
 
-بما أن `Patient` و`ChronicMed` و`calcDaysLeft` **مشتركة** مع أماكن أخرى بـ chronic، سنتبع نفس نمط `upsertPipeline` تماماً (ملف مشترك في `src/lib/`، والاثنان يستوردان منه):
+1. **state جديدة:** `waMsgModal: { patient: Patient; meds: ChronicMed[] } | null`.
+2. **دالة جديدة `openWaModal(item: QuickAlert)`** — تُستدعى بدل الفتح المباشر لواتساب: تجلب `chronic_medications` النشطة لنفس `patient_id`، تبني كائن `Patient` من بيانات `item` + حقول فارغة، ثم تفتح `waMsgModal`.
+3. **زر الواتساب في كل سطر** (الحالي: `window.open(...)` مباشرة ثم `setTimeout` لنافذة التأكيد) → يصبح: استدعاء `openWaModal(item)` فقط.
+4. **`<WaMsgModal>` المشترك** يُعرض عند وجود `waMsgModal`، بنفس props المستخدمة في chronic (`patient`, `meds`, `pharmacyName`, `msgType: 'msg1'` دائماً — لأن كل سطور `todayAlerts` بطبيعتها مرحلتها `due`/بلا سجل، أي أول تواصل، تماماً كزر "أرسل تذكيراً بالواتساب" الأول في chronic، ليس "الرسالة الثانية").
+5. **دالة `handleWaConfirm(selectedMedIds, customMsg)`** — تُستدعى من `onConfirm` في `WaMsgModal`: تُغلق `waMsgModal`، تفتح `wa.me` بالرسالة المخصَّصة، ثم بعد 1.5 ثانية تُظهر **نافذة التأكيد الموجودة حالياً دون أي تغيير** (`setConfirmSent`)، التي بدورها تستدعي `upsertPipeline` كما هي الآن بلا مساس.
+6. `chronic/page.tsx` لا يُلمس إطلاقاً — الاستيراد فقط من `@/components/WaMsgModal` و`@/lib/chronic` (نفس المصدر المشترك المستخدم هناك).
 
-### أ) ملف جديد `src/lib/chronic.ts` (موازٍ لـ `src/lib/pipeline.ts`):
-```ts
-export interface Patient {
-  id: string;
-  name: string;
-  phone_number: string;
-  gender: string;
-  birth_date: string;
-}
+## القيود المؤكَّدة
 
-export interface ChronicMed {
-  id: string;
-  patient_id: string;
-  pharmacy_id: string;
-  medication_name: string;
-  pills_per_box: number;
-  boxes_count: number;
-  daily_dosage: number;
-  dosage_unit: string;
-  last_refill_date: string;
-  next_refill_date: string;
-  status: string;
-}
+- استخدام `WaMsgModal` المشترك من `@/components` — لا نسخ.
+- استخدام `upsertPipeline` المشتركة (موجودة أصلاً في `handleConfirmSent`).
+- نافذة التأكيد "هل تم الإرسال؟" الحالية تبقى كما هي بعد الإرسال، بلا تغيير.
+- `chronic/page.tsx` لا يُلمس إطلاقاً.
+- أقل تعديل ممكن على استعلام `todayAlerts` — لا تعديل عليه إطلاقاً في هذه الخطة.
 
-export function calcDaysLeft(d: string): number {
-  const today = new Date(); today.setHours(0,0,0,0);
-  const next = new Date(d); next.setHours(0,0,0,0);
-  return Math.ceil((next.getTime() - today.getTime()) / 86400000);
-}
-```
-(منقولة حرفياً بلا أي تعديل في المنطق)
+## بانتظار القرار
 
-### ب) ملف جديد `src/components/WaMsgModal.tsx`:
-```ts
-'use client';
-
-import { useState, useEffect } from 'react';
-import { Patient, ChronicMed, calcDaysLeft } from '@/lib/chronic';
-
-export default function WaMsgModal({ patient, meds, pharmacyName, msgType, onClose, onConfirm }: {
-  patient: Patient;
-  meds: ChronicMed[];
-  pharmacyName: string;
-  msgType: 'msg1' | 'msg2';
-  onClose: () => void;
-  onConfirm: (selectedMedIds: Set<string>, customMsg: string) => void;
-}) {
-  // ... جسم المكوّن كاملاً كما هو، بلا أي تغيير حرف واحد ...
-}
-```
-
-### ج) في `chronic/page.tsx`:
-- حذف `interface Patient {...}` (سطر 12-18)، `interface ChronicMed {...}` (سطر 20-32)، `function calcDaysLeft(...)` (سطر 102-106)، ودالة `WaMsgModal` كاملة (سطر 1561-1710).
-- إضافة:
-  ```ts
-  import { Patient, ChronicMed, calcDaysLeft } from '@/lib/chronic';
-  import WaMsgModal from '@/components/WaMsgModal';
-  ```
-- كل الاستخدامات الأخرى لـ `Patient`, `ChronicMed`, `calcDaysLeft`, `WaMsgModal` في باقي الملف (13+ موضع) تبقى تعمل دون أي تعديل إضافي — نفس الأسماء، مصدرها فقط تغيّر من "محلي" إلى "مستورد".
-
-### بعد التنفيذ سيُتحقق بـ:
-- `grep` شامل للتأكد من عدم فوات أي استخدام آخر لهذه الأسماء في الملف.
-- `tsc --noEmit` على الملفات الثلاثة المتأثرة.
-- تأكيد أن `dashboard/page.tsx` لم يُلمس إطلاقاً (خارج نطاق هذه المرحلة).
+- الموافقة على الخطة ككل.
+- القرار بخصوص حقلَي `gender`/`birth_date`: قيم فارغة (مقترَح) أم استعلام إضافي لجلب المريض الحقيقي؟

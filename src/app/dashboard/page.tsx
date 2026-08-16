@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import DashboardHeader, { usePharmacyInfo, getActivePharmacist } from './components/DashboardHeader';
 import AppFooter from '../components/AppFooter';
 import { upsertPipeline } from '@/lib/pipeline';
+import { Patient, ChronicMed } from '@/lib/chronic';
+import WaMsgModal from '@/components/WaMsgModal';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -179,6 +181,7 @@ export default function PharmacistDashboard() {
   const [todayAlerts, setTodayAlerts] = useState<QuickAlert[]>([]);
   const [pharmacyId, setPharmacyId]   = useState('');
   const [confirmSent, setConfirmSent] = useState<{ patientId: string; patientName: string } | null>(null);
+  const [waMsgModal, setWaMsgModal]   = useState<{ patient: Patient; meds: ChronicMed[] } | null>(null);
   const [birthdayPatients, setBirthdayPatients]   = useState<BirthdayPatient[]>([]);
   const [birthdayModalOpen, setBirthdayModalOpen] = useState(false);
   const [activePharmacist, setActivePharmacistDisplay] = useState(() => getActivePharmacist());
@@ -283,6 +286,26 @@ export default function PharmacistDashboard() {
     setTodayAlerts(prev => prev.filter(a => a.patient_id !== patientId));
   };
 
+  const openWaModal = async (item: QuickAlert) => {
+    // نجلب كل الأدوية النشطة للمريض (وليس فقط الدواء المستحق قريباً) — نفس منطق WaMsgModal في chronic
+    const { data } = await supabase.from('chronic_medications')
+      .select('*')
+      .eq('pharmacy_id', pharmacyId).eq('patient_id', item.patient_id).eq('status', 'active');
+    setWaMsgModal({
+      // gender/birth_date غير مستخدمين داخل WaMsgModal — قيم فارغة بدل استعلام إضافي
+      patient: { id: item.patient_id, name: item.patient_name, phone_number: item.phone, gender: '', birth_date: '' },
+      meds: (data as ChronicMed[]) || [],
+    });
+  };
+
+  const handleWaConfirm = async (selectedMedIds: Set<string>, customMsg: string) => {
+    if (!waMsgModal) return;
+    const { patient } = waMsgModal;
+    setWaMsgModal(null);
+    window.open(`https://wa.me/962${patient.phone_number.replace(/^0/, '')}?text=${encodeURIComponent(customMsg)}`, '_blank');
+    setTimeout(() => setConfirmSent({ patientId: patient.id, patientName: patient.name }), 1500);
+  };
+
   const daysLeft       = !pharmacy?.expiry_date ? 0 : Math.max(0, Math.ceil((new Date(pharmacy.expiry_date).getTime() - Date.now()) / 86400000));
   const isExpiringSoon = daysLeft <= 14;
 
@@ -343,7 +366,6 @@ export default function PharmacistDashboard() {
 
               <div className="divide-y divide-slate-100">
                 {todayAlerts.map(item => {
-                  const msg = `مرحباً ${item.patient_name}، معكم ${pharmacyName}. نود تذكيركم بقرب نفاذ دواء (${item.medication_name}) خلال ${pluralizeDays(item.days_left)}. نسعد بزيارتكم. 🌿`;
                   return (
                     <div key={item.id} className="px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50 transition-colors">
                       <div className="flex items-center gap-4 min-w-0">
@@ -367,10 +389,7 @@ export default function PharmacistDashboard() {
                           {item.days_left === 0 ? 'نفد اليوم' : `متبقي ${pluralizeDays(item.days_left)}`}
                         </span>
                         <button
-                          onClick={() => {
-                            window.open(`https://wa.me/962${item.phone.replace(/^0/, '')}?text=${encodeURIComponent(msg)}`, '_blank');
-                            setTimeout(() => setConfirmSent({ patientId: item.patient_id, patientName: item.patient_name }), 1500);
-                          }}
+                          onClick={() => openWaModal(item)}
                           className="flex items-center justify-center w-9 h-9 bg-slate-900 hover:bg-slate-800 text-white rounded-lg transition-all shadow-sm">
                           <IconWhatsapp className="w-4 h-4" />
                         </button>
@@ -584,6 +603,17 @@ export default function PharmacistDashboard() {
 
       {birthdayModalOpen && (
         <BirthdayModal patients={birthdayPatients} pharmacyName={pharmacyName} onClose={() => setBirthdayModalOpen(false)} />
+      )}
+
+      {waMsgModal && (
+        <WaMsgModal
+          patient={waMsgModal.patient}
+          meds={waMsgModal.meds}
+          pharmacyName={pharmacyName}
+          msgType="msg1"
+          onClose={() => setWaMsgModal(null)}
+          onConfirm={handleWaConfirm}
+        />
       )}
 
       {confirmSent && (

@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import DashboardHeader, { usePharmacyInfo, getActivePharmacist } from './components/DashboardHeader';
 import AppFooter from '../components/AppFooter';
 import { upsertPipeline } from '@/lib/pipeline';
-import { Patient, ChronicMed } from '@/lib/chronic';
+import { Patient, ChronicMed, pluralizeDaysLeft } from '@/lib/chronic';
 import WaMsgModal from '@/components/WaMsgModal';
 
 // ═══════════════════════════════════════════════════════
@@ -266,7 +266,7 @@ export default function PharmacistDashboard() {
             return !stage || stage === 'due'; // بدون سجل = لم يبدأ التعامل بعد، أبقِه
           })
           .map(item => {
-            const d = Math.max(0, Math.ceil((new Date(item.next_refill_date).getTime() - today.getTime()) / 86400000));
+            const d = Math.ceil((new Date(item.next_refill_date).getTime() - today.getTime()) / 86400000);
             const patient = item.patients as { name: string; phone_number: string };
             return { id: item.id, patient_id: item.patient_id, patient_name: patient?.name || 'مريض', phone: patient?.phone_number || '', medication_name: item.medication_name, days_left: d };
           })
@@ -381,11 +381,11 @@ export default function PharmacistDashboard() {
 
                       <div className="flex items-center gap-3 shrink-0 sm:ml-0 ml-14">
                         <span className={`text-[11px] font-semibold px-3 py-1.5 rounded-md border tabular-nums ${
-                          item.days_left === 0 ? 'text-rose-700 bg-rose-50 border-rose-200' :
+                          item.days_left <= 0  ? 'text-rose-700 bg-rose-50 border-rose-200' :
                           item.days_left <= 2  ? 'text-amber-700 bg-amber-50 border-amber-200' :
                           'text-slate-700 bg-slate-100 border-slate-200'
                         }`}>
-                          {item.days_left === 0 ? 'نفد اليوم' : `متبقي ${pluralizeDays(item.days_left)}`}
+                          {pluralizeDaysLeft(item.days_left)}
                         </span>
                         <button
                           onClick={() => openWaModal(item)}

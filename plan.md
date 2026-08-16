@@ -1,147 +1,177 @@
-# إعادة بناء نص رسالة المريض — حالة لكل دواء
+# تجميع "اتصل اليوم" — صف واحد لكل مريض بدل صف لكل دواء
 
-يُلغي/يُغطّي هذا التعديل المقترحَ السابق في `plan.md` (صياغة الجملة الواحدة "قد نفد/سيكفيكم") — استُبدل بقالب أكثر تفصيلاً بناءً على طلب لاحق. لم يُطبَّق أي شيء بعد.
+استكشاف أولاً، ثم اقتراح — بلا تطبيق. الملف: `src/app/dashboard/page.tsx`.
 
-الملف: `src/components/WaMsgModal.tsx` (مكوّن مشترك بين dashboard وchronic).
+## 1. كيف تُبنى todayAlerts حالياً؟
 
-## إجابات الأسئلة
-
-### 1. حساب `days` لكل دواء حالياً
-
-`calcDaysLeft(m.next_refill_date)` — مستوردة من `@/lib/chronic` (سطر 4). تُستخدم في:
-- سطر 14: `urgentMeds = meds.filter(m => calcDaysLeft(m.next_refill_date) <= 3)`
-- سطر 15: `optionalMeds = meds.filter(m => { const d = calcDaysLeft(...); return d > 3 && d <= 5; })`
-- سطر 71، 97: حساب `d` لكل دواء داخل قوائم المعاينة بالواجهة (لا علاقة لها بنص الرسالة نفسه)
-
-### 2. دالة الجمع العربي المتاحة
-
-في `@/lib/chronic` يوجد:
-- `pluralizeDaysLeft` (**مُصدَّرة**) — تُنتج جملة كاملة ("متبقي يوم واحد"، "ينفد اليوم"، "متأخر 3 أيام") — **لا تطابق** الصياغة المطلوبة هنا ("يكفي"/"يكفيكم").
-- `pluralizeDays` (**غير مُصدَّرة** — خاصة بالملف) — دالة الجمع **الخام** بلا بادئة (`يوم واحد`/`يومان`/`X أيام`/`X يوماً`) — **هذه المطلوبة بالضبط**.
-
-**المقترح:** تصدير `pluralizeDays` من `lib/chronic.ts` (إضافة `export` فقط):
-```diff
--function pluralizeDays(days: number): string {
-+export function pluralizeDays(days: number): string {
-   if (days === 1) return 'يوم واحد';
-   if (days === 2) return 'يومان';
-   if (days <= 10) return `${days} أيام`;
-   return `${days} يوماً`;
- }
-```
-لا يغيّر أي سلوك حالي (لا في هذا الملف ولا في `chronic/page.tsx`/`dashboard/page.tsx` — كلاهما له نسخته المحلية المنفصلة بنفس الاسم، غير متأثرة).
-
-## نقطتان تحتاجان تأكيداً
-
-1. **msg2 (الرسالة الثانية):** الطلب لا يذكر `msgType` إطلاقاً. بناءً على الاتفاق السابق (msg2 لا تحتوي تناقضاً، صياغتها "تذكّرنا بكم واحتفظنا بـ..." محايدة أصلاً) — **القالب الجديد يُطبَّق على `msg1` فقط، وmsg2 تبقى دون أي تغيير.**
-2. **اسم الصيدلية:** القالب المطلوب لا يذكر `{pharmacyName}` إطلاقاً (خلافاً للنص الحالي "نُبلّغكم من {الصيدلية}"). نُفِّذ القالب حرفياً بلا اسم الصيدلية أدناه — إن أردت إضافته أخبرني.
-
----
-
-## الكود المقترح (بلا تطبيق)
-
-### `src/lib/chronic.ts`
-```diff
--function pluralizeDays(days: number): string {
-+export function pluralizeDays(days: number): string {
-   if (days === 1) return 'يوم واحد';
-   if (days === 2) return 'يومان';
-   if (days <= 10) return `${days} أيام`;
-   return `${days} يوماً`;
- }
-```
-
-### `src/components/WaMsgModal.tsx`
-
-الاستيراد:
-```diff
--import { Patient, ChronicMed, calcDaysLeft } from '@/lib/chronic';
-+import { Patient, ChronicMed, calcDaysLeft, pluralizeDays } from '@/lib/chronic';
-```
-
-بناء النص (يستبدل حساب `previewMsg` الحالي، سطر 27-36):
+الاستعلام (سطر 223-229) — **صف واحد لكل دواء**، لا تجميع حسب المريض:
 ```ts
-const previewMeds = [
-  ...urgentMeds,
-  ...optionalMeds.filter(m => optionalSelected.has(m.id)),
-];
-const names = previewMeds.map(m => m.medication_name).join(' و'); // لا يزال يُستخدم في msg2 فقط
-const firstName = patient.name.split(' ')[0];
-
-// حالة الدواء بصياغة القائمة (سطر لكل دواء): "يكفي {مدة}" بلا "كم"
-const medStatusForList = (m: ChronicMed): string => {
-  const d = calcDaysLeft(m.next_refill_date);
-  if (d < 0) return 'بحاجة للتجديد';
-  if (d === 0) return 'ينفد اليوم';
-  return `يكفي ${pluralizeDays(d)}`;
-};
-
-// حالة الدواء بصياغة الجملة المفردة: "يكفيكم {مدة}"
-const medStatusSingular = (m: ChronicMed): string => {
-  const d = calcDaysLeft(m.next_refill_date);
-  if (d < 0) return 'بحاجة للتجديد';
-  if (d === 0) return 'ينفد اليوم';
-  return `يكفيكم ${pluralizeDays(d)}`;
-};
-
-const previewMsg = msgType === 'msg1'
-  ? previewMeds.length === 0
-    ? `مرحباً ${firstName} 😊\nنودّ تذكيركم بمواعيد أدويتكم. نسعد بخدمتكم في أقرب وقت. 🌿`
-    : previewMeds.length === 1
-      ? `مرحباً ${firstName} 😊\nنودّ تذكيركم بأن دواء (${previewMeds[0].medication_name}) ${medStatusSingular(previewMeds[0])}. نسعد بخدمتكم في أقرب وقت. 🌿`
-      : `مرحباً ${firstName} 😊\nنودّ تذكيركم بأدويتكم:\n${previewMeds.map(m => `- ${m.medication_name} — ${medStatusForList(m)}`).join('\n')}\nنسعد بخدمتكم لتجديدها في أقرب وقت. 🌿`
-  : `مرحباً ${firstName} 🌿\nمعكم ${pharmacyName}.\n\nتذكّرنا بكم واحتفظنا بـ (${names || '...'}) جاهزاً لكم.\n\nعندما يناسبكم، نحن هنا 😊`;
+supabase.from('chronic_medications')
+  .select('id, medication_name, next_refill_date, patient_id, patients!inner(name, phone_number)')
+  .eq('pharmacy_id', uid).eq('status', 'active')
+  .lte('next_refill_date', new Date(today.getTime() + 3 * 86400000).toISOString().split('T')[0])
+  .gte('next_refill_date', new Date(today.getTime() - 3 * 86400000).toISOString().split('T')[0])
+  .order('next_refill_date', { ascending: true })
+  .limit(15),
 ```
 
-**ملاحظات على القيود:**
-- `previewMeds.length === 0` حالة نادرة (`urgentMeds` تُختار تلقائياً دائماً) لكنها ممكنة نظرياً — أُضيف نص احتياطي عام محافظ على نفس الأسلوب.
-- منطق اختيار الأدوية (`urgentMeds`, `optionalMeds`, `toggleOptional`, `allSelectedIds`) والإرسال (`onConfirm`) — **لم يُلمَس إطلاقاً**.
-- `useEffect` الذي يحمي تعديل المستخدم اليدوي (`if (!userEdited) setCustomMsg(previewMsg)`) — **لم يُلمَس**، يستمر بحماية أي تعديل يدوي كما هو.
-- قوائم معاينة الأدوية في الواجهة (سطر 63-118، "أدوية ستُذكر في الرسالة"، "أدوية تقترب من النفاذ") — **لم تُلمَس**.
+البناء النهائي (سطر 262-274) — فلترة على `pipeline_stage` ثم `.map` **مباشر بلا تجميع** ثم `.slice(0,5)`:
+```ts
+setTodayAlerts(
+  ((alertsRes.data as any[]) || [])
+    .filter(item => {
+      const stage = pipelineStageMap.get(item.patient_id);
+      return !stage || stage === 'due';
+    })
+    .map(item => {
+      const d = Math.ceil((new Date(item.next_refill_date).getTime() - today.getTime()) / 86400000);
+      const patient = item.patients as { name: string; phone_number: string };
+      return { id: item.id, patient_id: item.patient_id, patient_name: patient?.name || 'مريض', phone: patient?.phone_number || '', medication_name: item.medication_name, days_left: d };
+    })
+    .slice(0, 5)
+);
+```
+كل صف مصدره صف `chronic_medications` واحد (`id: item.id` = معرّف صف الدواء) — لو مريض له دواءان ضمن النافذة الزمنية، يظهر **صفّين منفصلين** بنفس `patient_id` لكن `id` مختلف.
+
+## 2. آلية تجميع chronic حسب المريض
+
+`src/app/dashboard/chronic/page.tsx`، سطر 1730-1746 — `patientMap`:
+```ts
+const { data: medsData } = await supabase.from('chronic_medications')
+  .select('*, patients!inner(id, name, phone_number, gender, birth_date)')
+  .eq('pharmacy_id', pid).eq('status', 'active');   // ← بلا فلترة تاريخ على مستوى الاستعلام إطلاقاً
+...
+const patientMap = new Map<string, { patient: Patient; meds: ChronicMed[] }>();
+(medsData || []).forEach((row: any) => {
+  const p: Patient = row.patients;
+  const m: ChronicMed = { ...row };
+  delete (m as any).patients;
+  if (!patientMap.has(p.id)) patientMap.set(p.id, { patient: p, meds: [] });
+  patientMap.get(p.id)!.meds.push(m);
+});
+```
+ثم حساب "الأعجل" لكل مريض (سطر 1750):
+```ts
+const daysLeft = Math.min(...meds.map(m => calcDaysLeft(m.next_refill_date)));
+```
+**ملاحظة مهمة:** `Math.min` تُعطي الأولوية تلقائياً لـ"نافد" (أيام سالبة، أصغر رقم) قبل "اليوم" (0) قبل "الأقرب" (موجب) — بلا حاجة لمنطق شرطي إضافي، لأن الترتيب العددي الطبيعي يطابق ترتيب الأولوية المطلوب تماماً. وأخيراً: `list.sort((a, b) => a.daysLeft - b.daysLeft)` (سطر 1773) يرتّب المرضى تصاعدياً حسب هذا الرقم (الأعجل أولاً).
+
+## 3. بنية QuickAlert الحالية
+
+```ts
+interface QuickAlert {
+  id: string;              // معرّف صف chronic_medications (دواء واحد)
+  patient_id: string;
+  patient_name: string;
+  phone: string;
+  medication_name: string; // ← مفرد، دواء واحد فقط
+  days_left: number;
+}
+```
+تحمل **دواءً واحداً**، لا مصفوفة. هذا هو سبب ظهور المريض مرتين.
 
 ---
 
-## الأمثلة الخمسة المطلوبة
+## الخطة المقترحة (بلا تطبيق)
 
-### أ) دواء واحد نافد (بندول، d = -2)
+**لن أغيّر استعلام قاعدة البيانات نفسه** (يبقى ±3 أيام كما هو) — التجميع سيحدث client-side بعد الجلب، بنفس فكرة `patientMap` في chronic لكن مطبّقة على الصفوف المفلترة زمنياً أصلاً (وليس كل الأدوية النشطة كما تفعل chronic، لأن استعلام dashboard يبقى محدوداً بالنافذة الزمنية عمداً — قرار سابق متفق عليه).
+
+### أ) `QuickAlert` — إزالة `id`، `medication_name` مصفوفة
+```diff
+interface QuickAlert {
+-  id: string;
+  patient_id: string;
+  patient_name: string;
+  phone: string;
+-  medication_name: string;
++  medication_names: string[];
+  days_left: number;
+}
 ```
-مرحباً أحمد 😊
-نودّ تذكيركم بأن دواء (بندول) بحاجة للتجديد. نسعد بخدمتكم في أقرب وقت. 🌿
+`id` غير مستخدم في أي مكان سوى `key` في React (سطر 369) — سيُستبدل بـ `patient_id` مباشرة (فريد الآن أصلاً بعد التجميع). تحققت: `openWaModal` لا يستخدم `item.id` ولا `item.medication_name` إطلاقاً (فقط `patient_id`/`patient_name`/`phone`) — **لا حاجة لأي تعديل داخل `openWaModal` أو `handleWaConfirm`**.
+
+### ب) بناء `todayAlerts` — تجميع بعد الفلترة، قبل `setTodayAlerts` (يستبدل سطر 262-274)
+```ts
+const filteredAlerts = ((alertsRes.data as any[]) || []).filter(item => {
+  const stage = pipelineStageMap.get(item.patient_id);
+  return !stage || stage === 'due';
+});
+
+// تجميع الأدوية حسب المريض — صف واحد لكل مريض، بنفس فكرة patientMap في chronic
+const alertPatientMap = new Map<string, { patient_id: string; patient_name: string; phone: string; medNames: string[]; daysLeft: number }>();
+filteredAlerts.forEach(item => {
+  const d = Math.ceil((new Date(item.next_refill_date).getTime() - today.getTime()) / 86400000);
+  const patient = item.patients as { name: string; phone_number: string };
+  const existing = alertPatientMap.get(item.patient_id);
+  if (!existing) {
+    alertPatientMap.set(item.patient_id, {
+      patient_id: item.patient_id,
+      patient_name: patient?.name || 'مريض',
+      phone: patient?.phone_number || '',
+      medNames: [item.medication_name],
+      daysLeft: d,
+    });
+  } else {
+    existing.medNames.push(item.medication_name);
+    existing.daysLeft = Math.min(existing.daysLeft, d); // الأعجل بين أدوية نفس المريض — مطابق لمنطق chronic
+  }
+});
+
+setTodayAlerts(
+  Array.from(alertPatientMap.values())
+    .sort((a, b) => a.daysLeft - b.daysLeft) // الأعجل أولاً — مطابق لترتيب chronic (سطر 1773)
+    .slice(0, 5)
+    .map(p => ({ patient_id: p.patient_id, patient_name: p.patient_name, phone: p.phone, medication_names: p.medNames, days_left: p.daysLeft }))
+);
 ```
 
-### ب) دواء واحد قريب — يومان (بندول، d = 2)
+### ج) العرض (سطر 367-378)
+```diff
+  {todayAlerts.map(item => {
+    return (
+-     <div key={item.id} className="px-6 py-4 ...">
++     <div key={item.patient_id} className="px-6 py-4 ...">
+        ...
+        <div className="text-xs font-medium text-slate-500 flex items-center w-fit gap-1" dir="ltr">
+-          <span className="truncate">{item.medication_name}</span>
++          <span className="truncate">{item.medication_names.join(' · ')}</span>
+        </div>
 ```
-مرحباً أحمد 😊
-نودّ تذكيركم بأن دواء (بندول) يكفيكم يومان. نسعد بخدمتكم في أقرب وقت. 🌿
-```
+الفاصل `' · '` مطابق حرفياً لأسلوب chronic نفسه في عرض أدوية المريض المتعددة (`chronic/page.tsx` سطر 1563: `meds.map(m => m.medication_name).join(' · ')`).
 
-### ج) دواء واحد ينفد اليوم (بندول، d = 0)
-```
-مرحباً أحمد 😊
-نودّ تذكيركم بأن دواء (بندول) ينفد اليوم. نسعد بخدمتكم في أقرب وقت. 🌿
-```
+### د) الضغط على الزر → WaMsgModal بكل الأدوية
 
-### د) عدة أدوية مختلطة (بندول d=-2، إنسولين d=0، كونكور d=3)
+**لا تغيير مطلوب هنا فعلياً.** `openWaModal` (الموجودة حالياً) تجلب أصلاً *كل* الأدوية النشطة للمريض من `chronic_medications` عند الضغط (بغضّ النظر عمّا في `item`)، وليس فقط تلك التي ضمن نافذة ±3 أيام:
+```ts
+const openWaModal = async (item: QuickAlert) => {
+  const { data } = await supabase.from('chronic_medications')
+    .select('*')
+    .eq('pharmacy_id', pharmacyId).eq('patient_id', item.patient_id).eq('status', 'active');
+  setWaMsgModal({ patient: {...}, meds: (data as ChronicMed[]) || [] });
+};
 ```
-مرحباً أحمد 😊
-نودّ تذكيركم بأدويتكم:
-- بندول — بحاجة للتجديد
-- إنسولين — ينفد اليوم
-- كونكور — يكفي 3 أيام
-نسعد بخدمتكم لتجديدها في أقرب وقت. 🌿
-```
+هذا يعني أن `WaMsgModal` كانت تعمل بكل أدوية المريض **حتى قبل هذا التعديل** — المشكلة كانت فقط في **عرض القائمة** (صف مكرر لكل دواء)، وليس في سلوك الفتح. لا لمس لـ `handleWaConfirm`/`upsertPipeline`/`WaMsgModal` — كل ما يخص الإرسال والتأكيد يبقى كما هو 100%.
 
-### هـ) عدة أدوية كلها قريبة (بندول d=1، كونكور d=3)
-```
-مرحباً أحمد 😊
-نودّ تذكيركم بأدويتكم:
-- بندول — يكفي يوم واحد
-- كونكور — يكفي 3 أيام
-نسعد بخدمتكم لتجديدها في أقرب وقت. 🌿
-```
+## نقطة تحتاج قرارك: هل `limit(15)` كافٍ بعد التجميع؟
+
+قبل هذا التعديل: 15 صف دواء → بعد فلترة pipeline → `slice(0,5)` صفوف (كل صف = دواء واحد، أي حتى 5 أدوية معروضة كحد أقصى بغضّ النظر عن عدد المرضى).
+
+بعد التعديل: 15 صف دواء → فلترة → **تجميع حسب المريض** → `slice(0,5)` مرضى. بما أن أغلب المرضى المزمنين لديهم دواء أو دواءين ضمن أي نافذة زمنية معطاة (وليس 15)، فإن 15 صف دواء غالباً ستكفي لتغطية 5 مرضى مختلفين أو أكثر في الحالة النموذجية. **لكن نظرياً**: لو صادف أن مريضاً واحداً له عدد كبير من الأدوية ضمن النافذة (حالة نادرة لكن ممكنة)، فقد تُستهلك حصة كبيرة من الـ 15 صفاً على مريض واحد، فيظهر عدد مرضى أقل من 5 رغم وجود مرضى آخرين مؤهلين لم تصلهم الحصة.
+
+**خياران:**
+1. الإبقاء على `limit(15)` كما هو (تقدير كافٍ في الغالبية العظمى من الحالات، ولا داعٍ للتعقيد لحالة نادرة).
+2. رفعه إلى رقم أعلى (مثلاً `limit(30)`) كهامش أمان إضافي بعد التجميع.
+
+أميل إلى الخيار 1 (الإبقاء على 15) ما لم تُخبرني أن الصيدليات الفعلية لديها مرضى بعدد كبير من الأدوية المزمنة المتزامنة — لكن القرار لك.
+
+## التحقق من القيود
+
+- `WaMsgModal` المشترك و`upsertPipeline` المشتركة — **لم يُلمَسا، لا تغيير في الاستيراد أو الاستخدام**.
+- منطق الإرسال/التأكيد (`handleWaConfirm`, `handleConfirmSent`) — **لم يُلمَس إطلاقاً**.
+- `chronic/page.tsx` — **لم يُلمَس**.
+- `limit`/`slice` — نوقشت أعلاه، بانتظار قرارك.
 
 ## بانتظار القرار
 
-1. الموافقة على الكود كما هو.
-2. تأكيد: القالب الجديد لـ`msg1` فقط، وmsg2 دون تغيير؟
-3. تأكيد: بلا اسم الصيدلية في الرسالة، كما كُتب القالب حرفياً؟
+1. الموافقة على خطة التجميع (أ-د) كما هي.
+2. `limit(15)` يبقى أم يُرفع؟ وإلى كم؟

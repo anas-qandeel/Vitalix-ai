@@ -31,11 +31,10 @@ interface BirthdayPatient {
   birth_date: string;
 }
 interface QuickAlert {
-  id: string;
   patient_id: string;
   patient_name: string;
   phone: string;
-  medication_name: string;
+  medication_names: string[];
   days_left: number;
 }
 
@@ -225,8 +224,7 @@ export default function PharmacistDashboard() {
           .eq('pharmacy_id', uid).eq('status', 'active')
           .lte('next_refill_date', new Date(today.getTime() + 3 * 86400000).toISOString().split('T')[0])
           .gte('next_refill_date', new Date(today.getTime() - 3 * 86400000).toISOString().split('T')[0])
-          .order('next_refill_date', { ascending: true })
-          .limit(15), // أكبر من 5 لأن بعض النتائج ستُستثنى لاحقاً حسب مرحلتها في refill_tracking_pipeline
+          .order('next_refill_date', { ascending: true }),
       ]);
 
       if (pharmRes.data) setPharmacy(pharmRes.data as PharmacyDetails);
@@ -259,18 +257,36 @@ export default function PharmacistDashboard() {
       const pipelineStageMap = new Map<string, string>();
       (pipelineData || []).forEach((row: any) => pipelineStageMap.set(row.patient_id, row.pipeline_stage));
 
+      const filteredAlerts = ((alertsRes.data as any[]) || []).filter(item => {
+        const stage = pipelineStageMap.get(item.patient_id);
+        return !stage || stage === 'due'; // بدون سجل = لم يبدأ التعامل بعد، أبقِه
+      });
+
+      // تجميع الأدوية حسب المريض — صف واحد لكل مريض، بنفس فكرة patientMap في chronic
+      const alertPatientMap = new Map<string, { patient_id: string; patient_name: string; phone: string; medNames: string[]; daysLeft: number }>();
+      filteredAlerts.forEach(item => {
+        const d = Math.ceil((new Date(item.next_refill_date).getTime() - today.getTime()) / 86400000);
+        const patient = item.patients as { name: string; phone_number: string };
+        const existing = alertPatientMap.get(item.patient_id);
+        if (!existing) {
+          alertPatientMap.set(item.patient_id, {
+            patient_id: item.patient_id,
+            patient_name: patient?.name || 'مريض',
+            phone: patient?.phone_number || '',
+            medNames: [item.medication_name],
+            daysLeft: d,
+          });
+        } else {
+          existing.medNames.push(item.medication_name);
+          existing.daysLeft = Math.min(existing.daysLeft, d); // الأعجل بين أدوية نفس المريض — مطابق لمنطق chronic (Math.min)
+        }
+      });
+
       setTodayAlerts(
-        ((alertsRes.data as any[]) || [])
-          .filter(item => {
-            const stage = pipelineStageMap.get(item.patient_id);
-            return !stage || stage === 'due'; // بدون سجل = لم يبدأ التعامل بعد، أبقِه
-          })
-          .map(item => {
-            const d = Math.ceil((new Date(item.next_refill_date).getTime() - today.getTime()) / 86400000);
-            const patient = item.patients as { name: string; phone_number: string };
-            return { id: item.id, patient_id: item.patient_id, patient_name: patient?.name || 'مريض', phone: patient?.phone_number || '', medication_name: item.medication_name, days_left: d };
-          })
+        Array.from(alertPatientMap.values())
+          .sort((a, b) => a.daysLeft - b.daysLeft) // الأعجل أولاً — مطابق لترتيب chronic
           .slice(0, 5)
+          .map(p => ({ patient_id: p.patient_id, patient_name: p.patient_name, phone: p.phone, medication_names: p.medNames, days_left: p.daysLeft }))
       );
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
@@ -366,7 +382,7 @@ export default function PharmacistDashboard() {
               <div className="divide-y divide-slate-100">
                 {todayAlerts.map(item => {
                   return (
-                    <div key={item.id} className="px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50 transition-colors">
+                    <div key={item.patient_id} className="px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50 transition-colors">
                       <div className="flex items-center gap-4 min-w-0">
                         <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center shrink-0 border border-slate-200 text-slate-500 font-semibold text-sm">
                           {item.patient_name.charAt(0)}
@@ -374,7 +390,7 @@ export default function PharmacistDashboard() {
                         <div className="min-w-0 flex flex-col gap-1">
                           <p className="text-sm font-semibold text-slate-900 truncate">{item.patient_name}</p>
                           <div className="text-xs font-medium text-slate-500 flex items-center w-fit gap-1" dir="ltr">
-                             <span className="truncate">{item.medication_name}</span>
+                             <span className="truncate">{item.medication_names.join(' · ')}</span>
                           </div>
                         </div>
                       </div>

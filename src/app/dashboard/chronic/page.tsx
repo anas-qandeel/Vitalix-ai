@@ -114,13 +114,17 @@ function calcDaysLeft(d: string): number {
   return Math.ceil((next.getTime() - today.getTime()) / 86400000);
 }
 
+function pluralizeDays(days: number): string {
+  if (days === 1) return 'يوم واحد';
+  if (days === 2) return 'يومان';
+  if (days <= 10) return `${days} أيام`;
+  return `${days} يوماً`;
+}
+
 function formatDaysLeft(days: number): string {
   if (days < 0) return `متأخر ${Math.abs(days)} أيام`;
   if (days === 0) return 'ينفد اليوم';
-  if (days === 1) return 'متبقي يوم واحد';
-  if (days === 2) return 'متبقي يومان';
-  if (days <= 10) return `متبقي ${days} أيام`;
-  return `متبقي ${days} يوماً`;
+  return `متبقي ${pluralizeDays(days)}`;
 }
 
 function calcNextRefill(last: string, ppb: number, boxes: number, dose: number): string {
@@ -567,7 +571,7 @@ function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill }: {
                           d <= 14 ? 'bg-orange-100 text-orange-700' :
                           'bg-slate-100 text-slate-500'
                         }`}>
-                          {d <= 0 ? 'نفد!' : `${d} ${d === 1 ? 'Day' : 'Days'}`}
+                          {d <= 0 ? 'نفد!' : pluralizeDays(d)}
                         </span>
                       </div>
                     );
@@ -1275,7 +1279,7 @@ function PatientMedsModal({ patient, cards, onClose }: {
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-sm font-semibold text-slate-800 truncate">{m.medication_name}</p>
                     <span className={`text-xs shrink-0 ${dayStyle}`}>
-                      {d <= 0 ? 'نفد!' : `${d} ${d === 1 ? 'Day' : 'Days'}`}
+                      {d <= 0 ? 'نفد!' : pluralizeDays(d)}
                     </span>
                   </div>
                   <div className="flex items-center justify-between mt-1.5 text-[10px] text-slate-500">
@@ -1391,7 +1395,7 @@ function InventoryTab({ cards, onClose }: {
                       <p className="text-xs text-slate-500">
                         {item.total_daily_dose} {unitLabel}/يوم ·{' '}
                         <span className={d <= 0 ? 'text-rose-700 font-bold' : d <= 3 ? 'text-rose-600 font-semibold' : d <= 7 ? 'text-amber-600 font-medium' : ''}>
-                          {d <= 0 ? 'نفد اليوم!' : `أقرب نفاذ بعد ${d} ${d === 1 ? 'Day' : 'Days'}`}
+                          {d <= 0 ? 'نفد اليوم!' : `أقرب نفاذ بعد ${pluralizeDays(d)}`}
                         </span>
                       </p>
                       {/* المرضى — يفتح modal أدوية المريض المزمنة */}
@@ -1449,7 +1453,7 @@ function InventoryTab({ cards, onClose }: {
                         <p className="text-[10px] text-slate-400">
                           تأكيد {confirmedDate} ·{' '}
                           <span className={d <= 3 ? 'text-rose-500 font-semibold' : ''}>
-                            ينفد بعد {d} {d === 1 ? 'Day' : 'Days'}
+                            ينفد بعد {pluralizeDays(d)}
                           </span>
                         </p>
                       </div>
@@ -1801,7 +1805,7 @@ function PatientCard({ card, pharmacyName, onAction, onNotesUpdate }: {
               return (
                 <span key={m.id} className={`text-xs font-medium px-2.5 py-1 rounded-md border shadow-sm flex items-center gap-1 ${badgeStyle}`} dir="ltr">
                   <span>{m.medication_name}</span>
-                  <span className={daysTextStyle}>· {d <= 0 ? 'نفد' : `${d} ${d === 1 ? 'Day' : 'Days'}`}</span>
+                  <span className={daysTextStyle}>· {d <= 0 ? 'نفد' : pluralizeDays(d)}</span>
                 </span>
               );
             })}
@@ -1830,7 +1834,7 @@ function PatientCard({ card, pharmacyName, onAction, onNotesUpdate }: {
                         dLeft <= 7 ? 'bg-amber-100 text-amber-700 border-amber-200' :
                         'bg-slate-100 text-slate-500 border-slate-200'
                       }`}>
-                        {dLeft <= 0 ? 'نفد!' : `${dLeft} ${dLeft === 1 ? 'Day' : 'Days'}`}
+                        {dLeft <= 0 ? 'نفد!' : pluralizeDays(dLeft)}
                       </span>
                     </div>
                     <p className={`text-[10px] mt-1 ${isClose ? 'text-amber-700' : 'text-slate-400'}`}>

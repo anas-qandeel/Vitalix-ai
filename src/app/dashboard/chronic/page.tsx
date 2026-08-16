@@ -503,8 +503,9 @@ function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill }: {
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-slate-900 truncate">{r.name}</p>
                         {!nameMatches && matchedDrugs.length > 0 ? (
-                          <p className="text-[11px] text-violet-600 font-medium mt-0.5 truncate">
-                            💊 {matchedDrugs.map(m => m.medication_name).join(' · ')}
+                          <p className="flex items-center gap-1 min-w-0 text-[11px] text-violet-600 font-medium mt-0.5">
+                            <span className="shrink-0">💊</span>
+                            <span dir="ltr" className="block min-w-0 truncate text-right">{matchedDrugs.map(m => m.medication_name).join(' · ')}</span>
                           </p>
                         ) : (
                           <p className="text-[11px] text-slate-400 font-mono mt-0.5">{r.phone_number}</p>
@@ -1757,7 +1758,7 @@ function PatientCard({ card, pharmacyName, onAction, onNotesUpdate }: {
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-slate-900 truncate">{patient.name}</p>
-          <p className="text-xs text-slate-500 truncate mt-1">{meds.map(m => m.medication_name).join(' · ')}</p>
+          <p dir="ltr" className="block truncate text-right text-[11px] text-slate-400">{meds.map(m => m.medication_name).join(' · ')}</p>
         </div>
         <span className={`text-xs font-medium px-2.5 py-1 rounded-md border shrink-0 ${badgeCls}`}>
           {stage === 'renewed' ? 'مجدد ✓' :

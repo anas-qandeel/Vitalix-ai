@@ -25,3 +25,9 @@ body {
   color: var(--foreground);
   font-family: 'IBM Plex Sans Arabic', system-ui, -apple-system, sans-serif;
 }
+
+/* تعريف عام لحركة انزلاق المودالات — احتياطي لأي صفحة/مكوّن مشترك (مثل WaMsgModal)
+   لا يملك تعريفاً محلياً خاصاً به. لا يُغيّر سلوك chronic أو dashboard الحاليين
+   لأن كلتيهما تملك تعريفاً محلياً أقوى ترتيباً (<style jsx global>) يبقى كما هو. */
+@keyframes saasSlideUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.saas-slide-up { animation: saasSlideUp 0.25s ease both; }

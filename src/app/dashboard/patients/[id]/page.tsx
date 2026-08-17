@@ -3,7 +3,7 @@
 import React, { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import DashboardHeader from '../../components/DashboardHeader';
+import DashboardHeader, { usePharmacyInfo } from '../../components/DashboardHeader';
 import AppFooter from '../../../components/AppFooter';
 
 // ═══════════════════════════════════════════════════════
@@ -164,6 +164,138 @@ function IconScale({ className = 'w-4 h-4' }: { className?: string }) {
   );
 }
 
+function IconDownload({ className = 'w-4 h-4' }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+    </svg>
+  );
+}
+
+// ═══════════════════════════════════════════════════════
+// PDF — منسوختان من src/app/vitals/view/[id]/page.tsx (نفس آلية "تنزيل تقرير الطبيب")
+// ═══════════════════════════════════════════════════════
+async function renderElementToPdf(container: HTMLElement, filename: string) {
+  await new Promise((resolve) => setTimeout(resolve, 150));
+
+  const html2canvasModule: any = await import('html2canvas-pro');
+  const html2canvas = html2canvasModule.default || html2canvasModule;
+  const jspdfModule: any = await import('jspdf');
+  const JsPDF = jspdfModule.jsPDF || jspdfModule.default;
+
+  const canvas = await html2canvas(container, {
+    scale: 2,
+    windowWidth: 700,
+    useCORS: true,
+    backgroundColor: '#ffffff',
+  });
+
+  const imgData = canvas.toDataURL('image/jpeg', 0.98);
+  const pdf = new JsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const imgWidth = pageWidth;
+  const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+  let heightLeft = imgHeight;
+  let position = 0;
+
+  pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+  heightLeft -= pageHeight;
+
+  while (heightLeft > 0) {
+    position -= pageHeight;
+    pdf.addPage();
+    pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+    heightLeft -= pageHeight;
+  }
+
+  pdf.save(filename);
+}
+
+async function renderHistoryTableToPdf(
+  headerHtml: string,
+  theadHtml: string,
+  rowsHtml: string[],
+  footerHtml: string,
+  filename: string
+) {
+  const containerWidthPx = 700;
+  const baseStyle = `position: fixed; top: -99999px; left: 0; width: ${containerWidthPx}px; background: #fff; font-family: system-ui, -apple-system, sans-serif; padding: 35px; color: #0F172A;`;
+
+  const html2canvasModule: any = await import('html2canvas-pro');
+  const html2canvas = html2canvasModule.default || html2canvasModule;
+  const jspdfModule: any = await import('jspdf');
+  const JsPDF = jspdfModule.jsPDF || jspdfModule.default;
+
+  const pdf = new JsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+  const pageWidthMM = pdf.internal.pageSize.getWidth();
+  const pageHeightMM = pdf.internal.pageSize.getHeight();
+  const mmPerPx = pageWidthMM / containerWidthPx;
+  const maxContentHeightPx = pageHeightMM / mmPerPx;
+
+  const tableOpenHtml = `<table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; text-align: right;"><thead>${theadHtml}</thead><tbody>`;
+  const tableCloseHtml = `</tbody></table>`;
+
+  const pageContainer = document.createElement('div');
+  pageContainer.setAttribute('dir', 'rtl');
+  pageContainer.style.cssText = baseStyle;
+  document.body.appendChild(pageContainer);
+
+  let rowIndex = 0;
+  let pageNum = 0;
+
+  while (rowIndex < rowsHtml.length || pageNum === 0) {
+    const includedRows: number[] = [];
+    let testIndex = rowIndex;
+
+    while (testIndex < rowsHtml.length) {
+      const candidateRows = [...includedRows, testIndex];
+      pageContainer.innerHTML = `${headerHtml}${tableOpenHtml}${candidateRows.map((i) => rowsHtml[i]).join('')}${tableCloseHtml}`;
+      const heightPx = pageContainer.offsetHeight;
+
+      if (heightPx > maxContentHeightPx && includedRows.length > 0) {
+        break;
+      }
+      includedRows.push(testIndex);
+      testIndex++;
+    }
+
+    if (includedRows.length === 0 && testIndex < rowsHtml.length) {
+      includedRows.push(testIndex);
+      testIndex++;
+    }
+
+    const isLastPage = rowIndex + includedRows.length >= rowsHtml.length;
+    pageContainer.innerHTML = `
+      ${headerHtml}${tableOpenHtml}${includedRows.map((i) => rowsHtml[i]).join('')}${tableCloseHtml}
+      ${isLastPage ? footerHtml : ''}
+    `;
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    const canvas = await html2canvas(pageContainer, {
+      scale: 2,
+      windowWidth: containerWidthPx,
+      useCORS: true,
+      backgroundColor: '#ffffff',
+    });
+    const imgData = canvas.toDataURL('image/jpeg', 0.98);
+    const imgWidth = pageWidthMM;
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+    if (pageNum > 0) pdf.addPage();
+    pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
+
+    rowIndex += includedRows.length;
+    pageNum++;
+  }
+
+  document.body.removeChild(pageContainer);
+  pdf.save(filename);
+}
+
 // ═══════════════════════════════════════════════════════
 // MAIN
 // ═══════════════════════════════════════════════════════
@@ -171,12 +303,15 @@ export default function PatientCardPage({ params }: PageProps) {
   const resolvedParams = use(params);
   const patientId = resolvedParams.id;
   const router = useRouter();
+  const { pharmacyName } = usePharmacyInfo();
 
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
   const [patient, setPatient] = useState<PatientDetail | null>(null);
   const [visits, setVisits] = useState<Visit[]>([]);
   const [expandedVisitId, setExpandedVisitId] = useState<string | null>(null);
+  const [visitFilter, setVisitFilter] = useState<'all' | 'bp' | 'sugar' | 'weight'>('all');
+  const [pdfGenerating, setPdfGenerating] = useState(false);
   const [chronicMeds, setChronicMeds] = useState<ChronicMed[]>([]);
   const [heightInput, setHeightInput] = useState('');
   const [savingHeight, setSavingHeight] = useState(false);
@@ -263,6 +398,90 @@ export default function PatientCardPage({ params }: PageProps) {
       setEditingInfo(false);
     } catch (e: any) { setInfoErr(e.message); }
     finally { setSavingInfo(false); }
+  };
+
+  const filteredVisits = visits.filter((v) => {
+    if (visitFilter === 'bp')     return v.bp_systolic != null;
+    if (visitFilter === 'sugar')  return v.sugar_value != null;
+    if (visitFilter === 'weight') return v.weight != null;
+    return true;
+  });
+
+  const handleDownloadHistoryPdf = async () => {
+    if (!patient) return;
+    setPdfGenerating(true);
+
+    const headerHtml = `
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #059669; padding-bottom: 12px; margin-bottom: 20px;">
+        <div style="font-size: 22px; font-weight: 900; color: #0F172A;">Vitalix<span style="color: #0D9488;">.ai</span></div>
+        <div style="background: #ECFDF5; border: 1px solid #A7F3D0; color: #065F46; padding: 6px 14px; border-radius: 10px; font-size: 12px; font-weight: bold;">👨‍⚕️ سجل القراءات الكاملة للطبيب المعالج</div>
+      </div>
+      <div style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 12px 18px; border-radius: 12px; margin-bottom: 20px; font-size: 12px; display: flex; justify-content: space-between; font-weight: bold;">
+        <div>اسم المريض: ${patient.name}</div>
+        <div>جهة التوثيق: ${pharmacyName}</div>
+      </div>
+    `;
+
+    const theadHtml = `
+      <tr>
+        <th style="background-color: #F1F5F9; border: 1px solid #CBD5E1; padding: 10px; font-weight: bold;">التاريخ والوقت</th>
+        <th style="background-color: #F1F5F9; border: 1px solid #CBD5E1; padding: 10px; font-weight: bold;">ضغط الدم (SYS/DIA)</th>
+        <th style="background-color: #F1F5F9; border: 1px solid #CBD5E1; padding: 10px; font-weight: bold;">السكري (mg/dL)</th>
+        <th style="background-color: #F1F5F9; border: 1px solid #CBD5E1; padding: 10px; font-weight: bold;">الوزن (kg)</th>
+        <th style="background-color: #F1F5F9; border: 1px solid #CBD5E1; padding: 10px; font-weight: bold;">الأعراض الملاحظة</th>
+      </tr>
+    `;
+
+    const footerHtml = `<div style="margin-top: 35px; border-top: 1px solid #E2E8F0; padding-top: 12px; text-align: center; font-size: 11px; color: #64748B;">تم توثيق سجل القراءات آلياً عبر منصة Vitalix.ai لصالح (${pharmacyName})</div>`;
+
+    try {
+      if (filteredVisits.length === 0) {
+        const container = document.createElement('div');
+        container.setAttribute('dir', 'rtl');
+        container.style.cssText =
+          'position: fixed; top: -99999px; left: 0; width: 700px; background: #fff; font-family: system-ui, -apple-system, sans-serif; padding: 35px; color: #0F172A;';
+        container.innerHTML = `
+          ${headerHtml}
+          <div style="padding: 30px; text-align: center; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; color: #64748B; font-size: 12px;">
+            لا توجد قراءات موثقة لهذا المريض ضمن هذا الفلتر.
+          </div>
+          ${footerHtml}
+        `;
+        document.body.appendChild(container);
+        try {
+          await renderElementToPdf(container, `سجل-قراءات-${patient.name}.pdf`);
+        } finally {
+          document.body.removeChild(container);
+        }
+      } else {
+        const rowsHtml = filteredVisits.map((visit) => `
+          <tr>
+            <td style="padding: 10px; border: 1px solid #E2E8F0; font-family: monospace;">
+              ${formatDate(visit.created_at)} (${formatTime(visit.created_at)})
+            </td>
+            <td style="padding: 10px; border: 1px solid #E2E8F0; font-family: monospace; font-weight: bold; color: ${visit.bp_systolic && visit.bp_systolic >= 140 ? '#DC2626' : '#1D4ED8'};">
+              ${visit.bp_systolic && visit.bp_diastolic ? `${visit.bp_systolic} / ${visit.bp_diastolic} mmHg` : '-'}
+            </td>
+            <td style="padding: 10px; border: 1px solid #E2E8F0; font-family: monospace; font-weight: bold; color: ${visit.sugar_value && visit.sugar_value >= 180 ? '#D97706' : '#059669'};">
+              ${visit.sugar_value ? `${visit.sugar_value} (${sugarTypeLabel(visit.sugar_test_type)})` : '-'}
+            </td>
+            <td style="padding: 10px; border: 1px solid #E2E8F0; font-family: monospace; font-weight: bold; color: #7E22CE;">
+              ${visit.weight ? `${visit.weight} kg` : '-'}
+            </td>
+            <td style="padding: 10px; border: 1px solid #E2E8F0; font-size: 11px;">
+              ${visit.symptoms && visit.symptoms.length > 0 ? visit.symptoms.join(' ، ') : 'لا يوجد أعراض'}
+            </td>
+          </tr>
+        `);
+
+        await renderHistoryTableToPdf(headerHtml, theadHtml, rowsHtml, footerHtml, `سجل-قراءات-${patient.name}.pdf`);
+      }
+    } catch (err: any) {
+      console.error('[PDF] خطأ فعلي أثناء التوليد:', err);
+      alert('حدث خطأ أثناء توليد ملف PDF:\n' + (err?.message || String(err)));
+    } finally {
+      setPdfGenerating(false);
+    }
   };
 
   if (loading) {
@@ -481,18 +700,59 @@ export default function PatientCardPage({ params }: PageProps) {
           <div>
         {/* ── السجل الطبي ── */}
         <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+          <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between flex-wrap gap-2">
             <p className="text-sm font-bold text-slate-900">السجل الطبي الكامل</p>
-            <span className="text-[11px] font-bold text-slate-400">{visits.length} زيارة</span>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-bold text-slate-400">{visits.length} زيارة</span>
+              {visits.length > 0 && (
+                <button
+                  onClick={handleDownloadHistoryPdf}
+                  disabled={pdfGenerating}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-l from-slate-900 to-teal-800 hover:from-slate-800 hover:to-teal-700 text-white rounded-lg text-[11px] font-bold transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer">
+                  <IconDownload className="w-3.5 h-3.5" />
+                  {pdfGenerating ? 'جاري التحضير...' : 'تنزيل PDF'}
+                </button>
+              )}
+            </div>
           </div>
+
+          {visits.length > 0 && (
+            <div className="px-5 py-3 border-b border-slate-100 flex flex-wrap gap-2">
+              {([
+                { key: 'all', label: 'الكل', count: visits.length },
+                { key: 'bp', label: 'ضغط', count: visits.filter(v => v.bp_systolic != null).length },
+                { key: 'sugar', label: 'سكري', count: visits.filter(v => v.sugar_value != null).length },
+                { key: 'weight', label: 'وزن', count: visits.filter(v => v.weight != null).length },
+              ] as const).map(f => {
+                const active = visitFilter === f.key;
+                return (
+                  <button
+                    key={f.key}
+                    onClick={() => setVisitFilter(f.key)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold border transition cursor-pointer ${
+                      active ? 'bg-teal-50 border-teal-600 text-teal-700' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
+                    }`}>
+                    {f.label}
+                    <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${active ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-400'}`}>
+                      {f.count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
           {visits.length === 0 ? (
             <div className="py-16 text-center">
               <p className="text-sm text-slate-400 font-medium">لا توجد زيارات موثَّقة بعد</p>
             </div>
+          ) : filteredVisits.length === 0 ? (
+            <div className="py-16 text-center">
+              <p className="text-sm text-slate-400 font-medium">لا توجد زيارات تحتوي على هذا النوع من القراءات</p>
+            </div>
           ) : (
             <div className="divide-y divide-slate-100">
-              {visits.map((v, idx) => {
+              {filteredVisits.map((v, idx) => {
                 const isOpen = expandedVisitId === v.id;
                 const bmi = bmiCalc(v.weight, patient.height);
                 const vstatus = getVisitStatus(v);

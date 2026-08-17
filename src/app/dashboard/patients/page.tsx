@@ -64,32 +64,79 @@ function IconArrow({ className = 'w-4 h-4' }: { className?: string }) {
 // ═══════════════════════════════════════════════════════
 // MAIN PAGE
 // ═══════════════════════════════════════════════════════
+const PAGE_SIZE = 30;
+
 export default function PatientsListPage() {
   const router = useRouter();
+  const [pharmacyId, setPharmacyId] = useState('');
   const [patients, setPatients] = useState<PatientRow[]>([]);
+  const [totalCount, setTotalCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const [query, setQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
 
-  useEffect(() => { fetchPatients(); }, []);
+  // جلسة الصيدلية أولاً
+  useEffect(() => {
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { router.push('/'); return; }
+      setPharmacyId(session.user.id);
+    })();
+  }, []);
 
-  const fetchPatients = async () => {
-    setLoading(true);
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { router.push('/'); return; }
-    const { data } = await supabase.from('patients')
+  // تأخير الكتابة في مربع البحث 300ms قبل الاستعلام من القاعدة
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query.trim()), 300);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  // إعادة الجلب من الدفعة الأولى عند تغيّر الصيدلية أو نص البحث
+  useEffect(() => {
+    if (!pharmacyId) return;
+    fetchPatients(pharmacyId, debouncedQuery, 0, false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pharmacyId, debouncedQuery]);
+
+  // نجلب دفعة محدودة (PAGE_SIZE) فقط في كل استدعاء بدل كل المرضى دفعة واحدة
+  const fetchPatients = async (pid: string, searchTerm: string, offset: number, append: boolean) => {
+    append ? setLoadingMore(true) : setLoading(true);
+
+    let q = supabase.from('patients')
       .select('id, name, phone_number, birth_date, gender')
-      .eq('pharmacy_id', session.user.id)
-      .order('name', { ascending: true });
-    setPatients((data as PatientRow[]) || []);
-    setLoading(false);
+      .eq('pharmacy_id', pid)
+      .order('name', { ascending: true })
+      .range(offset, offset + PAGE_SIZE - 1);
+
+    const digits = searchTerm.replace(/[^0-9]/g, '');
+    if (searchTerm) {
+      q = digits
+        ? q.or(`name.ilike.%${searchTerm}%,phone_number.ilike.%${digits}%`)
+        : q.ilike('name', `%${searchTerm}%`);
+    }
+
+    const { data } = await q;
+    const rows = (data as PatientRow[]) || [];
+    setPatients(prev => append ? [...prev, ...rows] : rows);
+    setHasMore(rows.length === PAGE_SIZE);
+
+    // العدّاد الإجمالي عبر استعلام خفيف (count فقط بلا بيانات) — لا معنى له أثناء البحث
+    if (!searchTerm) {
+      const { count } = await supabase.from('patients')
+        .select('id', { count: 'exact', head: true })
+        .eq('pharmacy_id', pid);
+      setTotalCount(count ?? 0);
+    }
+
+    append ? setLoadingMore(false) : setLoading(false);
   };
 
-  const q = query.trim();
-  const qDigits = q.replace(/[^0-9]/g, '');
-  const filtered = patients.filter(p =>
-    !q || p.name.includes(q) || (qDigits && p.phone_number.includes(qDigits))
-  );
+  const handleLoadMore = () => {
+    if (!pharmacyId || loadingMore) return;
+    fetchPatients(pharmacyId, debouncedQuery, patients.length, true);
+  };
 
   return (
     <div className="min-h-screen bg-slate-50/50 antialiased pb-16" dir="rtl">
@@ -99,7 +146,7 @@ export default function PatientsListPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
             <h1 className="text-xl font-bold text-slate-900">إدارة المرضى</h1>
-            <p className="text-sm text-slate-500 mt-1">{patients.length} مريض مسجّل في صيدليتك</p>
+            <p className="text-sm text-slate-500 mt-1">{totalCount ?? '...'} مريض مسجّل في صيدليتك</p>
           </div>
           <button onClick={() => setShowAddModal(true)}
             className="flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-l from-slate-900 to-teal-800 hover:from-slate-800 hover:to-teal-700 text-white rounded-xl text-sm font-bold shadow-sm transition active:scale-[0.98] cursor-pointer">
@@ -121,51 +168,64 @@ export default function PatientsListPage() {
           <div className="flex items-center justify-center py-20">
             <div className="w-6 h-6 border-2 border-slate-300 border-t-slate-900 rounded-full animate-spin" />
           </div>
-        ) : filtered.length === 0 ? (
+        ) : patients.length === 0 ? (
           <div className="bg-white border border-slate-200 rounded-2xl py-16 flex flex-col items-center text-center gap-3 shadow-sm">
             <div className="w-12 h-12 rounded-xl bg-teal-50 border border-teal-100 flex items-center justify-center">
               <IconUsers className="w-6 h-6 text-teal-600" />
             </div>
             <p className="text-sm font-semibold text-slate-700">
-              {patients.length === 0 ? 'لا يوجد مرضى مسجّلون بعد' : 'لا نتائج مطابقة للبحث'}
+              {debouncedQuery ? 'لا نتائج مطابقة للبحث' : 'لا يوجد مرضى مسجّلون بعد'}
             </p>
           </div>
         ) : (
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-sm divide-y divide-slate-100 overflow-hidden">
-            {filtered.map(p => {
-              const age = calculateAge(p.birth_date);
-              return (
-                <div key={p.id} onClick={() => router.push(`/dashboard/patients/${p.id}`)}
-                  className="px-6 py-4 flex items-center justify-between gap-4 hover:bg-slate-50 transition-colors cursor-pointer">
-                  <div className="flex items-center gap-4 min-w-0">
-                    <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center shrink-0 border border-slate-200 text-slate-500 font-semibold text-sm">
-                      {p.name.trim().charAt(0)}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-slate-900 truncate">{p.name}</p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-xs text-slate-500 font-mono" dir="ltr">{p.phone_number}</span>
-                        {age !== null && (
-                          <>
-                            <span className="text-slate-300">·</span>
-                            <span className="text-xs text-slate-500">{age} سنة</span>
-                          </>
-                        )}
+          <>
+            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm divide-y divide-slate-100 overflow-hidden">
+              {patients.map(p => {
+                const age = calculateAge(p.birth_date);
+                return (
+                  <div key={p.id} onClick={() => router.push(`/dashboard/patients/${p.id}`)}
+                    className="px-6 py-4 flex items-center justify-between gap-4 hover:bg-slate-50 transition-colors cursor-pointer">
+                    <div className="flex items-center gap-4 min-w-0">
+                      <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center shrink-0 border border-slate-200 text-slate-500 font-semibold text-sm">
+                        {p.name.trim().charAt(0)}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-900 truncate">{p.name}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-xs text-slate-500 font-mono" dir="ltr">{p.phone_number}</span>
+                          {age !== null && (
+                            <>
+                              <span className="text-slate-300">·</span>
+                              <span className="text-xs text-slate-500">{age} سنة</span>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
+                    <IconArrow className="w-4 h-4 text-slate-300 shrink-0 rotate-180" />
                   </div>
-                  <IconArrow className="w-4 h-4 text-slate-300 shrink-0 rotate-180" />
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+
+            {hasMore && (
+              <button onClick={handleLoadMore} disabled={loadingMore}
+                className="w-full mt-4 py-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-xl text-sm font-bold transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer">
+                {loadingMore ? 'جاري التحميل...' : 'تحميل المزيد'}
+              </button>
+            )}
+          </>
         )}
       </main>
 
       {showAddModal && (
         <AddPatientForm
           onClose={() => setShowAddModal(false)}
-          onSaved={(p) => { setPatients(prev => [...prev, p].sort((a, b) => a.name.localeCompare(b.name, 'ar'))); setShowAddModal(false); }}
+          onSaved={(p) => {
+            setPatients(prev => [...prev, p].sort((a, b) => a.name.localeCompare(b.name, 'ar')));
+            setTotalCount(c => (c ?? 0) + 1);
+            setShowAddModal(false);
+          }}
         />
       )}
 

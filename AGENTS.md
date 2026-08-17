@@ -26,7 +26,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 | قاعدة البيانات / Auth | Supabase (Postgres + Supabase Auth) |
 | AI | Google Gemini عبر `@google/genai` (`gemini-3.6-flash` مع fallback إلى `gemini-3.5-flash-lite`، قابلة للتجاوز بـ `GEMINI_MODEL` في `.env.local`) |
 | توليد PDF | `html2canvas-pro` + `jspdf` (client-side فقط، عبر تحويل عنصر DOM مؤقت إلى صورة ثم PDF) |
-| أيقونات | مزيج من `lucide-react`، SVG مخصّصة inline، وإيموجي (❤️📅💡) — راجع قسم Design System |
+| أيقونات | SVG مخصّصة inline بأسلوب Heroicons (strokeWidth 1.5)، وإيموجي وظيفي |
 | التواصل مع المريض | روابط `wa.me` / `api.whatsapp.com` مباشرة (لا SDK لواتساب) |
 
 لا يوجد ORM — كل الوصول لقاعدة البيانات عبر `@supabase/supabase-js` مباشرة من client components أو من route handlers.
@@ -125,10 +125,12 @@ src/
 - **ألوان دلالية** (حالة/تنبيه) تتبع دائماً نفس القاعدة: خلفية فاتحة جداً + حد بنفس العائلة + نص غامق من نفس العائلة:
   - نجاح/طبيعي/نشط → `emerald` (`bg-emerald-50 border-emerald-200 text-emerald-700`)
   - تحذير/قريب الانتهاء → `amber` (مع `animate-pulse` على نقطة الحالة عند الحاجة)
+  - تحذير متوسط (بين amber وrose، مثل اقتراب نفاذ الدواء خلال أسبوع أو سمنة درجة أولى) → `orange`
   - خطر/خطأ/موقوف → `rose`
   - معلومة عامة/ضغط الدم → `blue`
   - الوزن → `purple`
-- لا تستخدم ألوان عشوائية خارج `slate/teal/emerald/amber/rose/blue/purple` — التزم بهذه العائلة.
+  - ميزات الذكاء الاصطناعي والاقتراحات/الملاحظات (وليس حالة/تنبيه) → `violet`
+- لا تستخدم ألوان عشوائية خارج `slate/teal/emerald/amber/orange/rose/blue/purple/violet` — التزم بهذه العائلة.
 
 ### 5.4 المكوّنات والأنماط المتكررة
 - **البطاقات**: `bg-white border border-slate-200 rounded-2xl` أو `rounded-3xl` للأقسام الرئيسية، `shadow-sm` افتراضياً و`hover:shadow-md` عند القابلية للنقر.

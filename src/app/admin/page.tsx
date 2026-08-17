@@ -165,27 +165,30 @@ export default function SuperAdminPage() {
     second_payment_date: ''
   });
 
-  // 🎯 جلب الصيدليات المباشر بدون تكرار داتا من الـ View المعمارية
+  // 🎯 جلب الصيدليات عبر route محمي بالأدمن بدل القراءة المباشرة من Supabase
   const fetchPharmacies = async () => {
-    const { data, error } = await supabase
-      .from('admin_pharmacies_view') // 👈 تم التحديث للجلب من الـ View الموحدة
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (!error && data) {
-      setPharmacies(data as Pharmacy[]);
+    try {
+      const response = await adminFetch('/api/admin/pharmacies-list');
+      const result = await response.json();
+      if (response.ok && result.data) {
+        setPharmacies(result.data as Pharmacy[]);
+      }
+    } catch {
+      // فشل الشبكة يُتجاهل بصمت للحفاظ على نفس السلوك الحالي
     }
   };
 
-  // جلب المسؤولين
+  // جلب المسؤولين عبر route محمي بالأدمن بدل القراءة المباشرة من Supabase
   const fetchAdmins = async () => {
-    // نقرأ مباشرة من الـ View الجاهزة (تجلب البريد من auth.users)، بنفس نمط fetchPharmacies
-    const { data, error } = await supabase
-      .from('platform_admins_view')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (!error && data) setAdmins(data as PlatformAdmin[]);
+    try {
+      const response = await adminFetch('/api/admin/admins-list');
+      const result = await response.json();
+      if (response.ok && result.data) {
+        setAdmins(result.data as PlatformAdmin[]);
+      }
+    } catch {
+      // فشل الشبكة يُتجاهل بصمت للحفاظ على نفس السلوك الحالي
+    }
   };
 
   const fetchFeedback = async () => {

@@ -191,7 +191,6 @@ create index if not exists idx_catalog_ph     on public.pharmacy_catalog(pharmac
 create index if not exists idx_refill_ph      on public.refill_tracking_pipeline(pharmacy_id);
 create index if not exists idx_recs_ph        on public.pharmacy_recommendations(pharmacy_id);
 create index if not exists idx_feedback_ph    on public.feedback(pharmacy_id);
-
 commit;
 
 

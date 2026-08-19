@@ -26,8 +26,14 @@ interface PharmacyProfile {
 interface StaffMember {
   id: string;
   name: string;
+  role: string;
+  login_slug: string;
   is_active: boolean;
+  must_change_pin: boolean;
+  created_at: string;
 }
+
+const ROLE_LABELS: Record<string, string> = { pharmacist: 'صيدلاني', assistant: 'مساعد', staff: 'موظف' };
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; cls: string }> = {
@@ -53,6 +59,36 @@ function InfoRow({ label, value }: { label: string; value: string | React.ReactN
   );
 }
 
+function StaffPinModal({ name, pin, onClose }: { name: string; pin: string; onClose: () => void }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(pin);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { }
+  };
+  return (
+    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[9999] flex items-end sm:items-center justify-center sm:p-4" onClick={onClose}>
+      <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-sm shadow-2xl border border-slate-200" onClick={e => e.stopPropagation()}>
+        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between gap-3">
+          <h3 className="text-base font-semibold text-slate-900">رمز الدخول لـ {name}</h3>
+          <button onClick={onClose} className="w-8 h-8 rounded-full bg-slate-50 hover:bg-slate-100 text-slate-500 flex items-center justify-center transition-colors shrink-0">✕</button>
+        </div>
+        <div className="px-6 py-6 text-center space-y-4">
+          <p dir="ltr" className="text-4xl font-black tracking-widest text-slate-900">{pin}</p>
+          <button onClick={handleCopy}
+            className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition">
+            {copied ? '✓ تم النسخ' : 'نسخ'}
+          </button>
+          <p className="text-[11px] text-slate-400">إن ضاع الرمز يمكنك تصفيره من قائمة الموظفين</p>
+          <p className="text-[11px] text-slate-400">سيُطلب من الموظف تغيير الرمز عند أول دخول</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ProfilePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -71,9 +107,20 @@ export default function ProfilePage() {
   // فريق العمل
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [newStaffName, setNewStaffName] = useState('');
+  const [newStaffRole, setNewStaffRole] = useState('staff');
   const [addingStaff, setAddingStaff] = useState(false);
   const [staffError, setStaffError] = useState('');
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [pinModal, setPinModal] = useState<{ name: string; pin: string } | null>(null);
   const MAX_STAFF = 8;
+
+  // إغلاق قائمة إجراءات الموظف عند النقر خارجها
+  useEffect(() => {
+    if (!openMenuId) return;
+    const handler = () => setOpenMenuId(null);
+    document.addEventListener('click', handler);
+    return () => document.removeEventListener('click', handler);
+  }, [openMenuId]);
 
   // تغيير كلمة المرور
   const [pwLoading, setPwLoading] = useState(false);
@@ -82,6 +129,22 @@ export default function ProfilePage() {
   useEffect(() => {
     fetchProfile();
   }, []);
+
+  const getAuthToken = async (): Promise<string | null> => {
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.access_token || null;
+  };
+
+  // فريق العمل عبر مسار API بدل القراءة المباشرة من المتصفح — يتحقق من صلاحية المالك عبر التوكن
+  const fetchStaffList = async () => {
+    try {
+      const token = await getAuthToken();
+      if (!token) return;
+      const res = await fetch('/api/staff', { headers: { Authorization: `Bearer ${token}` } });
+      const json = await res.json();
+      if (res.ok) setStaff((json.staff as StaffMember[]) || []);
+    } catch { }
+  };
 
   const fetchProfile = async () => {
     try {
@@ -106,14 +169,8 @@ export default function ProfilePage() {
       setEditCity(data.city_address || '');
       setEditPharmacistName(data.pharmacist_name || '');
 
-      // تحميل فريق العمل
-      const { data: staffData } = await supabase
-        .from('pharmacy_staff')
-        .select('id, name, is_active')
-        .eq('pharmacy_id', pid)
-        .eq('is_active', true)
-        .order('created_at', { ascending: true });
-      setStaff((staffData as StaffMember[]) || []);
+      // تحميل فريق العمل عبر مسار API
+      await fetchStaffList();
     } catch (err: any) {
       setErrorMsg(err.message || 'خطأ في التحميل');
     } finally {
@@ -136,27 +193,53 @@ export default function ProfilePage() {
     if (staff.some(s => s.name === name)) { setStaffError('هذا الاسم مسجّل مسبقاً'); return; }
     setAddingStaff(true); setStaffError('');
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-      const pid2 = await getPharmacyId();
-      if (!pid2) return;
-      const { data, error } = await supabase.from('pharmacy_staff').insert({
-        pharmacy_id: pid2,
-        name,
-        is_active: true,
-      }).select().single();
-      if (error || !data) throw new Error('تعذر الإضافة');
-      setStaff(prev => [...prev, data as StaffMember]);
+      const token = await getAuthToken();
+      if (!token) throw new Error('انتهت الجلسة');
+      const res = await fetch('/api/staff', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, role: newStaffRole }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'تعذر الإضافة');
       setNewStaffName('');
+      setNewStaffRole('staff');
+      await fetchStaffList();
+      setPinModal({ name: json.staff.name, pin: json.pin });
     } catch (e: any) { setStaffError(e.message || 'حدث خطأ'); }
     finally { setAddingStaff(false); }
   };
 
-  const handleRemoveStaff = async (id: string) => {
+  const handleResetPin = async (member: StaffMember) => {
+    setOpenMenuId(null);
     try {
-      await supabase.from('pharmacy_staff').update({ is_active: false }).eq('id', id);
-      setStaff(prev => prev.filter(s => s.id !== id));
-    } catch { alert('تعذر الحذف'); }
+      const token = await getAuthToken();
+      if (!token) throw new Error('انتهت الجلسة');
+      const res = await fetch(`/api/staff/${member.id}/reset-pin`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'تعذّر تصفير الرمز');
+      await fetchStaffList();
+      setPinModal({ name: json.staff.name, pin: json.pin });
+    } catch (e: any) { setStaffError(e.message || 'حدث خطأ'); }
+  };
+
+  const handleToggleStatus = async (member: StaffMember) => {
+    setOpenMenuId(null);
+    try {
+      const token = await getAuthToken();
+      if (!token) throw new Error('انتهت الجلسة');
+      const res = await fetch(`/api/staff/${member.id}/status`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_active: !member.is_active }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'تعذّر تحديث الحالة');
+      await fetchStaffList();
+    } catch (e: any) { setStaffError(e.message || 'حدث خطأ'); }
   };
 
   const getDaysLeft = () => {
@@ -401,7 +484,7 @@ export default function ProfilePage() {
           <div className="px-5 py-3.5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
             <div>
               <h2 className="text-sm font-black text-[#0F172A]">فريق العمل</h2>
-              <p className="text-[10px] text-slate-400 mt-0.5">الصيادلة المسجّلون في الصيدلية — يمكن التبديل بينهم من الهيدر</p>
+              <p className="text-[10px] text-slate-400 mt-0.5">لكل موظف حساب دخول مستقل برمز خاص</p>
             </div>
             <span className="text-[10px] font-bold text-slate-500 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-lg">
               {staff.length} / {MAX_STAFF}
@@ -425,31 +508,63 @@ export default function ProfilePage() {
 
             {/* بقية الفريق */}
             {staff.map(member => (
-              <div key={member.id} className="flex items-center gap-3 px-4 py-3 bg-white border border-slate-200 rounded-xl">
+              <div key={member.id} className={`relative flex items-center gap-3 px-4 py-3 bg-white border border-slate-200 rounded-xl ${!member.is_active ? 'opacity-60' : ''}`}>
                 <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center text-xs font-black shrink-0">
                   {member.name.charAt(0)}
                 </div>
-                <p className="flex-1 text-sm font-bold text-slate-900 truncate">{member.name}</p>
-                <button onClick={() => handleRemoveStaff(member.id)}
-                  className="w-7 h-7 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 flex items-center justify-center transition-colors shrink-0">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-bold text-slate-900 truncate">{member.name}</p>
+                    <span className="text-[10px] font-bold text-slate-500 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded-md shrink-0">
+                      {ROLE_LABELS[member.role] || member.role}
+                    </span>
+                    {!member.is_active && (
+                      <span className="text-[10px] font-bold text-slate-500 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded-md shrink-0">معطّل</span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-0.5">{member.login_slug}</p>
+                </div>
+                <div className="relative shrink-0">
+                  <button onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === member.id ? null : member.id); }}
+                    className="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center transition-colors">
+                    ⋯
+                  </button>
+                  {openMenuId === member.id && (
+                    <div className="absolute left-0 top-9 z-20 w-40 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden" onClick={e => e.stopPropagation()}>
+                      <button onClick={() => handleResetPin(member)}
+                        className="w-full text-right px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors">
+                        تصفير الرمز
+                      </button>
+                      <button onClick={() => handleToggleStatus(member)}
+                        className="w-full text-right px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors border-t border-slate-100">
+                        {member.is_active ? 'تعطيل' : 'تفعيل'}
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             ))}
 
             {/* إضافة صيدلاني جديد */}
             {staff.length < MAX_STAFF && (
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <input
                   type="text"
                   value={newStaffName}
                   onChange={e => { setNewStaffName(e.target.value); setStaffError(''); }}
                   onKeyDown={e => e.key === 'Enter' && handleAddStaff()}
                   placeholder="اسم الصيدلاني الجديد"
-                  className="flex-1 px-4 py-2.5 text-xs bg-white border border-slate-200 rounded-xl focus:border-slate-900 focus:outline-none transition text-slate-800 font-semibold"
+                  className="flex-1 min-w-[140px] px-4 py-2.5 text-xs bg-white border border-slate-200 rounded-xl focus:border-slate-900 focus:outline-none transition text-slate-800 font-semibold"
                 />
+                <select
+                  value={newStaffRole}
+                  onChange={e => setNewStaffRole(e.target.value)}
+                  className="px-3 py-2.5 text-xs bg-white border border-slate-200 rounded-xl focus:border-slate-900 focus:outline-none transition text-slate-800 font-semibold shrink-0"
+                >
+                  <option value="staff">موظف</option>
+                  <option value="assistant">مساعد</option>
+                  <option value="pharmacist">صيدلاني</option>
+                </select>
                 <button onClick={handleAddStaff} disabled={addingStaff || !newStaffName.trim()}
                   className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition disabled:opacity-50 shrink-0">
                   {addingStaff ? '...' : '+ إضافة'}
@@ -497,6 +612,10 @@ export default function ProfilePage() {
         </div>
 
       </main>
+
+      {pinModal && (
+        <StaffPinModal name={pinModal.name} pin={pinModal.pin} onClose={() => setPinModal(null)} />
+      )}
 
       <AppFooter className="max-w-2xl mx-auto px-4 py-8 border-t border-slate-200/60 mt-2" />
     </div>

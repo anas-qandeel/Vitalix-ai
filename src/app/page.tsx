@@ -3,6 +3,7 @@
 import { useEffect, useState, Suspense } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import AppFooter from './components/AppFooter';
 
 function LoginContent() {
@@ -188,6 +189,19 @@ function LoginContent() {
               )}
             </button>
           </form>
+
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-px bg-slate-200" />
+            <span className="text-[11px] font-medium text-slate-400">أو</span>
+            <div className="flex-1 h-px bg-slate-200" />
+          </div>
+
+          <Link
+            href="/staff-login"
+            className="w-full pt-3 pb-3 px-4 text-sm font-semibold text-[#0F172A] bg-white hover:bg-slate-50 active:scale-[0.98] transition-all rounded-xl border border-slate-200 shadow-sm flex items-center justify-center cursor-pointer"
+          >
+            دخول الموظفين برمز PIN
+          </Link>
 
           {message && (
             <div

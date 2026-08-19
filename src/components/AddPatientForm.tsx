@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { upsertPipeline } from '@/lib/pipeline';
+import { getPharmacyId } from '@/lib/tenant';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -90,7 +91,9 @@ export default function AddPatientForm({
       if (!pid) {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) throw new Error('انتهت الجلسة');
-        pid = session.user.id;
+        const fromToken = await getPharmacyId();
+        if (!fromToken) throw new Error('تعذّر تحديد الصيدلية');
+        pid = fromToken;
       }
       const { data, error } = await supabase.from('patients').insert({
         pharmacy_id: pid,

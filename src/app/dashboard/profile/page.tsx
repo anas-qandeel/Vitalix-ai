@@ -486,7 +486,7 @@ export default function ProfilePage() {
               <h2 className="text-sm font-black text-[#0F172A]">فريق العمل</h2>
               <p className="text-[10px] text-slate-400 mt-0.5">لكل موظف حساب دخول مستقل برمز خاص</p>
             </div>
-            <span className="text-[10px] font-bold text-slate-500 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-lg">
+            <span dir="ltr" className="text-[10px] font-bold text-slate-500 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-lg">
               {staff.length} / {MAX_STAFF}
             </span>
           </div>

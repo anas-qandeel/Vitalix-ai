@@ -34,7 +34,8 @@ CREATE TABLE public.pharmacies (
     expiry_date date NOT NULL,
     created_at timestamp with time zone,
     second_payment_date date,
-    pharmacy_name character varying(255)        -- عمود قديم/احتياطي — الأولوية دائماً لـ name (راجع AGENTS.md قسم 6)
+    pharmacy_name character varying(255),       -- عمود قديم/احتياطي — الأولوية دائماً لـ name (راجع AGENTS.md قسم 6)
+    max_staff integer NOT NULL DEFAULT 8        -- الحد الأقصى لعدد الموظفين المفعّلين (بلا owner)
 );
 -- فهارس: pharmacies_pkey (id) UNIQUE, pharmacies_phone_number_key (phone_number) UNIQUE
 

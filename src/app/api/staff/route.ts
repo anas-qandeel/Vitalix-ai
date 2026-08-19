@@ -46,12 +46,27 @@ export async function POST(req: NextRequest) {
   // رمز الصيدلية
   const { data: ph } = await supabaseAdmin
     .from('pharmacies')
-    .select('short_code')
+    .select('short_code, max_staff')
     .eq('id', auth.pharmacyId)
     .single();
 
   if (!ph?.short_code) {
     return NextResponse.json({ error: 'تعذّر تحديد الصيدلية' }, { status: 500 });
+  }
+
+  // فرض الحد الأقصى على الخادم — الفرض في page.tsx وحده قابل للتجاوز بطلب مباشر
+  const { count: activeCount } = await supabaseAdmin
+    .from('pharmacy_staff')
+    .select('id', { count: 'exact', head: true })
+    .eq('pharmacy_id', auth.pharmacyId)
+    .eq('is_active', true)
+    .neq('role', 'owner');
+
+  if ((activeCount || 0) >= ph.max_staff) {
+    return NextResponse.json(
+      { error: `تم الوصول للحد الأقصى (${ph.max_staff} موظفين)` },
+      { status: 403 }
+    );
   }
 
   // slug تسلسلي داخل الصيدلية

@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { getPharmacyId } from '@/lib/tenant';
 
 // ═══════════════════════════════════════════════════════
 // STAFF localStorage helpers
@@ -146,10 +147,12 @@ export default function DashboardHeader({ breadcrumb, onBack }: DashboardHeaderP
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) return;
+        const pid = await getPharmacyId();
+        if (!pid) return;
         const { data } = await supabase
           .from('pharmacy_staff')
           .select('name')
-          .eq('pharmacy_id', session.user.id)
+          .eq('pharmacy_id', pid)
           .eq('is_active', true)
           .order('created_at', { ascending: true });
         const names = (data || []).map((s: { name: string }) => s.name);
@@ -179,11 +182,13 @@ export default function DashboardHeader({ breadcrumb, onBack }: DashboardHeaderP
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
+      const pid2 = await getPharmacyId();
+      if (!pid2) return;
       const { data: phData } = await supabase
-        .from('pharmacies').select('name, pharmacy_name').eq('id', session.user.id).single();
+        .from('pharmacies').select('name, pharmacy_name').eq('id', pid2).single();
       const pharmacyName = phData?.name || phData?.pharmacy_name || '';
       await supabase.from('feedback').insert({
-        pharmacy_id: session.user.id,
+        pharmacy_id: pid2,
         pharmacy_name: pharmacyName,
         pharmacist_name: getActivePharmacist() || null,
         type: feedbackType,

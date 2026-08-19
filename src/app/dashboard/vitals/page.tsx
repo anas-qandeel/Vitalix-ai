@@ -6,6 +6,7 @@ import { upsertPipeline } from '@/lib/pipeline';
 import { useRouter } from 'next/navigation';
 import DashboardHeader, { usePharmacyInfo, getActivePharmacist } from '../components/DashboardHeader';
 import AppFooter from '../../components/AppFooter';
+import { getPharmacyId } from '@/lib/tenant';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -180,8 +181,10 @@ function NewPatientModal({ phone, onClose, onCreated }: {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('انتهت الجلسة');
+      const pid = await getPharmacyId();
+      if (!pid) return;
       const { data, error } = await supabase.from('patients').insert({
-        pharmacy_id: session.user.id,
+        pharmacy_id: pid,
         name: name.trim(),
         phone_number: normalizePhone(phone),
         gender,
@@ -190,9 +193,9 @@ function NewPatientModal({ phone, onClose, onCreated }: {
       }).select().single();
       if (error || !data) throw new Error('تعذر الحفظ');
       if (note.trim()) {
-        await upsertPipeline(session.user.id, data.id, 'due', {});
+        await upsertPipeline(pid, data.id, 'due', {});
         await supabase.from('refill_tracking_pipeline').update({ insurance_status: note.trim() })
-          .eq('pharmacy_id', session.user.id).eq('patient_id', data.id).eq('payment_type', 'cash');
+          .eq('pharmacy_id', pid).eq('patient_id', data.id).eq('payment_type', 'cash');
       }
       onCreated(data as Patient);
     } catch (e: any) { setErr(e.message); setSaving(false); }
@@ -517,10 +520,12 @@ export default function VitalsPage() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) return;
+        const pid = await getPharmacyId();
+        if (!pid) return;
         const { data } = await supabase
           .from('patients')
           .select('id, name, phone_number, gender, birth_date, height, diagnosed_conditions')
-          .eq('pharmacy_id', session.user.id);
+          .eq('pharmacy_id', pid);
         if (data) setAllPatients(data as Patient[]);
       } catch (e) { console.error(e); }
     };
@@ -600,8 +605,10 @@ export default function VitalsPage() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) return;
+        const pid = await getPharmacyId();
+        if (!pid) return;
         const { data: found } = await supabase.from('patients').select('*')
-          .eq('pharmacy_id', session.user.id).eq('phone_number', normalizePhone(value));
+          .eq('pharmacy_id', pid).eq('phone_number', normalizePhone(value));
         if (found && found.length > 0) {
           await selectPatient(found[0] as Patient, true); // keepQuery=true يحافظ على رقم الهاتف في الحقل
         }

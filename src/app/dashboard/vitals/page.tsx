@@ -756,6 +756,8 @@ export default function VitalsPage() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('انتهت الجلسة');
+      const pid = await getPharmacyId();
+      if (!pid) return;
 
       const visitPayload = {
         bp_systolic: activeTests.bp ? finalSys : null,
@@ -821,7 +823,7 @@ export default function VitalsPage() {
 
       setLatestGeneratedReport(report);
       const { data: inserted, error: visitError } = await supabase.from('visitations').insert({
-        pharmacy_id: session.user.id,
+        pharmacy_id: pid,
         patient_id: currentPatient.id,
         ...dbPayload,
         ai_report_output: report,
@@ -838,6 +840,8 @@ export default function VitalsPage() {
         // ── نظام الوزن: POST weight_plan + PATCH nutrition (بالتوازي بعد الحفظ) ───
         if (activeTests.weight && weightValue && currentPatient?.height) {
           const { data: { session: s } } = await supabase.auth.getSession();
+          const pid2 = await getPharmacyId();
+          if (!pid2) return;
           setWeightStatus('saving');
 
           // الخطوة 1: إنشاء weight_plan (فوري، بدون AI)
@@ -846,7 +850,7 @@ export default function VitalsPage() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               patient_id:   currentPatient.id,
-              pharmacy_id:  s?.user.id,
+              pharmacy_id:  pid2,
               weight_kg:    Number(weightValue),
               height_cm:    Number(currentPatient.height),
               performed_by: getActivePharmacist() || null,
@@ -867,7 +871,7 @@ export default function VitalsPage() {
             const { data: meds } = await supabase
               .from('chronic_medications')
               .select('medication_name')
-              .eq('pharmacy_id', s?.user.id)
+              .eq('pharmacy_id', pid2)
               .eq('patient_id', currentPatient.id)
               .eq('status', 'active');
             const medications = (meds || []).map((m: any) => m.medication_name);

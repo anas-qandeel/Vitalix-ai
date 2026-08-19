@@ -6,7 +6,7 @@ import { upsertPipeline } from '@/lib/pipeline';
 import { useRouter } from 'next/navigation';
 import DashboardHeader, { usePharmacyInfo, getActivePharmacist } from '../components/DashboardHeader';
 import AppFooter from '../../components/AppFooter';
-import { getPharmacyId } from '@/lib/tenant';
+import { getPharmacyId, getStaffId } from '@/lib/tenant';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -822,11 +822,13 @@ export default function VitalsPage() {
       }
 
       setLatestGeneratedReport(report);
+      const staffId = await getStaffId();
       const { data: inserted, error: visitError } = await supabase.from('visitations').insert({
         pharmacy_id: pid,
         patient_id: currentPatient.id,
         ...dbPayload,
         ai_report_output: report,
+        recorded_by: staffId,
       }).select().single();
       if (visitError) throw new Error('تعذر حفظ بيانات الفحص');
       if (inserted) {

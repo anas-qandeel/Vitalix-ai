@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import DashboardHeader from '../components/DashboardHeader';
 import AppFooter from '../../components/AppFooter';
 import AddPatientForm from '@/components/AddPatientForm';
+import { getPharmacyId } from '@/lib/tenant';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -83,7 +84,9 @@ export default function PatientsListPage() {
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { router.push('/'); return; }
-      setPharmacyId(session.user.id);
+      const pid = await getPharmacyId();
+      if (!pid) return;
+      setPharmacyId(pid);
     })();
   }, []);
 

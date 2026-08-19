@@ -3,24 +3,9 @@
 import { useEffect, useState, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { getPharmacyId } from '@/lib/tenant';
+import { getPharmacyId, getStaffName, getUserRole } from '@/lib/tenant';
 
-// ═══════════════════════════════════════════════════════
-// STAFF localStorage helpers
-// ═══════════════════════════════════════════════════════
-const STAFF_KEY = 'vitalix_active_pharmacist';
-// يحفظ id الصيدلية صاحبة القيمة المخزّنة في STAFF_KEY — بدونه، تسجيل الدخول بحساب صيدلية
-// أخرى على نفس المتصفح كان "يرث" اسم صيدلاني الحساب السابق حتى يُختار يدوياً
-const STAFF_OWNER_KEY = 'vitalix_active_pharmacist_owner';
-
-export function getActivePharmacist(): string {
-  if (typeof window === 'undefined') return '';
-  return localStorage.getItem(STAFF_KEY) || '';
-}
-export function setActivePharmacist(name: string) {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(STAFF_KEY, name);
-}
+const ROLE_LABELS: Record<string, string> = { owner: 'مالك', pharmacist: 'صيدلاني', assistant: 'مساعد', staff: 'موظف' };
 
 const VitalixLogo = () => (
   <svg className="w-5 h-5" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -48,46 +33,25 @@ export function usePharmacyInfo() {
   const [pharmacyStatus, setPharmacyStatus] = useState('');
   const [expiryDate, setExpiryDate] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  // الصيدلاني النشط من localStorage
-  const [activePharmacist, setActivePharmacistState] = useState('');
 
   useEffect(() => {
     const load = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) return;
+        // معرّف الصيدلية عبر tenant.ts لا session.user.id مباشرة — لموظف مسجّل دخوله
+        // بحساب مصادقة مستقل، session.user.id هو هوية الموظف نفسه وليس هوية الصيدلية
+        const pid = await getPharmacyId();
+        if (!pid) return;
         const { data } = await supabase
           .from('pharmacies')
           .select('name, pharmacy_name, pharmacist_name, status, expiry_date')
-          .eq('id', session.user.id)
+          .eq('id', pid)
           .single();
-        const mainPharmacistName = data?.pharmacist_name || '';
         setPharmacyName(resolvePharmacyName(data));
-        setPharmacistName(mainPharmacistName);
+        setPharmacistName(data?.pharmacist_name || '');
         setPharmacyStatus(data?.status || '');
         setExpiryDate(data?.expiry_date || null);
-
-        // الصيدلاني النشط المخزّن في localStorage تابع لآخر صيدلية سُجّل الدخول بها على هذا
-        // المتصفح — إن كان الحساب الحالي مختلفاً (تبديل حسابات) نتجاهل القيمة المخزّنة كلياً
-        // ونبدأ من الصيدلاني الرئيسي لهذا الحساب، بدل توريث اسم صيدلاني حساب آخر
-        const storedOwner = localStorage.getItem(STAFF_OWNER_KEY);
-        if (storedOwner !== session.user.id) {
-          localStorage.setItem(STAFF_OWNER_KEY, session.user.id);
-          setActivePharmacist(mainPharmacistName);
-          setActivePharmacistState(mainPharmacistName);
-          // بعض المكوّنات (مثل بطاقة الترحيب في dashboard/page.tsx) تقرأ الصيدلاني النشط بنسختها
-          // المحلية الخاصة عبر getActivePharmacist() مباشرة عند أول رسم، لا عبر هذا الـ hook —
-          // بدون هذا الحدث تبقى عالقة على اسم صيدلاني الحساب السابق حتى تبديل يدوي جديد
-          window.dispatchEvent(new Event('vitalix_pharmacist_changed'));
-        } else {
-          const stored = getActivePharmacist();
-          if (!stored && mainPharmacistName) {
-            setActivePharmacist(mainPharmacistName);
-            setActivePharmacistState(mainPharmacistName);
-          } else {
-            setActivePharmacistState(stored || mainPharmacistName);
-          }
-        }
       } catch { }
       finally { setLoading(false); }
     };
@@ -99,7 +63,7 @@ export function usePharmacyInfo() {
     return Math.max(0, Math.ceil((new Date(expiryDate).getTime() - Date.now()) / 86400000));
   };
 
-  return { pharmacyName, pharmacistName, pharmacyStatus, expiryDate, daysLeft: getDaysLeft(), loading, activePharmacist };
+  return { pharmacyName, pharmacistName, pharmacyStatus, expiryDate, daysLeft: getDaysLeft(), loading };
 }
 
 const NAV_LINKS = [
@@ -117,59 +81,36 @@ interface DashboardHeaderProps {
 export default function DashboardHeader({ breadcrumb, onBack }: DashboardHeaderProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { pharmacyName, pharmacistName, pharmacyStatus, daysLeft, loading, activePharmacist } = usePharmacyInfo();
+  const { pharmacyName, pharmacistName, pharmacyStatus, daysLeft, loading } = usePharmacyInfo();
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [staffDropdownOpen, setStaffDropdownOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackType, setFeedbackType] = useState('feature');
   const [feedbackMsg, setFeedbackMsg] = useState('');
   const [feedbackRating, setFeedbackRating] = useState(0);
   const [feedbackSending, setFeedbackSending] = useState(false);
   const [feedbackDone, setFeedbackDone] = useState(false);
-  const [staffList, setStaffList] = useState<string[]>([]);
-  const [currentPharmacist, setCurrentPharmacist] = useState('');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [staffName, setStaffName] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const staffDropdownRef = useRef<HTMLDivElement>(null);
   const mobileNavRef = useRef<HTMLDivElement>(null);
 
-  // تحديث الصيدلاني النشط عند تحميل البيانات
+  // هوية المستخدم الحالي فعلياً (من سجّل دخوله) — لا من مبدّل محلي
   useEffect(() => {
-    if (activePharmacist) setCurrentPharmacist(activePharmacist);
-  }, [activePharmacist]);
+    const load = async () => {
+      const [name, role] = await Promise.all([getStaffName(), getUserRole()]);
+      setStaffName(name);
+      setUserRole(role);
+    };
+    load();
+  }, []);
 
   // إغلاق قائمة التنقل الموبايل تلقائياً عند تغيير الصفحة
   useEffect(() => { setMobileNavOpen(false); }, [pathname]);
 
-  // تحميل قائمة الفريق
-  useEffect(() => {
-    const loadStaff = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) return;
-        const pid = await getPharmacyId();
-        if (!pid) return;
-        const { data } = await supabase
-          .from('pharmacy_staff')
-          .select('name')
-          .eq('pharmacy_id', pid)
-          .eq('is_active', true)
-          .order('created_at', { ascending: true });
-        const names = (data || []).map((s: { name: string }) => s.name);
-        // إضافة الصيدلاني الرئيسي إذا لم يكن في القائمة
-        if (pharmacistName && !names.includes(pharmacistName)) {
-          names.unshift(pharmacistName);
-        }
-        setStaffList(names);
-      } catch { }
-    };
-    if (pharmacistName) loadStaff();
-  }, [pharmacistName]);
-
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) setDropdownOpen(false);
-      if (staffDropdownRef.current && !staffDropdownRef.current.contains(e.target as Node)) setStaffDropdownOpen(false);
       if (mobileNavRef.current && !mobileNavRef.current.contains(e.target as Node)) setMobileNavOpen(false);
     };
     document.addEventListener('mousedown', handler);
@@ -190,7 +131,7 @@ export default function DashboardHeader({ breadcrumb, onBack }: DashboardHeaderP
       await supabase.from('feedback').insert({
         pharmacy_id: pid2,
         pharmacy_name: pharmacyName,
-        pharmacist_name: getActivePharmacist() || null,
+        pharmacist_name: (await getStaffName()) || null,
         type: feedbackType,
         message: feedbackMsg.trim(),
         rating: feedbackRating || null,
@@ -212,16 +153,9 @@ export default function DashboardHeader({ breadcrumb, onBack }: DashboardHeaderP
     window.location.href = '/';
   };
 
-  const handleSelectPharmacist = (name: string) => {
-    setCurrentPharmacist(name);
-    setActivePharmacist(name);
-    setStaffDropdownOpen(false);
-    // إطلاق event لتحديث كل مكوّن يستمع في نفس الـ tab فوراً
-    window.dispatchEvent(new Event('vitalix_pharmacist_changed'));
-  };
-
-  const displayName = currentPharmacist || pharmacistName || 'الصيدلي المسؤول';
+  const displayName = staffName || pharmacistName || 'الصيدلي المسؤول';
   const initials = displayName.trim().split(' ').map((w: string) => w[0]).slice(0, 2).join('');
+  const roleLabel = ROLE_LABELS[userRole] || '';
   const isExpiringSoon = daysLeft <= 14;
 
   return (
@@ -326,49 +260,17 @@ export default function DashboardHeader({ breadcrumb, onBack }: DashboardHeaderP
               </div>
             )}
 
-            {/* ── اختيار الصيدلاني النشط ── */}
-            {staffList.length > 1 && (
-              <div ref={staffDropdownRef} className="relative">
-                <button
-                  onClick={() => setStaffDropdownOpen(!staffDropdownOpen)}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 transition-all">
-                  <div className="w-5 h-5 rounded-md bg-slate-200 flex items-center justify-center text-[10px] font-black text-slate-600 shrink-0">
-                    {displayName.charAt(0)}
-                  </div>
-                  <span className="hidden sm:block max-w-[100px] truncate">{displayName}</span>
-                  <svg className={`w-3 h-3 text-slate-400 transition-transform ${staffDropdownOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-
-                {staffDropdownOpen && (
-                  <div className="absolute top-[calc(100%+8px)] left-0 w-52 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden z-50 animate-dropdown">
-                    <div className="px-4 py-2.5 border-b border-slate-100 bg-slate-50">
-                      <p className="text-[10px] font-bold text-slate-400">تبديل الصيدلاني</p>
-                    </div>
-                    <div className="p-1.5 space-y-0.5">
-                      {staffList.map(name => (
-                        <button key={name} onClick={() => handleSelectPharmacist(name)}
-                          className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold transition-colors text-right ${
-                            currentPharmacist === name
-                              ? 'bg-slate-900 text-white'
-                              : 'text-slate-700 hover:bg-slate-50'
-                          }`}>
-                          <div className={`w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black shrink-0 ${
-                            currentPharmacist === name ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
-                          }`}>
-                            {name.charAt(0)}
-                          </div>
-                          <span className="truncate">{name}</span>
-                          {currentPharmacist === name && (
-                            <svg className="w-3 h-3 mr-auto shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                            </svg>
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+            {/* ── هوية المستخدم الحالي (غير قابلة للنقر) ── */}
+            {staffName && (
+              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700">
+                <div className="w-5 h-5 rounded-md bg-slate-200 flex items-center justify-center text-[10px] font-black text-slate-600 shrink-0">
+                  {displayName.charAt(0)}
+                </div>
+                <span className="max-w-[100px] truncate">{displayName}</span>
+                {roleLabel && (
+                  <span className="text-[10px] font-bold text-teal-700 bg-teal-50 border border-teal-200 px-1.5 py-0.5 rounded-md shrink-0">
+                    {roleLabel}
+                  </span>
                 )}
               </div>
             )}

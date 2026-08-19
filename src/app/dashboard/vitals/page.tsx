@@ -4,9 +4,9 @@ import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { upsertPipeline } from '@/lib/pipeline';
 import { useRouter } from 'next/navigation';
-import DashboardHeader, { usePharmacyInfo, getActivePharmacist } from '../components/DashboardHeader';
+import DashboardHeader, { usePharmacyInfo } from '../components/DashboardHeader';
 import AppFooter from '../../components/AppFooter';
-import { getPharmacyId, getStaffId } from '@/lib/tenant';
+import { getPharmacyId, getStaffId, getStaffName } from '@/lib/tenant';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -758,6 +758,7 @@ export default function VitalsPage() {
       if (!session) throw new Error('انتهت الجلسة');
       const pid = await getPharmacyId();
       if (!pid) return;
+      const staffName = await getStaffName();
 
       const visitPayload = {
         bp_systolic: activeTests.bp ? finalSys : null,
@@ -768,7 +769,7 @@ export default function VitalsPage() {
         sugar_test_type: activeTests.sugar ? sugarType : null,
         weight: activeTests.weight ? Number(weightValue) : null,
         symptoms: selectedSymptoms.length > 0 ? selectedSymptoms : null,
-        performed_by: getActivePharmacist() || null,
+        performed_by: staffName,
         had_stimulants: bpFactors.includes('had_stimulants') || sugarFactors.includes('had_stimulants'),
         recent_exertion: bpFactors.includes('recent_exertion'),
         recent_heavy_meal: sugarFactors.includes('recent_heavy_meal'),
@@ -855,7 +856,7 @@ export default function VitalsPage() {
               pharmacy_id:  pid2,
               weight_kg:    Number(weightValue),
               height_cm:    Number(currentPatient.height),
-              performed_by: getActivePharmacist() || null,
+              performed_by: staffName,
             }),
           }).then(r => r.json()).catch(() => null);
 

@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase';
 import DashboardHeader from '../components/DashboardHeader';
 import AppFooter from '../../components/AppFooter';
 import AddPatientForm from '@/components/AddPatientForm';
-import { getPharmacyId } from '@/lib/tenant';
+import { getPharmacyId, getUserRole } from '@/lib/tenant';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -70,6 +70,7 @@ const PAGE_SIZE = 30;
 export default function PatientsListPage() {
   const router = useRouter();
   const [pharmacyId, setPharmacyId] = useState('');
+  const [role, setRole] = useState('');
   const [patients, setPatients] = useState<PatientRow[]>([]);
   const [totalCount, setTotalCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -79,14 +80,15 @@ export default function PatientsListPage() {
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
 
-  // جلسة الصيدلية أولاً
+  // جلسة الصيدلية + الدور أولاً
   useEffect(() => {
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { router.push('/'); return; }
-      const pid = await getPharmacyId();
+      const [pid, r] = await Promise.all([getPharmacyId(), getUserRole()]);
       if (!pid) return;
       setPharmacyId(pid);
+      setRole(r);
     })();
   }, []);
 
@@ -96,12 +98,19 @@ export default function PatientsListPage() {
     return () => clearTimeout(t);
   }, [query]);
 
-  // إعادة الجلب من الدفعة الأولى عند تغيّر الصيدلية أو نص البحث
+  // إعادة الجلب من الدفعة الأولى عند تغيّر الصيدلية أو نص البحث — لغير المالك، لا جلب
+  // ولا عرض لأي مريض قبل بحث فعلي (مبدأ الحاجة للمعرفة)، لا تحميلاً صامتاً في الذاكرة
   useEffect(() => {
-    if (!pharmacyId) return;
+    if (!pharmacyId || !role) return;
+    if (role !== 'owner' && !debouncedQuery) {
+      setPatients([]);
+      setHasMore(false);
+      setLoading(false);
+      return;
+    }
     fetchPatients(pharmacyId, debouncedQuery, 0, false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pharmacyId, debouncedQuery]);
+  }, [pharmacyId, role, debouncedQuery]);
 
   // نجلب دفعة محدودة (PAGE_SIZE) فقط في كل استدعاء بدل كل المرضى دفعة واحدة
   const fetchPatients = async (pid: string, searchTerm: string, offset: number, append: boolean) => {
@@ -149,7 +158,9 @@ export default function PatientsListPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
             <h1 className="text-xl font-bold text-slate-900">إدارة المرضى</h1>
-            <p className="text-sm text-slate-500 mt-1">{totalCount ?? '...'} مريض مسجّل في صيدليتك</p>
+            {role === 'owner' && (
+              <p className="text-sm text-slate-500 mt-1">{totalCount ?? '...'} مريض مسجّل في صيدليتك</p>
+            )}
           </div>
           <button onClick={() => setShowAddModal(true)}
             className="flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-l from-slate-900 to-teal-800 hover:from-slate-800 hover:to-teal-700 text-white rounded-xl text-sm font-bold shadow-sm transition active:scale-[0.98] cursor-pointer">
@@ -174,10 +185,16 @@ export default function PatientsListPage() {
         ) : patients.length === 0 ? (
           <div className="bg-white border border-slate-200 rounded-2xl py-16 flex flex-col items-center text-center gap-3 shadow-sm">
             <div className="w-12 h-12 rounded-xl bg-teal-50 border border-teal-100 flex items-center justify-center">
-              <IconUsers className="w-6 h-6 text-teal-600" />
+              {role !== 'owner' && !debouncedQuery ? (
+                <IconSearch className="w-6 h-6 text-teal-600" />
+              ) : (
+                <IconUsers className="w-6 h-6 text-teal-600" />
+              )}
             </div>
             <p className="text-sm font-semibold text-slate-700">
-              {debouncedQuery ? 'لا نتائج مطابقة للبحث' : 'لا يوجد مرضى مسجّلون بعد'}
+              {role !== 'owner' && !debouncedQuery
+                ? 'ابحث باسم المريض أو رقم هاتفه للوصول إلى ملفه'
+                : debouncedQuery ? 'لا نتائج مطابقة للبحث' : 'لا يوجد مرضى مسجّلون بعد'}
             </p>
           </div>
         ) : (

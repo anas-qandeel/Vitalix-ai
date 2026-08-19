@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { getPharmacyId, getUserRole } from '@/lib/tenant';
 
 /**
  * طبقة حماية موحّدة تُطبَّق تلقائياً على كل الصفحات ضمن /dashboard/* (بما فيها الصفحات
@@ -14,6 +15,7 @@ import { supabase } from '@/lib/supabase';
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [checking, setChecking] = useState(true);
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     const checkAccess = async () => {
@@ -24,10 +26,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         return;
       }
 
+      // معرّف الصيدلية عبر tenant.ts لا session.user.id مباشرة — لموظف مسجّل دخوله بحساب
+      // مصادقة مستقل، session.user.id هو هوية الموظف نفسه لا هوية الصيدلية
+      const pid = await getPharmacyId();
+      if (!pid) { router.push('/'); return; }
+
       const { data: pharmacy } = await supabase
         .from('pharmacies')
         .select('status')
-        .eq('id', session.user.id)
+        .eq('id', pid)
         .single();
 
       // الحسابات الموقوفة أو المؤرشفة تُخرَج فوراً — الأرشفة تحظر الدخول من الأساس عادة،
@@ -38,11 +45,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         return;
       }
 
+      // صفحة الملف الشخصي (الاشتراك، بيانات الصيدلية، إدارة الموظفين) للمالك وحده
+      if (pathname.startsWith('/dashboard/profile')) {
+        const role = await getUserRole();
+        if (role !== 'owner') { router.push('/dashboard'); return; }
+      }
+
       setChecking(false);
     };
 
     checkAccess();
-  }, [router]);
+  }, [router, pathname]);
 
   if (checking) {
     return (

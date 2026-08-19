@@ -3,12 +3,12 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
-import DashboardHeader, { usePharmacyInfo, getActivePharmacist } from './components/DashboardHeader';
+import DashboardHeader, { usePharmacyInfo } from './components/DashboardHeader';
 import AppFooter from '../components/AppFooter';
 import { upsertPipeline } from '@/lib/pipeline';
 import { Patient, ChronicMed, pluralizeDaysLeft } from '@/lib/chronic';
 import WaMsgModal from '@/components/WaMsgModal';
-import { getPharmacyId } from '@/lib/tenant';
+import { getPharmacyId, getStaffName, getUserRole } from '@/lib/tenant';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -184,19 +184,8 @@ export default function PharmacistDashboard() {
   const [waMsgModal, setWaMsgModal]   = useState<{ patient: Patient; meds: ChronicMed[] } | null>(null);
   const [birthdayPatients, setBirthdayPatients]   = useState<BirthdayPatient[]>([]);
   const [birthdayModalOpen, setBirthdayModalOpen] = useState(false);
-  const [activePharmacist, setActivePharmacistDisplay] = useState(() => getActivePharmacist());
-
-  // مزامنة تغيير الصيدلاني النشط فوراً دون reload
-  useEffect(() => {
-    const sync = () => setActivePharmacistDisplay(getActivePharmacist());
-    window.addEventListener('storage', sync);
-    // custom event للتحديث في نفس الـ tab
-    window.addEventListener('vitalix_pharmacist_changed', sync);
-    return () => {
-      window.removeEventListener('storage', sync);
-      window.removeEventListener('vitalix_pharmacist_changed', sync);
-    };
-  }, []);
+  const [staffName, setStaffName] = useState<string | null>(null);
+  const [userRole, setUserRole]   = useState('');
   const { pharmacyName } = usePharmacyInfo();
   const router = useRouter();
 
@@ -209,6 +198,10 @@ export default function PharmacistDashboard() {
       const uid = await getPharmacyId();
       if (!uid) return;
       setPharmacyId(uid);
+
+      const [name, role] = await Promise.all([getStaffName(), getUserRole()]);
+      setStaffName(name);
+      setUserRole(role);
 
       const today    = new Date();
       const todayMM  = today.getMonth() + 1;
@@ -325,6 +318,9 @@ export default function PharmacistDashboard() {
 
   const daysLeft       = !pharmacy?.expiry_date ? 0 : Math.max(0, Math.ceil((new Date(pharmacy.expiry_date).getTime() - Date.now()) / 86400000));
   const isExpiringSoon = daysLeft <= 14;
+  const displayName    = staffName || pharmacy?.pharmacist_name || 'الصيدلي';
+  // بادئة "د." تليق بمن يمارس الصيدلة فعلاً (المالك أو الصيدلاني) — لا تصح على مساعد أو موظف
+  const namePrefix      = (userRole === 'owner' || userRole === 'pharmacist') ? 'د. ' : '';
 
   if (loading) return (
     <div className="min-h-screen bg-slate-50/50 flex items-center justify-center" dir="rtl">
@@ -438,12 +434,12 @@ export default function PharmacistDashboard() {
           {/* الجانب الأيمن (الترحيب والهوية) */}
           <div className="p-6 md:p-8 flex flex-col justify-center min-w-[280px] lg:w-[320px] shrink-0 relative z-20">
             <p className="text-teal-600 text-[11px] font-bold mb-1.5 uppercase tracking-widest">مرحباً بعودتك</p>
-            <h1 className="text-2xl font-black text-slate-900 truncate tracking-tight">د. {activePharmacist || pharmacy?.pharmacist_name || 'الصيدلي'}</h1>
+            <h1 className="text-2xl font-black text-slate-900 truncate tracking-tight">{namePrefix}{displayName}</h1>
             <p className="text-slate-500 text-xs mt-2 font-medium">
               {new Date().toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', numberingSystem: 'latn' })}
             </p>
 
-            {isExpiringSoon && (
+            {isExpiringSoon && userRole === 'owner' && (
               <div className="mt-5 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center gap-3 w-fit shadow-sm">
                 <span className="flex items-center justify-center w-8 h-8 rounded-full bg-amber-100 text-amber-600 shrink-0">
                   <IconBell className="w-4 h-4" />

@@ -21,6 +21,7 @@ interface PharmacyProfile {
   paid_amount: number;
   expiry_date: string;
   created_at: string;
+  max_staff: number;
 }
 
 interface StaffMember {
@@ -112,7 +113,6 @@ export default function ProfilePage() {
   const [staffError, setStaffError] = useState('');
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [pinModal, setPinModal] = useState<{ name: string; pin: string } | null>(null);
-  const MAX_STAFF = 8;
 
   // إغلاق قائمة إجراءات الموظف عند النقر خارجها
   useEffect(() => {
@@ -189,7 +189,8 @@ export default function ProfilePage() {
   const handleAddStaff = async () => {
     const name = newStaffName.trim();
     if (!name) return;
-    if (staff.length >= MAX_STAFF) { setStaffError(`الحد الأقصى ${MAX_STAFF} صيادلة`); return; }
+    const activeCount = staff.filter(s => s.is_active).length;
+    if (profile && activeCount >= profile.max_staff) { setStaffError(`الحد الأقصى ${profile.max_staff} صيادلة`); return; }
     if (staff.some(s => s.name === name)) { setStaffError('هذا الاسم مسجّل مسبقاً'); return; }
     setAddingStaff(true); setStaffError('');
     try {
@@ -312,6 +313,7 @@ export default function ProfilePage() {
   const daysLeft = getDaysLeft();
   const isExpiringSoon = daysLeft <= 14;
   const amountRemaining = getAmountRemaining();
+  const activeStaffCount = staff.filter(s => s.is_active).length;
 
   if (loading) {
     return (
@@ -486,9 +488,11 @@ export default function ProfilePage() {
               <h2 className="text-sm font-black text-[#0F172A]">فريق العمل</h2>
               <p className="text-[10px] text-slate-400 mt-0.5">لكل موظف حساب دخول مستقل برمز خاص</p>
             </div>
-            <span dir="ltr" className="text-[10px] font-bold text-slate-500 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-lg">
-              {staff.length} / {MAX_STAFF}
-            </span>
+            {profile && (
+              <span dir="ltr" className="text-[10px] font-bold text-slate-500 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-lg">
+                {activeStaffCount} / {profile.max_staff}
+              </span>
+            )}
           </div>
 
           <div className="p-5 space-y-4">
@@ -546,7 +550,7 @@ export default function ProfilePage() {
             ))}
 
             {/* إضافة صيدلاني جديد */}
-            {staff.length < MAX_STAFF && (
+            {profile && activeStaffCount < profile.max_staff && (
               <div className="flex flex-wrap items-center gap-2">
                 <input
                   type="text"
@@ -572,9 +576,9 @@ export default function ProfilePage() {
               </div>
             )}
 
-            {staff.length >= MAX_STAFF && (
+            {profile && activeStaffCount >= profile.max_staff && (
               <p className="text-[11px] text-slate-400 text-center font-medium">
-                تم الوصول للحد الأقصى ({MAX_STAFF} صيادلة)
+                تم الوصول للحد الأقصى ({profile.max_staff} صيادلة)
               </p>
             )}
 

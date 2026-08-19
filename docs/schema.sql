@@ -38,6 +38,17 @@ CREATE TABLE public.pharmacies (
     max_staff integer NOT NULL DEFAULT 8        -- الحد الأقصى لعدد الموظفين المفعّلين (بلا owner)
 );
 -- فهارس: pharmacies_pkey (id) UNIQUE, pharmacies_phone_number_key (phone_number) UNIQUE
+--
+-- سياسات RLS (حُدِّثت 2026-08-19 — راجع docs/migrations/2026-08-19-auth-migration.sql):
+--   - "Tenant members can read their pharmacy" (SELECT): id = current_pharmacy_id()
+--     — أي عضو في الصيدلية (مالك أو موظف) يقرأ صفها.
+--   - "Owners can update their pharmacy" (UPDATE): id = current_pharmacy_id()
+--     and current_role_name() = 'owner' — التعديل للمالك وحده.
+--   - "Platform admins can view all pharmacies" (سابقة، لم تتغيّر): تستعمل
+--     auth.uid() عمداً — تفحص هوية الشخص في platform_admins لا هوية الصيدلية.
+--   - محذوفة: "Users can manage their own pharmacies" — كانت على معادلة
+--     user_id = auth.uid() السابقة لهجرة مصادقة الموظفين، فكانت تمنع أي
+--     موظف من رؤية صف صيدليته.
 
 
 -- ----------------------------------------------------------------------------

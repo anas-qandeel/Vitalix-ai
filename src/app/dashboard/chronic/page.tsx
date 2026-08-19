@@ -8,6 +8,7 @@ import AppFooter from '../../components/AppFooter';
 import { CareStage, PipelineRecord, upsertPipeline } from '@/lib/pipeline';
 import { Patient, ChronicMed, calcDaysLeft } from '@/lib/chronic';
 import WaMsgModal from '@/components/WaMsgModal';
+import { getPharmacyId } from '@/lib/tenant';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -1748,7 +1749,8 @@ export default function ChronicPage() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { router.push('/'); return; }
-      const pid = session.user.id;
+      const pid = await getPharmacyId();
+      if (!pid) { setLoading(false); return; }
       setPharmacyId(pid);
 
       const { data: medsData } = await supabase.from('chronic_medications')

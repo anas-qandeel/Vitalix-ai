@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import DashboardHeader, { usePharmacyInfo } from '../../components/DashboardHeader';
 import AppFooter from '../../../components/AppFooter';
+import { getPharmacyId } from '@/lib/tenant';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -333,23 +334,25 @@ export default function PatientCardPage({ params }: PageProps) {
       setLoading(true);
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { router.push('/'); return; }
+      const pid = await getPharmacyId();
+      if (!pid) throw new Error('تعذّر تحديد الصيدلية');
 
       const { data: patientData, error: patientError } = await supabase
-        .from('patients').select('*').eq('id', patientId).eq('pharmacy_id', session.user.id).single();
+        .from('patients').select('*').eq('id', patientId).eq('pharmacy_id', pid).single();
       if (patientError || !patientData) throw new Error('لم يتم العثور على هذا المريض');
 
       setPatient(patientData as PatientDetail);
       setHeightInput(patientData.height ? String(patientData.height) : '');
 
       const { data: visitsData } = await supabase
-        .from('visitations').select('*').eq('patient_id', patientId).order('created_at', { ascending: false });
+        .from('visitations').select('*').eq('patient_id', patientId).eq('pharmacy_id', pid).order('created_at', { ascending: false });
       setVisits((visitsData as Visit[]) || []);
 
       const { data: medsData } = await supabase
         .from('chronic_medications')
         .select('id, medication_name, daily_dosage, dosage_unit, pills_per_box, boxes_count')
         .eq('patient_id', patientId)
-        .eq('pharmacy_id', session.user.id)
+        .eq('pharmacy_id', pid)
         .eq('status', 'active');
       setChronicMeds((medsData as ChronicMed[]) || []);
 

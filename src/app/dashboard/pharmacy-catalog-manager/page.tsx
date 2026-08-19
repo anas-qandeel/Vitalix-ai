@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import DashboardHeader, { usePharmacyInfo } from '../components/DashboardHeader';
 import AppFooter from '../../components/AppFooter';
+import { getPharmacyId } from '@/lib/tenant';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -420,11 +421,13 @@ export default function PharmacyCatalogManagerPage() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) { router.push('/'); return; }
-        setUserId(session.user.id);
+        const pid = await getPharmacyId();
+        if (!pid) return;
+        setUserId(pid);
         const { data } = await supabase
           .from('pharmacy_catalog')
           .select('*')
-          .eq('pharmacy_id', session.user.id)
+          .eq('pharmacy_id', pid)
           .order('created_at', { ascending: false });
         if (data) setItems(data as CatalogItem[]);
       } finally { setLoading(false); }

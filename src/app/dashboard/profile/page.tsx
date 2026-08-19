@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import DashboardHeader from '../components/DashboardHeader';
 import AppFooter from '../../components/AppFooter';
+import { getPharmacyId } from '@/lib/tenant';
 
 interface PharmacyProfile {
   id: string;
@@ -87,13 +88,15 @@ export default function ProfilePage() {
       setLoading(true);
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { router.push('/'); return; }
+      const pid = await getPharmacyId();
+      if (!pid) return;
 
       setEmail(session.user.email || '');
 
       const { data, error } = await supabase
         .from('pharmacies')
         .select('*')
-        .eq('id', session.user.id)
+        .eq('id', pid)
         .single();
 
       if (error || !data) throw new Error('تعذر تحميل بيانات الصيدلية');
@@ -107,7 +110,7 @@ export default function ProfilePage() {
       const { data: staffData } = await supabase
         .from('pharmacy_staff')
         .select('id, name, is_active')
-        .eq('pharmacy_id', session.user.id)
+        .eq('pharmacy_id', pid)
         .eq('is_active', true)
         .order('created_at', { ascending: true });
       setStaff((staffData as StaffMember[]) || []);
@@ -135,8 +138,10 @@ export default function ProfilePage() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
+      const pid2 = await getPharmacyId();
+      if (!pid2) return;
       const { data, error } = await supabase.from('pharmacy_staff').insert({
-        pharmacy_id: session.user.id,
+        pharmacy_id: pid2,
         name,
         is_active: true,
       }).select().single();

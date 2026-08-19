@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
     email,
     password: pin,
     email_confirm: true,
-    app_metadata: { pharmacy_id: auth.pharmacyId, role: 'staff' },
+    app_metadata: { pharmacy_id: auth.pharmacyId, role },
   });
 
   if (authErr || !created?.user) {

@@ -8,6 +8,7 @@ import AppFooter from '../components/AppFooter';
 import { upsertPipeline } from '@/lib/pipeline';
 import { Patient, ChronicMed, pluralizeDaysLeft } from '@/lib/chronic';
 import WaMsgModal from '@/components/WaMsgModal';
+import { getPharmacyId } from '@/lib/tenant';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -205,7 +206,8 @@ export default function PharmacistDashboard() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { router.push('/'); return; }
-      const uid = session.user.id;
+      const uid = await getPharmacyId();
+      if (!uid) return;
       setPharmacyId(uid);
 
       const today    = new Date();

@@ -119,3 +119,24 @@ export async function POST(req: NextRequest) {
   // الـ PIN يُعرض مرّة واحدة ولا يُخزَّن في أي مكان
   return NextResponse.json({ staff: staffRow, pin });
 }
+
+export async function GET(req: NextRequest) {
+  const auth = await verifyOwner(req);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+
+  // استبعاد role = 'owner' متعمّد: هذه قائمة موظفين لا قائمة حسابات
+  const { data, error } = await supabaseAdmin
+    .from('pharmacy_staff')
+    .select('id, name, role, login_slug, is_active, must_change_pin, created_at')
+    .eq('pharmacy_id', auth.pharmacyId)
+    .neq('role', 'owner')
+    .order('login_slug', { ascending: true });
+
+  if (error) {
+    return NextResponse.json({ error: 'تعذّر جلب الموظفين' }, { status: 500 });
+  }
+
+  return NextResponse.json({ staff: data });
+}

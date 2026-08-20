@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { supabaseAdmin } from '@/lib/supabase-admin';
-import { validatePin, buildStaffEmail } from '@/lib/staff-auth';
+import { validatePin } from '@/lib/staff-auth';
 
 export async function POST(req: NextRequest) {
   const authHeader = req.headers.get('authorization') || '';
@@ -69,7 +69,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'تعذّر تحديد الصيدلية' }, { status: 500 });
     }
 
-    const email = buildStaffEmail(staff.login_slug, pharmacy.short_code);
+    const { data: authUser, error: userErr } =
+      await supabaseAdmin.auth.admin.getUserById(user.id);
+    if (userErr || !authUser?.user?.email) {
+      console.error('[staff-change-pin] getUserById failed:', userErr);
+      return NextResponse.json({ error: 'تعذّر التحقق من الحساب' },
+        { status: 500 });
+    }
+    const email = authUser.user.email;
     // عميل مؤقت منفصل للمصادقة — signInWithPassword على supabaseAdmin يستبدل جلسة service_role المشتركة
     const authClient = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,

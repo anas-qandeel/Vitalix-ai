@@ -40,6 +40,18 @@ function LoginContent() {
     }
 
     const checkExistingSession = async () => {
+      // قالب بريد الاستعادة الافتراضي في Supabase يوجّه إلى Site URL (هذه الصفحة) مع الرمز في
+      // hash الرابط، لا إلى صفحة مخصّصة — لا يمكن تعديل القالب حالياً لأنه يشترط SMTP خاص.
+      // بإعداد detectSessionInUrl الافتراضي، العميل ينشئ جلسة تلقائياً من هذا الرمز، فيصير
+      // الرابط مفتاح دخول دائم بدل أداة استعادة لمرة واحدة. نعترض هذه الحالة هنا قبل أي
+      // توجيه آخر ونحوّل المستخدم لتعيين كلمة مرور جديدة بدل الدخول للوحة مباشرة
+      const hash = window.location.hash;
+      if (hash.includes('type=recovery')) {
+        window.history.replaceState(null, '', window.location.pathname);
+        window.location.href = '/update-password';
+        return;
+      }
+
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
         await redirectBasedOnRole(session.user.id);

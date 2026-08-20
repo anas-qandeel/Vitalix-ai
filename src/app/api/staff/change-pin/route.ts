@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
 
   const { data: staff } = await supabaseAdmin
     .from('pharmacy_staff')
-    .select('id, login_slug, is_active')
+    .select('id, login_slug, is_active, must_change_pin')
     .eq('user_id', user.id)
     .single();
 
@@ -47,34 +47,43 @@ export async function POST(req: NextRequest) {
   if (pinError) {
     return NextResponse.json({ error: pinError }, { status: 400 });
   }
-  if (newPin === currentPin) {
-    return NextResponse.json({ error: 'الرمز الجديد يجب أن يختلف عن الحالي' }, { status: 400 });
-  }
 
-  const { data: pharmacy } = await supabaseAdmin
-    .from('pharmacies')
-    .select('short_code')
-    .eq('id', pharmacyId)
-    .single();
+  // عند الإجبار (أول دخول أو تصفير من المالك) يُتخطى التحقق من الرمز الحالي —
+  // الجلسة نفسها إثبات كافٍ. القرار من must_change_pin في القاعدة حصراً لا مما
+  // يرسله العميل، وإلا أمكن لأي أحد تخطي التحقق بإرسال علم في الجسم
+  if (!staff.must_change_pin) {
+    if (!currentPin) {
+      return NextResponse.json({ error: 'الرمز الحالي مطلوب' }, { status: 400 });
+    }
+    if (newPin === currentPin) {
+      return NextResponse.json({ error: 'الرمز الجديد يجب أن يختلف عن الحالي' }, { status: 400 });
+    }
 
-  if (!pharmacy?.short_code) {
-    return NextResponse.json({ error: 'تعذّر تحديد الصيدلية' }, { status: 500 });
-  }
+    const { data: pharmacy } = await supabaseAdmin
+      .from('pharmacies')
+      .select('short_code')
+      .eq('id', pharmacyId)
+      .single();
 
-  const email = buildStaffEmail(staff.login_slug, pharmacy.short_code);
-  // عميل مؤقت منفصل للمصادقة — signInWithPassword على supabaseAdmin يستبدل جلسة service_role المشتركة
-  const authClient = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { auth: { persistSession: false, autoRefreshToken: false } }
-  );
-  const { data: signInData, error: signInError } = await authClient.auth.signInWithPassword({
-    email,
-    password: currentPin,
-  });
+    if (!pharmacy?.short_code) {
+      return NextResponse.json({ error: 'تعذّر تحديد الصيدلية' }, { status: 500 });
+    }
 
-  if (signInError || !signInData?.session) {
-    return NextResponse.json({ error: 'الرمز الحالي غير صحيح' }, { status: 401 });
+    const email = buildStaffEmail(staff.login_slug, pharmacy.short_code);
+    // عميل مؤقت منفصل للمصادقة — signInWithPassword على supabaseAdmin يستبدل جلسة service_role المشتركة
+    const authClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { auth: { persistSession: false, autoRefreshToken: false } }
+    );
+    const { data: signInData, error: signInError } = await authClient.auth.signInWithPassword({
+      email,
+      password: currentPin,
+    });
+
+    if (signInError || !signInData?.session) {
+      return NextResponse.json({ error: 'الرمز الحالي غير صحيح' }, { status: 401 });
+    }
   }
 
   const { error: updateErr } = await supabaseAdmin.auth.admin.updateUserById(user.id, {

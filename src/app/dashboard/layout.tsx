@@ -51,6 +51,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         if (role !== 'owner') { router.push('/dashboard'); return; }
       }
 
+      // إجبار الموظف (لا المالك — لا يملك PIN أصلاً) على تغيير رمزه عند أول دخول أو
+      // بعد تصفير المالك له، حتى لا يبقى المالك عارفاً برمز موظفه إلى الأبد
+      const role = await getUserRole();
+      if (role !== 'owner') {
+        const { data: staff, error: staffError } = await supabase
+          .from('pharmacy_staff')
+          .select('must_change_pin')
+          .eq('user_id', session.user.id)
+          .single();
+
+        // خطأ الاستعلام لا يحجب الموظف — حجبه بسبب عطل شبكة أسوأ من تأخير تغيير الرمز
+        if (!staffError && staff?.must_change_pin) {
+          router.replace('/change-pin');
+          return;
+        }
+      }
+
       setChecking(false);
     };
 

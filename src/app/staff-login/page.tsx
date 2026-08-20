@@ -155,6 +155,36 @@ export default function StaffLoginPage() {
     }
   };
 
+  // دعم الكيبورد واللصق في خطوة PIN — نفس نمط change-pin/page.tsx، التسجيل مضمون دائماً والحراسة داخل كل معالج
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (step !== 'pin' || lockRemaining > 0 || pinLoading) return;
+      if (/^[0-9]$/.test(e.key)) {
+        handleDigit(e.key);
+      } else if (e.key === 'Backspace') {
+        handleBackspace();
+      } else if (e.key === 'Enter' && pinDigits.length === 6) {
+        handleLogin();
+      }
+    };
+
+    const handlePaste = (e: ClipboardEvent) => {
+      if (step !== 'pin' || lockRemaining > 0 || pinLoading) return;
+      const cleaned = (e.clipboardData?.getData('text') || '').replace(/\D/g, '');
+      if (cleaned.length === 6) {
+        e.preventDefault();
+        setPinDigits(cleaned);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('paste', handlePaste);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('paste', handlePaste);
+    };
+  }, [step, lockRemaining, pinLoading, pinDigits, selectedStaff, pharmacyCode]);
+
   if (initialLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#F8FAFC] font-sans" dir="rtl">

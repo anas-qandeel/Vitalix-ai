@@ -33,7 +33,7 @@ export default function UpdatePasswordPage() {
 
     let hasError = false;
     if (password.length < 8) {
-      setPasswordError('كلمة المرور يجب ألا تقل عن 8 محارف');
+      setPasswordError('كلمة المرور يجب ألا تقل عن 8 خانات');
       hasError = true;
     }
     if (password !== confirmPassword) {
@@ -55,6 +55,10 @@ export default function UpdatePasswordPage() {
     // إبطال كل الجلسات الأخرى لهذا الحساب — إن كان أحد قد سرق الحساب يُطرد فوراً بعد تغيير
     // كلمة المرور. لا نُفشل العملية إن فشل هذا الاستدعاء: كلمة المرور تغيّرت فعلاً بنجاح
     await supabase.auth.signOut({ scope: 'others' });
+
+    // ننهي الجلسة الحالية أيضاً حتى يضطر المستخدم لتسجيل الدخول من جديد بكلمته الجديدة —
+    // هذا يتأكد فعلياً أنها تعمل ويرسّخها في ذاكرته، بدل الدخول التلقائي للوحة مباشرة
+    await supabase.auth.signOut();
 
     setLoading(false);
     setSuccess(true);
@@ -131,7 +135,7 @@ export default function UpdatePasswordPage() {
             </div>
           ) : success ? (
             <div className="p-3.5 rounded-xl text-xs font-medium text-center border bg-emerald-50 border-emerald-200 text-emerald-700">
-              تم تحديث كلمة المرور بنجاح! جاري التوجيه إلى صفحة تسجيل الدخول...
+              تم تغيير كلمة المرور بنجاح. سجّل دخولك بكلمتك الجديدة.
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-5">

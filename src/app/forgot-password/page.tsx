@@ -34,15 +34,7 @@ export default function ForgotPasswordPage() {
     }, 1000);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setEmailError(null);
-
-    if (!EMAIL_REGEX.test(email)) {
-      setEmailError('يرجى إدخال بريد إلكتروني صحيح');
-      return;
-    }
-
+  const sendResetLink = async () => {
     setLoading(true);
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
@@ -58,6 +50,22 @@ export default function ForgotPasswordPage() {
     setLoading(false);
     setSent(true);
     startCooldown();
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEmailError(null);
+
+    if (!EMAIL_REGEX.test(email)) {
+      setEmailError('يرجى إدخال بريد إلكتروني صحيح');
+      return;
+    }
+
+    await sendResetLink();
+  };
+
+  const handleResend = async () => {
+    await sendResetLink();
   };
 
   return (
@@ -114,10 +122,29 @@ export default function ForgotPasswordPage() {
               >
                 العودة لتسجيل الدخول
               </a>
-              {cooldown > 0 && (
+              {cooldown > 0 ? (
                 <p className="text-[11px] font-medium text-slate-400 text-center tabular-nums">
                   يمكنك طلب رابط جديد بعد {cooldown} ثانية
                 </p>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleResend}
+                  disabled={loading}
+                  className="w-full pt-3 pb-3 px-4 text-sm font-semibold text-[#0F172A] bg-white hover:bg-slate-50 active:scale-[0.98] disabled:opacity-50 transition-all rounded-xl border border-slate-200 shadow-sm flex items-center justify-center cursor-pointer"
+                >
+                  {loading ? (
+                    <span className="inline-flex items-center gap-2">
+                      <svg className="animate-spin h-4 w-4 text-slate-900" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      جاري الإرسال...
+                    </span>
+                  ) : (
+                    'إعادة إرسال الرابط'
+                  )}
+                </button>
               )}
             </div>
           ) : (

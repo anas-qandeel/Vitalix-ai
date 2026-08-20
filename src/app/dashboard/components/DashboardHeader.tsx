@@ -329,8 +329,14 @@ export default function DashboardHeader({ breadcrumb, onBack }: DashboardHeaderP
                         supabase.auth.getUser().then(({ data }) => {
                           if (data.user?.email) {
                             supabase.auth.resetPasswordForEmail(data.user.email, {
-                              redirectTo: `${window.location.origin}/reset-password`,
-                            }).then(() => alert('تم إرسال رابط تغيير كلمة المرور إلى بريدك الإلكتروني ✅'));
+                              redirectTo: `${window.location.origin}/auth/confirm`,
+                            }).then(({ error }) => {
+                              if (error) {
+                                alert('تعذر إرسال الرابط، حاول مجدداً ❌');
+                                return;
+                              }
+                              alert('تم إرسال رابط تغيير كلمة المرور إلى بريدك الإلكتروني ✅');
+                            });
                           }
                         });
                       }}>

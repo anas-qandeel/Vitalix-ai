@@ -299,9 +299,13 @@ export default function ProfilePage() {
     try {
       setPwLoading(true);
       setPwMsg('');
-      await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/confirm`,
       });
+      if (error) {
+        setPwMsg('❌ تعذر إرسال الرابط، حاول مجدداً');
+        return;
+      }
       setPwMsg('✅ تم إرسال رابط تغيير كلمة المرور إلى بريدك الإلكتروني');
     } catch {
       setPwMsg('❌ تعذر إرسال الرابط، حاول مجدداً');

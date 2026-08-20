@@ -69,9 +69,6 @@ function LoginContent() {
     }
   };
 
-  const handleForgotPassword = () => {
-    alert('يرجى التواصل مع مسؤول النظام لإعادة ضبط كلمة المرور الخاصة بحسابك.');
-  };
 
   if (checkingAuth) {
     return (
@@ -150,13 +147,12 @@ function LoginContent() {
                 <label htmlFor="password" className="block text-xs font-semibold text-[#0F172A]">
                   كلمة المرور
                 </label>
-                <button
-                  type="button"
-                  onClick={handleForgotPassword}
+                <Link
+                  href="/forgot-password"
                   className="text-xs text-[#2563EB] hover:underline font-semibold transition cursor-pointer"
                 >
                   نسيت كلمة المرور؟
-                </button>
+                </Link>
               </div>
               <input
                 id="password"

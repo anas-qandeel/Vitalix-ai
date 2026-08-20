@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { supabaseAdmin } from '@/lib/supabase-admin';
-import { buildStaffEmail, lockoutSeconds } from '@/lib/staff-auth';
+import { lockoutSeconds } from '@/lib/staff-auth';
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
@@ -56,7 +56,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'الحساب مقفل مؤقتاً', retry_after: retryAfter }, { status: 429 });
   }
 
-  const email = buildStaffEmail(slug, pharmacyCode);
+  const { data: authUser, error: userErr } =
+    await supabaseAdmin.auth.admin.getUserById(staff.user_id);
+  if (userErr || !authUser?.user?.email) {
+    console.error('[staff-login] getUserById failed:', userErr);
+    return NextResponse.json({ error: 'تعذّر التحقق من الحساب' },
+      { status: 500 });
+  }
+  const email = authUser.user.email;
   // عميل مؤقت منفصل للمصادقة — signInWithPassword على supabaseAdmin يستبدل جلسة service_role المشتركة
   const authClient = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

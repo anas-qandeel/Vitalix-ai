@@ -1,3 +1,5 @@
+import { randomInt } from "crypto";
+
 /** أرقام PIN شائعة جداً — ممنوعة */
 const BANNED_PINS = new Set([
   "123456", "654321", "111111", "000000", "222222", "333333",
@@ -45,10 +47,10 @@ export function normalizeJordanPhone(input: string): string | null {
 /** توليد PIN عشوائي صالح */
 export function generatePin(): string {
   for (let i = 0; i < 100; i++) {
-    const pin = String(Math.floor(Math.random() * 1_000_000)).padStart(6, "0");
+    const pin = String(randomInt(1_000_000)).padStart(6, "0");
     if (!validatePin(pin)) return pin;
   }
-  return "482913"; // احتياطي نظري
+  throw new Error("PIN generation failed after 100 attempts");
 }
 
 /** بناء البريد الاصطناعي — lowercase إلزامي (Supabase يخزّنه كذلك) */
@@ -60,7 +62,6 @@ export function buildStaffEmail(slug: string, pharmacyCode: string): string {
 export function lockoutSeconds(failedCount: number): number {
   if (failedCount < 3)  return 0;
   if (failedCount === 3) return 30;
-  if (failedCount === 4) return 120;
-  if (failedCount === 5) return 600;
-  return 1800;
+  if (failedCount === 4) return 60;
+  return 120;
 }

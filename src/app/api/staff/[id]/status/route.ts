@@ -60,15 +60,35 @@ export async function PATCH(
     return NextResponse.json({ error: 'لا يمكن تعطيل المالك' }, { status: 403 });
   }
 
+  if (isActive === false && staff.user_id) {
+    const { error: banErr } = await supabaseAdmin.auth.admin.updateUserById(staff.user_id, {
+      ban_duration: '876000h',
+    });
+    if (banErr) {
+      console.error('[staff-status] ban failed:', banErr);
+      return NextResponse.json({ error: 'تعذّر إبطال جلسة الموظف' }, { status: 500 });
+    }
+  }
+
+  if (isActive === true && staff.user_id) {
+    const { error: unbanErr } = await supabaseAdmin.auth.admin.updateUserById(staff.user_id, {
+      ban_duration: 'none',
+    });
+    if (unbanErr) {
+      console.error('[staff-status] unban failed:', unbanErr);
+      return NextResponse.json({ error: 'تعذّر إعادة تفعيل الحساب' }, { status: 500 });
+    }
+  }
+
   await supabaseAdmin
     .from('pharmacy_staff')
     .update({ is_active: isActive })
     .eq('id', staff.id);
 
-  // التعطيل يمنع الدخول الجديد فوراً عبر فحص is_active في مسار
-  // login. الجلسة القائمة تبقى صالحة حتى انتهاء صلاحيتها الطبيعية
-  // (~ساعة). الإبطال الفوري يتطلب فحص is_active في كل طلب — مهمة
-  // منفصلة.
+  // التعطيل يمنع تجديد التوكن والدخول فوراً عبر الحظر (ban_duration)،
+  // لكن التوكن الحالي في متصفح الموظف يبقى صالحاً حتى ساعة كحد أقصى
+  // (انتهاؤه الطبيعي) قبل أن يُرفض. إعادة التفعيل ترفع الحظر فقط
+  // (ban_duration: 'none').
 
   await supabaseAdmin.from('staff_audit_log').insert({
     pharmacy_id: auth.pharmacyId,

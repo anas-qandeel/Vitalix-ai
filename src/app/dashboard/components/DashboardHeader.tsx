@@ -297,21 +297,25 @@ export default function DashboardHeader({ breadcrumb, onBack }: DashboardHeaderP
                         <p className="text-xs text-slate-500 truncate mt-0.5">{pharmacyName}</p>
                       </div>
                     </div>
-                    <div className="mt-3.5">
-                      <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-md border ${
-                        isExpiringSoon ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                      }`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${isExpiringSoon ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}`} />
-                        اشتراك {pharmacyStatus === 'active' ? 'نشط' : 'تجريبي'} ({pluralizeDays(daysLeft)})
-                      </span>
-                    </div>
+                    {userRole === 'owner' && (
+                      <div className="mt-3.5">
+                        <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-md border ${
+                          isExpiringSoon ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${isExpiringSoon ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}`} />
+                          اشتراك {pharmacyStatus === 'active' ? 'نشط' : 'تجريبي'} ({pluralizeDays(daysLeft)})
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   <div className="p-1.5">
-                    <button className="w-full flex items-center gap-3 px-3 py-2 text-xs font-medium text-slate-600 rounded-lg hover:bg-slate-50 hover:text-slate-900 transition-colors"
-                      onClick={() => { setDropdownOpen(false); router.push('/dashboard/profile'); }}>
-                      <span className="text-base shrink-0">👤</span><span>الملف الشخصي</span>
-                    </button>
+                    {userRole === 'owner' && (
+                      <button className="w-full flex items-center gap-3 px-3 py-2 text-xs font-medium text-slate-600 rounded-lg hover:bg-slate-50 hover:text-slate-900 transition-colors"
+                        onClick={() => { setDropdownOpen(false); router.push('/dashboard/profile'); }}>
+                        <span className="text-base shrink-0">👤</span><span>الملف الشخصي</span>
+                      </button>
+                    )}
                     <button className="w-full flex items-center gap-3 px-3 py-2 text-xs font-medium text-slate-600 rounded-lg hover:bg-slate-50 hover:text-slate-900 transition-colors mt-0.5"
                       onClick={() => { setDropdownOpen(false); router.push('/dashboard/pharmacy-catalog-manager'); }}>
                       <span className="text-base shrink-0">📦</span><span>الكتالوج والمنتجات</span>

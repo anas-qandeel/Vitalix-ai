@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
+import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { getPharmacyId, getStaffName, getUserRole } from '@/lib/tenant';
@@ -246,19 +247,17 @@ export default function DashboardHeader({ breadcrumb, onBack }: DashboardHeaderP
           {/* يسار: اسم الصيدلية + اختيار الصيدلاني + Avatar */}
           <div className="flex items-center gap-3 shrink-0">
 
-            {/* بادج اسم الصيدلية */}
-            {!breadcrumb && (
-              <div className="hidden sm:flex items-center gap-2.5 bg-gradient-to-r from-teal-50/50 to-emerald-50/50 border border-teal-100/60 px-4 py-1.5 rounded-full shadow-[0_2px_10px_-3px_rgba(20,184,166,0.15)]">
-                <span className={`w-2 h-2 rounded-full shrink-0 ${
-                  pharmacyStatus === 'active' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-amber-500 animate-pulse'
-                }`} />
-                {loading ? (
-                  <span className="inline-block w-24 h-4 bg-teal-100 rounded animate-pulse" />
-                ) : (
-                  <span className="text-sm font-bold text-teal-900 truncate max-w-[200px]">{pharmacyName}</span>
-                )}
-              </div>
-            )}
+            {/* بادج اسم الصيدلية — في وضع breadcrumb تُخفى على الجوال لضيق المساحة وتظهر من md فأعلى فقط */}
+            <div className={`${breadcrumb ? 'hidden md:flex' : 'hidden sm:flex'} items-center gap-2.5 bg-gradient-to-r from-teal-50/50 to-emerald-50/50 border border-teal-100/60 px-4 py-1.5 rounded-full shadow-[0_2px_10px_-3px_rgba(20,184,166,0.15)]`}>
+              <span className={`w-2 h-2 rounded-full shrink-0 ${
+                pharmacyStatus === 'active' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-amber-500 animate-pulse'
+              }`} />
+              {loading ? (
+                <span className="inline-block w-24 h-4 bg-teal-100 rounded animate-pulse" />
+              ) : (
+                <span className="text-sm font-bold text-teal-900 truncate max-w-[200px]">{pharmacyName}</span>
+              )}
+            </div>
 
             {/* ── هوية المستخدم الحالي (غير قابلة للنقر) ── */}
             {staffName && (
@@ -327,25 +326,34 @@ export default function DashboardHeader({ breadcrumb, onBack }: DashboardHeaderP
                       onClick={() => { setDropdownOpen(false); setFeedbackOpen(true); }}>
                       <span className="text-base shrink-0">💡</span><span>اقتراح أو ملاحظة</span>
                     </button>
-                    <button className="w-full flex items-center gap-3 px-3 py-2 text-xs font-medium text-slate-600 rounded-lg hover:bg-slate-50 hover:text-slate-900 transition-colors"
-                      onClick={() => {
-                        setDropdownOpen(false);
-                        supabase.auth.getUser().then(({ data }) => {
-                          if (data.user?.email) {
-                            supabase.auth.resetPasswordForEmail(data.user.email, {
-                              redirectTo: `${window.location.origin}/auth/confirm`,
-                            }).then(({ error }) => {
-                              if (error) {
-                                alert('تعذر إرسال الرابط، حاول مجدداً ❌');
-                                return;
-                              }
-                              alert('تم إرسال رابط تغيير كلمة المرور إلى بريدك الإلكتروني ✅');
-                            });
-                          }
-                        });
-                      }}>
-                      <span className="text-base shrink-0">🔑</span><span>تغيير كلمة المرور</span>
-                    </button>
+                    {userRole === 'owner' ? (
+                      <button className="w-full flex items-center gap-3 px-3 py-2 text-xs font-medium text-slate-600 rounded-lg hover:bg-slate-50 hover:text-slate-900 transition-colors"
+                        onClick={() => {
+                          setDropdownOpen(false);
+                          supabase.auth.getUser().then(({ data }) => {
+                            if (data.user?.email) {
+                              supabase.auth.resetPasswordForEmail(data.user.email, {
+                                redirectTo: `${window.location.origin}/auth/confirm`,
+                              }).then(({ error }) => {
+                                if (error) {
+                                  alert('تعذر إرسال الرابط، حاول مجدداً ❌');
+                                  return;
+                                }
+                                alert('تم إرسال رابط تغيير كلمة المرور إلى بريدك الإلكتروني ✅');
+                              });
+                            }
+                          });
+                        }}>
+                        <span className="text-base shrink-0">🔑</span><span>تغيير كلمة المرور</span>
+                      </button>
+                    ) : (
+                      // بريد الموظف اصطناعي بلا سجل MX — استعادة الكلمة عبر البريد بلا معنى له، البديل تغيير الرمز مباشرة
+                      <Link href="/change-pin"
+                        onClick={() => setDropdownOpen(false)}
+                        className="w-full flex items-center gap-3 px-3 py-2 text-xs font-medium text-slate-600 rounded-lg hover:bg-slate-50 hover:text-slate-900 transition-colors">
+                        <span className="text-base shrink-0">🔑</span><span>تغيير رمز الدخول</span>
+                      </Link>
+                    )}
                   </div>
 
                   <div className="p-1.5 border-t border-slate-100 bg-slate-50/50">

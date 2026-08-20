@@ -15,6 +15,8 @@ const STEP_TITLES: Record<Step, string> = {
 export default function ChangePinPage() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [step, setStep] = useState<Step>('current');
+  // خطوة البداية الفعلية (قد تكون 'current' أو 'new' حسب must_change_pin) — الشريط التوضيحي يظهر عندها فقط
+  const [initialStep, setInitialStep] = useState<Step>('current');
   const [digits, setDigits] = useState('');
   const [currentPin, setCurrentPin] = useState('');
   const [newPin, setNewPin] = useState('');
@@ -41,6 +43,7 @@ export default function ChangePinPage() {
           .single();
         if (staff?.must_change_pin) {
           setStep('new');
+          setInitialStep('new');
         }
       } catch {
         // فشل الفحص (شبكة مثلاً) لا يحجب المستخدم — يكمل من خطوة الرمز الحالي، الأكثر تحفّظاً
@@ -203,9 +206,12 @@ export default function ChangePinPage() {
             </div>
           </div>
 
-          <div className="p-3.5 rounded-xl text-xs font-medium text-center border bg-blue-50 border-blue-200 text-blue-700 leading-relaxed">
-            لأمان حسابك، اختر رمزاً يعرفه أنت وحدك. لن يستطيع أحد غيرك الدخول باسمك.
-          </div>
+          {/* النص تعريفي يُقرأ مرة واحدة — يظهر فقط في الخطوة التي بدأت منها الشاشة، لا في كل خطوة، حتى لا يضيف ارتفاعاً يدفع لوحة الأرقام وزر المتابعة خارج الشاشة */}
+          {step === initialStep && (
+            <div className="p-3.5 rounded-xl text-xs font-medium text-center border bg-blue-50 border-blue-200 text-blue-700 leading-relaxed">
+              لأمان حسابك، اختر رمزاً يعرفه أنت وحدك. لن يستطيع أحد غيرك الدخول باسمك.
+            </div>
+          )}
 
           {success ? (
             <div className="p-3.5 rounded-xl text-xs font-medium text-center border bg-emerald-50 border-emerald-200 text-emerald-700">

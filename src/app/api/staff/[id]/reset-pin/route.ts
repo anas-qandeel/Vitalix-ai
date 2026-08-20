@@ -39,7 +39,7 @@ export async function PUT(
 
   const { data: staff } = await supabaseAdmin
     .from('pharmacy_staff')
-    .select('id, name, role, pharmacy_id, user_id')
+    .select('id, name, role, pharmacy_id, user_id, login_slug')
     .eq('id', id)
     .single();
 
@@ -56,6 +56,13 @@ export async function PUT(
   if (!staff.user_id) {
     return NextResponse.json({ error: 'هذا الحساب غير مفعّل' }, { status: 400 });
   }
+
+  // رمز الصيدلية لازم للمودال لعرض التعليمات كاملة بعد التصفير أيضاً
+  const { data: pharmacy } = await supabaseAdmin
+    .from('pharmacies')
+    .select('short_code')
+    .eq('id', auth.pharmacyId)
+    .single();
 
   const pin = generatePin();
 
@@ -87,5 +94,9 @@ export async function PUT(
   });
 
   // الـ PIN يُعرض مرّة واحدة ولا يُخزَّن في أي مكان
-  return NextResponse.json({ pin, staff: { id: staff.id, name: staff.name } });
+  return NextResponse.json({
+    pin,
+    staff: { id: staff.id, name: staff.name, login_slug: staff.login_slug },
+    pharmacy_code: pharmacy?.short_code || '',
+  });
 }

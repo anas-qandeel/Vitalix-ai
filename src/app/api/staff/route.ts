@@ -111,7 +111,7 @@ export async function POST(req: NextRequest) {
       is_active: true,
       must_change_pin: true,
     })
-    .select('id, name, role')
+    .select('id, name, role, login_slug')
     .single();
 
   // تراجع: لا نترك حساب مصادقة يتيماً
@@ -131,8 +131,9 @@ export async function POST(req: NextRequest) {
     details: { name, role, slug },
   });
 
-  // الـ PIN يُعرض مرّة واحدة ولا يُخزَّن في أي مكان
-  return NextResponse.json({ staff: staffRow, pin });
+  // الـ PIN يُعرض مرّة واحدة ولا يُخزَّن في أي مكان — pharmacy_code و login_slug
+  // ضروريان ليعرف المالك كيف يوصّل تعليمات الدخول لموظفه
+  return NextResponse.json({ staff: staffRow, pin, pharmacy_code: ph.short_code });
 }
 
 export async function GET(req: NextRequest) {

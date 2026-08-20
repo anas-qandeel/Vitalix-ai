@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
-import { generatePin, buildStaffEmail } from '@/lib/staff-auth';
+import { generatePin, buildStaffEmail, normalizeJordanPhone } from '@/lib/staff-auth';
 
 /** يتحقّق أن المستدعي مالك، ويُرجع pharmacy_id من التوكن */
 async function verifyOwner(req: NextRequest) {
@@ -41,6 +41,16 @@ export async function POST(req: NextRequest) {
   }
   if (!['pharmacist', 'assistant', 'staff'].includes(role)) {
     return NextResponse.json({ error: 'دور غير صالح' }, { status: 400 });
+  }
+
+  // الهاتف اختياري — يُطبَّع فقط إن أُرسل وكان غير فارغ
+  const rawPhone = String(body?.phone || '').trim();
+  let phone: string | null = null;
+  if (rawPhone) {
+    phone = normalizeJordanPhone(rawPhone);
+    if (!phone) {
+      return NextResponse.json({ error: 'رقم الهاتف غير صالح' }, { status: 400 });
+    }
   }
 
   // رمز الصيدلية
@@ -107,6 +117,7 @@ export async function POST(req: NextRequest) {
       user_id: created.user.id,
       name,
       role,
+      phone,
       login_slug: slug,
       is_active: true,
       must_change_pin: true,
@@ -145,7 +156,7 @@ export async function GET(req: NextRequest) {
   // استبعاد role = 'owner' متعمّد: هذه قائمة موظفين لا قائمة حسابات
   const { data, error } = await supabaseAdmin
     .from('pharmacy_staff')
-    .select('id, name, role, login_slug, is_active, must_change_pin, created_at')
+    .select('id, name, role, phone, login_slug, is_active, must_change_pin, created_at')
     .eq('pharmacy_id', auth.pharmacyId)
     .neq('role', 'owner')
     .order('login_slug', { ascending: true });

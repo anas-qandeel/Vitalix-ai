@@ -28,6 +28,20 @@ export function validatePin(pin: string, phone?: string | null): string | null {
   return null;
 }
 
+/** يطبّع رقم هاتف أردني لأي صيغة إدخال إلى +9627XXXXXXXX، أو null إن كانت الصيغة غير معروفة */
+export function normalizeJordanPhone(input: string): string | null {
+  const cleaned = input.replace(/[^\d+]/g, "");
+
+  let local: string; // بصيغة 7XXXXXXXX دائماً
+  if (/^\+9627\d{8}$/.test(cleaned))     local = cleaned.slice(4);
+  else if (/^9627\d{8}$/.test(cleaned))  local = cleaned.slice(3);
+  else if (/^07\d{8}$/.test(cleaned))    local = cleaned.slice(1);
+  else if (/^7\d{8}$/.test(cleaned))     local = cleaned;
+  else return null;
+
+  return `+962${local}`;
+}
+
 /** توليد PIN عشوائي صالح */
 export function generatePin(): string {
   for (let i = 0; i < 100; i++) {

@@ -29,6 +29,7 @@ interface StaffMember {
   id: string;
   name: string;
   role: string;
+  phone: string | null;
   login_slug: string;
   is_active: boolean;
   must_change_pin: boolean;
@@ -36,6 +37,25 @@ interface StaffMember {
 }
 
 const ROLE_LABELS: Record<string, string> = { pharmacist: 'صيدلاني', assistant: 'مساعد', staff: 'موظف' };
+
+function IconWhatsapp({ className = 'w-3.5 h-3.5' }: { className?: string }) {
+  return (
+    <svg className={className} fill="currentColor" viewBox="0 0 24 24">
+      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+    </svg>
+  );
+}
+
+/** يبني رابط تعليمات الدخول عبر واتساب — لا يحوي الرمز إطلاقاً، الرمز يُنسخ من المودال ويُرسل منفصلاً */
+function buildStaffLoginWaLink(phone: string, shortCode: string): string {
+  const instructions = `للدخول إلى Vitalix:
+1) افتح vitalix-ai.com
+2) اضغط «دخول الموظفين برمز PIN»
+3) كود الصيدلية: ${shortCode}
+4) اختر اسمك من القائمة
+سيُطلب منك رمز الدخول — احتفظ به ولا تشاركه مع أحد.`;
+  return `https://wa.me/${phone.replace('+', '')}?text=${encodeURIComponent(instructions)}`;
+}
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; cls: string }> = {
@@ -65,11 +85,11 @@ function StaffPinModal({ name, pin, pharmacyCode, loginSlug, onClose }: { name: 
   const [copied, setCopied] = useState(false);
   // نص جاهز للإرسال للموظف عبر واتساب أو أي قناة أخرى — يحوي كل ما يحتاجه للدخول
   const instructions = `للدخول إلى Vitalix:
-١) افتح vitalix-ai.com
-٢) اضغط «دخول الموظفين برمز PIN»
-٣) كود الصيدلية: ${pharmacyCode}
-٤) اختر اسمك من القائمة
-٥) الرمز: ${pin}
+1) افتح vitalix-ai.com
+2) اضغط «دخول الموظفين برمز PIN»
+3) كود الصيدلية: ${pharmacyCode}
+4) اختر اسمك من القائمة
+5) الرمز: ${pin}
 سيُطلب منك اختيار رمز جديد عند أول دخول.`;
   const handleCopy = async () => {
     try {
@@ -86,9 +106,15 @@ function StaffPinModal({ name, pin, pharmacyCode, loginSlug, onClose }: { name: 
           <button onClick={onClose} className="w-8 h-8 rounded-full bg-slate-50 hover:bg-slate-100 text-slate-500 flex items-center justify-center transition-colors shrink-0">✕</button>
         </div>
         <div className="px-6 py-6 text-center space-y-4">
-          <div dir="ltr" className="space-y-1.5">
-            <p className="text-xs font-bold text-slate-500">كود الصيدلية: <span className="font-black text-slate-800">{pharmacyCode}</span></p>
-            <p className="text-xs font-bold text-slate-500">اسم الحساب: <span className="font-black text-slate-800">{loginSlug}</span></p>
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-center gap-2">
+              <span className="text-[11px] font-bold text-slate-400">الموظف</span>
+              <span className="font-bold text-slate-800">{name}</span>
+            </div>
+            <div className="flex items-center justify-center gap-2">
+              <span className="text-[11px] font-bold text-slate-400">كود الصيدلية</span>
+              <span dir="ltr" className="font-mono font-bold text-slate-800">{pharmacyCode}</span>
+            </div>
             <p className="text-xs font-bold text-slate-500 pt-1">الرمز:</p>
             <p className="text-4xl font-black tracking-widest text-slate-900">{pin}</p>
           </div>
@@ -98,6 +124,95 @@ function StaffPinModal({ name, pin, pharmacyCode, loginSlug, onClose }: { name: 
           </button>
           <p className="text-[11px] text-slate-400">إن ضاع الرمز يمكنك تصفيره من قائمة الموظفين</p>
           <p className="text-[11px] text-slate-400">سيُطلب من الموظف تغيير الرمز عند أول دخول</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StaffRow({
+  member, shortCode, isMenuOpen, onToggleMenu, onResetPin, onToggleStatus, onDeleteRequest,
+}: {
+  member: StaffMember;
+  shortCode?: string;
+  isMenuOpen: boolean;
+  onToggleMenu: () => void;
+  onResetPin: () => void;
+  onToggleStatus: () => void;
+  onDeleteRequest: () => void;
+}) {
+  return (
+    <div className="relative flex items-center gap-3 px-4 py-3 bg-white border border-slate-200 rounded-xl">
+      {/* التعتيم يُطبَّق على محتوى الهوية فقط — وليس على الصف كله — حتى لا تُصبح قائمة ⋯ نصف شفافة معه */}
+      <div className={`flex items-center gap-3 flex-1 min-w-0 ${!member.is_active ? 'opacity-60' : ''}`}>
+        <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center text-xs font-black shrink-0">
+          {member.name.charAt(0)}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-sm font-bold text-slate-900 truncate">{member.name}</p>
+            <span className="text-[10px] font-bold text-slate-500 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded-md shrink-0">
+              {ROLE_LABELS[member.role] || member.role}
+            </span>
+            {!member.is_active && (
+              <span className="text-[10px] font-bold text-slate-500 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded-md shrink-0">معطّل</span>
+            )}
+          </div>
+          <p className="text-[10px] text-slate-400 mt-0.5">{member.login_slug}</p>
+        </div>
+      </div>
+      {member.phone && shortCode && (
+        <a href={buildStaffLoginWaLink(member.phone, shortCode)}
+          target="_blank" rel="noreferrer"
+          className="shrink-0 flex items-center justify-center w-7 h-7 bg-slate-900 hover:bg-slate-800 text-white rounded-lg transition-all shadow-sm">
+          <IconWhatsapp className="w-3.5 h-3.5" />
+        </a>
+      )}
+      <div className="relative shrink-0">
+        <button onClick={(e) => { e.stopPropagation(); onToggleMenu(); }}
+          className="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center transition-colors">
+          ⋯
+        </button>
+        {isMenuOpen && (
+          <div className="absolute left-0 top-9 z-20 w-40 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden" onClick={e => e.stopPropagation()}>
+            <button onClick={onResetPin}
+              className="w-full text-right px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors">
+              تصفير الرمز
+            </button>
+            <button onClick={onToggleStatus}
+              className="w-full text-right px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors border-t border-slate-100">
+              {member.is_active ? 'تعطيل' : 'تفعيل'}
+            </button>
+            <button onClick={onDeleteRequest}
+              className="w-full text-right px-4 py-2.5 text-xs font-bold text-rose-600 hover:bg-rose-50 transition-colors border-t border-slate-100">
+              حذف نهائي
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function DeleteStaffModal({ name, deleting, onConfirm, onCancel }: { name: string; deleting: boolean; onConfirm: () => void; onCancel: () => void }) {
+  return (
+    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[9999] flex items-end sm:items-center justify-center sm:p-4" onClick={onCancel}>
+      <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-sm shadow-2xl border border-slate-200" onClick={e => e.stopPropagation()}>
+        <div className="px-6 py-5 border-b border-slate-100">
+          <h3 className="text-base font-semibold text-slate-900">تأكيد الحذف</h3>
+        </div>
+        <div className="px-6 py-5 space-y-4">
+          <p className="text-sm font-semibold text-slate-700 leading-relaxed">سيُحذف {name} وحسابه نهائياً. لا يمكن التراجع.</p>
+          <div className="flex gap-2">
+            <button onClick={onCancel}
+              className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer">
+              إلغاء
+            </button>
+            <button onClick={onConfirm} disabled={deleting}
+              className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition cursor-pointer">
+              {deleting ? 'جاري الحذف...' : 'حذف'}
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -122,12 +237,17 @@ export default function ProfilePage() {
   // فريق العمل
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [newStaffName, setNewStaffName] = useState('');
+  const [newStaffPhone, setNewStaffPhone] = useState('');
   const [newStaffRole, setNewStaffRole] = useState('staff');
   const [addingStaff, setAddingStaff] = useState(false);
   const [staffError, setStaffError] = useState('');
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [pinModal, setPinModal] = useState<{ name: string; pin: string; pharmacyCode: string; loginSlug: string } | null>(null);
   const [codeCopied, setCodeCopied] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteBlockedMsg, setDeleteBlockedMsg] = useState('');
+  const [showInactive, setShowInactive] = useState(false);
 
   // إغلاق قائمة إجراءات الموظف عند النقر خارجها
   useEffect(() => {
@@ -214,11 +334,12 @@ export default function ProfilePage() {
       const res = await fetch('/api/staff', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, role: newStaffRole }),
+        body: JSON.stringify({ name, role: newStaffRole, phone: newStaffPhone.trim() }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'تعذر الإضافة');
       setNewStaffName('');
+      setNewStaffPhone('');
       setNewStaffRole('staff');
       await fetchStaffList();
       setPinModal({ name: json.staff.name, pin: json.pin, pharmacyCode: json.pharmacy_code, loginSlug: json.staff.login_slug });
@@ -256,6 +377,37 @@ export default function ProfilePage() {
       if (!res.ok) throw new Error(json.error || 'تعذّر تحديث الحالة');
       await fetchStaffList();
     } catch (e: any) { setStaffError(e.message || 'حدث خطأ'); }
+  };
+
+  const handleDeleteStaff = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const token = await getAuthToken();
+      if (!token) throw new Error('انتهت الجلسة');
+      const res = await fetch(`/api/staff/${deleteTarget.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json();
+      if (res.ok) {
+        setStaff(prev => prev.filter(s => s.id !== deleteTarget.id));
+        setDeleteTarget(null);
+        setDeleteBlockedMsg('');
+        await fetchStaffList();
+      } else if (res.status === 409) {
+        // رسالة تعليمية تشرح للمالك سبب المنع (زيارات مسجّلة) — تبقى ظاهرة حتى يقرأها لا كتنبيه عابر
+        setDeleteTarget(null);
+        setDeleteBlockedMsg(json.error || 'تعذّر الحذف');
+      } else {
+        setDeleteTarget(null);
+        setStaffError(json.error || 'تعذّر الحذف');
+      }
+    } catch (e: any) {
+      setStaffError(e.message || 'حدث خطأ');
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const getDaysLeft = () => {
@@ -333,6 +485,8 @@ export default function ProfilePage() {
   const isExpiringSoon = daysLeft <= 14;
   const amountRemaining = getAmountRemaining();
   const activeStaffCount = staff.filter(s => s.is_active).length;
+  const activeMembers = staff.filter(s => s.is_active);
+  const inactiveMembers = staff.filter(s => !s.is_active);
 
   if (loading) {
     return (
@@ -523,7 +677,8 @@ export default function ProfilePage() {
         </div>
 
         {/* ── فريق العمل ── */}
-        <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm overflow-hidden">
+        {/* بلا overflow-hidden هنا خلافاً لبقية البطاقات — قائمة ⋯ المنبثقة لآخر موظف في القسم المطوي تحتاج الخروج عن حدود البطاقة دون أن تُقصّ */}
+        <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm">
           <div className="px-5 py-3.5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
             <div>
               <h2 className="text-sm font-black text-[#0F172A]">فريق العمل</h2>
@@ -551,44 +706,56 @@ export default function ProfilePage() {
               </div>
             )}
 
-            {/* بقية الفريق */}
-            {staff.map(member => (
-              <div key={member.id} className={`relative flex items-center gap-3 px-4 py-3 bg-white border border-slate-200 rounded-xl ${!member.is_active ? 'opacity-60' : ''}`}>
-                <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center text-xs font-black shrink-0">
-                  {member.name.charAt(0)}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="text-sm font-bold text-slate-900 truncate">{member.name}</p>
-                    <span className="text-[10px] font-bold text-slate-500 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded-md shrink-0">
-                      {ROLE_LABELS[member.role] || member.role}
-                    </span>
-                    {!member.is_active && (
-                      <span className="text-[10px] font-bold text-slate-500 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded-md shrink-0">معطّل</span>
-                    )}
-                  </div>
-                  <p className="text-[10px] text-slate-400 mt-0.5">{member.login_slug}</p>
-                </div>
-                <div className="relative shrink-0">
-                  <button onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === member.id ? null : member.id); }}
-                    className="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center transition-colors">
-                    ⋯
-                  </button>
-                  {openMenuId === member.id && (
-                    <div className="absolute left-0 top-9 z-20 w-40 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden" onClick={e => e.stopPropagation()}>
-                      <button onClick={() => handleResetPin(member)}
-                        className="w-full text-right px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors">
-                        تصفير الرمز
-                      </button>
-                      <button onClick={() => handleToggleStatus(member)}
-                        className="w-full text-right px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors border-t border-slate-100">
-                        {member.is_active ? 'تعطيل' : 'تفعيل'}
-                      </button>
-                    </div>
-                  )}
-                </div>
+            {/* رسالة منع الحذف — تعليمية، تبقى ظاهرة حتى يغلقها المالك بنفسه لا كتنبيه عابر */}
+            {deleteBlockedMsg && (
+              <div className="flex items-start gap-3 px-4 py-3.5 bg-rose-50 border border-rose-200 rounded-xl">
+                <span className="text-base shrink-0">⚠️</span>
+                <p className="flex-1 text-xs font-bold text-rose-700 leading-relaxed">{deleteBlockedMsg}</p>
+                <button onClick={() => setDeleteBlockedMsg('')}
+                  className="shrink-0 text-rose-400 hover:text-rose-600 transition-colors">✕</button>
               </div>
+            )}
+
+            {/* بقية الفريق — المفعّلون فقط */}
+            {activeMembers.map(member => (
+              <StaffRow
+                key={member.id}
+                member={member}
+                shortCode={profile?.short_code}
+                isMenuOpen={openMenuId === member.id}
+                onToggleMenu={() => setOpenMenuId(openMenuId === member.id ? null : member.id)}
+                onResetPin={() => handleResetPin(member)}
+                onToggleStatus={() => handleToggleStatus(member)}
+                onDeleteRequest={() => { setOpenMenuId(null); setDeleteTarget({ id: member.id, name: member.name }); }}
+              />
             ))}
+
+            {/* موظفون سابقون — معطّلون، مطويون افتراضياً */}
+            {inactiveMembers.length > 0 && (
+              <div className="border border-slate-200 rounded-xl">
+                <button onClick={() => setShowInactive(v => !v)}
+                  className={`w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors text-xs font-bold text-slate-600 cursor-pointer ${showInactive ? 'rounded-t-xl' : 'rounded-xl'}`}>
+                  <span>موظفون سابقون ({inactiveMembers.length})</span>
+                  <span className={`transition-transform ${showInactive ? 'rotate-180' : ''}`}>⌄</span>
+                </button>
+                {showInactive && (
+                  <div className="p-3 space-y-3 bg-white border-t border-slate-200 rounded-b-xl">
+                    {inactiveMembers.map(member => (
+                      <StaffRow
+                        key={member.id}
+                        member={member}
+                        shortCode={profile?.short_code}
+                        isMenuOpen={openMenuId === member.id}
+                        onToggleMenu={() => setOpenMenuId(openMenuId === member.id ? null : member.id)}
+                        onResetPin={() => handleResetPin(member)}
+                        onToggleStatus={() => handleToggleStatus(member)}
+                        onDeleteRequest={() => { setOpenMenuId(null); setDeleteTarget({ id: member.id, name: member.name }); }}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* إضافة صيدلاني جديد */}
             {profile && activeStaffCount < profile.max_staff && (
@@ -599,6 +766,15 @@ export default function ProfilePage() {
                   onChange={e => { setNewStaffName(e.target.value); setStaffError(''); }}
                   onKeyDown={e => e.key === 'Enter' && handleAddStaff()}
                   placeholder="اسم الصيدلاني الجديد"
+                  className="flex-1 min-w-[140px] px-4 py-2.5 text-xs bg-white border border-slate-200 rounded-xl focus:border-slate-900 focus:outline-none transition text-slate-800 font-semibold"
+                />
+                <input
+                  type="tel"
+                  value={newStaffPhone}
+                  onChange={e => { setNewStaffPhone(e.target.value); setStaffError(''); }}
+                  onKeyDown={e => e.key === 'Enter' && handleAddStaff()}
+                  placeholder="رقم الهاتف (اختياري)"
+                  dir="ltr"
                   className="flex-1 min-w-[140px] px-4 py-2.5 text-xs bg-white border border-slate-200 rounded-xl focus:border-slate-900 focus:outline-none transition text-slate-800 font-semibold"
                 />
                 <select
@@ -660,6 +836,10 @@ export default function ProfilePage() {
 
       {pinModal && (
         <StaffPinModal name={pinModal.name} pin={pinModal.pin} pharmacyCode={pinModal.pharmacyCode} loginSlug={pinModal.loginSlug} onClose={() => setPinModal(null)} />
+      )}
+
+      {deleteTarget && (
+        <DeleteStaffModal name={deleteTarget.name} deleting={deleting} onConfirm={handleDeleteStaff} onCancel={() => setDeleteTarget(null)} />
       )}
 
       <AppFooter className="max-w-2xl mx-auto px-4 py-8 border-t border-slate-200/60 mt-2" />

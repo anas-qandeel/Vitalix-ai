@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
 
   const { data: staff } = await supabaseAdmin
     .from('pharmacy_staff')
-    .select('id, login_slug, is_active, must_change_pin')
+    .select('id, login_slug, is_active, must_change_pin, phone')
     .eq('user_id', user.id)
     .single();
 
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'هذا الحساب معطّل' }, { status: 403 });
   }
 
-  const pinError = validatePin(newPin);
+  const pinError = validatePin(newPin, staff.phone);
   if (pinError) {
     return NextResponse.json({ error: pinError }, { status: 400 });
   }

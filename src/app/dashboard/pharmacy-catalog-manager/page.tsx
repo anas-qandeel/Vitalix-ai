@@ -81,9 +81,9 @@ function IconImage({ className = 'w-5 h-5' }: { className?: string }) {
 // ═══════════════════════════════════════════════════════
 // ADD / EDIT MODAL
 // ═══════════════════════════════════════════════════════
-function ItemModal({ item, userId, onClose, onSaved }: {
+function ItemModal({ item, pharmacyId, onClose, onSaved }: {
   item: CatalogItem | null; // null = إضافة جديد
-  userId: string;
+  pharmacyId: string;
   onClose: () => void;
   onSaved: (saved: CatalogItem) => void;
 }) {
@@ -96,13 +96,23 @@ function ItemModal({ item, userId, onClose, onSaved }: {
 
   const isEdit = !!item?.id;
 
+  const ALLOWED_IMAGE_TYPES: Record<string, string> = {
+    'image/jpeg': 'jpg',
+    'image/png': 'png',
+    'image/webp': 'webp',
+  };
+  const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setError('');
+    const ext = ALLOWED_IMAGE_TYPES[file.type];
+    if (!ext) { setError('صيغة الصورة غير مدعومة — يُسمح فقط بـ JPG أو PNG أو WEBP'); return; }
+    if (file.size > MAX_IMAGE_BYTES) { setError('حجم الصورة أكبر من الحد المسموح (5 ميغابايت)'); return; }
     setUploading(true);
     try {
-      const ext = file.name.split('.').pop();
-      const path = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+      const path = `${pharmacyId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
       const { error: upErr } = await supabase.storage.from('catalog-images').upload(path, file);
       if (upErr) throw new Error('تعذّر رفع الصورة');
       const { data: { publicUrl } } = supabase.storage.from('catalog-images').getPublicUrl(path);
@@ -133,7 +143,7 @@ function ItemModal({ item, userId, onClose, onSaved }: {
     setSaving(true); setError('');
     try {
       const payload = {
-        pharmacy_id: userId,
+        pharmacy_id: pharmacyId,
         category: form.category,
         brand_name: form.brand_name.trim(),
         price: Number(form.price),
@@ -406,7 +416,7 @@ export default function PharmacyCatalogManagerPage() {
 
   const [items, setItems] = useState<CatalogItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [userId, setUserId] = useState('');
+  const [pharmacyId, setPharmacyId] = useState('');
 
   // فلتر الفئة
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
@@ -423,7 +433,7 @@ export default function PharmacyCatalogManagerPage() {
         if (!session) { router.push('/'); return; }
         const pid = await getPharmacyId();
         if (!pid) return;
-        setUserId(pid);
+        setPharmacyId(pid);
         const { data } = await supabase
           .from('pharmacy_catalog')
           .select('*')
@@ -577,7 +587,7 @@ export default function PharmacyCatalogManagerPage() {
       {addEditItem !== null && (
         <ItemModal
           item={addEditItem === 'new' ? null : addEditItem}
-          userId={userId}
+          pharmacyId={pharmacyId}
           onClose={() => setAddEditItem(null)}
           onSaved={handleSaved}
         />

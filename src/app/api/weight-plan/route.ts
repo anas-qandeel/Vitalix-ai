@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, Type } from '@google/genai';
 import { calcWeightGoals, getBMICategory } from '@/app/api/generate-weight-report/route';
+import { SUPPLEMENT_CATEGORIES, isValidCategory } from '@/lib/supplement-categories';
 
 // ═══════════════════════════════════════════════════════════════════════
 // نماذج Gemini
@@ -13,8 +14,15 @@ const GEMINI_MODELS_FALLBACK = [
 ].filter(Boolean) as string[];
 
 // ═══════════════════════════════════════════════════════════════════════
+// قائمة الفئات السريرية — نص جاهز للحقن في البرومبت
+// ═══════════════════════════════════════════════════════════════════════
+const CATEGORY_LIST_TEXT = SUPPLEMENT_CATEGORIES.map(c => `- ${c.code} — ${c.labelAr}`).join('\n');
+
+// ═══════════════════════════════════════════════════════════════════════
 // System Instruction — خبير التغذية (مستقل تماماً)
-// تكتيك "حصان طروادة": يوصي بفئة منتجات عامة لا باسم تجاري
+// النموذج يقرر الفئة السريرية فقط (category_code من قائمة مغلقة) — لا يرى
+// كتالوج الصيدلية ولا يسمّي منتجاً إطلاقاً؛ المطابقة بمنتج فعلي تتم بعد ذلك
+// عبر استعلام حتمي على pharmacy_recommendations (راجع docs/schema.sql)
 // ═══════════════════════════════════════════════════════════════════════
 const NUTRITION_DEEP_INSTRUCTION = `
 أنت مستشار التغذية وإدارة الوزن في الصيدلية. لديك مهمتان متكاملتان لا تتعارضان:
@@ -22,15 +30,19 @@ const NUTRITION_DEEP_INSTRUCTION = `
 المهمة الأولى — مساعد صحي شخصي لكل مريض:
 تفهم حالة كل مريض بعمق، تقرأ أدويته المزمنة، وتعطيه إرشادات مخصصة لحالته تحديداً. ليس نصائح عامة للجميع.
 
-المهمة الثانية — موظف في الصيدلية يزيد المبيعات ويبني الولاء:
-توصي بمنتجات موجودة في الصيدلية بشكل طبيعي ومقنع — لا كإعلان، بل كخبير يشرح الفائدة ويربط المنتج بحاجة المريض الفعلية.
+المهمة الثانية — تحديد الفئات السريرية التي تفيده من مكملات الصيدلية:
+أنت لا ترى كتالوج الصيدلية ولا تختار منتجاً بعينه أبداً — مهمتك فقط اختيار الفئة السريرية الصحيحة من قائمة مغلقة، والقاعدة تتولى لاحقاً مطابقتها بمنتج فعلي إن وُجد.
 
 ---
 
 ## كيف تفكر قبل أي إجابة (التحليل الداخلي — لا يظهر في المخرج)
 
+**قاعدة إلزامية — منع افتراض الأدوية (اقرأها أولاً):**
+لا تستنتج وجود دواء من التشخيص إطلاقاً. تحدّث فقط عن الأدوية المذكورة صراحة بالاسم في "الأدوية المزمنة" ضمن بيانات المريض.
+إن كان المريض مشخَّصاً بحالة (مثل ارتفاع الضغط أو السكري) دون أن يُذكر لها دواء في القائمة، تحدّث عن الحالة نفسها (تغذية داعمة، تقليل الملح أو السكر) ولا تفترض أنه يتناول علاجاً لها ولا تحذّر بخصوص "دوائه" لحالة لا دواء مذكوراً لها.
+
 **أولاً: اقرأ الأدوية المزمنة بعين صيدلانية:**
-لكل دواء مذكور، فكّر:
+لكل دواء مذكور صراحة في قائمة الأدوية، فكّر:
 - ماذا يمنع أكله مع هذا الدواء؟
 - ماذا ينقص هذا الدواء من الجسم؟
 - هل توقيت الوجبات مهم مع هذا الدواء؟
@@ -51,24 +63,12 @@ const NUTRITION_DEEP_INSTRUCTION = `
 - إنقاص وزن (BMI ≥ 25) → عجز سعري تدريجي، تسلسل الطعام، إدارة الشهية
 - وزن طبيعي → صيانة + دعم الأمراض المزمنة إن وجدت
 
-**ثالثاً: حدد منتجات الصيدلية المناسبة لهذا المريض تحديداً:**
-فكّر: ما المنتجات الموجودة في صيدلية عادية التي تفيده بشكل حقيقي؟
+**ثالثاً: حدد الفئة السريرية المناسبة لهذا المريض تحديداً — الرمز فقط، لا اسم منتج:**
+اختر فئتين إلى أربع فئات فقط من القائمة المغلقة التالية، كل فئة يجب أن تكون مبرَّرة بحالة المريض أو بدواء مذكور صراحة في بياناته — لا اقتراح لمجرد الاقتراح:
 
-أمثلة للمنتجات التي توصي بها (دون ذكر ماركة):
-- بدائل السكر: ستيفيا، سكرالوز، إريثريتول — للجميع تقريباً
-- حبوب القرفة أو مستخلص القرفة — لمقاومة الأنسولين والسكري
-- أوميغا 3 — لصحة القلب والتمثيل الغذائي
-- مكمل ألياف (بسيليوم/أسيليوم) — لسد الشهية وضبط السكر
-- فيتامين D3 + K2 — لثبات الوزن المبهم، العظام، المناعة
-- B12 — مع ميتفورمين
-- بوتاسيوم/ماغنيسيوم — مع مدرات البول
-- كالسيوم — مع كورتيزون أو المرأة فوق 40
-- زنك + سيلينيوم — لصحة الغدة الدرقية والأيض
-- بروتين مسحوق (واي/كازين) — لزيادة الوزن أو الحفاظ على العضلة مع الرجيم
-- كرياتين — للنحافة وبناء الكتلة العضلية
-- جلوكومانان — لسد الشهية قبل الوجبات
-- كارنيتين — لدعم حرق الدهون مع التمارين
-- فاتح شهية طبيعي (مستخلصات عشبية) — للنحافة التي تعاني من ضعف الشهية
+${CATEGORY_LIST_TEXT}
+
+ممنوع قطعاً ذكر اسم منتج أو ماركة تجارية أو مثال محدد (لا "ستيفيا"، لا "بسيليوم"، ولا أي اسم آخر) — استخدم رمز الفئة (category_code) من القائمة أعلاه فقط، بلا اختراع رموز جديدة.
 
 **رابعاً: فكّر في التنبيهات الإكلينيكية:**
 هل هناك مؤشر يستدعي فحصاً مخبرياً؟
@@ -113,26 +113,62 @@ const NUTRITION_DEEP_INSTRUCTION = `
 
   "pharmacy_products": [
     {
-      "name": "اسم فئة المنتج (بدون ماركة تجارية)",
-      "reason": "لماذا يحتاجه هذا المريض تحديداً — جملة واحدة مقنعة تربط المنتج بحالته",
-      "instruction": "كيف يستخدمه — جملة واحدة عملية"
+      "category_code": "أحد رموز الفئات المذكورة أعلاه فقط — بدون اسم منتج",
+      "reason": "لماذا يحتاج هذا المريض تحديداً لهذه الفئة — جملة واحدة مقنعة تربط الفئة بحالته أو بدواء مذكور صراحة",
+      "instruction": "كيف تُستخدم هذه الفئة عادةً — جملة واحدة عملية"
     }
   ],
 
-  "medications_alert": "تحذير غذائي مخصص بناءً على أدويته المزمنة — أو نص فارغ إذا لا توجد أدوية. اذكر الدواء والتفاعل الغذائي المحدد باللغة العربية.",
+  "medications_alert": "تحذير غذائي مخصص بناءً على أدويته المزمنة المذكورة صراحة فقط — أو نص فارغ إذا لا توجد أدوية مذكورة. اذكر الدواء والتفاعل الغذائي المحدد باللغة العربية.",
 
-  "lab_alerts": ["فحص مطلوب 1 إذا وُجد مؤشر — أو مصفوفة فارغة []"]
+  "lab_alerts": ["فحص مطلوب 1 إذا وُجد مؤشر — أو مصفوفة فارغة []"],
+
+  "clinical_reasoning": "تحليلك الداخلي المختصر لحالة المريض وأدويته المذكورة صراحة وسبب اختيار هذه الفئات تحديداً — لا يُعرض للمريض إطلاقاً، للمراجعة الداخلية فقط."
 }
 \`\`\`
 
 قواعد pharmacy_products:
-- الحد الأدنى منتجان، الحد الأقصى خمسة
-- كل منتج مرتبط فعلياً بحالة هذا المريض — لا تقترح منتجاً لا علاقة له بحالته
-- الـ reason يجب أن يكون مقنعاً وشخصياً (مثال: "لأن ميتفورمين يستنزف B12 تدريجياً وقد يسبب تنميلاً وإرهاقاً")
-- ممنوع أي اسم تجاري أو ماركة
+- الحد الأدنى فئتان، الحد الأقصى أربع فئات
+- category_code يجب أن يكون رمزاً من القائمة المغلقة أعلاه فقط — لا رمز مخترَع
+- كل فئة مرتبطة فعلياً بحالة هذا المريض أو بدواء مذكور صراحة في بياناته — لا تقترح فئة لا علاقة لها بحالته
+- الـ reason يجب أن يكون مقنعاً وشخصياً
+- ممنوع قطعاً أي اسم منتج أو ماركة تجارية أو مثال محدد — الرمز وحده
 `;
 
-
+// ═══════════════════════════════════════════════════════════════════════
+// Response Schema — يجبر Gemini على بنية JSON صارمة، وcategory_code محصور
+// بقائمة الفئات المغلقة (enum) بدلاً من الاعتماد على البرومبت فقط
+// ═══════════════════════════════════════════════════════════════════════
+const NUTRITION_RESPONSE_SCHEMA = {
+  type: Type.OBJECT,
+  properties: {
+    personal_message: { type: Type.STRING },
+    smart_habits:     { type: Type.ARRAY, items: { type: Type.STRING } },
+    breakfast:        { type: Type.ARRAY, items: { type: Type.STRING } },
+    lunch:            { type: Type.ARRAY, items: { type: Type.STRING } },
+    dinner:           { type: Type.ARRAY, items: { type: Type.STRING } },
+    snacks:           { type: Type.ARRAY, items: { type: Type.STRING } },
+    pharmacy_products: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          category_code: { type: Type.STRING, enum: SUPPLEMENT_CATEGORIES.map(c => c.code) },
+          reason:        { type: Type.STRING },
+          instruction:   { type: Type.STRING },
+        },
+        required: ['category_code', 'reason', 'instruction'],
+      },
+    },
+    medications_alert:  { type: Type.STRING },
+    lab_alerts:         { type: Type.ARRAY, items: { type: Type.STRING } },
+    clinical_reasoning: { type: Type.STRING },
+  },
+  required: [
+    'personal_message', 'smart_habits', 'breakfast', 'lunch', 'dinner', 'snacks',
+    'pharmacy_products', 'medications_alert', 'lab_alerts', 'clinical_reasoning',
+  ],
+};
 
 // ═══════════════════════════════════════════════════════════════════════
 // استخراج كود HTTP من أخطاء Gemini
@@ -249,7 +285,7 @@ export async function PATCH(req: Request) {
     // ── جلب بيانات الخطة من DB ───────────────────────────────────────
     const { data: plan, error: fetchErr } = await supabaseAdmin
       .from('weight_plans')
-      .select('weight_kg, height_cm, bmi, bmi_category, ideal_weight_min, ideal_weight_max, target_loss_kg, first_goal_kg')
+      .select('pharmacy_id, weight_kg, height_cm, bmi, bmi_category, ideal_weight_min, ideal_weight_max, target_loss_kg, first_goal_kg')
       .eq('id', plan_id)
       .single();
 
@@ -290,10 +326,15 @@ export async function PATCH(req: Request) {
 اسم الصيدلية: ${pharmacy_name}`;
 
     // ── استدعاء Gemini → JSON مستشار التغذية ──────────────────────
-    type PharmacyProduct = {
-      name:        string;
-      reason:      string;
-      instruction: string;
+    // pharmacy_products هنا هو اقتراح النموذج فقط (category_code + مبرر) —
+    // لا يحمل بيانات منتج فعلي بعد؛ يُدمج بالمنتج الحقيقي لاحقاً عبر استعلام حتمي
+    type PharmacyProductSuggestion = {
+      category_code: string;
+      reason:        string;
+      instruction:   string;
+    };
+    type EnrichedPharmacyProduct = PharmacyProductSuggestion & {
+      product: { product_name: string; price: number; image_url: string | null } | null;
     };
     type NutritionData = {
       personal_message:   string;        // رسالة شخصية تحفيزية
@@ -302,12 +343,22 @@ export async function PATCH(req: Request) {
       lunch:              string[];
       dinner:             string[];
       snacks:             string[];
-      pharmacy_products:  PharmacyProduct[]; // منتجات الصيدلية
+      pharmacy_products:  EnrichedPharmacyProduct[]; // فئات مقترحة + المنتج الفعلي المطابق إن وُجد
       medications_alert:  string;        // تحذير غذائي دوائي
       lab_alerts:         string[];      // فحوصات مطلوبة
+      clinical_reasoning: string;        // تحليل داخلي — لا يُعرض للمريض
     };
 
-    let nutritionData: NutritionData | null = null;
+    // شرط قبول رد النموذج: يفحص البنية (أنواع الحقول) لا مجرد الوجود
+    function isValidNutritionShape(p: any): p is Omit<NutritionData, 'pharmacy_products'> & { pharmacy_products: PharmacyProductSuggestion[] } {
+      return !!p
+        && Array.isArray(p.breakfast) && Array.isArray(p.lunch) && Array.isArray(p.dinner) && Array.isArray(p.snacks)
+        && Array.isArray(p.pharmacy_products)
+        && p.pharmacy_products.every((x: any) =>
+          x && typeof x.category_code === 'string' && typeof x.reason === 'string' && typeof x.instruction === 'string');
+    }
+
+    let nutritionData: (Omit<NutritionData, 'pharmacy_products'> & { pharmacy_products: PharmacyProductSuggestion[] }) | null = null;
     const geminiApiKey = process.env.GEMINI_API_KEY;
 
     if (geminiApiKey) {
@@ -322,6 +373,7 @@ export async function PATCH(req: Request) {
               systemInstruction: NUTRITION_DEEP_INSTRUCTION,
               maxOutputTokens: 8000,
               responseMimeType: 'application/json',
+              responseSchema: NUTRITION_RESPONSE_SCHEMA,
             },
           });
           const raw = response.text?.trim();
@@ -329,13 +381,23 @@ export async function PATCH(req: Request) {
             const clean = raw.replace(/```json|```/g, '').trim();
             try {
               const parsed = JSON.parse(clean);
-              if (parsed.breakfast && parsed.lunch && parsed.pharmacy_products) {
+              if (isValidNutritionShape(parsed)) {
                 // نضمن وجود كل الحقول
                 if (!parsed.personal_message)  parsed.personal_message  = '';
                 if (!parsed.smart_habits)      parsed.smart_habits      = [];
                 if (!parsed.medications_alert) parsed.medications_alert = '';
                 if (!parsed.lab_alerts)        parsed.lab_alerts        = [];
-                nutritionData = parsed as NutritionData;
+                if (!parsed.clinical_reasoning) parsed.clinical_reasoning = '';
+
+                // نرفض أي فئة غير موجودة في القائمة المغلقة
+                const validProducts = parsed.pharmacy_products.filter((x: PharmacyProductSuggestion) => {
+                  const valid = isValidCategory(x.category_code);
+                  if (!valid) console.warn(`[weight-plan PATCH] رمز فئة غير صالح مرفوض: ${x.category_code}`);
+                  return valid;
+                });
+                parsed.pharmacy_products = validProducts;
+
+                nutritionData = parsed;
                 console.log(`[weight-plan PATCH] ✅ ${modelName} JSON parsed`);
                 break;
               }
@@ -401,28 +463,28 @@ export async function PATCH(req: Request) {
         ],
         pharmacy_products: [
           {
-            name: 'بديل السكر الطبيعي (ستيفيا أو إريثريتول)',
+            category_code: 'sugar_substitute',
             reason: hasDiabetes
               ? 'يُعطيك حلاوة الطعام دون أي تأثير على مستوى السكر في الدم — مناسب جداً لحالتك'
               : 'يُخفض السعرات الحرارية من المشروبات والحلويات دون الشعور بالحرمان',
             instruction: 'استخدمه بديلاً عن السكر في المشروبات والطهي يومياً',
           },
           {
-            name: hasMetform ? 'مكمل فيتامين B12' : hasDiabetes ? 'مستخلص القرفة أو كبسولاتها' : 'مكمل ألياف غذائية (بسيليوم)',
+            category_code: hasMetform ? 'b12' : hasDiabetes ? 'blood_sugar_support' : 'fiber',
             reason: hasMetform
               ? 'ميتفورمين يُقلل امتصاص B12 تدريجياً مما قد يُسبب تنميلاً وإرهاقاً — استكماله ضروري لحالتك'
               : hasDiabetes
-              ? 'القرفة تُحسّن حساسية الأنسولين وتساعد على ضبط السكر بعد الوجبات بشكل طبيعي'
+              ? 'يساعد على ضبط السكر بعد الوجبات بشكل طبيعي'
               : 'الألياف تُبطئ هضم الطعام وتُطيل الشعور بالشبع — مثالية لتقليل الكميات المتناولة',
             instruction: 'استشر صيدليانك للجرعة المناسبة لحالتك',
           },
           {
-            name: 'فيتامين D3 مع K2',
+            category_code: 'vitamin_d',
             reason: 'نقص فيتامين D شائع جداً ويُعيق إنقاص الوزن ويؤثر على الطاقة والمناعة — خصوصاً في البيئة الأردنية',
             instruction: 'يُؤخذ مع وجبة تحتوي على دهون لتحسين الامتصاص',
           },
           ...(hasDiuretic ? [{
-            name: 'مكمل بوتاسيوم وماغنيسيوم',
+            category_code: 'magnesium_potassium',
             reason: 'مدرات البول تُفقد الجسم البوتاسيوم والماغنيسيوم مما قد يُسبب تشنجات وإرهاقاً — تعويضهما ضروري',
             instruction: 'استشر صيدليانك للجرعة المناسبة مع دوائك',
           }] : []),
@@ -437,14 +499,46 @@ export async function PATCH(req: Request) {
         lab_alerts: hasMetform
           ? ['فحص مستوى فيتامين B12 — استخدام ميتفورمين لأكثر من سنة قد يُقلل امتصاصه تدريجياً']
           : [],
+        clinical_reasoning: 'قالب احتياطي محلي — لا يعتمد على تحليل نموذج الذكاء الاصطناعي.',
       };
     }
+
+    // ── استعلام حتمي: مطابقة الفئات المقترحة بمنتج فعلي في كتالوج الصيدلية ──
+    // القرار المعماري الموثّق في docs/schema.sql: المطابقة عبر استعلام قاعدة
+    // بيانات حتمي وليس عبر الذكاء الاصطناعي — النموذج لا يرى الكتالوج إطلاقاً
+    const suggestedCodes = nutritionData.pharmacy_products.map(p => p.category_code);
+    let recommendationsByCategory = new Map<string, { product_name: string; price: number; image_url: string | null }>();
+
+    if (suggestedCodes.length > 0) {
+      const { data: recData } = await supabaseAdmin
+        .from('pharmacy_recommendations')
+        .select('category, product_name, price, image_url')
+        .eq('pharmacy_id', plan.pharmacy_id)
+        .eq('is_active', true)
+        .in('category', suggestedCodes);
+
+      for (const rec of recData || []) {
+        recommendationsByCategory.set(rec.category, {
+          product_name: rec.product_name,
+          price:        rec.price,
+          image_url:    rec.image_url,
+        });
+      }
+    }
+
+    const finalNutritionData: NutritionData = {
+      ...nutritionData,
+      pharmacy_products: nutritionData.pharmacy_products.map(p => ({
+        ...p,
+        product: recommendationsByCategory.get(p.category_code) || null,
+      })),
+    };
 
     // ── حفظ JSON في DB ────────────────────────────────────────────────
     const { error: updateErr } = await supabaseAdmin
       .from('weight_plans')
       .update({
-        nutrition_plan:    nutritionData,
+        nutrition_plan:    finalNutritionData,
         plan_generated_at: new Date().toISOString(),
       })
       .eq('id', plan_id);

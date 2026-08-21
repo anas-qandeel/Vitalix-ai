@@ -320,7 +320,8 @@ export async function PATCH(req: Request) {
             contents: userPrompt,
             config: {
               systemInstruction: NUTRITION_DEEP_INSTRUCTION,
-              maxOutputTokens: 2500,
+              maxOutputTokens: 8000,
+              responseMimeType: 'application/json',
             },
           });
           const raw = response.text?.trim();
@@ -339,13 +340,14 @@ export async function PATCH(req: Request) {
                 break;
               }
             } catch {
-              console.warn(`[weight-plan PATCH] ${modelName} JSON parse failed`);
+              const finishReason = response.candidates?.[0]?.finishReason;
+              console.warn(`[weight-plan PATCH] ${modelName} parse failed | len=${raw.length} | finish=${finishReason} | tail=${raw.slice(-120)}`);
             }
           }
         } catch (e: any) {
           const status = getErrStatus(e);
           console.warn(`[weight-plan PATCH] ${modelName} → ${status || 'err'}:`, e?.message);
-          if (status === 404) continue;
+          if (status === 404 || status === 429 || status === 500 || status === 503) continue;
           break;
         }
       }
@@ -439,12 +441,10 @@ export async function PATCH(req: Request) {
     }
 
     // ── حفظ JSON في DB ────────────────────────────────────────────────
-    const nutritionJson = JSON.stringify(nutritionData);
-
     const { error: updateErr } = await supabaseAdmin
       .from('weight_plans')
       .update({
-        nutrition_plan:    nutritionJson,
+        nutrition_plan:    nutritionData,
         plan_generated_at: new Date().toISOString(),
       })
       .eq('id', plan_id);

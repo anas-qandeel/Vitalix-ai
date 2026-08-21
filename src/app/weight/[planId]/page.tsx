@@ -25,7 +25,7 @@ interface NutritionData {
 interface WeightPlan {
   id: string; weight_kg: number; height_cm: number; bmi: number; bmi_category: string;
   ideal_weight_min: number; ideal_weight_max: number; target_loss_kg: number;
-  first_goal_kg: number; nutrition_plan: string | null; created_at: string;
+  first_goal_kg: number; nutrition_plan: NutritionData | string | null; created_at: string;
 }
 interface PatientInfo { name: string; gender: string; birth_date: string | null; }
 interface PageData { plan: WeightPlan; patient: PatientInfo; pharmacyName: string; pharmacyPhone: string; }
@@ -46,12 +46,15 @@ function getBMIStyle(cat: string) {
     default:            return { label:'سمنة درجة ثانية+', color:'text-rose-700',   bg:'bg-rose-50',   border:'border-rose-200',   dot:'bg-rose-500',   emoji:'🔴' };
   }
 }
-function parseNutrition(raw: string | null): NutritionData | null {
+function parseNutrition(raw: NutritionData | string | null): NutritionData | null {
   if (!raw) return null;
   try {
-    const p = JSON.parse(raw);
+    // الصفوف القديمة قد تحمل نصاً (قبل تحويل العمود إلى jsonb)، والجديدة تصل ككائن جاهز
+    const p = typeof raw === 'string' ? JSON.parse(raw) : raw;
     if (p.breakfast && p.pharmacy_products) return p as NutritionData;
-  } catch {}
+  } catch (e) {
+    console.warn('[weight plan] فشل تحليل nutrition_plan:', e);
+  }
   return null;
 }
 

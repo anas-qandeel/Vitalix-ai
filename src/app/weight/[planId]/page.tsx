@@ -288,20 +288,26 @@ export default function WeightPlanPage({ params }: PageProps) {
             </div>
           </div>
           <div className="px-5 pt-4">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
               <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-center">
                 <p className="text-[9px] font-bold text-slate-400 mb-1">الوزن الحالي</p>
                 <p className="text-lg font-black text-slate-900">{plan.weight_kg}<span className="text-xs font-normal text-slate-400"> كغ</span></p>
               </div>
-              <div className={`rounded-xl px-3 py-2.5 text-center border ${bmiStyle.border} ${bmiStyle.bg}`}>
-                <p className="text-[9px] font-bold text-slate-400 mb-1">الوزن المثالي</p>
-                <p className={`text-sm font-black ${bmiStyle.color}`}>{plan.ideal_weight_min}–{plan.ideal_weight_max}<span className="text-[9px] font-normal"> كغ</span></p>
+              <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-center">
+                <p className="text-[9px] font-bold text-slate-400 mb-1">مؤشر كتلة الجسم</p>
+                <p className="text-lg font-black text-slate-900">{plan.bmi}</p>
               </div>
               {plan.target_loss_kg > 0 ? (
-                <div className="bg-purple-50 border border-purple-200 rounded-xl px-3 py-2.5 text-center">
-                  <p className="text-[9px] font-bold text-slate-400 mb-1">الهدف المبدئي</p>
-                  <p className="text-lg font-black text-purple-700">{plan.first_goal_kg}<span className="text-xs font-normal text-purple-500"> كغ</span></p>
-                </div>
+                <>
+                  <div className={`rounded-xl px-3 py-2.5 text-center border ${bmiStyle.border} ${bmiStyle.bg}`}>
+                    <p className="text-[9px] font-bold text-slate-400 mb-1">للوصول للوزن المثالي</p>
+                    <p className={`text-lg font-black ${bmiStyle.color}`}>{plan.target_loss_kg}<span className="text-xs font-normal"> كغ</span></p>
+                  </div>
+                  <div className="bg-purple-50 border border-purple-200 rounded-xl px-3 py-2.5 text-center">
+                    <p className="text-[9px] font-bold text-slate-400 mb-1">الهدف المبدئي</p>
+                    <p className="text-lg font-black text-purple-700">{plan.first_goal_kg}<span className="text-xs font-normal text-purple-500"> كغ</span></p>
+                  </div>
+                </>
               ) : plan.bmi_category === 'underweight' ? (
                 <div className="bg-blue-50 border border-blue-200 rounded-xl px-3 py-2.5 text-center">
                   <p className="text-[9px] font-bold text-slate-400 mb-1">المطلوب زيادته</p>
@@ -314,9 +320,10 @@ export default function WeightPlanPage({ params }: PageProps) {
               )}
             </div>
             <BMIBar bmi={plan.bmi} />
+            <p className="text-[10px] text-slate-400 text-center mt-2">الوزن المثالي: {plan.ideal_weight_min}–{plan.ideal_weight_max} كغ</p>
             {plan.target_loss_kg > 0 && (
               <div className="mt-4 bg-purple-50/60 border border-purple-100 rounded-xl px-4 py-3">
-                <p className="text-xs font-bold text-purple-900 text-center">ابدأ بـ {plan.first_goal_kg} كغ فقط — هدف قابل للتحقيق خلال 4–8 أسابيع</p>
+                <p className="text-xs font-bold text-purple-900 text-center">تحتاج إنقاص {plan.target_loss_kg} كغ للوصول لوزنك المثالي — نبدأ بـ {plan.first_goal_kg} كغ كهدف أول خلال 4–8 أسابيع</p>
                 <p className="text-[10px] text-purple-600 text-center mt-1">هذه النسبة الصغيرة تُحسّن طاقتك وتخفف الضغط على مفاصلك</p>
               </div>
             )}

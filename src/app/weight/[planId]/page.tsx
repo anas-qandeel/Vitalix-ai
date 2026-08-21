@@ -2,14 +2,20 @@
 
 import { useEffect, useState, use, useRef } from 'react';
 import AppFooter from '../../components/AppFooter';
+import { SUPPLEMENT_CATEGORIES } from '@/lib/supplement-categories';
+
+const CATEGORY_LABELS: Record<string, string> = Object.fromEntries(
+  SUPPLEMENT_CATEGORIES.map(c => [c.code, c.labelAr])
+);
 
 // ════════════════════════════════════════════════════════════════════════
 // TYPES
 // ════════════════════════════════════════════════════════════════════════
 interface PharmacyProduct {
-  name:        string;
-  reason:      string;
-  instruction: string;
+  category_code: string;
+  reason:        string;
+  instruction:   string;
+  product: { product_name: string; price: number; image_url: string | null } | null;
 }
 interface NutritionData {
   personal_message:   string;
@@ -385,7 +391,7 @@ export default function WeightPlanPage({ params }: PageProps) {
             <MealSection icon="🍎" title="وجبات خفيفة صحية"     color={mealColors.snacks}    items={nutrition.snacks}    />
 
             {/* منتجات الصيدلية — Trojan Horse */}
-            {nutrition.pharmacy_products && nutrition.pharmacy_products.length > 0 && (
+            {nutrition.pharmacy_products && nutrition.pharmacy_products.filter(p => CATEGORY_LABELS[p.category_code]).length > 0 && (
               <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
                 <div className="bg-slate-50/50 px-5 py-4 border-b border-slate-100 flex items-center gap-3">
                   <div className="w-8 h-8 rounded-xl bg-slate-900 flex items-center justify-center shrink-0">
@@ -399,14 +405,27 @@ export default function WeightPlanPage({ params }: PageProps) {
                   </div>
                 </div>
                 <div className="divide-y divide-slate-100">
-                  {nutrition.pharmacy_products.map((prod, i) => (
+                  {nutrition.pharmacy_products.filter(p => CATEGORY_LABELS[p.category_code]).map((prod, i) => (
                     <div key={i} className="px-5 py-4">
                       <div className="flex items-start gap-3">
                         <div className="w-7 h-7 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0 mt-0.5">
                           <span className="text-[10px] font-black text-slate-500">{i + 1}</span>
                         </div>
                         <div className="flex-1">
-                          <p className="text-sm font-bold text-slate-900">{prod.name}</p>
+                          {prod.product ? (
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="text-sm font-bold text-slate-900">{prod.product.product_name}</p>
+                              <span className="text-xs font-bold text-slate-700 tabular-nums">{prod.product.price} د.أ</span>
+                              <span className="text-[10px] font-bold text-teal-700 bg-teal-50 border border-teal-200 rounded-lg px-2 py-0.5">
+                                متوفر في الصيدلية
+                              </span>
+                            </div>
+                          ) : (
+                            <div>
+                              <p className="text-sm font-bold text-slate-900">{CATEGORY_LABELS[prod.category_code]}</p>
+                              <p className="text-[10px] text-slate-400 mt-0.5">اسأل صيدلانيك عن الخيارات المتاحة</p>
+                            </div>
+                          )}
                           <p className="text-xs text-slate-600 mt-1 leading-relaxed">{prod.reason}</p>
                           <p className="text-[10px] font-bold text-teal-700 mt-1.5 bg-teal-50 border border-teal-100 rounded-lg px-2.5 py-1 inline-block">
                             {prod.instruction}

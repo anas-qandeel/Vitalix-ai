@@ -447,6 +447,10 @@ ${rateWarningLine}`;
     const { matched: matchedDrugs, unknown: unknownDrugs } = matchPatientDrugs(medications);
     const drugFactsText = buildDrugFactsText(matchedDrugs, unknownDrugs);
 
+    if (unknownDrugs.length > 0) {
+      console.warn(`[weight-plan PATCH] أدوية لم تُطابَق في الجدول: ${unknownDrugs.join(', ')}`);
+    }
+
     // فئات مكملات ممنوعة على هذا المريض تحديداً بسبب أدويته — تُستخدم لاحقاً
     // لفحص رد النموذج بالكود، لا الاعتماد على البرومبت وحده
     const avoidCategoriesForPatient = new Set<string>();
@@ -494,6 +498,7 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
       lab_alerts:         string[];      // فحوصات مطلوبة
       clinical_reasoning: string;        // تحليل داخلي — لا يُعرض للمريض
       progress?:          ProgressData | null; // يحفظه الخادم فقط — النموذج لا يُنتجه
+      drug_matching?:     { matched: string[]; unknown: string[] }; // يحفظه الخادم فقط — النموذج لا يُنتجه
     };
 
     // شرط قبول رد النموذج: يفحص البنية (أنواع الحقول) لا مجرد الوجود
@@ -690,6 +695,7 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
         product: recommendationsByCategory.get(p.category_code) || null,
       })),
       progress: progressData,
+      drug_matching: { matched: matchedDrugs.map(d => d.genericAr), unknown: unknownDrugs },
     };
 
     // ── حفظ JSON في DB ────────────────────────────────────────────────

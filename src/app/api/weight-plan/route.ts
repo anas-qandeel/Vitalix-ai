@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase-admin';
 import { GoogleGenAI, Type } from '@google/genai';
 import { calcWeightGoals, getBMICategory } from '@/app/api/generate-weight-report/route';
 import { SUPPLEMENT_CATEGORIES, isValidCategory } from '@/lib/supplement-categories';
+import { matchPatientDrugs, type DrugEntry } from '@/lib/drug-food-interactions';
 
 // ═══════════════════════════════════════════════════════════════════════
 // نماذج Gemini
@@ -41,22 +42,19 @@ const NUTRITION_DEEP_INSTRUCTION = `
 لا تستنتج وجود دواء من التشخيص إطلاقاً. تحدّث فقط عن الأدوية المذكورة صراحة بالاسم في "الأدوية المزمنة" ضمن بيانات المريض.
 إن كان المريض مشخَّصاً بحالة (مثل ارتفاع الضغط أو السكري) دون أن يُذكر لها دواء في القائمة، تحدّث عن الحالة نفسها (تغذية داعمة، تقليل الملح أو السكر) ولا تفترض أنه يتناول علاجاً لها ولا تحذّر بخصوص "دوائه" لحالة لا دواء مذكوراً لها.
 
-**أولاً: اقرأ الأدوية المزمنة بعين صيدلانية:**
-لكل دواء مذكور صراحة في قائمة الأدوية، فكّر:
-- ماذا يمنع أكله مع هذا الدواء؟
-- ماذا ينقص هذا الدواء من الجسم؟
-- هل توقيت الوجبات مهم مع هذا الدواء؟
+**أولاً: اقرأ التفاعلات المعطاة لأدوية المريض:**
+لكل دواء وردت له "التفاعلات المعروفة" في البيانات، انظر:
+- ما التفاعلات الغذائية المذكورة له؟
+- ما العناصر التي يستنزفها حسب البيانات؟
+- هل له توقيت محدد مذكور؟
+لا تضف شيئاً من عندك لم يرد في البيانات.
 
-أمثلة يجب أن تعرفها غيباً:
-- ميتفورمين → يستنزف B12 تدريجياً → اقترح مصادره + مكمل B12 من الصيدلية
-- مدرات البول (فوروسيميد/ثيازيد) → يفقد البوتاسيوم والماغنيسيوم → اقترح مصادرهما + مكملات
-- مثبطات ACE (ليزينوبريل/راميبريل) → يرفع البوتاسيوم → حذّر من الإفراط بالموز والبقوليات
-- ستاتينات → لا جريب فروت → أضف هذا التحذير صراحة
-- وارفارين → الخضار الورقية تؤثر على جرعته → ثبّت الاستهلاك لا تقطعه
-- سلفونيلوريا/غليبيزيد → خطر نقص سكر عند تأخر الوجبة → حذّر من تخطي الوجبات
-- ليفوثيروكسين → تناوله على معدة فارغة → لا صويا/كرنب/قرنبيط قرب وقت الدواء
-- كورتيزون → يرفع السكر والوزن ويضعف العظام → اقترح كالسيوم + فيتامين D من الصيدلية
-- حاصرات بيتا → قد تخفي أعراض نقص السكر → وجبات منتظمة إلزامية
+التفاعلات الدوائية الغذائية معطاة لك في البيانات ولا تُستنتج:
+- لا تذكر أي تفاعل غير مذكور صراحة في "التفاعلات المعروفة" ضمن بيانات المريض.
+- لا تعمّم خاصية دواء على صنفه — الأدوية من نفس الصنف قد تختلف في مسار الاستقلاب.
+- استعمل صياغة patientText كما هي أو أعد صوغها بلا تغيير المعنى ولا رفع درجة الإلحاح.
+- رتّب التحذيرات: critical أولاً ثم important. تجاهل minor إن كان النص سيطول.
+- الأدوية الموسومة "لم يُتعرّف عليها": لا تبنِ عليها أي تحذير غذائي ولا تفترض صنفها. اذكر للمريض أن يسأل صيدلانيه عن تفاصيلها.
 
 **ثانياً: حدد الهدف الدقيق لهذا المريض:**
 - زيادة وزن (BMI < 18.5) → فائض سعري من مصادر صحية، تركيز على البروتين والدهون الصحية
@@ -76,6 +74,16 @@ ${CATEGORY_LIST_TEXT}
 - تعب شديد مع ميتفورمين → B12
 - تشنجات مع مدرات البول → ماغنيسيوم/بوتاسيوم
 - جفاف مستمر مع ضغط → وظائف كلى
+
+**خامساً: التعامل مع تقدّم المريض:**
+في personal_message، ابدأ بذكر التقدّم بالأرقام إن وُجدت خطة سابقة ("تقدّم المريض" في بيانات المريض). النبرة داعمة دائماً: لا لوم، ولا تهوين، ولا مبالغة في المديح.
+- إن نقص الوزن: اذكر الرقمين صراحة (منذ آخر زيارة، ومنذ البداية)، وانسب الفضل لالتزام المريض لا للخطة. لا تمدح السرعة ولا تشجّع على تسريع النزول.
+- إن ثبت الوزن تقريباً (أقل من كيلوغرام): اذكر أن الثبات مرحلة طبيعية في رحلة إنقاص الوزن وليس فشلاً، وركّز على ما يمكن تعديله.
+- إن زاد الوزن: اذكر الرقم بهدوء وبلا لوم ولا تهويل. لا تفترض سبباً ولا تتهم المريض بالتقصير. وجّه الحديث إلى الخطوة القادمة، واذكر أن صيدليته معه في المتابعة.
+- إن ورد تنبيه بسرعة النزول في البيانات، اذكره بلطف. لا تحسب النسبة بنفسك ولا تجتهد في تقديرها.
+
+ممنوع: مقارنة المريض بغيره، أو ذكر أهداف زمنية صارمة، أو أي صياغة تحفّز على التقييد الغذائي المفرط.
+إن لم توجد خطة سابقة في البيانات (أول خطة للمريض)، لا تذكر أي تقدّم إطلاقاً.
 
 ---
 
@@ -131,6 +139,7 @@ ${CATEGORY_LIST_TEXT}
 - الحد الأدنى فئتان، الحد الأقصى أربع فئات
 - category_code يجب أن يكون رمزاً من القائمة المغلقة أعلاه فقط — لا رمز مخترَع
 - كل فئة مرتبطة فعلياً بحالة هذا المريض أو بدواء مذكور صراحة في بياناته — لا تقترح فئة لا علاقة لها بحالته
+- ممنوع اقتراح أي فئة واردة ضمن "فئات مكملات ممنوع اقتراحها لهذا المريض" في بيانات الأدوية أدناه، حتى لو بدت مفيدة نظرياً لحالته
 - الـ reason يجب أن يكون مقنعاً وشخصياً
 - ممنوع قطعاً أي اسم منتج أو ماركة تجارية أو مثال محدد — الرمز وحده
 `;
@@ -169,6 +178,38 @@ const NUTRITION_RESPONSE_SCHEMA = {
     'pharmacy_products', 'medications_alert', 'lab_alerts', 'clinical_reasoning',
   ],
 };
+
+// ═══════════════════════════════════════════════════════════════════════
+// بناء نص التفاعلات الدوائية الغذائية المطابَقة حتمياً — يُحقن في userPrompt
+// كحقائق جاهزة يقرؤها النموذج بدل أن يستنتجها (راجع drug-food-interactions.ts
+// لسبب هذا القرار: النموذج عمّم قاعدة الستاتينات على روسوفاستاتين خطأً)
+// ═══════════════════════════════════════════════════════════════════════
+function buildDrugFactsText(matched: DrugEntry[], unknown: string[]): string {
+  if (matched.length === 0 && unknown.length === 0) return 'لا توجد أدوية مزمنة مذكورة.';
+
+  const blocks = matched.map(d => {
+    const lines = [`- ${d.genericAr} (${d.generic}) — الصنف: ${d.drugClass}`];
+    if (d.metabolismNote) lines.push(`  ملاحظة الاستقلاب: ${d.metabolismNote}`);
+    if (d.timing) lines.push(`  التوقيت: ${d.timing}`);
+    if (d.foods.length > 0) {
+      lines.push('  التفاعلات المعروفة:');
+      for (const f of d.foods) {
+        lines.push(`    - ${f.item} | الآلية: ${f.mechanism} | الخطورة: ${f.severity} | نص للمريض: "${f.patientText}"`);
+      }
+    } else {
+      lines.push('  لا تفاعلات غذائية معروفة لهذا الدواء.');
+    }
+    if (d.depletes?.length) lines.push(`  يستنزف عناصر يُرجّح احتياج المريض لمكملاتها: ${d.depletes.join(', ')}`);
+    if (d.avoidSupplements?.length) lines.push(`  فئات مكملات ممنوع اقتراحها لهذا المريض: ${d.avoidSupplements.join(', ')}`);
+    return lines.join('\n');
+  });
+
+  const unknownBlock = unknown.length > 0
+    ? `\nأدوية لم يُتعرّف عليها (لا تبنِ عليها أي تحذير ولا تفترض صنفها، اذكر للمريض أن يسأل صيدلانيه عن تفاصيلها):\n${unknown.map(u => `- ${u}`).join('\n')}`
+    : '';
+
+  return `${blocks.join('\n\n')}${unknownBlock}`;
+}
 
 // ═══════════════════════════════════════════════════════════════════════
 // استخراج كود HTTP من أخطاء Gemini
@@ -285,12 +326,69 @@ export async function PATCH(req: Request) {
     // ── جلب بيانات الخطة من DB ───────────────────────────────────────
     const { data: plan, error: fetchErr } = await supabaseAdmin
       .from('weight_plans')
-      .select('pharmacy_id, weight_kg, height_cm, bmi, bmi_category, ideal_weight_min, ideal_weight_max, target_loss_kg, first_goal_kg')
+      .select('patient_id, pharmacy_id, weight_kg, height_cm, bmi, bmi_category, ideal_weight_min, ideal_weight_max, target_loss_kg, first_goal_kg, created_at')
       .eq('id', plan_id)
       .single();
 
     if (fetchErr || !plan) {
       return NextResponse.json({ error: 'الخطة غير موجودة' }, { status: 404 });
+    }
+
+    // ── تقدّم المريض: مقارنة بالخطة السابقة وبأول خطة له ─────────────
+    // استعلام حتمي بالكود لا استنتاج من النموذج — نفس مبدأ التفاعلات الدوائية
+    const { data: priorPlans } = await supabaseAdmin
+      .from('weight_plans')
+      .select('weight_kg, created_at')
+      .eq('patient_id', plan.patient_id)
+      .neq('id', plan_id)
+      .order('created_at', { ascending: true });
+
+    let progressText: string | null = null;
+
+    if (priorPlans && priorPlans.length > 0) {
+      const currentDate = new Date(plan.created_at);
+
+      // تجاهل الخطط الأقرب من 7 أيام من الخطة الحالية عند اختيار "السابقة" —
+      // إعادة التوليد في نفس اليوم تصحيح لا تقدّم، وتُنتج نسبة شهرية مبالغاً
+      // فيها تُطلق تنبيه "نزول سريع" زائفاً. baseline (أقدم خطة) لا يُصفّى.
+      const eligiblePrevious = priorPlans.filter(p => {
+        const days = Math.round((currentDate.getTime() - new Date(p.created_at).getTime()) / 86400000);
+        return days >= 7;
+      });
+
+      if (eligiblePrevious.length > 0) {
+        const baseline = priorPlans[0];
+        const previous = eligiblePrevious[eligiblePrevious.length - 1];
+        const baselineDate = new Date(baseline.created_at);
+        const previousDate = new Date(previous.created_at);
+
+        const diffFromPrevious = Math.round((plan.weight_kg - previous.weight_kg) * 10) / 10;
+        const diffFromBaseline = Math.round((plan.weight_kg - baseline.weight_kg) * 10) / 10;
+        const daysSincePrevious = Math.round((currentDate.getTime() - previousDate.getTime()) / 86400000);
+        const daysSinceBaseline = Math.round((currentDate.getTime() - baselineDate.getTime()) / 86400000);
+
+        const fmtDate = (d: Date) => d.toLocaleDateString('ar-EG', { numberingSystem: 'latn' });
+        const fmtDiff = (n: number) => `${n > 0 ? '+' : ''}${n} كغ`;
+
+        // معدل النزول الشهري كنسبة من وزن الجسم — يُحسب بالكود لا يُترك للنموذج.
+        // حراسة القسمة على صفر: عدد أيام أو وزن سابق صفر يمنعان الحساب
+        let rateWarningLine = 'معدل النزول ضمن المعتاد.';
+        if (daysSincePrevious > 0 && previous.weight_kg > 0) {
+          const monthlyRatePercent = (diffFromPrevious / previous.weight_kg) * (30 / daysSincePrevious) * 100;
+          if (diffFromPrevious < 0 && Math.abs(monthlyRatePercent) > 5) {
+            const pct = Math.round(Math.abs(monthlyRatePercent) * 10) / 10;
+            rateWarningLine = `تنبيه: معدل النزول سريع (${pct}% شهرياً) — نبّه المريض بلطف أن هذا يستحق فحصاً طبياً.`;
+          }
+        }
+
+        progressText =
+`الوزن الأول: ${baseline.weight_kg} كغ بتاريخ ${fmtDate(baselineDate)}
+الوزن في آخر زيارة سابقة: ${previous.weight_kg} كغ بتاريخ ${fmtDate(previousDate)}
+الوزن الحالي: ${plan.weight_kg} كغ
+الفرق عن آخر زيارة: ${fmtDiff(diffFromPrevious)} خلال ${daysSincePrevious} يوماً
+الفرق عن البداية: ${fmtDiff(diffFromBaseline)} خلال ${daysSinceBaseline} يوماً
+${rateWarningLine}`;
+      }
     }
 
     const hasDiabetes      = diagnosed_conditions.includes('diabetes');
@@ -312,6 +410,18 @@ export async function PATCH(req: Request) {
       ? medications.join(' - ')
       : 'لا يوجد أدوية مزمنة';
 
+    // مطابقة حتمية بالكود بدل ترك النموذج يستنتج التفاعل بنفسه — راجع
+    // drug-food-interactions.ts لسبب هذا القرار المعماري
+    const { matched: matchedDrugs, unknown: unknownDrugs } = matchPatientDrugs(medications);
+    const drugFactsText = buildDrugFactsText(matchedDrugs, unknownDrugs);
+
+    // فئات مكملات ممنوعة على هذا المريض تحديداً بسبب أدويته — تُستخدم لاحقاً
+    // لفحص رد النموذج بالكود، لا الاعتماد على البرومبت وحده
+    const avoidCategoriesForPatient = new Set<string>();
+    for (const d of matchedDrugs) {
+      for (const c of d.avoidSupplements || []) avoidCategoriesForPatient.add(c);
+    }
+
     const userPrompt =
 `اسم المريض: ${patient_name}
 الجنس: ${genderAr} — العمر: ${age || 'غير محدد'} سنة
@@ -323,6 +433,10 @@ export async function PATCH(req: Request) {
 الهدف المبدئي: ${plan.first_goal_kg} كغ (5٪ من الوزن الحالي)
 الأمراض المزمنة: ${conditionsText}
 الأدوية المزمنة: ${medsText}
+
+التفاعلات الدوائية الغذائية المعروفة لأدويته — معطاة لك حتمياً ولا تُستنتج:
+${drugFactsText}
+${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
 اسم الصيدلية: ${pharmacy_name}`;
 
     // ── استدعاء Gemini → JSON مستشار التغذية ──────────────────────
@@ -502,6 +616,16 @@ export async function PATCH(req: Request) {
         clinical_reasoning: 'قالب احتياطي محلي — لا يعتمد على تحليل نموذج الذكاء الاصطناعي.',
       };
     }
+
+    // ── فحص إضافي بالكود بعد رد النموذج (أو القالب الاحتياطي) — لا اعتماد على
+    // البرومبت وحده لمنع فئة ممنوعة طبياً على هذا المريض بسبب دواء يتناوله ──
+    nutritionData.pharmacy_products = nutritionData.pharmacy_products.filter(p => {
+      if (avoidCategoriesForPatient.has(p.category_code)) {
+        console.warn(`[weight-plan PATCH] فئة محظورة على هذا المريض حُذفت: ${p.category_code}`);
+        return false;
+      }
+      return true;
+    });
 
     // ── استعلام حتمي: مطابقة الفئات المقترحة بمنتج فعلي في كتالوج الصيدلية ──
     // القرار المعماري الموثّق في docs/schema.sql: المطابقة عبر استعلام قاعدة

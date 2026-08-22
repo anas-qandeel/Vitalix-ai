@@ -50,6 +50,31 @@ interface ChronicMed {
   boxes_count: number | null;
 }
 
+interface WeightPlanProgress {
+  diffFromPrevious: number;
+  daysSincePrevious: number;
+  diffFromBaseline: number;
+  daysSinceBaseline: number;
+}
+
+interface WeightPlanNutrition {
+  clinical_reasoning?: string;
+  drug_matching?: { matched: string[]; unknown: string[] };
+  progress?: WeightPlanProgress | null;
+}
+
+interface WeightPlan {
+  id: string;
+  weight_kg: number;
+  bmi: number;
+  bmi_category: string;
+  target_loss_kg: number;
+  first_goal_kg: number;
+  nutrition_plan: WeightPlanNutrition | null;
+  plan_generated_at: string | null;
+  created_at: string;
+}
+
 interface PageProps {
   params: Promise<{ id: string }>;
 }
@@ -315,6 +340,8 @@ export default function PatientCardPage({ params }: PageProps) {
   const [showAllVisits, setShowAllVisits] = useState(false);
   const [pdfGenerating, setPdfGenerating] = useState(false);
   const [chronicMeds, setChronicMeds] = useState<ChronicMed[]>([]);
+  const [weightPlans, setWeightPlans] = useState<WeightPlan[]>([]);
+  const [expandedPlanId, setExpandedPlanId] = useState<string | null>(null);
   const [heightInput, setHeightInput] = useState('');
   const [savingHeight, setSavingHeight] = useState(false);
   const [editingHeight, setEditingHeight] = useState(false);
@@ -355,6 +382,14 @@ export default function PatientCardPage({ params }: PageProps) {
         .eq('pharmacy_id', pid)
         .eq('status', 'active');
       setChronicMeds((medsData as ChronicMed[]) || []);
+
+      // خطط إدارة الوزن السابقة — استعلام مباشر كبقية الصفحة، RLS تعزل بالصيدلية
+      const { data: weightPlansData } = await supabase
+        .from('weight_plans')
+        .select('id, weight_kg, bmi, bmi_category, target_loss_kg, first_goal_kg, nutrition_plan, plan_generated_at, created_at')
+        .eq('patient_id', patientId)
+        .order('created_at', { ascending: false });
+      setWeightPlans((weightPlansData as WeightPlan[]) || []);
 
     } catch (err: any) {
       setErrorMsg(err.message || 'حدث خطأ');
@@ -913,6 +948,100 @@ export default function PatientCardPage({ params }: PageProps) {
             </div>
           )}
         </div>
+
+        {/* ── خطط إدارة الوزن ── */}
+        {weightPlans.length > 0 && (
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden mt-4">
+            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between flex-wrap gap-2">
+              <p className="text-sm font-bold text-slate-900">خطط إدارة الوزن</p>
+              <span className="text-[11px] font-bold text-slate-400">{weightPlans.length} خطة</span>
+            </div>
+            <div className="divide-y divide-slate-100">
+              {weightPlans.map((wp) => {
+                const isOpen = expandedPlanId === wp.id;
+                const nutrition = wp.nutrition_plan;
+                return (
+                  <div key={wp.id}>
+                    {/* رأس الخطة */}
+                    <div
+                      onClick={() => setExpandedPlanId(isOpen ? null : wp.id)}
+                      className="w-full flex items-center justify-between gap-3 px-5 py-4 hover:bg-slate-50/60 transition-colors cursor-pointer">
+                      <div className="flex items-center gap-3 flex-wrap min-w-0">
+                        <span className="text-[11px] font-bold text-slate-400">{formatDate(wp.created_at)}</span>
+                        <span className="flex items-center gap-1 text-xs font-bold text-purple-700 bg-purple-50 border border-purple-100 px-2.5 py-1 rounded-lg">
+                          <IconScale className="w-3 h-3" />
+                          {wp.weight_kg} kg
+                          <span className="text-[9px] text-purple-400 font-normal">BMI {wp.bmi}</span>
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); window.open(`/weight/${wp.id}`, '_blank'); }}
+                          className="text-[10px] font-bold text-teal-700 bg-teal-50 border border-teal-200 px-2.5 py-1 rounded-lg hover:bg-teal-100 transition cursor-pointer">
+                          فتح الخطة
+                        </button>
+                        <IconChevron className="w-4 h-4 text-slate-400 shrink-0" open={isOpen} />
+                      </div>
+                    </div>
+
+                    {/* تفاصيل الخطة — للمراجعة الصيدلانية */}
+                    {isOpen && (
+                      <div className="px-5 pb-5 space-y-3 border-t border-slate-100 bg-slate-50/30 pt-4">
+                        {!nutrition ? (
+                          <p className="text-xs text-slate-400 font-medium">لم تُولَّد بعد</p>
+                        ) : !nutrition.clinical_reasoning && !nutrition.drug_matching && !nutrition.progress ? (
+                          <p className="text-xs text-slate-400 font-medium">خطة أُنشئت قبل إضافة التحليل السريري — لا تفاصيل مراجعة لها</p>
+                        ) : (
+                          <>
+                            {nutrition.clinical_reasoning && (
+                              <div>
+                                <p className="text-[10px] font-bold text-slate-400 mb-2">التحليل السريري</p>
+                                <div className="bg-white border border-slate-200 rounded-xl p-4 text-[11px] text-slate-700 leading-relaxed font-medium">
+                                  {nutrition.clinical_reasoning}
+                                </div>
+                              </div>
+                            )}
+
+                            {nutrition.drug_matching && (
+                              <div>
+                                <p className="text-[10px] font-bold text-slate-400 mb-2">مطابقة الأدوية</p>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {nutrition.drug_matching.matched.map((m) => (
+                                    <span key={m} className="text-[11px] font-bold text-slate-700 bg-white border border-slate-200 px-2.5 py-1 rounded-lg">{m}</span>
+                                  ))}
+                                  {nutrition.drug_matching.unknown.map((u) => (
+                                    <span key={u} className="text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg">{u}</span>
+                                  ))}
+                                </div>
+                                {nutrition.drug_matching.unknown.length > 0 && (
+                                  <p className="text-[10px] text-amber-600 font-medium mt-1.5">لم يطابقها النظام — تحذيراتها لم تصل الخطة</p>
+                                )}
+                              </div>
+                            )}
+
+                            {nutrition.progress && (
+                              <div>
+                                <p className="text-[10px] font-bold text-slate-400 mb-2">التقدّم</p>
+                                <div className="flex flex-wrap gap-1.5">
+                                  <span className="text-[11px] font-bold text-slate-700 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-lg">
+                                    منذ آخر زيارة: {nutrition.progress.diffFromPrevious > 0 ? '+' : ''}{nutrition.progress.diffFromPrevious} كغ خلال {nutrition.progress.daysSincePrevious} يوماً
+                                  </span>
+                                  <span className="text-[11px] font-bold text-slate-700 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-lg">
+                                    منذ البداية: {nutrition.progress.diffFromBaseline > 0 ? '+' : ''}{nutrition.progress.diffFromBaseline} كغ خلال {nutrition.progress.daysSinceBaseline} يوماً
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
           </div>
         </div>
 

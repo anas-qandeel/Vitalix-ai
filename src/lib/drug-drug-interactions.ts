@@ -96,4 +96,134 @@ export const DRUG_DRUG_INTERACTIONS: DrugDrugInteraction[] = [
       'الجمع شائع ومبرَّر سريرياً، لكنه يستدعي يقظة. نبّه المريض إلى مراجعة الطبيب فوراً عند ألم عضلي غير مبرَّر أو ضعف أو بول داكن، وراجع الجرعات مع وجود قصور كلوي.',
     source: 'FDA colchicine labeling؛ AHA statement on statin drug interactions. مراجَع 2026-08',
   },
+
+  // ─────────────── النزف والتخثر ───────────────
+  {
+    a: { kind: 'class', classCode: 'VKA_ANTICOAGULANT' },
+    b: { kind: 'class', classCode: 'ANTIPLATELET' },
+    mechanism: 'أثر تراكمي على الإرقاء عبر مسارين مختلفين: تثبيط عوامل التخثر المعتمدة على فيتامين ك مع تثبيط تكدّس الصفيحات. يرفع خطر النزف دون أن يظهر ذلك بالضرورة في قيمة INR.',
+    severity: 'critical',
+    pharmacistText: 'المريض على مضاد تخثر ومضاد صفيحات معاً — خطر نزف مرتفع. الجمع يُستعمل في حالات محددة لكنه يستدعي مراجعة: تأكّد أن الطبيب قصده، وانتبه إلى أن INR وحده لا يعكس هذا الخطر.',
+    source: 'غير مراجَع — Queensland Health warfarin interactions appendix؛ StatPearls warfarin DDIs',
+  },
+  {
+    a: { kind: 'class', classCode: 'DOAC' },
+    b: { kind: 'class', classCode: 'ANTIPLATELET' },
+    mechanism: 'أثر تراكمي على الإرقاء: تثبيط العامل Xa مع تثبيط تكدّس الصفيحات.',
+    severity: 'critical',
+    pharmacistText: 'المريض على مضاد تخثر فموي مباشر ومضاد صفيحات معاً — خطر نزف مرتفع. راجع مبرّر الجمع ومدّته المقرّرة مع الطبيب.',
+    source: 'غير مراجَع — مبدأ تراكم مضادات التخثر ومضادات الصفيحات',
+  },
+  {
+    a: { kind: 'class', classCode: 'VKA_ANTICOAGULANT' },
+    b: { kind: 'class', classCode: 'DOAC' },
+    mechanism: 'مضادا تخثر من فئتين مختلفتين. لا مبرّر علاجياً للجمع بينهما، والخطر نزف حاد.',
+    severity: 'critical',
+    pharmacistText: 'مضادا تخثر معاً — راجع الوصفة فوراً. غالباً خطأ نقل أو تداخل بين وصفة قديمة وجديدة أثناء تحويل المريض من دواء إلى آخر.',
+    source: 'غير مراجَع — لا يوجد استطباب للجمع بين VKA وDOAC',
+  },
+  {
+    a: { kind: 'drug', generic: 'clopidogrel' },
+    b: { kind: 'class', classCode: 'PPI', except: ['pantoprazole', 'rabeprazole'] },
+    mechanism: 'الكلوبيدوغريل دواء أوّلي يُفعّل عبر CYP2C19. الأوميبرازول والإيزوميبرازول مثبّطان قويان لهذا الإنزيم، فتقلّ كمية المستقلَب الفعّال ويضعف الأثر المضاد للصفيحات. البانتوبرازول والرابيبرازول أثرهما أقل بكثير.',
+    severity: 'critical',
+    pharmacistText: 'الأوميبرازول والإيزوميبرازول يضعفان مفعول الكلوبيدوغريل. نشرة FDA تنصّ على تجنّب هذا الجمع. البانتوبرازول أو الرابيبرازول بديل مقبول — اقترح ذلك على الطبيب، ولا تُوقف الكلوبيدوغريل.',
+    source: 'غير مراجَع — نشرة FDA لـPlavix (تجنّب الأوميبرازول والإيزوميبرازول)؛ NHS SPS',
+  },
+  {
+    a: { kind: 'class', classCode: 'VKA_ANTICOAGULANT' },
+    b: { kind: 'drug', generic: 'allopurinol' },
+    mechanism: 'الألوبيورينول يثبّط CYP2C9 المسؤول عن استقلاب الشكل الفعّال من الوارفارين، فترتفع مستوياته ويرتفع INR.',
+    severity: 'important',
+    pharmacistText: 'قد يرتفع INR بعد بدء الألوبيورينول أو تغيير جرعته. تأكّد من وجود متابعة INR قريبة، ونبّه المريض إلى علامات النزف.',
+    source: 'غير مراجَع — Queensland Health (Major)؛ Drugs.com professional monograph',
+  },
+  {
+    a: { kind: 'class', classCode: 'VKA_ANTICOAGULANT' },
+    b: { kind: 'class', classCode: 'FIBRATE' },
+    mechanism: 'الفينوفيبرات يزيد أثر الوارفارين المضاد للتخثر ويرفع INR.',
+    severity: 'important',
+    pharmacistText: 'قد يرتفع INR. تأكّد من متابعة قريبة بعد بدء الفينوفيبرات أو تعديل جرعته.',
+    source: 'غير مراجَع — BC Guidelines warfarin interactions؛ نشرة الوارفارين',
+  },
+  {
+    a: { kind: 'class', classCode: 'VKA_ANTICOAGULANT' },
+    b: { kind: 'class', classCode: 'THYROID_HORMONE' },
+    mechanism: 'هرمون الدرق يزيد استقلاب عوامل التخثر المعتمدة على فيتامين ك، فيقوى أثر الوارفارين ويرتفع INR — خصوصاً عند بدء العلاج أو تعديل الجرعة.',
+    severity: 'important',
+    pharmacistText: 'تعديل جرعة الثيروكسين قد يغيّر INR. إن بدأ المريض الثيروكسين حديثاً أو غُيّرت جرعته، تأكّد من متابعة INR.',
+    source: 'غير مراجَع — BC Guidelines (thyroid supplements)؛ نشرة الوارفارين',
+  },
+
+  // ─────────────── الاعتلال العضلي ───────────────
+  {
+    a: { kind: 'class', classCode: 'STATIN' },
+    b: { kind: 'class', classCode: 'FIBRATE' },
+    mechanism: 'أثر عضلي تراكمي. الخطر مع الفينوفيبرات أقل بكثير منه مع الجيمفيبروزيل الذي يعيق اقتران الستاتين بالغلوكورونيد، لكنه قائم — ويزداد مع القصور الكلوي.',
+    severity: 'important',
+    pharmacistText: 'الجمع مبرَّر سريرياً وشائع، ويُفضَّل الفينوفيبرات على غيره من الفيبرات لهذا السبب. نبّه المريض إلى مراجعة الطبيب عند ألم عضلي غير مبرَّر أو ضعف أو بول داكن.',
+    source: 'غير مراجَع — AHA statement on statin DDIs (يفضّل الفينوفيبرات)',
+  },
+  {
+    a: { kind: 'drug', generic: 'simvastatin' },
+    b: { kind: 'drug', generic: 'amlodipine' },
+    mechanism: 'الأملوديبين مثبّط ضعيف إلى متوسط لـCYP3A4، والسيمفاستاتين شديد الحساسية له، فيرتفع تعرّض الجسم للستاتين ويزداد خطر الاعتلال العضلي بشكل معتمد على الجرعة.',
+    severity: 'important',
+    pharmacistText: 'سقف السيمفاستاتين 20 مغ يومياً مع الأملوديبين حسب FDA. إن كانت الجرعة أعلى، راجع الطبيب. لا ينطبق هذا على روسوفاستاتين ولا برافاستاتين ولا أتورفاستاتين.',
+    source: 'غير مراجَع — نشرة FDA للسيمفاستاتين (2011)؛ AHA statement',
+  },
+
+  // ─────────────── الشوارد ───────────────
+  {
+    a: { kind: 'class', classCode: 'THIAZIDE_DIURETIC' },
+    b: { kind: 'class', classCode: 'LOOP_DIURETIC' },
+    mechanism: 'حصار متتابع لموضعين مختلفين في النفرون. الأثر على البوتاسيوم والصوديوم تراكمي وقد يكون شديداً.',
+    severity: 'important',
+    pharmacistText: 'الجمع يُستعمل عمداً في الوذمة المقاومة لكنه يستدعي مراقبة شوارد قريبة. تأكّد من وجود متابعة، ونبّه إلى أعراض نقص البوتاسيوم.',
+    source: 'غير مراجَع — نشرة الإندابامايد (زيادة الخطر مع المدرّات العروية)',
+  },
+  {
+    a: { kind: 'class', classCode: 'CORTICOSTEROID' },
+    b: { kind: 'class', classCode: 'THIAZIDE_DIURETIC' },
+    mechanism: 'الكورتيكوستيرويد يزيد طرح البوتاسيوم، والمدر الثيازيدي كذلك، فيتراكم الأثر.',
+    severity: 'important',
+    pharmacistText: 'خطر نقص بوتاسيوم متزايد، خصوصاً مع العلاج الطويل بالكورتيزون. تأكّد من متابعة الشوارد.',
+    source: 'غير مراجَع — نشرة الإندابامايد (زيادة الخطر مع الكورتيكوستيرويدات)',
+  },
+  {
+    a: { kind: 'class', classCode: 'CORTICOSTEROID' },
+    b: { kind: 'class', classCode: 'LOOP_DIURETIC' },
+    mechanism: 'أثر تراكمي على طرح البوتاسيوم.',
+    severity: 'important',
+    pharmacistText: 'خطر نقص بوتاسيوم متزايد. تأكّد من متابعة الشوارد مع العلاج الممتد.',
+    source: 'غير مراجَع — مبدأ تراكم فقد البوتاسيوم',
+  },
+
+  // ─────────────── الامتصاص والتوقيت ───────────────
+  {
+    a: { kind: 'class', classCode: 'THYROID_HORMONE' },
+    b: { kind: 'class', classCode: 'PPI' },
+    mechanism: 'امتصاص الليفوثيروكسين يعتمد على حموضة المعدة، ومثبطات المضخة ترفع الأس الهيدروجيني فيقلّ الامتصاص وقد يحتاج المريض جرعة أعلى.',
+    severity: 'important',
+    pharmacistText: 'قد يقلّ امتصاص الثيروكسين. إن بدأ المريض مثبط مضخة حديثاً، نبّه إلى ضرورة متابعة TSH بعد فترة.',
+    source: 'غير مراجَع — نشرة الليفوثيروكسين (تأثير حموضة المعدة على الامتصاص)',
+  },
+  {
+    a: { kind: 'class', classCode: 'THYROID_HORMONE' },
+    b: { kind: 'class', classCode: 'BISPHOSPHONATE' },
+    mechanism: 'كلاهما يُؤخذ على معدة فارغة صباحاً مع ماء وحده، فيتنافسان على النافذة نفسها ويقلّ امتصاص أحدهما أو كليهما.',
+    severity: 'important',
+    pharmacistText: 'تعارض توقيت لا تفاعل كيميائي. اشرح للمريض ترتيباً واضحاً: البيسفوسفونات صباحاً على معدة فارغة، والثيروكسين في وقت آخر بفاصل كافٍ.',
+    source: 'غير مراجَع — نشرتا الأليندرونات والليفوثيروكسين (شروط التناول)',
+  },
+
+  // ─────────────── السكري ───────────────
+  {
+    a: { kind: 'class', classCode: 'SULFONYLUREA' },
+    b: { kind: 'class', classCode: 'BETA_BLOCKER' },
+    mechanism: 'حاصرات بيتا تحجب الأعراض الأدرينالية لنقص السكر (خفقان، رجفة، تعرّق) فيفقد المريض إنذاره المبكر، خصوصاً مع السلفونيل يوريا التي تسبّب نقص سكر حقيقياً.',
+    severity: 'important',
+    pharmacistText: 'قد لا يشعر المريض بأعراض نقص السكر المعتادة. نبّهه إلى الاعتماد على القياس لا على الإحساس، وإلى أن التعرّق قد يبقى العرض الوحيد.',
+    source: 'غير مراجَع — مبدأ حجب الأعراض الأدرينالية',
+  },
 ];

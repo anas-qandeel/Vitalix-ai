@@ -343,7 +343,23 @@ export async function PATCH(req: Request) {
       .neq('id', plan_id)
       .order('created_at', { ascending: true });
 
+    // كائن مستقل تُحفظ فيه نفس أرقام "تقدّم المريض" جاهزة للواجهة — بدل أن
+    // تُعيد الواجهة استنتاجها من النص أو تعيد حسابها بنفسها لاحقاً
+    type ProgressData = {
+      baselineWeight:    number;
+      baselineDate:      string; // ISO — التنسيق مسؤولية الواجهة
+      previousWeight:    number;
+      previousDate:      string; // ISO
+      currentWeight:     number;
+      diffFromPrevious:  number;
+      daysSincePrevious: number;
+      diffFromBaseline:  number;
+      daysSinceBaseline: number;
+      rateWarning:       boolean;
+    };
+
     let progressText: string | null = null;
+    let progressData: ProgressData | null = null;
 
     if (priorPlans && priorPlans.length > 0) {
       const currentDate = new Date(plan.created_at);
@@ -372,10 +388,12 @@ export async function PATCH(req: Request) {
 
         // معدل النزول الشهري كنسبة من وزن الجسم — يُحسب بالكود لا يُترك للنموذج.
         // حراسة القسمة على صفر: عدد أيام أو وزن سابق صفر يمنعان الحساب
+        let rateWarning = false;
         let rateWarningLine = 'معدل النزول ضمن المعتاد.';
         if (daysSincePrevious > 0 && previous.weight_kg > 0) {
           const monthlyRatePercent = (diffFromPrevious / previous.weight_kg) * (30 / daysSincePrevious) * 100;
           if (diffFromPrevious < 0 && Math.abs(monthlyRatePercent) > 5) {
+            rateWarning = true;
             const pct = Math.round(Math.abs(monthlyRatePercent) * 10) / 10;
             rateWarningLine = `تنبيه: معدل النزول سريع (${pct}% شهرياً) — نبّه المريض بلطف أن هذا يستحق فحصاً طبياً.`;
           }
@@ -388,6 +406,19 @@ export async function PATCH(req: Request) {
 الفرق عن آخر زيارة: ${fmtDiff(diffFromPrevious)} خلال ${daysSincePrevious} يوماً
 الفرق عن البداية: ${fmtDiff(diffFromBaseline)} خلال ${daysSinceBaseline} يوماً
 ${rateWarningLine}`;
+
+        progressData = {
+          baselineWeight:    baseline.weight_kg,
+          baselineDate:      baselineDate.toISOString(),
+          previousWeight:    previous.weight_kg,
+          previousDate:      previousDate.toISOString(),
+          currentWeight:     plan.weight_kg,
+          diffFromPrevious,
+          daysSincePrevious,
+          diffFromBaseline,
+          daysSinceBaseline,
+          rateWarning,
+        };
       }
     }
 
@@ -461,6 +492,7 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
       medications_alert:  string;        // تحذير غذائي دوائي
       lab_alerts:         string[];      // فحوصات مطلوبة
       clinical_reasoning: string;        // تحليل داخلي — لا يُعرض للمريض
+      progress?:          ProgressData | null; // يحفظه الخادم فقط — النموذج لا يُنتجه
     };
 
     // شرط قبول رد النموذج: يفحص البنية (أنواع الحقول) لا مجرد الوجود
@@ -656,6 +688,7 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
         ...p,
         product: recommendationsByCategory.get(p.category_code) || null,
       })),
+      progress: progressData,
     };
 
     // ── حفظ JSON في DB ────────────────────────────────────────────────

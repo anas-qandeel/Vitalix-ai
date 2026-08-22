@@ -17,6 +17,18 @@ interface PharmacyProduct {
   instruction:   string;
   product: { product_name: string; price: number; image_url: string | null } | null;
 }
+interface ProgressData {
+  baselineWeight:    number;
+  baselineDate:      string; // ISO
+  previousWeight:    number;
+  previousDate:      string; // ISO
+  currentWeight:     number;
+  diffFromPrevious:  number;
+  daysSincePrevious: number;
+  diffFromBaseline:  number;
+  daysSinceBaseline: number;
+  rateWarning:       boolean;
+}
 interface NutritionData {
   personal_message:   string;
   smart_habits:       string[];
@@ -27,6 +39,7 @@ interface NutritionData {
   pharmacy_products:  PharmacyProduct[];
   medications_alert:  string;
   lab_alerts:         string[];
+  progress?:          ProgressData | null;
 }
 interface WeightPlan {
   id: string; weight_kg: number; height_cm: number; bmi: number; bmi_category: string;
@@ -115,6 +128,24 @@ function MealSection({ icon, title, color, items }: { icon: string; title: strin
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+// اللون بالاتجاه المطلوب لهذا المريض لا بإشارة الرقم دائماً: مريض النحافة
+// هدفه الزيادة فزيادته إنجاز، وغيره هدفه النقصان — الصفر محايد في الحالتين.
+// لا rose/red — الاتجاه غير المرغوب ليس فشلاً ولا يستحق لوناً تحذيرياً
+function ProgressStat({ label, diff, days, goalDirection }: { label: string; diff: number; days: number; goalDirection: 'gain' | 'loss' }) {
+  const isOnTrack = diff === 0 ? false : goalDirection === 'gain' ? diff > 0 : diff < 0;
+  const color = isOnTrack
+    ? { bg: 'bg-teal-50', border: 'border-teal-200', text: 'text-teal-700' }
+    : { bg: 'bg-slate-50', border: 'border-slate-200', text: 'text-slate-700' };
+  const valueText = diff === 0 ? 'ثبات' : `${diff > 0 ? '+' : ''}${diff} كغ`;
+  return (
+    <div className={`rounded-xl px-3 py-2.5 text-center border ${color.border} ${color.bg}`}>
+      <p className="text-[9px] font-bold text-slate-400 mb-1">{label}</p>
+      <p className={`text-lg font-black ${color.text}`}>{valueText}</p>
+      <p className="text-[9px] text-slate-400 mt-0.5">خلال {days} يوماً</p>
     </div>
   );
 }
@@ -333,6 +364,15 @@ export default function WeightPlanPage({ params }: PageProps) {
               </div>
             )}
           </div>
+          {/* بطاقة تقدّم المريض — تظهر فقط عند وجود خطة سابقة مؤهّلة للمقارنة */}
+          {nutrition?.progress && (
+            <div className="px-5 pt-4">
+              <div className="grid grid-cols-2 gap-3">
+                <ProgressStat label="منذ البداية"   diff={nutrition.progress.diffFromBaseline} days={nutrition.progress.daysSinceBaseline} goalDirection={plan.bmi_category === 'underweight' ? 'gain' : 'loss'} />
+                <ProgressStat label="منذ آخر زيارة" diff={nutrition.progress.diffFromPrevious} days={nutrition.progress.daysSincePrevious} goalDirection={plan.bmi_category === 'underweight' ? 'gain' : 'loss'} />
+              </div>
+            </div>
+          )}
           {/* الرسالة الشخصية */}
           {nutrition?.personal_message && (
             <div className="px-5 pb-4 pt-3">

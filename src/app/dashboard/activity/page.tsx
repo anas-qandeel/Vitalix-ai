@@ -34,6 +34,30 @@ const ACTION_LABELS: Record<string, string> = {
   recommendation_deleted: 'حذف مكمّلاً',
 };
 
+type PeriodKey = '7d' | '30d' | '3m' | 'all';
+
+const PERIOD_OPTIONS: { key: PeriodKey; label: string; days: number | null }[] = [
+  { key: '7d', label: 'آخر ٧ أيام', days: 7 },
+  { key: '30d', label: 'آخر ٣٠ يوماً', days: 30 },
+  { key: '3m', label: 'آخر ٣ أشهر', days: 90 },
+  { key: 'all', label: 'الكل', days: null },
+];
+
+const PERIOD_SUMMARY_LABELS: Record<PeriodKey, string> = {
+  '7d': 'آخر ١٠٠ حركة خلال ٧ أيام',
+  '30d': 'آخر ١٠٠ حركة خلال ٣٠ يوماً',
+  '3m': 'آخر ١٠٠ حركة خلال ٣ أشهر',
+  all: 'آخر ١٠٠ حركة',
+};
+
+const ENTITY_TYPE_OPTIONS: { key: string; label: string }[] = [
+  { key: 'all', label: 'كل الحركات' },
+  { key: 'medication', label: 'الأدوية' },
+  { key: 'patient', label: 'المرضى' },
+  { key: 'catalog', label: 'الكتالوج' },
+  { key: 'recommendation', label: 'المكملات' },
+];
+
 function formatEntryTime(iso: string): string {
   return new Date(iso).toLocaleString('ar-EG', {
     year: 'numeric',
@@ -77,40 +101,78 @@ export default function ActivityLogPage() {
   const [entries, setEntries] = useState<ActivityEntry[]>([]);
   const [errorMsg, setErrorMsg] = useState('');
 
+  const [period, setPeriod] = useState<PeriodKey>('30d');
+  const [entityType, setEntityType] = useState('all');
+  const [staffFilter, setStaffFilter] = useState('all');
+
   useEffect(() => {
-    fetchActivity();
+    checkAuth();
   }, []);
 
-  const fetchActivity = async () => {
+  useEffect(() => {
+    if (!authorized) return;
+    fetchActivity();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authorized, period, entityType]);
+
+  const checkAuth = async () => {
     try {
-      setLoading(true);
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { router.push('/'); return; }
 
       const role = await getUserRole();
       // حارس الدور هنا مجرد إخفاء بصري — الحماية الفعلية على مستوى RLS في قاعدة البيانات
       if (role !== 'owner') { setAuthorized(false); return; }
-      setAuthorized(true);
 
       const pid = await getPharmacyId();
       if (!pid) return;
 
-      // لا تمرير pharmacy_id في where — RLS تتكفّل بعزل بيانات كل صيدلية
-      const { data, error } = await supabase
-        .from('activity_log')
-        .select('id, created_at, staff_name, action, entity_type, entity_label, details')
-        .order('created_at', { ascending: false })
-        .limit(100);
-
-      if (error) throw new Error('تعذر تحميل سجل النشاط');
-
-      setEntries((data as ActivityEntry[]) || []);
+      setAuthorized(true);
     } catch (err: any) {
       setErrorMsg(err.message || 'خطأ في التحميل');
     } finally {
       setLoading(false);
     }
   };
+
+  const fetchActivity = async () => {
+    try {
+      setErrorMsg('');
+
+      const periodOption = PERIOD_OPTIONS.find(p => p.key === period) || PERIOD_OPTIONS[1];
+
+      // الفترة ونوع الحركة يُرشَّحان في الاستعلام — الفهرس (pharmacy_id, created_at desc) مبني لهذا
+      // لا تمرير pharmacy_id في where — RLS تتكفّل بعزل بيانات كل صيدلية
+      let query = supabase
+        .from('activity_log')
+        .select('id, created_at, staff_name, action, entity_type, entity_label, details')
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+      if (periodOption.days !== null) {
+        query = query.gte('created_at', new Date(Date.now() - periodOption.days * 86400000).toISOString());
+      }
+      if (entityType !== 'all') {
+        query = query.eq('entity_type', entityType);
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw new Error('تعذر تحميل سجل النشاط');
+
+      setEntries((data as ActivityEntry[]) || []);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'خطأ في التحميل');
+    }
+  };
+
+  // قائمة الموظفين للترشيح تُبنى من النتائج نفسها لا باستعلام منفصل
+  const staffOptions = Array.from(new Set(entries.map(e => e.staff_name).filter(Boolean)));
+
+  // ترشيح الموظف يقع في المتصفح فقط — القائمة والنتائج من نفس الاستعلام
+  const filteredEntries = staffFilter === 'all' ? entries : entries.filter(e => e.staff_name === staffFilter);
+
+  const isDefaultFilters = period === '30d' && entityType === 'all' && staffFilter === 'all';
 
   if (loading) {
     return (
@@ -145,7 +207,48 @@ export default function ActivityLogPage() {
         <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm overflow-hidden">
           <div className="px-5 py-3.5 border-b border-slate-100">
             <h2 className="text-sm font-black text-[#0F172A]">سجل نشاط الصيدلية</h2>
-            <p className="text-[10px] text-slate-400 mt-0.5">آخر ١٠٠ حركة</p>
+            <p className="text-[10px] text-slate-400 mt-0.5">{PERIOD_SUMMARY_LABELS[period]}</p>
+          </div>
+
+          <div className="px-5 py-3.5 border-b border-slate-100 space-y-3">
+            <div className="flex flex-wrap gap-2">
+              {PERIOD_OPTIONS.map(opt => (
+                <button
+                  key={opt.key}
+                  onClick={() => setPeriod(opt.key)}
+                  className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-colors cursor-pointer ${
+                    period === opt.key
+                      ? 'bg-slate-900 border-slate-900 text-white'
+                      : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <select
+                value={staffFilter}
+                onChange={(e) => setStaffFilter(e.target.value)}
+                className="px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:border-slate-900 focus:ring-1 focus:ring-slate-900 focus:outline-none transition text-slate-700 font-semibold"
+              >
+                <option value="all">كل الموظفين</option>
+                {staffOptions.map(name => (
+                  <option key={name} value={name}>{name}</option>
+                ))}
+              </select>
+
+              <select
+                value={entityType}
+                onChange={(e) => setEntityType(e.target.value)}
+                className="px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:border-slate-900 focus:ring-1 focus:ring-slate-900 focus:outline-none transition text-slate-700 font-semibold"
+              >
+                {ENTITY_TYPE_OPTIONS.map(opt => (
+                  <option key={opt.key} value={opt.key}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div className="p-5 space-y-3">
@@ -153,11 +256,13 @@ export default function ActivityLogPage() {
               <p className="text-[11px] font-bold text-rose-600 bg-rose-50 border border-rose-100 px-3 py-2 rounded-xl">{errorMsg}</p>
             )}
 
-            {!errorMsg && entries.length === 0 && (
-              <p className="text-xs font-bold text-slate-400 text-center py-6">لا توجد حركات مسجّلة بعد</p>
+            {!errorMsg && filteredEntries.length === 0 && (
+              <p className="text-xs font-bold text-slate-400 text-center py-6">
+                {isDefaultFilters ? 'لا توجد حركات مسجّلة بعد' : 'لا توجد حركات في هذه الفترة'}
+              </p>
             )}
 
-            {entries.map(entry => (
+            {filteredEntries.map(entry => (
               <ActivityRow key={entry.id} entry={entry} />
             ))}
           </div>

@@ -24,9 +24,6 @@ export function validatePin(pin: string, phone?: string | null): string | null {
   if (BANNED_PINS.has(pin))       return "هذا الرمز شائع جداً، اختر غيره";
   if (/^(\d)\1{5}$/.test(pin))    return "لا تكرّر الرقم نفسه";
   if (isSequential(pin))          return "لا تستخدم أرقاماً متتالية";
-  if (/^(19|20)\d{4}$/.test(pin)) return "لا تستخدم سنة ميلاد";
-  if (phone && phone.replace(/\D/g, "").includes(pin))
-    return "لا تستخدم جزءاً من رقم هاتفك";
   return null;
 }
 

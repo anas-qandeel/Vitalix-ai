@@ -18,6 +18,7 @@
  */
 
 import type { SupplementCategory } from './supplement-categories';
+import type { DrugClass } from './drug-classes';
 
 // ═══════════════════════════════════════════════════════════════
 // الأنواع
@@ -48,6 +49,8 @@ export interface DrugEntry {
   brands: string[];
   /** الصنف الدوائي */
   drugClass: string;
+  /** رمز الصنف — مفتاح المطابقة للقواعد الصنفية. drugClass أعلاه للعرض فقط */
+  classCode: DrugClass;
   /** ملاحظة استقلابية تفسّر التفاعلات — تمنع التعميم الخاطئ على الصنف */
   metabolismNote?: string;
   /** توقيت التناول إن كان مهماً */
@@ -72,6 +75,7 @@ export const DRUG_FOOD_INTERACTIONS: DrugEntry[] = [
     genericAr: 'ميتفورمين',
     brands: ['Glucophage', 'غلوكوفاج', 'Cidophage', 'Galvus Met', 'غالفوس ميت', 'Janumet', 'جانوميت', 'Xigduo'],
     drugClass: 'بيغوانيد — خافض سكر',
+    classCode: 'BIGUANIDE',
     timing: 'مع الطعام أو بعده مباشرة لتقليل الاضطراب الهضمي',
     foods: [
       {
@@ -94,6 +98,7 @@ export const DRUG_FOOD_INTERACTIONS: DrugEntry[] = [
     genericAr: 'غليكلازيد',
     brands: ['Diamicron', 'دياميكرون'],
     drugClass: 'سلفونيل يوريا — خافض سكر',
+    classCode: 'SULFONYLUREA',
     timing: 'مع وجبة الإفطار',
     foods: [
       {
@@ -115,6 +120,7 @@ export const DRUG_FOOD_INTERACTIONS: DrugEntry[] = [
     genericAr: 'غليميبيريد',
     brands: ['Amaryl', 'أماريل'],
     drugClass: 'سلفونيل يوريا — خافض سكر',
+    classCode: 'SULFONYLUREA',
     timing: 'مع أول وجبة رئيسية في اليوم',
     foods: [
       {
@@ -130,6 +136,7 @@ export const DRUG_FOOD_INTERACTIONS: DrugEntry[] = [
     genericAr: 'فيلداغليبتين',
     brands: ['Galvus', 'غالفوس', 'Galvus Met', 'غالفوس ميت'],
     drugClass: 'مثبط DPP-4 — خافض سكر',
+    classCode: 'DPP4_INHIBITOR',
     timing: 'مع الطعام أو بدونه؛ في التركيبة مع ميتفورمين يُفضّل مع الطعام',
     foods: [],
   },
@@ -138,6 +145,7 @@ export const DRUG_FOOD_INTERACTIONS: DrugEntry[] = [
     genericAr: 'سيتاغليبتين',
     brands: ['Januvia', 'جانوفيا', 'Janumet', 'جانوميت'],
     drugClass: 'مثبط DPP-4 — خافض سكر',
+    classCode: 'DPP4_INHIBITOR',
     foods: [],
   },
   {
@@ -145,6 +153,7 @@ export const DRUG_FOOD_INTERACTIONS: DrugEntry[] = [
     genericAr: 'إمباغليفلوزين',
     brands: ['Jardiance', 'جارديانس', 'Synjardy'],
     drugClass: 'مثبط SGLT2 — خافض سكر',
+    classCode: 'SGLT2_INHIBITOR',
     foods: [
       {
         item: 'قلّة شرب الماء',
@@ -159,6 +168,7 @@ export const DRUG_FOOD_INTERACTIONS: DrugEntry[] = [
     genericAr: 'داباغليفلوزين',
     brands: ['Forxiga', 'فورشيغا', 'Xigduo'],
     drugClass: 'مثبط SGLT2 — خافض سكر',
+    classCode: 'SGLT2_INHIBITOR',
     foods: [
       {
         item: 'قلّة شرب الماء',
@@ -175,6 +185,7 @@ export const DRUG_FOOD_INTERACTIONS: DrugEntry[] = [
     genericAr: 'ليزينوبريل',
     brands: ['Zestril', 'زيستريل', 'Lisinopril'],
     drugClass: 'مثبط الإنزيم المحوّل للأنجيوتنسين (ACE)',
+    classCode: 'ACE_INHIBITOR',
     metabolismNote: 'يقلّل طرح البوتاسيوم عبر الكلى',
     foods: [
       {
@@ -197,6 +208,7 @@ export const DRUG_FOOD_INTERACTIONS: DrugEntry[] = [
     genericAr: 'إنالابريل',
     brands: ['Angiotec', 'أنجيوتيك', 'Renitec', 'Enalapril'],
     drugClass: 'مثبط ACE',
+    classCode: 'ACE_INHIBITOR',
     metabolismNote: 'يقلّل طرح البوتاسيوم عبر الكلى',
     foods: [
       {
@@ -213,6 +225,7 @@ export const DRUG_FOOD_INTERACTIONS: DrugEntry[] = [
     genericAr: 'لوسارتان',
     brands: ['Cozaar', 'كوزار', 'Losartan'],
     drugClass: 'حاصر مستقبلات الأنجيوتنسين (ARB)',
+    classCode: 'ARB',
     metabolismNote: 'يقلّل طرح البوتاسيوم — نفس تحذير مثبطات ACE',
     foods: [
       {
@@ -229,6 +242,7 @@ export const DRUG_FOOD_INTERACTIONS: DrugEntry[] = [
     genericAr: 'فالسارتان',
     brands: ['Diovan', 'ديوفان', 'Exforge'],
     drugClass: 'حاصر مستقبلات الأنجيوتنسين (ARB)',
+    classCode: 'ARB',
     foods: [
       {
         item: 'بدائل الملح المحتوية على البوتاسيوم',
@@ -244,6 +258,7 @@ export const DRUG_FOOD_INTERACTIONS: DrugEntry[] = [
     genericAr: 'أولميسارتان',
     brands: ['Olmetec', 'أولميتك', 'Olmetran', 'Benicar'],
     drugClass: 'حاصر مستقبلات الأنجيوتنسين (ARB)',
+    classCode: 'ARB',
     foods: [
       {
         item: 'بدائل الملح المحتوية على البوتاسيوم',
@@ -259,6 +274,7 @@ export const DRUG_FOOD_INTERACTIONS: DrugEntry[] = [
     genericAr: 'أملوديبين',
     brands: ['Norvasc', 'نورفاسك', 'Amlor', 'Exforge'],
     drugClass: 'حاصر قنوات الكالسيوم',
+    classCode: 'CCB',
     metabolismNote: 'يُستقلَب عبر CYP3A4 — تأثير الجريب فروت عليه موجود لكنه أقل وضوحاً من أدوية أخرى بنفس المسار',
     foods: [
       {
@@ -274,6 +290,7 @@ export const DRUG_FOOD_INTERACTIONS: DrugEntry[] = [
     genericAr: 'بيسوبرولول',
     brands: ['Concor', 'كونكور', 'Bisoprolol'],
     drugClass: 'حاصر بيتا',
+    classCode: 'BETA_BLOCKER',
     foods: [
       {
         item: 'تخطّي الوجبات لدى مرضى السكري',
@@ -288,6 +305,7 @@ export const DRUG_FOOD_INTERACTIONS: DrugEntry[] = [
     genericAr: 'أتينولول',
     brands: ['Tenormin', 'تينورمين', 'Atenolol'],
     drugClass: 'حاصر بيتا',
+    classCode: 'BETA_BLOCKER',
     timing: 'يُفضّل ثبات العلاقة بالطعام — الطعام يقلّل امتصاصه قليلاً',
     foods: [
       {
@@ -303,6 +321,7 @@ export const DRUG_FOOD_INTERACTIONS: DrugEntry[] = [
     genericAr: 'هيدروكلوروثيازيد',
     brands: ['Hydrochlorothiazide', 'Co-Diovan', 'Co-Approvel', 'Exforge HCT'],
     drugClass: 'مدر بول ثيازيدي',
+    classCode: 'THIAZIDE_DIURETIC',
     metabolismNote: 'يزيد طرح البوتاسيوم والماغنيسيوم، ويقلّل طرح الكالسيوم وحمض اليوريك',
     foods: [
       {
@@ -319,6 +338,7 @@ export const DRUG_FOOD_INTERACTIONS: DrugEntry[] = [
     genericAr: 'إنداباميد',
     brands: ['Natrilix', 'ناتريليكس', 'Indapamide'],
     drugClass: 'مدر بول شبيه بالثيازيد',
+    classCode: 'THIAZIDE_DIURETIC',
     foods: [],
     depletes: ['magnesium_potassium'],
   },
@@ -327,6 +347,7 @@ export const DRUG_FOOD_INTERACTIONS: DrugEntry[] = [
     genericAr: 'فوروسيميد',
     brands: ['Lasix', 'لازكس', 'Furosemide'],
     drugClass: 'مدر بول عروي',
+    classCode: 'LOOP_DIURETIC',
     metabolismNote: 'يزيد طرح البوتاسيوم والماغنيسيوم والكالسيوم',
     foods: [
       {
@@ -343,6 +364,7 @@ export const DRUG_FOOD_INTERACTIONS: DrugEntry[] = [
     genericAr: 'سبيرونولاكتون',
     brands: ['Aldactone', 'ألداكتون', 'Spironolactone'],
     drugClass: 'مدر بول حافظ للبوتاسيوم',
+    classCode: 'MRA',
     metabolismNote: 'عكس المدرّات الأخرى — يحبس البوتاسيوم ولا يطرحه. لا يُعامَل معاملة الثيازيدات',
     foods: [
       {
@@ -361,6 +383,7 @@ export const DRUG_FOOD_INTERACTIONS: DrugEntry[] = [
     genericAr: 'سيمفاستاتين',
     brands: ['Zocor', 'زوكور', 'Simvastatin'],
     drugClass: 'ستاتين — خافض كوليسترول',
+    classCode: 'STATIN',
     metabolismNote: 'يُستقلَب عبر CYP3A4 — الأكثر تأثراً بالجريب فروت بين الستاتينات',
     timing: 'مساءً',
     foods: [
@@ -377,6 +400,7 @@ export const DRUG_FOOD_INTERACTIONS: DrugEntry[] = [
     genericAr: 'أتورفاستاتين',
     brands: ['Lipitor', 'ليبيتور', 'Atorva', 'Atorvastatin'],
     drugClass: 'ستاتين — خافض كوليسترول',
+    classCode: 'STATIN',
     metabolismNote: 'يُستقلَب عبر CYP3A4 — يتأثر بالجريب فروت لكن بدرجة أقل من سيمفاستاتين',
     foods: [
       {
@@ -392,6 +416,7 @@ export const DRUG_FOOD_INTERACTIONS: DrugEntry[] = [
     genericAr: 'روسوفاستاتين',
     brands: ['Crestor', 'كريستور', 'Rosuvastatin', 'Rosutec'],
     drugClass: 'ستاتين — خافض كوليسترول',
+    classCode: 'STATIN',
     metabolismNote: '⚠️ لا يُستقلَب عبر CYP3A4 — لا يتفاعل مع الجريب فروت. لا تعمّم عليه قاعدة الستاتينات.',
     foods: [],
   },
@@ -400,6 +425,7 @@ export const DRUG_FOOD_INTERACTIONS: DrugEntry[] = [
     genericAr: 'برافاستاتين',
     brands: ['Pravachol', 'Pravastatin'],
     drugClass: 'ستاتين — خافض كوليسترول',
+    classCode: 'STATIN',
     metabolismNote: '⚠️ لا يُستقلَب عبر CYP3A4 — لا يتفاعل مع الجريب فروت.',
     foods: [],
   },
@@ -408,6 +434,7 @@ export const DRUG_FOOD_INTERACTIONS: DrugEntry[] = [
     genericAr: 'فينوفيبرات',
     brands: ['Lipanthyl', 'ليبانثيل', 'Fenofibrate'],
     drugClass: 'فيبرات — خافض دهون ثلاثية',
+    classCode: 'FIBRATE',
     timing: 'مع الطعام — الامتصاص يتحسّن كثيراً مع وجبة',
     foods: [
       {
@@ -425,6 +452,7 @@ export const DRUG_FOOD_INTERACTIONS: DrugEntry[] = [
     genericAr: 'وارفارين',
     brands: ['Coumadin', 'كومادين', 'Marevan', 'Warfarin'],
     drugClass: 'مضاد تخثر — مضاد لفيتامين ك',
+    classCode: 'VKA_ANTICOAGULANT',
     metabolismNote: 'يعمل بمعاكسة فيتامين ك؛ المطلوب ثبات المدخول لا منعه',
     foods: [
       {
@@ -453,6 +481,7 @@ export const DRUG_FOOD_INTERACTIONS: DrugEntry[] = [
     genericAr: 'ريفاروكسابان',
     brands: ['Xarelto', 'زاريلتو'],
     drugClass: 'مضاد تخثر فموي مباشر',
+    classCode: 'DOAC',
     timing: 'جرعات 15 و20 ملغ تُؤخذ مع الطعام إلزامياً',
     foods: [
       {
@@ -468,6 +497,7 @@ export const DRUG_FOOD_INTERACTIONS: DrugEntry[] = [
     genericAr: 'كلوبيدوغريل',
     brands: ['Plavix', 'بلافكس', 'Clopidogrel'],
     drugClass: 'مضاد صفيحات',
+    classCode: 'ANTIPLATELET',
     metabolismNote: 'يحتاج تفعيلاً عبر CYP2C19؛ بعض مثبطات مضخة البروتون تعيق هذا التفعيل',
     foods: [
       {
@@ -485,6 +515,7 @@ export const DRUG_FOOD_INTERACTIONS: DrugEntry[] = [
     genericAr: 'ليفوثيروكسين',
     brands: ['Eltroxin', 'إلتروكسين', 'Euthyrox', 'يوثيروكس', 'Levothyrox'],
     drugClass: 'هرمون درقي بديل',
+    classCode: 'THYROID_HORMONE',
     metabolismNote: 'امتصاصه حساس جداً للطعام وللمعادن الثنائية التكافؤ',
     timing: 'على معدة فارغة صباحاً، قبل الإفطار بـ30 إلى 60 دقيقة',
     foods: [
@@ -522,6 +553,7 @@ export const DRUG_FOOD_INTERACTIONS: DrugEntry[] = [
     genericAr: 'أوميبرازول',
     brands: ['Losec', 'لوزيك', 'Omeprazole', 'Risek'],
     drugClass: 'مثبط مضخة البروتون',
+    classCode: 'PPI',
     metabolismNote: 'تقليل حموضة المعدة يعيق امتصاص عناصر تحتاج وسطاً حمضياً',
     timing: 'قبل الوجبة بـ30 إلى 60 دقيقة',
     foods: [
@@ -539,6 +571,7 @@ export const DRUG_FOOD_INTERACTIONS: DrugEntry[] = [
     genericAr: 'رابيبرازول',
     brands: ['Pariet', 'باريت', 'Rabeprazole'],
     drugClass: 'مثبط مضخة البروتون',
+    classCode: 'PPI',
     metabolismNote: 'نفس آلية الصنف — تقليل الحموضة يعيق امتصاص B12 والماغنيسيوم والحديد على المدى الطويل',
     timing: 'قبل الوجبة بـ30 دقيقة',
     foods: [
@@ -556,6 +589,7 @@ export const DRUG_FOOD_INTERACTIONS: DrugEntry[] = [
     genericAr: 'إيزوميبرازول',
     brands: ['Nexium', 'نيكسيوم', 'Esomeprazole'],
     drugClass: 'مثبط مضخة البروتون',
+    classCode: 'PPI',
     timing: 'قبل الوجبة بساعة',
     foods: [],
     depletes: ['b12', 'magnesium_potassium', 'calcium', 'iron'],
@@ -565,6 +599,7 @@ export const DRUG_FOOD_INTERACTIONS: DrugEntry[] = [
     genericAr: 'بانتوبرازول',
     brands: ['Controloc', 'كونترولوك', 'Pantoprazole'],
     drugClass: 'مثبط مضخة البروتون',
+    classCode: 'PPI',
     timing: 'قبل الوجبة',
     foods: [],
     depletes: ['b12', 'magnesium_potassium', 'calcium', 'iron'],
@@ -576,6 +611,7 @@ export const DRUG_FOOD_INTERACTIONS: DrugEntry[] = [
     genericAr: 'ألوبيورينول',
     brands: ['Zyloric', 'زيلوريك', 'Allopurinol'],
     drugClass: 'خافض حمض اليوريك',
+    classCode: 'XANTHINE_OXIDASE_INHIBITOR',
     timing: 'بعد الطعام',
     foods: [
       {
@@ -603,6 +639,7 @@ export const DRUG_FOOD_INTERACTIONS: DrugEntry[] = [
     genericAr: 'كولشيسين',
     brands: ['Colchicine', 'كولشيسين', 'Colchimax'],
     drugClass: 'مضاد التهاب النقرس',
+    classCode: 'COLCHICINE',
     metabolismNote: 'يُستقلَب عبر CYP3A4 وناقل P-gp',
     foods: [
       {
@@ -618,6 +655,7 @@ export const DRUG_FOOD_INTERACTIONS: DrugEntry[] = [
     genericAr: 'أليندرونات',
     brands: ['Fosamax', 'فوساماكس', 'Alendronate'],
     drugClass: 'بيسفوسفونات — علاج هشاشة العظام',
+    classCode: 'BISPHOSPHONATE',
     metabolismNote: 'امتصاصه ضعيف جداً ويُلغى تقريباً بأي طعام أو شراب غير الماء',
     timing: 'صباحاً على معدة فارغة، مع ماء عادي فقط، والبقاء منتصباً 30 دقيقة',
     foods: [
@@ -642,6 +680,7 @@ export const DRUG_FOOD_INTERACTIONS: DrugEntry[] = [
     genericAr: 'بريدنيزولون',
     brands: ['Prednisolone', 'بريدنيزولون', 'Solupred', 'Hostacortin'],
     drugClass: 'كورتيكوستيرويد',
+    classCode: 'CORTICOSTEROID',
     metabolismNote: 'يرفع سكر الدم، يحبس الصوديوم، ويزيد فقد الكالسيوم من العظام',
     timing: 'صباحاً مع الطعام',
     foods: [
@@ -667,6 +706,7 @@ export const DRUG_FOOD_INTERACTIONS: DrugEntry[] = [
     genericAr: 'تامسولوسين',
     brands: ['Omnic', 'أومنيك', 'Flomax', 'Tamsulosin'],
     drugClass: 'حاصر ألفا — تضخم البروستاتا',
+    classCode: 'ALPHA_BLOCKER',
     timing: 'بعد نفس الوجبة يومياً (عادة الإفطار) للحفاظ على ثبات الامتصاص',
     foods: [
       {

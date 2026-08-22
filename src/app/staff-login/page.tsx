@@ -41,7 +41,14 @@ export default function StaffLoginPage() {
       const res = await fetch(`/api/staff/roster?code=${encodeURIComponent(code)}`);
       const json = await res.json().catch(() => null);
       if (!res.ok) {
-        setCodeError(json?.error || 'حدث خطأ، حاول مجدداً');
+        if (res.status === 404) {
+          // كود مرفوض — قد يكون الكود المحفوظ محلياً صار قديماً بعد تبديله من الصيدلية
+          localStorage.removeItem(STORAGE_KEY);
+          setPharmacyCode('');
+          setCodeError('كود الصيدلية غير صحيح — إن بدّلته صيدليتك مؤخراً، اطلب الكود الجديد منها');
+        } else {
+          setCodeError(json?.error || 'حدث خطأ، حاول مجدداً');
+        }
         return false;
       }
       setPharmacyName(json?.pharmacy?.name || '');

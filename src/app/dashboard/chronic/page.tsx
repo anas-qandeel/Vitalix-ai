@@ -867,6 +867,35 @@ function MedModal({ patientId, pharmacyId, existingMeds, patientName, onClose, o
           </div>
         )}
 
+        {interactions.length > 0 && (
+          <div className="mx-6 mt-4 space-y-2 shrink-0">
+            {interactions.map((f, i) => (
+              <div key={i}
+                className={`rounded-xl border p-3 ${
+                  f.interaction.severity === 'critical'
+                    ? 'bg-orange-50 border-orange-200'
+                    : 'bg-slate-50 border-slate-200'
+                }`}>
+                <div className="flex items-start gap-2">
+                  <span className="text-orange-600 shrink-0 mt-0.5">⚠</span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-slate-900">
+                      <span>{f.drugA.genericAr}</span>
+                      <span className="text-slate-500 font-normal"> ({f.drugA.inputText})</span>
+                      <span> + </span>
+                      <span>{f.drugB.genericAr}</span>
+                      <span className="text-slate-500 font-normal"> ({f.drugB.inputText})</span>
+                    </p>
+                    <p className="text-sm text-slate-700 mt-1 leading-relaxed">
+                      {f.interaction.pharmacistText}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
         {isRenewal && (
           <div className="mx-6 mt-4 flex items-start gap-2.5 bg-blue-50 border border-blue-200 rounded-lg px-3.5 py-3 shrink-0">
             <span className="text-sm shrink-0">ℹ️</span>
@@ -878,30 +907,6 @@ function MedModal({ patientId, pharmacyId, existingMeds, patientName, onClose, o
         )}
 
         <div className="overflow-y-auto flex-1 p-6 space-y-4 bg-slate-50/50">
-          {interactions.length > 0 && (
-            <div className="mb-4 space-y-2">
-              {interactions.map((f, i) => (
-                <div key={i}
-                  className={`rounded-xl border p-3 ${
-                    f.interaction.severity === 'critical'
-                      ? 'bg-orange-50 border-orange-200'
-                      : 'bg-slate-50 border-slate-200'
-                  }`}>
-                  <div className="flex items-start gap-2">
-                    <span className="text-orange-600 shrink-0 mt-0.5">⚠</span>
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-slate-900">
-                        {f.drugA.genericAr} + {f.drugB.genericAr}
-                      </p>
-                      <p className="text-sm text-slate-700 mt-1 leading-relaxed">
-                        {f.interaction.pharmacistText}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
           {meds.map((m, idx) => {
             const daysRemaining = m.original_next_refill ? calcDaysLeft(m.original_next_refill) : null;
             const isSelected = m.selected;

@@ -657,6 +657,12 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
 
     // ── فحص إضافي بالكود بعد رد النموذج (أو القالب الاحتياطي) — لا اعتماد على
     // البرومبت وحده لمنع فئة ممنوعة طبياً على هذا المريض بسبب دواء يتناوله ──
+    // قرار الأسبقية عند التعارض: إن استنزف دواء عنصراً (depletes) بينما يمنع
+    // آخر تعويضه (avoidSupplements) — كمريض على هيدروكلوروثيازيد (يستنزف
+    // البوتاسيوم) مع فالسارتان (يحبسه) — يغلب المنع دائماً على الاستنزاف.
+    // خطر فرط البوتاسيوم أشدّ سريرياً من نقصه المحتمل. قرار مقصود، لا أثر
+    // جانبي لترتيب الكود.
+    const suggestedCountBeforeFilter = nutritionData.pharmacy_products.length;
     nutritionData.pharmacy_products = nutritionData.pharmacy_products.filter(p => {
       if (avoidCategoriesForPatient.has(p.category_code)) {
         console.warn(`[weight-plan PATCH] فئة محظورة على هذا المريض حُذفت: ${p.category_code}`);
@@ -664,6 +670,14 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
       }
       return true;
     });
+
+    if (nutritionData.pharmacy_products.length === 0) {
+      console.warn(
+        suggestedCountBeforeFilter > 0
+          ? '[weight-plan PATCH] كل الفئات المقترحة محظورة على هذا المريض — لن تُعرض مقترحات'
+          : '[weight-plan PATCH] النموذج لم يقترح أي فئة مكمّلات'
+      );
+    }
 
     // ── استعلام حتمي: مطابقة الفئات المقترحة بمنتج فعلي في كتالوج الصيدلية ──
     // القرار المعماري الموثّق في docs/schema.sql: المطابقة عبر استعلام قاعدة

@@ -777,6 +777,17 @@ export async function GET(req: Request) {
 
     const patient = plan.patient as any;
 
+    // نحذف clinical_reasoning (تحليل داخلي للمراجعة الصيدلانية) و drug_matching
+    // (تفاصيل مطابقة الأدوية) من الاستجابة العامة فقط — الصفحة بلا مصادقة،
+    // فأي حقل هنا يصل مباشرة لمتصفح المريض ضمن استجابة الشبكة. يبقيان في القاعدة.
+    const rawNutritionPlan = plan.nutrition_plan as any;
+    const nutritionPlanForPatient = rawNutritionPlan
+      ? (() => {
+          const { clinical_reasoning, drug_matching, ...safeNutritionPlan } = rawNutritionPlan;
+          return safeNutritionPlan;
+        })()
+      : rawNutritionPlan;
+
     return NextResponse.json({
       plan: {
         id:               plan.id,
@@ -788,7 +799,7 @@ export async function GET(req: Request) {
         ideal_weight_max: plan.ideal_weight_max,
         target_loss_kg:   plan.target_loss_kg,
         first_goal_kg:    plan.first_goal_kg,
-        nutrition_plan:   plan.nutrition_plan,
+        nutrition_plan:   nutritionPlanForPatient,
         plan_generated_at: plan.plan_generated_at,
         created_at:       plan.created_at,
       },

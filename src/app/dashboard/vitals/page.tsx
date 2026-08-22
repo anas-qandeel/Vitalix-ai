@@ -321,12 +321,7 @@ function HeightEditor({
     const h = Number(value);
     if (!h || h < 100 || h > 250) return;
     setSaving(true);
-    const { createClient } = await import('@supabase/supabase-js');
-    const sb = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
-    const { error } = await sb.from('patients').update({ height: h }).eq('id', patient.id);
+    const { error } = await supabase.from('patients').update({ height: h }).eq('id', patient.id);
     setSaving(false);
     if (!error) {
       onUpdate(h);

@@ -70,3 +70,119 @@ using (
   pharmacy_id = public.current_pharmacy_id()
   and public.current_role_name() = 'owner'
 );
+
+-- ═══════════════════════════════════════════════════════════════
+-- ٤) تريغر الأدوية
+-- ═══════════════════════════════════════════════════════════════
+
+create or replace function public.log_medication_activity()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_staff_id   uuid;
+  v_staff_name text;
+  v_pharmacy   uuid;
+  v_patient    text;
+  v_action     text;
+  v_med        text;
+  v_entity     uuid;
+begin
+  v_staff_id := public.current_staff_id();
+
+  select ps.name, ps.pharmacy_id into v_staff_name, v_pharmacy
+  from public.pharmacy_staff ps where ps.id = v_staff_id;
+
+  -- بلا هوية موظف لا نسجّل: الكتابة أتت من supabaseAdmin أو من مسار خادم،
+  -- وسجل يقول «مجهول» يعطي ثقة كاذبة
+  if v_staff_id is null then
+    return coalesce(new, old);
+  end if;
+
+  if TG_OP = 'INSERT' then
+    v_action := 'medication_added';
+    v_med    := new.medication_name;
+    v_entity := new.id;
+  elsif TG_OP = 'UPDATE' then
+    -- الحذف عندك تعطيل لا محو: status ينتقل إلى deleted
+    if old.status is distinct from new.status and new.status = 'deleted' then
+      v_action := 'medication_deleted';
+    else
+      v_action := 'medication_updated';
+    end if;
+    v_med    := new.medication_name;
+    v_entity := new.id;
+  else
+    v_action := 'medication_deleted';
+    v_med    := old.medication_name;
+    v_entity := old.id;
+  end if;
+
+  select p.name into v_patient
+  from public.patients p
+  where p.id = coalesce(new.patient_id, old.patient_id);
+
+  insert into public.activity_log
+    (pharmacy_id, staff_id, staff_name, action, entity_type, entity_id, entity_label, details)
+  values
+    (coalesce(v_pharmacy, coalesce(new.pharmacy_id, old.pharmacy_id)),
+     v_staff_id, v_staff_name, v_action, 'medication', v_entity, v_med,
+     jsonb_build_object('patient_name', v_patient,
+                        'patient_id', coalesce(new.patient_id, old.patient_id)));
+
+  return coalesce(new, old);
+end;
+$$;
+
+create trigger trg_log_medication_activity
+after insert or update or delete on public.chronic_medications
+for each row execute function public.log_medication_activity();
+
+-- ═══════════════════════════════════════════════════════════════
+-- ٥) تريغر المرضى
+-- ═══════════════════════════════════════════════════════════════
+
+create or replace function public.log_patient_activity()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_staff_id   uuid;
+  v_staff_name text;
+  v_pharmacy   uuid;
+  v_action     text;
+begin
+  v_staff_id := public.current_staff_id();
+  if v_staff_id is null then
+    return coalesce(new, old);
+  end if;
+
+  select ps.name, ps.pharmacy_id into v_staff_name, v_pharmacy
+  from public.pharmacy_staff ps where ps.id = v_staff_id;
+
+  if TG_OP = 'INSERT' then
+    v_action := 'patient_added';
+  elsif TG_OP = 'UPDATE' then
+    v_action := 'patient_updated';
+  else
+    v_action := 'patient_deleted';
+  end if;
+
+  insert into public.activity_log
+    (pharmacy_id, staff_id, staff_name, action, entity_type, entity_id, entity_label)
+  values
+    (coalesce(v_pharmacy, coalesce(new.pharmacy_id, old.pharmacy_id)),
+     v_staff_id, v_staff_name, v_action, 'patient',
+     coalesce(new.id, old.id), coalesce(new.name, old.name));
+
+  return coalesce(new, old);
+end;
+$$;
+
+create trigger trg_log_patient_activity
+after insert or update or delete on public.patients
+for each row execute function public.log_patient_activity();

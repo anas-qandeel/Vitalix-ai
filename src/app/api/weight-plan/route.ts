@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { GoogleGenAI, Type } from '@google/genai';
-import { calcWeightGoals, getBMICategory } from '@/app/api/generate-weight-report/route';
+import { calcWeightGoals, getBMICategory } from '@/lib/weight-math';
 import { SUPPLEMENT_CATEGORIES, isValidCategory } from '@/lib/supplement-categories';
 import { matchPatientDrugs, type DrugEntry } from '@/lib/drug-food-interactions';
 

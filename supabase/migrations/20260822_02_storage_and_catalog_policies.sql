@@ -5,11 +5,20 @@
 -- فأي مستخدم مسجَّل — من أي صيدلية — يحذف صور كل الصيدليات.
 -- الآن الرفع والحذف مشروطان بتطابق المجلد الأول في مسار الملف
 -- مع current_pharmacy_id().
--- ملاحظة: سياسة القراءة العامة (SELECT) مقصودة — روابط الصور
--- تُعرض في صفحة المريض بلا مصادقة.
+-- لا سياسة SELECT على هذا الـbucket عمداً: الـbucket عام
+-- (public = true) فالقراءة عبر الرابط المباشر لا تمرّ بـRLS
+-- أصلاً. سياسة SELECT واسعة كانت موجودة وحُذفت — كانت تتيح
+-- للعميل سرد كل ملفات الـbucket فيكشف بنية المجلدات ومعرّفات
+-- الصيدليات، بلا أن تضيف شيئاً لعرض الصور.
+-- مُختبَر: رابط صورة مباشر يعمل بلا هذه السياسة.
+
+-- ملاحظة: الـbucket نفسه (catalog-images, public) أُنشئ يدوياً
+-- من لوحة Supabase ولا ينشئه هذا الترحيل. بيئة جديدة تحتاج
+-- إنشاءه قبل تطبيق هذا الملف.
 
 drop policy if exists "Allow users to delete their own catalog images" on storage.objects;
 drop policy if exists "Allow authenticated uploads to catalog-images" on storage.objects;
+drop policy if exists "Allow public read access to catalog-images" on storage.objects;
 
 create policy "catalog_images_insert_own_pharmacy"
 on storage.objects for insert to authenticated

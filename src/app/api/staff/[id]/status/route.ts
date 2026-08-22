@@ -10,6 +10,7 @@ async function verifyOwner(req: NextRequest) {
   const token = authHeader.replace('Bearer ', '');
   const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
   if (error || !user) {
+    console.error('[verifyOwner] token rejected:', error?.message, '| user:', user?.id);
     return { ok: false as const, error: 'رمز التوثيق غير صالح', status: 401 };
   }
   const meta = (user.app_metadata || {}) as Record<string, unknown>;
@@ -17,9 +18,11 @@ async function verifyOwner(req: NextRequest) {
   const role = meta.role as string | undefined;
 
   if (!pharmacyId) {
+    console.error('[verifyOwner] meta:', JSON.stringify(meta));
     return { ok: false as const, error: 'الحساب غير مرتبط بصيدلية', status: 403 };
   }
   if (role !== 'owner') {
+    console.error('[verifyOwner] meta:', JSON.stringify(meta));
     return { ok: false as const, error: 'هذه العملية للمالك فقط', status: 403 };
   }
   return { ok: true as const, userId: user.id, pharmacyId };

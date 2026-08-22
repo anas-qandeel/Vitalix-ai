@@ -46,7 +46,7 @@ function IconWhatsapp({ className = 'w-3.5 h-3.5' }: { className?: string }) {
   );
 }
 
-/** يبني رابط تعليمات الدخول عبر واتساب — لا يحوي الرمز إطلاقاً، الرمز يُنسخ من المودال ويُرسل منفصلاً */
+/** يبني رابط تعليمات الدخول عبر واتساب — لا يحوي رمز PIN إطلاقاً، رمز PIN يُنسخ من المودال ويُرسل منفصلاً. يحمل كود الصيدلية عمداً فهو ثابت لا سرّي */
 function buildStaffLoginWaLink(phone: string, shortCode: string): string {
   const instructions = `للدخول إلى Vitalix:
 1) افتح vitalix-ai.com
@@ -194,6 +194,31 @@ function StaffRow({
   );
 }
 
+function RotateCodeConfirmModal({ rotating, onConfirm, onCancel }: { rotating: boolean; onConfirm: () => void; onCancel: () => void }) {
+  return (
+    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[9999] flex items-end sm:items-center justify-center sm:p-4" onClick={onCancel}>
+      <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-sm shadow-2xl border border-slate-200" onClick={e => e.stopPropagation()}>
+        <div className="px-6 py-5 border-b border-slate-100">
+          <h3 className="text-base font-semibold text-slate-900">تبديل كود الصيدلية</h3>
+        </div>
+        <div className="px-6 py-5 space-y-4">
+          <p className="text-sm font-semibold text-slate-700 leading-relaxed">سيتغيّر كود صيدليتك، ولن يستطيع موظفوك الدخول بالكود القديم. ستحتاج إرسال الكود الجديد لكل موظف. هذا الإجراء لا يمكن التراجع عنه.</p>
+          <div className="flex gap-2">
+            <button onClick={onCancel}
+              className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer">
+              إلغاء
+            </button>
+            <button onClick={onConfirm} disabled={rotating}
+              className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition cursor-pointer">
+              {rotating ? 'جاري التبديل...' : 'تبديل الكود'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function DeleteStaffModal({ name, deleting, onConfirm, onCancel }: { name: string; deleting: boolean; onConfirm: () => void; onCancel: () => void }) {
   return (
     <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[9999] flex items-end sm:items-center justify-center sm:p-4" onClick={onCancel}>
@@ -244,6 +269,8 @@ export default function ProfilePage() {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [pinModal, setPinModal] = useState<{ name: string; pin: string; pharmacyCode: string; loginSlug: string } | null>(null);
   const [codeCopied, setCodeCopied] = useState(false);
+  const [showRotateConfirm, setShowRotateConfirm] = useState(false);
+  const [rotating, setRotating] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteBlockedMsg, setDeleteBlockedMsg] = useState('');
@@ -462,6 +489,31 @@ export default function ProfilePage() {
     }
   };
 
+  const handleRotateCode = async () => {
+    setRotating(true);
+    setSuccessMsg('');
+    setErrorMsg('');
+    try {
+      const token = await getAuthToken();
+      if (!token) throw new Error('انتهت الجلسة');
+      const res = await fetch('/api/pharmacy/rotate-code', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'تعذّر تبديل الكود');
+
+      setProfile((prev) => prev ? { ...prev, short_code: json.short_code } : prev);
+      setSuccessMsg(`✅ تم تبديل الكود إلى ${json.short_code} — أرسل التعليمات الجديدة لموظفيك`);
+      setTimeout(() => setSuccessMsg(''), 5000);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'حدث خطأ أثناء تبديل الكود');
+    } finally {
+      setShowRotateConfirm(false);
+      setRotating(false);
+    }
+  };
+
   const handleResetPassword = async () => {
     try {
       setPwLoading(true);
@@ -619,6 +671,12 @@ export default function ProfilePage() {
                       >
                         {codeCopied ? '✓' : 'نسخ'}
                       </button>
+                      <button
+                        onClick={() => setShowRotateConfirm(true)}
+                        className="text-[10px] font-black text-slate-600 hover:text-slate-700 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md transition cursor-pointer"
+                      >
+                        تبديل
+                      </button>
                     </div>
                     <span className="text-[10px] text-slate-400">يحتاجه موظفوك عند تسجيل الدخول</span>
                   </div>
@@ -660,13 +718,16 @@ export default function ProfilePage() {
                     placeholder="عمان — شارع ..."
                   />
                 </div>
-                {/* رسالة الخطأ */}
-                {errorMsg && (
-                  <p className="text-[11px] font-bold text-rose-600 bg-rose-50 border border-rose-100 px-3 py-2 rounded-xl">{errorMsg}</p>
-                )}
               </div>
             )}
           </div>
+
+          {/* رسالة الخطأ — تظهر بغضّ النظر عن وضع التعديل، تشمل أخطاء تبديل الكود */}
+          {errorMsg && (
+            <div className="mx-5 mb-4 text-[11px] font-bold text-rose-600 bg-rose-50 border border-rose-100 px-3 py-2 rounded-xl">
+              {errorMsg}
+            </div>
+          )}
 
           {/* رسالة النجاح */}
           {successMsg && (
@@ -840,6 +901,10 @@ export default function ProfilePage() {
 
       {deleteTarget && (
         <DeleteStaffModal name={deleteTarget.name} deleting={deleting} onConfirm={handleDeleteStaff} onCancel={() => setDeleteTarget(null)} />
+      )}
+
+      {showRotateConfirm && (
+        <RotateCodeConfirmModal rotating={rotating} onConfirm={handleRotateCode} onCancel={() => setShowRotateConfirm(false)} />
       )}
 
       <AppFooter className="max-w-2xl mx-auto px-4 py-8 border-t border-slate-200/60 mt-2" />

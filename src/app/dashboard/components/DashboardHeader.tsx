@@ -315,6 +315,12 @@ export default function DashboardHeader({ breadcrumb, onBack }: DashboardHeaderP
                         <span className="text-base shrink-0">👤</span><span>الملف الشخصي</span>
                       </button>
                     )}
+                    {userRole === 'owner' && (
+                      <button className="w-full flex items-center gap-3 px-3 py-2 text-xs font-medium text-slate-600 rounded-lg hover:bg-slate-50 hover:text-slate-900 transition-colors mt-0.5"
+                        onClick={() => { setDropdownOpen(false); router.push('/dashboard/activity'); }}>
+                        <span className="text-base shrink-0">📋</span><span>سجل النشاط</span>
+                      </button>
+                    )}
                     <button className="w-full flex items-center gap-3 px-3 py-2 text-xs font-medium text-slate-600 rounded-lg hover:bg-slate-50 hover:text-slate-900 transition-colors mt-0.5"
                       onClick={() => { setDropdownOpen(false); router.push('/dashboard/pharmacy-catalog-manager'); }}>
                       <span className="text-base shrink-0">📦</span><span>الكتالوج والمنتجات</span>

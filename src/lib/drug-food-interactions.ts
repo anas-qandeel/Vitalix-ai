@@ -705,6 +705,37 @@ export function matchDrug(input: string): DrugEntry | null {
   return null;
 }
 
+/**
+ * يطابق نص دواء أدخله الصيدلاني مع كل المدخلات المطابِقة في الجدول — لا أول
+ * مدخلة فقط. ضروري للأدوية المركّبة (مثل Galvus Met أو Co-Diovan) التي تحمل
+ * أكثر من مادة فعّالة، فيُفقد نصف التفاعلات السريرية لو توقفنا عند أول تطابق.
+ * نفس منطق matchDrug (تطابق تام أولاً، ثم جزئي) مع تجميع النتائج بلا تكرار.
+ */
+export function matchDrugAll(input: string): DrugEntry[] {
+  const q = input.trim().toLowerCase();
+  if (!q) return [];
+
+  const results: DrugEntry[] = [];
+  const seen = new Set<string>();
+
+  for (const entry of DRUG_FOOD_INTERACTIONS) {
+    if (seen.has(entry.generic)) continue;
+    if (entry.generic.toLowerCase() === q || entry.genericAr === input.trim() || entry.brands.some(b => b.toLowerCase() === q)) {
+      results.push(entry);
+      seen.add(entry.generic);
+    }
+  }
+  // مطابقة جزئية: اسم تجاري داخل نص مثل "Pariet 20mg Tablet"
+  for (const entry of DRUG_FOOD_INTERACTIONS) {
+    if (seen.has(entry.generic)) continue;
+    if (q.includes(entry.generic.toLowerCase()) || entry.brands.some(b => b.length > 3 && q.includes(b.toLowerCase()))) {
+      results.push(entry);
+      seen.add(entry.generic);
+    }
+  }
+  return results;
+}
+
 /** يطابق قائمة أدوية المريض ويفصل المعروف عن غير المعروف */
 export function matchPatientDrugs(drugs: string[]): {
   matched: DrugEntry[];
@@ -715,9 +746,11 @@ export function matchPatientDrugs(drugs: string[]): {
   const seen = new Set<string>();
 
   for (const d of drugs) {
-    const entry = matchDrug(d);
-    if (entry) {
-      if (!seen.has(entry.generic)) { seen.add(entry.generic); matched.push(entry); }
+    const entries = matchDrugAll(d);
+    if (entries.length > 0) {
+      for (const entry of entries) {
+        if (!seen.has(entry.generic)) { seen.add(entry.generic); matched.push(entry); }
+      }
     } else {
       unknown.push(d);
     }

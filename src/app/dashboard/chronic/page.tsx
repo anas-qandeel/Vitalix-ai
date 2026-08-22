@@ -9,6 +9,7 @@ import { CareStage, PipelineRecord, upsertPipeline } from '@/lib/pipeline';
 import { Patient, ChronicMed, calcDaysLeft } from '@/lib/chronic';
 import WaMsgModal from '@/components/WaMsgModal';
 import { getPharmacyId } from '@/lib/tenant';
+import { checkInteractions } from '@/lib/interaction-check';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -810,6 +811,12 @@ function MedModal({ patientId, pharmacyId, existingMeds, patientName, onClose, o
 
   const selectedCount = meds.filter(m => m.selected).length;
 
+  // فحص تفاعلات دواء-دواء — على القائمة كاملة لا المحدَّد فقط:
+  // الدواء غير المجدَّد اليوم ما زال عند المريض، فالتعارض قائم
+  const interactions = checkInteractions(
+    meds.map(m => m.medication_name).filter(Boolean)
+  );
+
   return (
     <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center sm:p-4 transition-all" onClick={onClose}>
       <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-xl max-h-[92vh] overflow-hidden shadow-2xl border border-slate-200 flex flex-col saas-slide-up" onClick={e => e.stopPropagation()}>
@@ -871,6 +878,30 @@ function MedModal({ patientId, pharmacyId, existingMeds, patientName, onClose, o
         )}
 
         <div className="overflow-y-auto flex-1 p-6 space-y-4 bg-slate-50/50">
+          {interactions.length > 0 && (
+            <div className="mb-4 space-y-2">
+              {interactions.map((f, i) => (
+                <div key={i}
+                  className={`rounded-xl border p-3 ${
+                    f.interaction.severity === 'critical'
+                      ? 'bg-orange-50 border-orange-200'
+                      : 'bg-slate-50 border-slate-200'
+                  }`}>
+                  <div className="flex items-start gap-2">
+                    <span className="text-orange-600 shrink-0 mt-0.5">⚠</span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-slate-900">
+                        {f.drugA.genericAr} + {f.drugB.genericAr}
+                      </p>
+                      <p className="text-sm text-slate-700 mt-1 leading-relaxed">
+                        {f.interaction.pharmacistText}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
           {meds.map((m, idx) => {
             const daysRemaining = m.original_next_refill ? calcDaysLeft(m.original_next_refill) : null;
             const isSelected = m.selected;

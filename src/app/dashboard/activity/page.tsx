@@ -24,6 +24,14 @@ const ACTION_LABELS: Record<string, string> = {
   patient_added: 'أضاف مريضاً',
   patient_updated: 'عدّل بيانات مريض',
   patient_deleted: 'حذف مريضاً',
+  catalog_added: 'أضاف جهازاً',
+  catalog_updated: 'عدّل جهازاً',
+  catalog_deactivated: 'أخفى جهازاً',
+  catalog_deleted: 'حذف جهازاً',
+  recommendation_added: 'أضاف مكمّلاً',
+  recommendation_updated: 'عدّل مكمّلاً',
+  recommendation_deactivated: 'أخفى مكمّلاً',
+  recommendation_deleted: 'حذف مكمّلاً',
 };
 
 function formatEntryTime(iso: string): string {

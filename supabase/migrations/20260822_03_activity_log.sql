@@ -186,3 +186,74 @@ $$;
 create trigger trg_log_patient_activity
 after insert or update or delete on public.patients
 for each row execute function public.log_patient_activity();
+
+-- ═══════════════════════════════════════════════════════════════
+-- ٦) تريغر الكتالوج والمكملات — جدولان بدالة واحدة
+-- ═══════════════════════════════════════════════════════════════
+
+create or replace function public.log_catalog_activity()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_staff_id   uuid;
+  v_staff_name text;
+  v_pharmacy   uuid;
+  v_action     text;
+  v_label      text;
+  v_kind       text;
+  v_category   text;
+begin
+  v_staff_id := public.current_staff_id();
+  if v_staff_id is null then
+    return coalesce(new, old);
+  end if;
+
+  select ps.name, ps.pharmacy_id into v_staff_name, v_pharmacy
+  from public.pharmacy_staff ps where ps.id = v_staff_id;
+
+  -- الجدولان متوازيان ويختلفان في اسم عمود الصنف فقط
+  if TG_TABLE_NAME = 'pharmacy_catalog' then
+    v_kind  := 'catalog';
+    v_label := coalesce(new.brand_name, old.brand_name);
+  else
+    v_kind  := 'recommendation';
+    v_label := coalesce(new.product_name, old.product_name);
+  end if;
+
+  v_category := coalesce(new.category, old.category);
+
+  if TG_OP = 'INSERT' then
+    v_action := v_kind || '_added';
+  elsif TG_OP = 'UPDATE' then
+    -- الإخفاء عبر is_active يُسجَّل حذفاً لا تعديلاً
+    if old.is_active is distinct from new.is_active and new.is_active = false then
+      v_action := v_kind || '_deactivated';
+    else
+      v_action := v_kind || '_updated';
+    end if;
+  else
+    v_action := v_kind || '_deleted';
+  end if;
+
+  insert into public.activity_log
+    (pharmacy_id, staff_id, staff_name, action, entity_type, entity_id, entity_label, details)
+  values
+    (coalesce(v_pharmacy, coalesce(new.pharmacy_id, old.pharmacy_id)),
+     v_staff_id, v_staff_name, v_action, v_kind,
+     coalesce(new.id, old.id), v_label,
+     jsonb_build_object('category', v_category));
+
+  return coalesce(new, old);
+end;
+$$;
+
+create trigger trg_log_catalog_activity
+after insert or update or delete on public.pharmacy_catalog
+for each row execute function public.log_catalog_activity();
+
+create trigger trg_log_recommendation_activity
+after insert or update or delete on public.pharmacy_recommendations
+for each row execute function public.log_catalog_activity();

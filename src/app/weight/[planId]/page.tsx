@@ -229,6 +229,7 @@ export default function WeightPlanPage({ params }: PageProps) {
   const bmiStyle  = getBMIStyle(plan.bmi_category);
   const nutrition = parseNutrition(plan.nutrition_plan);
   const hasData   = !!nutrition;
+  const isSetback = !!nutrition?.progress && nutrition.progress.diffFromPrevious > 0;
   const age       = patient.birth_date ? new Date().getFullYear() - new Date(patient.birth_date).getFullYear() : null;
   const waPhone   = pharmacyPhone?.replace(/[^0-9]/g, '').replace(/^0/, '962') || '';
 
@@ -351,12 +352,19 @@ export default function WeightPlanPage({ params }: PageProps) {
               )}
             </div>
             <BMIBar bmi={plan.bmi} />
-            <p className="text-[10px] text-slate-400 text-center mt-2">الوزن المثالي: {plan.ideal_weight_min}–{plan.ideal_weight_max} كغ</p>
+            <p className="text-[10px] text-slate-500 text-center mt-2">الوزن المثالي: {plan.ideal_weight_min}–{plan.ideal_weight_max} كغ</p>
             {plan.target_loss_kg > 0 && (
-              <div className="mt-4 bg-purple-50/60 border border-purple-100 rounded-xl px-4 py-3">
-                <p className="text-xs font-bold text-purple-900 text-center">تحتاج إنقاص {plan.target_loss_kg} كغ للوصول لوزنك المثالي — نبدأ بـ {plan.first_goal_kg} كغ كهدف أول خلال 4–8 أسابيع</p>
-                <p className="text-[10px] text-purple-600 text-center mt-1">هذه النسبة الصغيرة تُحسّن طاقتك وتخفف الضغط على مفاصلك</p>
-              </div>
+              isSetback ? (
+                <div className="mt-4 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
+                  <p className="text-xs font-bold text-slate-700 text-center">نبدأ بـ {plan.first_goal_kg} كغ كهدف أول — والمسافة الكاملة {plan.target_loss_kg} كغ نقطعها خطوة خطوة</p>
+                  <p className="text-[10px] text-slate-400 text-center mt-1">هذه النسبة الصغيرة تُحسّن طاقتك وتخفف الضغط على مفاصلك</p>
+                </div>
+              ) : (
+                <div className="mt-4 bg-purple-50/60 border border-purple-100 rounded-xl px-4 py-3">
+                  <p className="text-xs font-bold text-purple-900 text-center">تحتاج إنقاص {plan.target_loss_kg} كغ للوصول لوزنك المثالي — نبدأ بـ {plan.first_goal_kg} كغ كهدف أول خلال 4–8 أسابيع</p>
+                  <p className="text-[10px] text-purple-600 text-center mt-1">هذه النسبة الصغيرة تُحسّن طاقتك وتخفف الضغط على مفاصلك</p>
+                </div>
+              )
             )}
             {plan.bmi_category === 'underweight' && (
               <div className="mt-4 bg-blue-50/60 border border-blue-100 rounded-xl px-4 py-3">

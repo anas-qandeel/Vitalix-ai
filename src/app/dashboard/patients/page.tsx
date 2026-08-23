@@ -8,6 +8,17 @@ import AppFooter from '../../components/AppFooter';
 import AddPatientForm from '@/components/AddPatientForm';
 import { getPharmacyId, getUserRole } from '@/lib/tenant';
 
+function normalizeAr(s: string): string {
+  return s.trim()
+    .replace(/[أإآٱٲٳٵ]/g, 'ا')
+    .replace(/[ءؤئ]/g, 'ء')
+    .replace(/ة/g, 'ه')
+    .replace(/[ىی]/g, 'ي')
+    .replace(/[\u064B-\u065F\u0670]/g, '')
+    .replace(/[\u0653-\u0655]/g, '')
+    .toLowerCase();
+}
+
 // ═══════════════════════════════════════════════════════
 // TYPES
 // ═══════════════════════════════════════════════════════
@@ -124,9 +135,10 @@ export default function PatientsListPage() {
 
     const digits = searchTerm.replace(/[^0-9]/g, '');
     if (searchTerm) {
+      const normTerm = normalizeAr(searchTerm);
       q = digits
-        ? q.or(`name.ilike.%${searchTerm}%,phone_number.ilike.%${digits}%`)
-        : q.ilike('name', `%${searchTerm}%`);
+        ? q.or(`name_normalized.ilike.%${normTerm}%,phone_number.ilike.%${digits}%`)
+        : q.ilike('name_normalized', `%${normTerm}%`);
     }
 
     const { data } = await q;

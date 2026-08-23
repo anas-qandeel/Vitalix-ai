@@ -1791,7 +1791,7 @@ function PatientCard({ card, pharmacyName, onAction, onNotesUpdate }: {
                 </button>
                 <button onClick={e => { e.stopPropagation(); onAction('close'); }}
                   className="flex-1 h-10 bg-white border border-dashed border-slate-300 text-slate-500 hover:text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors">
-                  نقل إلى الأرشيف
+                  فقدنا تواصله
                 </button>
               </>
             )}
@@ -1957,7 +1957,7 @@ export default function ChronicPage() {
           return next;
         });
       } else if (action === 'close') {
-        const confirmed = window.confirm(`هل أنت متأكد من نقل ${card.patient.name} لقائمة الأرشيف؟`);
+        const confirmed = window.confirm(`هل أنت متأكد من نقل ${card.patient.name} إلى "فقدنا تواصلهم"؟`);
         if (!confirmed) return;
         // طرح أدوية هذا المريض من المخزون المؤكَّد قبل الأرشفة
         card.meds.forEach(med => {
@@ -2363,7 +2363,7 @@ export default function ChronicPage() {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 pb-10 mt-8">
           <button onClick={() => setShowArchived(v => !v)}
             className="w-full h-12 flex items-center justify-center gap-2 border border-dashed border-slate-300 rounded-xl text-sm font-medium text-slate-500 hover:bg-slate-50 transition-colors">
-            الأرشيف ({cards.filter(c => c.stage === ('archived' as DisplayStage)).length})
+            فقدنا تواصلهم ({cards.filter(c => c.stage === ('archived' as DisplayStage)).length})
           </button>
           {showArchived && (
             <div className="mt-4 saas-fade-in space-y-3">

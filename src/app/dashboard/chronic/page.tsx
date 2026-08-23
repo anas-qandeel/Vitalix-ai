@@ -35,6 +35,12 @@ const MSG_EXPIRY_DAYS = Number(
     : 5
 );
 
+const NO_RESPONSE_ARCHIVE_DAYS = Number(
+  typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_NO_RESPONSE_ARCHIVE_DAYS != null
+    ? process.env.NEXT_PUBLIC_NO_RESPONSE_ARCHIVE_DAYS
+    : 30
+);
+
 // ── Toast ──
 interface ToastMsg { id: number; text: string; type: 'success' | 'error' | 'info' }
 let toastId = 0;
@@ -244,14 +250,34 @@ function getSmartTip(card: CareCard): { icon: string; text: string; accent: stri
 
   if (stage === 'no_response' && pipeline?.updated_at) {
     const daysSince = Math.floor((Date.now() - new Date(pipeline.updated_at).getTime()) / 86400000);
-    if (daysSince >= 10) return {
+    if (daysSince >= NO_RESPONSE_ARCHIVE_DAYS) return {
+      icon: '🔇',
+      text: `مضى ${pluralizeDays(daysSince)} بلا استجابة — دورة دواء كاملة. الأرجح أنه يشتري من مكان آخر. انقله إلى "فقدنا تواصلهم" حتى تبقى قائمتك عملية.`,
+      accent: 'slate'
+    };
+    if (daysSince >= 21) return {
+      icon: '⌛',
+      text: `مضى ${pluralizeDays(daysSince)} — إن لم يستجب هذا الأسبوع، الأفضل نقله إلى "فقدنا تواصلهم". القائمة الطويلة تُقرأ أقل.`,
+      accent: 'slate'
+    };
+    if (daysSince >= 14) return {
       icon: '🔕',
-      text: 'أكثر من 10 أيام. حاول مرة أخيرة عبر الاتصال المباشر — إذا لم يرد أغلق الملف.',
+      text: `أسبوعان بلا رد — محاولة أخيرة بالاتصال المباشر. إن لم يرد، سجّل ذلك ولا تكرّر.`,
+      accent: 'slate'
+    };
+    if (daysSince >= 10) return {
+      icon: '📵',
+      text: 'أكثر من 10 أيام — الرسائل لم تنفع. الاتصال المباشر هو الخيار الوحيد المتبقّي.',
       accent: 'slate'
     };
     if (daysSince >= 7) return {
       icon: '📞',
       text: 'أسبوع بدون رد — اتصل به مباشرة. ابدأ بالسلام والسؤال عن صحته، ثم اكتشف بهدوء: هل اشترى من مكان آخر؟ هل تغيّر طبيبه؟ هل واجه مشكلة في الدواء؟ معرفة السبب تساعدك على استعادته.',
+      accent: 'blue'
+    };
+    if (daysSince >= 3) return {
+      icon: '☎️',
+      text: `مضت ${pluralizeDays(daysSince)} منذ نقله — الاتصال الآن أفضل من رسالة أخرى. الرسائل المتكررة تُتجاهل.`,
       accent: 'blue'
     };
     if (loyaltyMonths >= 6) return {

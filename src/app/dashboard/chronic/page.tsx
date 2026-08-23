@@ -10,6 +10,7 @@ import { Patient, ChronicMed, calcDaysLeft } from '@/lib/chronic';
 import WaMsgModal from '@/components/WaMsgModal';
 import { getPharmacyId } from '@/lib/tenant';
 import { checkInteractions } from '@/lib/interaction-check';
+import { logActivity } from '@/lib/activity';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -1905,6 +1906,7 @@ export default function ChronicPage() {
     setWaMsgModal(null);
 
     // استخدم الرسالة كما هي — سواء عدّلها المستخدم أم لا
+    logActivity('reminder_opened', card.patient.id);
     window.open(buildWaLink(card.patient.phone_number, customMsg), '_blank');
 
     // نُظهر تأكيد الإرسال — المريض لا يُنقل حتى يؤكد الصيدلاني
@@ -1915,7 +1917,7 @@ export default function ChronicPage() {
     if (!confirmSent) return;
     const { patientId } = confirmSent;
     setConfirmSent(null);
-    if (!confirmed) { showToast('لم يتم إرسال الرسالة', 'error'); return; }
+    if (!confirmed) { logActivity('reminder_not_sent', patientId); showToast('لم يتم إرسال الرسالة', 'error'); return; }
     showToast('تم إرسال الرسالة ✓');
     const now = new Date().toISOString();
     const updated = await upsertPipeline(pharmacyId, patientId, 'messaged', { reminded_at: now });

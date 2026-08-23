@@ -206,6 +206,7 @@ export default function PharmacistDashboard() {
   const [waMsgModal, setWaMsgModal]   = useState<{ patient: Patient; meds: ChronicMed[] } | null>(null);
   const [birthdayPatients, setBirthdayPatients]   = useState<BirthdayPatient[]>([]);
   const [birthdayModalOpen, setBirthdayModalOpen] = useState(false);
+  const [greetError, setGreetError] = useState<string | null>(null);
   const [staffName, setStaffName] = useState<string | null>(null);
   const [userRole, setUserRole]   = useState('');
   const [greetedToday, setGreetedToday] = useState<Set<string>>(new Set());
@@ -350,18 +351,26 @@ export default function PharmacistDashboard() {
   };
 
   const recordGreeting = async (patientId: string) => {
-    try {
-      const staffId = await getStaffId();
-      if (!staffId || !pharmacyId) return;
-      await supabase.from('birthday_greetings').insert({
-        pharmacy_id: pharmacyId,
-        patient_id: patientId,
-        staff_id: staffId,
-      });
-      setGreetedToday(prev => new Set(prev).add(patientId));
-    } catch {
-      // القيد الفريد قد يرفض تهنئة مكرّرة — لا يعطّل شيئاً
+    const staffId = await getStaffId();
+    if (!staffId || !pharmacyId) {
+      setGreetError('تعذّر تسجيل التهنئة — أعد تحميل الصفحة');
+      setTimeout(() => setGreetError(null), 5000);
+      return;
     }
+    const { error } = await supabase.from('birthday_greetings').insert({
+      pharmacy_id: pharmacyId,
+      patient_id: patientId,
+      staff_id: staffId,
+    });
+    // 23505 = القيد الفريد: المريض مُهنَّأ اليوم سلفاً، وهذه حالة صحيحة لا خطأ
+    if (error && error.code !== '23505') {
+      console.error('birthday_greetings insert failed:', error);
+      setGreetError('لم تُسجَّل التهنئة — حاول مرة أخرى');
+      setTimeout(() => setGreetError(null), 5000);
+      return;
+    }
+    setGreetError(null);
+    setGreetedToday(prev => new Set(prev).add(patientId));
   };
 
   // المُهنَّؤون ينزلون للأسفل — sort مستقرّ يحفظ الترتيب الأصلي داخل كل مجموعة
@@ -589,6 +598,11 @@ export default function PharmacistDashboard() {
                 </button>
               )}
             </div>
+            {greetError && (
+              <div className="mb-4 text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-100 px-4 py-2.5 rounded-lg">
+                {greetError}
+              </div>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {sortedBirthdayPatients.slice(0, 3).map(p => {
                 const age = new Date().getFullYear() - new Date(p.birth_date).getFullYear();

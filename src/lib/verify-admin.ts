@@ -29,6 +29,18 @@ export async function verifyPlatformAdmin(request: Request): Promise<AuthResult>
       };
     }
 
+    // قفل مؤقت حتى إعادة بناء نظام أدوار المشرفين — القائمة من متغيّر بيئة
+    const allowed = (process.env.PLATFORM_ADMIN_EMAILS || '')
+      .split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
+    if (!allowed.includes((user.email || '').toLowerCase())) {
+      console.error('platform admin denied:', user.email);
+      return {
+        authorized: false,
+        user: null,
+        response: NextResponse.json({ error: 'غير مصرّح' }, { status: 403 }),
+      };
+    }
+
     return {
       authorized: true,
       user,

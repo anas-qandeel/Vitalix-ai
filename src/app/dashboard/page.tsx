@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import DashboardHeader, { usePharmacyInfo } from './components/DashboardHeader';
@@ -364,6 +364,14 @@ export default function PharmacistDashboard() {
     }
   };
 
+  // المُهنَّؤون ينزلون للأسفل — sort مستقرّ يحفظ الترتيب الأصلي داخل كل مجموعة
+  const sortedBirthdayPatients = useMemo(
+    () => [...birthdayPatients].sort(
+      (a, b) => Number(greetedToday.has(a.id)) - Number(greetedToday.has(b.id))
+    ),
+    [birthdayPatients, greetedToday]
+  );
+
   const daysLeft       = !pharmacy?.expiry_date ? 0 : Math.max(0, Math.ceil((new Date(pharmacy.expiry_date).getTime() - Date.now()) / 86400000));
   const isExpiringSoon = daysLeft <= 14;
   const displayName    = staffName || pharmacy?.pharmacist_name || 'الصيدلي';
@@ -582,7 +590,7 @@ export default function PharmacistDashboard() {
               )}
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {birthdayPatients.slice(0, 3).map(p => {
+              {sortedBirthdayPatients.slice(0, 3).map(p => {
                 const age = new Date().getFullYear() - new Date(p.birth_date).getFullYear();
                 const msg = `🎉 كل عام وأنتم بخير ${p.name}!\nبمناسبة عيد ميلادك الكريم، يتقدم فريق ${pharmacyName} بأحر التهاني وأطيب الأمنيات بدوام الصحة والعافية. 💐`;
                 return (
@@ -667,7 +675,7 @@ export default function PharmacistDashboard() {
       </main>
 
       {birthdayModalOpen && (
-        <BirthdayModal patients={birthdayPatients} pharmacyName={pharmacyName} onClose={() => setBirthdayModalOpen(false)} greetedToday={greetedToday} onGreet={recordGreeting} />
+        <BirthdayModal patients={sortedBirthdayPatients} pharmacyName={pharmacyName} onClose={() => setBirthdayModalOpen(false)} greetedToday={greetedToday} onGreet={recordGreeting} />
       )}
 
       {waMsgModal && (

@@ -96,6 +96,7 @@ function ActivityRow({ entry }: { entry: ActivityEntry }) {
       : `نقل المريض ${move}`;
   }
   const displayName = entry.details?.actor === 'system' ? 'Vitalix' : entry.staff_name;
+  const showLabel = entry.entity_label && entry.entity_label !== entry.staff_name;
   const patientName = entry.details?.patient_name;
   return (
     <div className="flex items-start gap-3 px-4 py-3 bg-white border border-slate-200 rounded-xl">
@@ -110,7 +111,7 @@ function ActivityRow({ entry }: { entry: ActivityEntry }) {
           </span>
         </div>
         <div className="mt-1 text-xs text-slate-500 font-semibold space-x-1 space-x-reverse">
-          {entry.entity_label && <span>{entry.entity_label}</span>}
+          {showLabel && <span>{entry.entity_label}</span>}
           {patientName && <span className="text-slate-400"> — {patientName}</span>}
         </div>
         <p className="mt-1 text-[10px] text-slate-400 tabular-nums">{formatEntryTime(entry.created_at)}</p>

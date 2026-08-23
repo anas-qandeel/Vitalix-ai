@@ -99,6 +99,18 @@ export async function POST(req: NextRequest) {
     last_attempt: now.toISOString(),
   });
 
+  // تسجيل الدخول في سجل النشاط — لا يُعطّل الدخول إن فشل
+  const { error: logError } = await supabaseAdmin.from('activity_log').insert({
+    pharmacy_id: pharmacy.id,
+    staff_id: staff.id,
+    staff_name: staff.name,
+    action: 'login',
+    entity_type: 'staff',
+    entity_id: staff.id,
+    entity_label: staff.name,
+  });
+  if (logError) console.error('[staff-login] activity log failed:', logError.message);
+
   return NextResponse.json({
     session: signInData.session,
     staff: { id: staff.id, name: staff.name, role: staff.role, must_change_pin: staff.must_change_pin },

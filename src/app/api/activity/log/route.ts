@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 
 // أفعال مسموحة فقط — الموظف لا يرسل نص فعل حراً، بل يختار من هذه القائمة المغلقة
-const ALLOWED_ACTIONS = ['reminder_opened', 'reminder_not_sent'];
+const PATIENT_ACTIONS = ['reminder_opened', 'reminder_not_sent'];
+const ALLOWED_ACTIONS = [...PATIENT_ACTIONS];
 
 export async function POST(request: Request) {
   try {
@@ -41,23 +42,33 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'فعل غير صالح' }, { status: 400 });
     }
 
-    if (!patient_id) {
-      console.warn('activity/log: patient_id مفقود');
-      return NextResponse.json({ error: 'مُعرّف المريض مطلوب' }, { status: 400 });
+    let patient: { id: string; name: string } | null = null;
+
+    if (PATIENT_ACTIONS.includes(action)) {
+      if (!patient_id) {
+        console.warn('activity/log: patient_id مفقود');
+        return NextResponse.json({ error: 'مُعرّف المريض مطلوب' }, { status: 400 });
+      }
+
+      // التحقق أن المريض يخصّ صيدلية هذا الموظف قبل تسجيل أي حركة باسمه
+      const { data: patientData, error: patientError } = await supabaseAdmin
+        .from('patients')
+        .select('id, name')
+        .eq('id', patient_id)
+        .eq('pharmacy_id', staff.pharmacy_id)
+        .maybeSingle();
+
+      if (patientError || !patientData) {
+        console.warn('activity/log: المريض لا يخصّ صيدلية الموظف', patient_id, staff.pharmacy_id);
+        return NextResponse.json({ error: 'غير مصرّح' }, { status: 403 });
+      }
+
+      patient = patientData;
     }
 
-    // التحقق أن المريض يخصّ صيدلية هذا الموظف قبل تسجيل أي حركة باسمه
-    const { data: patient, error: patientError } = await supabaseAdmin
-      .from('patients')
-      .select('id, name')
-      .eq('id', patient_id)
-      .eq('pharmacy_id', staff.pharmacy_id)
-      .maybeSingle();
-
-    if (patientError || !patient) {
-      console.warn('activity/log: المريض لا يخصّ صيدلية الموظف', patient_id, staff.pharmacy_id);
-      return NextResponse.json({ error: 'غير مصرّح' }, { status: 403 });
-    }
+    const entityType = PATIENT_ACTIONS.includes(action) ? 'reminder' : 'staff';
+    const entityId = PATIENT_ACTIONS.includes(action) ? patient_id : staff.id;
+    const entityLabel = PATIENT_ACTIONS.includes(action) ? patient!.name : staff.name;
 
     // كل قيم الهوية من الخادم (staff, pharmacy) — لا شيء منها من جسم الطلب
     const { error: insertError } = await supabaseAdmin.from('activity_log').insert({
@@ -65,9 +76,9 @@ export async function POST(request: Request) {
       staff_id: staff.id,
       staff_name: staff.name,
       action,
-      entity_type: 'reminder',
-      entity_id: patient_id,
-      entity_label: patient.name,
+      entity_type: entityType,
+      entity_id: entityId,
+      entity_label: entityLabel,
     });
 
     if (insertError) {

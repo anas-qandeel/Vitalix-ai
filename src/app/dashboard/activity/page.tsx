@@ -36,6 +36,7 @@ const ACTION_LABELS: Record<string, string> = {
   reminder_opened: 'فتح رسالة تذكير',
   reminder_not_sent: 'أفاد بعدم الإرسال',
   birthday_greeting_sent: 'أرسل تهنئة عيد ميلاد',
+  login: 'سجّل الدخول',
 };
 
 const STAGE_LABELS: Record<string, string> = {
@@ -70,6 +71,7 @@ const ENTITY_TYPE_OPTIONS: { key: string; label: string }[] = [
   { key: 'recommendation', label: 'المكملات' },
   { key: 'reminder', label: 'التذكيرات' },
   { key: 'greeting', label: 'التهاني' },
+  { key: 'staff', label: 'دخول الموظفين' },
 ];
 
 function formatEntryTime(iso: string): string {

@@ -301,9 +301,9 @@ function getSmartTip(card: CareCard): { icon: string; text: string; accent: stri
 function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill }: {
   pharmacyId: string;
   onClose: () => void;
-  onAdded: (p: Patient, note?: string, isExistingPatient?: boolean) => void;
-  onRenew: (p: Patient, meds: ChronicMed[]) => void;
-  prefill?: { patient: Patient; meds: ChronicMed[] } | null; // بيانات المريض عند الرجوع
+  onAdded: (p: Patient, note?: string, isExistingPatient?: boolean, meds?: ChronicMed[], isArchived?: boolean) => void;
+  onRenew: (p: Patient, meds: ChronicMed[], isArchived?: boolean) => void;
+  prefill?: { patient: Patient; meds: ChronicMed[]; isArchived?: boolean } | null; // بيانات المريض عند الرجوع
 }) {
   const [query, setQuery]   = useState(prefill?.patient.phone_number || prefill?.patient.name || '');
   const [name, setName]     = useState(prefill?.patient.name || '');
@@ -316,7 +316,7 @@ function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill }: {
   const [saving, setSaving] = useState(false);
   const [err, setErr]       = useState('');
   const [patientNote, setPatientNote] = useState('');
-  const [foundIsArchived, setFoundIsArchived]   = useState(false);
+  const [foundIsArchived, setFoundIsArchived]   = useState(prefill?.isArchived || false);
   const [foundMeds, setFoundMeds] = useState<ChronicMed[]>(prefill?.meds || []);
   const [allPatients, setAllPatients] = useState<Patient[]>([]); // كاش محلي للمرضى
   const [allMeds, setAllMeds]         = useState<ChronicMed[]>([]); // كاش الأدوية للبحث
@@ -453,7 +453,7 @@ function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill }: {
 
   const next = async () => {
     setErr('');
-    if (found) { onAdded(found, patientNote.trim(), true); return; } // مريض موجود
+    if (found) { onAdded(found, patientNote.trim(), true, foundMeds, foundIsArchived); return; } // مريض موجود
     if (!canRegisterNew) { setErr('ابحث برقم الهاتف لتسجيل مريض جديد'); return; }
     if (!name.trim()) { setErr('يجب إدخال اسم المريض قبل المتابعة'); return; }
     setSaving(true);
@@ -546,17 +546,17 @@ function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill }: {
                 <div className="flex-1 min-w-0">
                   <p className={`text-sm font-semibold truncate ${foundIsArchived ? 'text-amber-900' : 'text-slate-900'}`}>{found.name}</p>
                   <p className="text-[11px] text-slate-400 font-mono mt-0.5">{found.phone_number}</p>
-                  {foundIsArchived
-                    ? <p className="text-xs text-amber-700 mt-0.5">🔄 كان متواجداً من قبل — سيُعاد تفعيل ملفه</p>
-                    : <p className="text-xs text-slate-500 mt-0.5">{foundMeds.length} {foundMeds.length === 1 ? 'دواء مزمن مسجّل' : 'أدوية مزمنة مسجّلة'}</p>
-                  }
+                  {foundIsArchived && (
+                    <p className="text-xs text-amber-700 mt-0.5">🔄 مريض عائد — كنّا قد فقدنا تواصلنا معه. سجّل أدويته الجديدة لإعادة متابعته.</p>
+                  )}
+                  <p className="text-xs text-slate-500 mt-0.5">{foundMeds.length} {foundMeds.length === 1 ? 'دواء مزمن مسجّل' : 'أدوية مزمنة مسجّلة'}</p>
                 </div>
                 <button onClick={() => { setFound(null); setResults([]); setFoundMeds([]); }}
                   className="text-[11px] text-slate-400 hover:text-slate-700 font-medium shrink-0 transition-colors px-2 py-2">
                   تغيير
                 </button>
               </div>
-              {!foundIsArchived && foundMeds.length > 0 && (
+              {foundMeds.length > 0 && (
                 <div className="border-t border-slate-200 divide-y divide-slate-100">
                   {[...foundMeds].sort((a,b) => calcDaysLeft(a.next_refill_date) - calcDaysLeft(b.next_refill_date)).map(m => {
                     const d = calcDaysLeft(m.next_refill_date);
@@ -652,9 +652,9 @@ function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill }: {
               <p className="text-sm text-rose-700 font-medium">{err}</p>
             </div>
           )}
-          {found && !foundIsArchived && foundMeds.length > 0 ? (
+          {found && foundMeds.length > 0 ? (
             <>
-              <button onClick={() => onRenew(found, foundMeds)}
+              <button onClick={() => onRenew(found, foundMeds, foundIsArchived)}
                 className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-sm font-semibold transition-all active:scale-[0.98] shadow-sm flex items-center justify-center gap-2">
                 <span>🔄</span><span>تجديد الأدوية الموجودة</span>
               </button>
@@ -1826,7 +1826,7 @@ export default function ChronicPage() {
   const [addModal, setAddModal] = useState(false);
   const [medModal, setMedModal] = useState<{ patient: Patient; meds: ChronicMed[]; isNewPatient?: boolean } | null>(null);
   const [medModalFromSearch, setMedModalFromSearch] = useState(false); // لتفعيل زر الرجوع
-  const [searchPrefill, setSearchPrefill] = useState<{ patient: Patient; meds: ChronicMed[] } | null>(null); // بيانات المريض للاسترجاع
+  const [searchPrefill, setSearchPrefill] = useState<{ patient: Patient; meds: ChronicMed[]; isArchived?: boolean } | null>(null); // بيانات المريض للاسترجاع
   const [waMsgModal, setWaMsgModal] = useState<{ card: CareCard; msgType: 'msg1' | 'msg2' } | null>(null);
   const [confirmSent, setConfirmSent] = useState<{ patientId: string; patientName: string } | null>(null);
   const { toasts, show: showToast } = useToast();
@@ -2365,6 +2365,9 @@ export default function ChronicPage() {
             className="w-full h-12 flex items-center justify-center gap-2 border border-dashed border-slate-300 rounded-xl text-sm font-medium text-slate-500 hover:bg-slate-50 transition-colors">
             فقدنا تواصلهم ({cards.filter(c => c.stage === ('archived' as DisplayStage)).length})
           </button>
+          <p className="text-xs text-slate-400 text-center mt-2">
+            هؤلاء لم يعودوا ضمن المتابعة. إذا عاد أحدهم للشراء، ابحث عنه من "متابعة مريض" وسجّل أدويته الجديدة — سيعود لقائمة المتابعة تلقائياً.
+          </p>
           {showArchived && (
             <div className="mt-4 saas-fade-in space-y-3">
               {cards.filter(c => c.stage === ('archived' as DisplayStage)).map(card => (
@@ -2373,13 +2376,6 @@ export default function ChronicPage() {
                     <p className="text-sm font-semibold text-slate-900">{card.patient.name}</p>
                     <p className="text-xs text-slate-500 mt-1">{card.patient.phone_number}</p>
                   </div>
-                  <button onClick={async () => {
-                    const updated = await upsertPipeline(pharmacyId, card.patient.id, 'due');
-                    setCards(prev => prev.map(c => c.patient.id === card.patient.id ? { ...c, stage: 'due' as DisplayStage, pipeline: updated || c.pipeline } : c));
-                    setShowArchived(false); setActiveTab('due');
-                  }} className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors">
-                    إعادة تفعيل
-                  </button>
                 </div>
               ))}
             </div>
@@ -2422,21 +2418,21 @@ export default function ChronicPage() {
       {addModal && (
         <AddPatientModal pharmacyId={pharmacyId} onClose={() => { setAddModal(false); setSearchPrefill(null); }}
           prefill={searchPrefill}
-          onAdded={async (p, note, isExistingPatient) => {
+          onAdded={async (p, note, isExistingPatient, meds, isArchived) => {
             setAddModal(false);
             if (note && note.trim()) {
               await upsertPipeline(pharmacyId, p.id, 'due', {});
               await supabase.from('refill_tracking_pipeline').update({ insurance_status: note.trim() })
                 .eq('pharmacy_id', pharmacyId).eq('patient_id', p.id).eq('payment_type', 'cash');
             }
-            setSearchPrefill({ patient: p, meds: [] });
+            setSearchPrefill({ patient: p, meds: meds || [], isArchived });
             setMedModalFromSearch(true);
             // isNewPatient: true فقط للمرضى الجدد تماماً — الموجودون لديهم سجل سابق
             setMedModal({ patient: p, meds: [], isNewPatient: !isExistingPatient });
           }}
-          onRenew={(p, meds) => {
+          onRenew={(p, meds, isArchived) => {
             // احفظ بيانات المريض مع أدويته للرجوع إليها
-            setSearchPrefill({ patient: p, meds });
+            setSearchPrefill({ patient: p, meds, isArchived });
             setAddModal(false);
             setMedModalFromSearch(true);
             setMedModal({ patient: p, meds });

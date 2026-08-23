@@ -168,13 +168,23 @@ function getSmartTip(card: CareCard): { icon: string; text: string; accent: stri
   if (stage === 'due') {
     if (daysLeft <= 0) return {
       icon: '🚨',
-      text: 'نفد الدواء اليوم — تواصل فوراً. المريض المزمن الذي ينقطع عن دوائه قد يلجأ لصيدلية أخرى ولا يعود.',
+      text: 'الدواء نفد — الرسالة اليوم آخر فرصة قبل أن يبحث عن بديل.',
       accent: 'rose'
     };
     if (daysLeft === 1) return {
       icon: '⚡',
       text: 'يوم واحد فقط — أرسل الرسالة الآن. انتظار الغد يعني أن المريض ربما اشترى من مكان آخر.',
       accent: 'rose'
+    };
+    if (daysLeft === 2) return {
+      icon: '⏳',
+      text: 'يومان فقط — أرسل اليوم. غداً سيبدأ بالتفكير من أين يشتري.',
+      accent: 'amber'
+    };
+    if (daysLeft === 3) return {
+      icon: '📨',
+      text: 'ثلاثة أيام متبقّية — أفضل وقت للتذكير. المريض ما زال مرتاحاً ولم يبحث عن بديل.',
+      accent: 'amber'
     };
     if (loyaltyMonths >= 12) return {
       icon: '⭐',
@@ -205,14 +215,29 @@ function getSmartTip(card: CareCard): { icon: string; text: string; accent: stri
       text: `مضت ${pluralizeDays(daysSince)} بدون رد — انقله الآن لقائمة "لم يستجيبوا" حتى لا يُنسى.`,
       accent: 'rose'
     };
-    if (daysSince >= 3) return {
+    if (daysSince === MSG_EXPIRY_DAYS - 1) return {
+      icon: '⏰',
+      text: `مضت ${pluralizeDays(daysSince)} — هذا آخر يوم قبل نقله تلقائياً إلى "بدون رد". الرسالة الثانية اليوم أو غداً يفوت الأوان.`,
+      accent: 'rose'
+    };
+    if (daysSince === 3) return {
       icon: '📩',
       text: 'مضت 3 أيام — إذا أردت رسالة ثانية، غيّر الأسلوب: اسأل عن صحته أولاً دون ذكر الدواء.',
       accent: 'blue'
     };
-    return {
+    if (daysSince === 2) return {
+      icon: '📅',
+      text: 'يومان بلا رد — انتظر الغد، فكثير من المرضى يردّون في اليوم الثالث.',
+      accent: 'teal'
+    };
+    if (daysSince === 1) return {
       icon: '🕐',
-      text: 'أُرسلت للتو — انتظر 24 ساعة قبل أي متابعة. الضغط المبكر يُنفّر المريض.',
+      text: 'مضى يوم واحد — ما زال ضمن الوقت الطبيعي للرد. لا تتابع بعد.',
+      accent: 'teal'
+    };
+    return {
+      icon: '✅',
+      text: 'أُرسلت اليوم — أمهله حتى الغد قبل أي متابعة. الضغط المبكر يُنفّر المريض.',
       accent: 'teal'
     };
   }

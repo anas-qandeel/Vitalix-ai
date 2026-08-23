@@ -14,7 +14,7 @@ interface ActivityEntry {
   action: string;
   entity_type: string | null;
   entity_label: string | null;
-  details: { patient_name?: string } | null;
+  details: { patient_name?: string; from?: string; to?: string; actor?: string } | null;
 }
 
 const ACTION_LABELS: Record<string, string> = {
@@ -36,6 +36,14 @@ const ACTION_LABELS: Record<string, string> = {
   reminder_opened: 'فتح رسالة تذكير',
   reminder_not_sent: 'أفاد بعدم الإرسال',
   birthday_greeting_sent: 'أرسل تهنئة عيد ميلاد',
+};
+
+const STAGE_LABELS: Record<string, string> = {
+  due: 'قارب النفاذ',
+  messaged: 'تم الإرسال',
+  no_response: 'بدون رد',
+  renewed: 'تم التجديد',
+  archived: 'فقدنا تواصلهم',
 };
 
 type PeriodKey = '7d' | '30d' | '3m' | 'all';
@@ -76,7 +84,15 @@ function formatEntryTime(iso: string): string {
 }
 
 function ActivityRow({ entry }: { entry: ActivityEntry }) {
-  const actionLabel = ACTION_LABELS[entry.action] || entry.action;
+  let actionLabel = ACTION_LABELS[entry.action] || entry.action;
+  if (entry.action === 'stage_changed') {
+    const to = STAGE_LABELS[entry.details?.to || ''] || entry.details?.to || '';
+    const from = STAGE_LABELS[entry.details?.from || ''] || entry.details?.from;
+    const move = from ? `من "${from}" إلى "${to}"` : `إلى "${to}"`;
+    actionLabel = entry.details?.actor === 'system'
+      ? `نقله النظام تلقائياً ${move}`
+      : `نقل المريض ${move}`;
+  }
   const patientName = entry.details?.patient_name;
   return (
     <div className="flex items-start gap-3 px-4 py-3 bg-white border border-slate-200 rounded-xl">

@@ -8,7 +8,7 @@ import AppFooter from '../components/AppFooter';
 import { upsertPipeline } from '@/lib/pipeline';
 import { Patient, ChronicMed, pluralizeDaysLeft } from '@/lib/chronic';
 import WaMsgModal from '@/components/WaMsgModal';
-import { getPharmacyId, getStaffName, getUserRole } from '@/lib/tenant';
+import { getPharmacyId, getStaffId, getStaffName, getUserRole } from '@/lib/tenant';
 
 const logActivity = async (action: string, patientId: string) => {
   try {
@@ -138,10 +138,12 @@ function pluralizeDays(days: number): string {
 // ═══════════════════════════════════════════════════════
 // BIRTHDAY MODAL
 // ═══════════════════════════════════════════════════════
-function BirthdayModal({ patients, pharmacyName, onClose }: {
+function BirthdayModal({ patients, pharmacyName, onClose, greetedToday, onGreet }: {
   patients: BirthdayPatient[];
   pharmacyName: string;
   onClose: () => void;
+  greetedToday: Set<string>;
+  onGreet: (patientId: string) => void;
 }) {
   return (
     <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 transition-all" onClick={onClose}>
@@ -171,11 +173,14 @@ function BirthdayModal({ patients, pharmacyName, onClose }: {
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-slate-900 truncate">{p.name}</p>
                     <p className="text-xs font-medium text-rose-500 mt-1">{age} سنة اليوم</p>
+                    {greetedToday.has(p.id) && (
+                      <span className="inline-block mt-1 text-[10px] font-semibold text-teal-700 bg-teal-50 border border-teal-100 px-1.5 py-0.5 rounded-md">تمّت التهنئة</span>
+                    )}
                   </div>
                 </div>
                 <a href={`https://wa.me/962${p.phone_number.replace(/^0/, '')}?text=${encodeURIComponent(msg)}`}
-                  target="_blank" rel="noreferrer" onClick={onClose}
-                  className="shrink-0 flex items-center justify-center gap-1.5 h-9 px-3 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-medium transition-all shadow-sm">
+                  target="_blank" rel="noreferrer" onClick={() => { onGreet(p.id); onClose(); }}
+                  className={`shrink-0 flex items-center justify-center gap-1.5 h-9 px-3 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-medium transition-all shadow-sm ${greetedToday.has(p.id) ? 'opacity-60' : ''}`}>
                   <IconWhatsapp className="w-3.5 h-3.5" />
                   <span>تهنئة</span>
                 </a>
@@ -203,6 +208,7 @@ export default function PharmacistDashboard() {
   const [birthdayModalOpen, setBirthdayModalOpen] = useState(false);
   const [staffName, setStaffName] = useState<string | null>(null);
   const [userRole, setUserRole]   = useState('');
+  const [greetedToday, setGreetedToday] = useState<Set<string>>(new Set());
   const { pharmacyName } = usePharmacyInfo();
   const router = useRouter();
 
@@ -255,6 +261,12 @@ export default function PharmacistDashboard() {
         const parts = p.birth_date.split('-');
         return parts.length >= 3 && parseInt(parts[1]) === todayMM && parseInt(parts[2]) === todayDD;
       }));
+
+      const { data: greeted } = await supabase
+        .from('birthday_greetings')
+        .select('patient_id')
+        .eq('greeted_on', new Date().toISOString().split('T')[0]);
+      setGreetedToday(new Set((greeted || []).map((g: any) => g.patient_id)));
 
       // نجلب مراحل المرضى الظاهرين في التنبيه من refill_tracking_pipeline
       // لاستثناء من تم التواصل معهم بالفعل (نفس منطق صفحة chronic)
@@ -335,6 +347,21 @@ export default function PharmacistDashboard() {
     logActivity('reminder_opened', patient.id);
     window.open(`https://wa.me/962${patient.phone_number.replace(/^0/, '')}?text=${encodeURIComponent(customMsg)}`, '_blank');
     setTimeout(() => setConfirmSent({ patientId: patient.id, patientName: patient.name }), 1500);
+  };
+
+  const recordGreeting = async (patientId: string) => {
+    try {
+      const staffId = await getStaffId();
+      if (!staffId || !pharmacyId) return;
+      await supabase.from('birthday_greetings').insert({
+        pharmacy_id: pharmacyId,
+        patient_id: patientId,
+        staff_id: staffId,
+      });
+      setGreetedToday(prev => new Set(prev).add(patientId));
+    } catch {
+      // القيد الفريد قد يرفض تهنئة مكرّرة — لا يعطّل شيئاً
+    }
   };
 
   const daysLeft       = !pharmacy?.expiry_date ? 0 : Math.max(0, Math.ceil((new Date(pharmacy.expiry_date).getTime() - Date.now()) / 86400000));
@@ -567,10 +594,14 @@ export default function PharmacistDashboard() {
                       <div className="min-w-0">
                         <p className="text-sm font-semibold text-slate-900 truncate">{p.name}</p>
                         <p className="text-[11px] font-medium text-rose-500 mt-0.5">{age} سنة اليوم</p>
+                        {greetedToday.has(p.id) && (
+                          <span className="inline-block mt-1 text-[10px] font-semibold text-teal-700 bg-teal-50 border border-teal-100 px-1.5 py-0.5 rounded-md">تمّت التهنئة</span>
+                        )}
                       </div>
                     </div>
                     <a href={`https://wa.me/962${p.phone_number.replace(/^0/, '')}?text=${encodeURIComponent(msg)}`} target="_blank" rel="noreferrer"
-                      className="shrink-0 flex items-center justify-center w-8 h-8 bg-slate-900 hover:bg-slate-800 text-white rounded-lg transition-all shadow-sm">
+                      onClick={() => recordGreeting(p.id)}
+                      className={`shrink-0 flex items-center justify-center w-8 h-8 bg-slate-900 hover:bg-slate-800 text-white rounded-lg transition-all shadow-sm ${greetedToday.has(p.id) ? 'opacity-60' : ''}`}>
                       <IconWhatsapp className="w-4 h-4" />
                     </a>
                   </div>
@@ -636,7 +667,7 @@ export default function PharmacistDashboard() {
       </main>
 
       {birthdayModalOpen && (
-        <BirthdayModal patients={birthdayPatients} pharmacyName={pharmacyName} onClose={() => setBirthdayModalOpen(false)} />
+        <BirthdayModal patients={birthdayPatients} pharmacyName={pharmacyName} onClose={() => setBirthdayModalOpen(false)} greetedToday={greetedToday} onGreet={recordGreeting} />
       )}
 
       {waMsgModal && (

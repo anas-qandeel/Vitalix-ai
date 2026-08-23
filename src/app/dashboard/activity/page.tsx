@@ -35,6 +35,7 @@ const ACTION_LABELS: Record<string, string> = {
   reminder_sent: 'أرسل تذكير تجديد',
   reminder_opened: 'فتح رسالة تذكير',
   reminder_not_sent: 'أفاد بعدم الإرسال',
+  birthday_greeting_sent: 'أرسل تهنئة عيد ميلاد',
 };
 
 type PeriodKey = '7d' | '30d' | '3m' | 'all';
@@ -60,6 +61,7 @@ const ENTITY_TYPE_OPTIONS: { key: string; label: string }[] = [
   { key: 'catalog', label: 'الكتالوج' },
   { key: 'recommendation', label: 'المكملات' },
   { key: 'reminder', label: 'التذكيرات' },
+  { key: 'greeting', label: 'التهاني' },
 ];
 
 function formatEntryTime(iso: string): string {

@@ -93,15 +93,16 @@ function ActivityRow({ entry }: { entry: ActivityEntry }) {
       ? `نقله النظام تلقائياً ${move}`
       : `نقل المريض ${move}`;
   }
+  const displayName = entry.details?.actor === 'system' ? 'Vitalix' : entry.staff_name;
   const patientName = entry.details?.patient_name;
   return (
     <div className="flex items-start gap-3 px-4 py-3 bg-white border border-slate-200 rounded-xl">
       <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center text-xs font-black shrink-0">
-        {entry.staff_name?.charAt(0) || '؟'}
+        {displayName?.charAt(0) || '؟'}
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
-          <p className="text-sm font-bold text-slate-900">{entry.staff_name}</p>
+          <p className="text-sm font-bold text-slate-900">{displayName}</p>
           <span className="text-[11px] font-semibold text-teal-700 bg-teal-50 border border-teal-100 px-2 py-0.5 rounded-md">
             {actionLabel}
           </span>

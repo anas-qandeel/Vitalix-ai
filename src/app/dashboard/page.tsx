@@ -10,6 +10,23 @@ import { Patient, ChronicMed, pluralizeDaysLeft } from '@/lib/chronic';
 import WaMsgModal from '@/components/WaMsgModal';
 import { getPharmacyId, getStaffName, getUserRole } from '@/lib/tenant';
 
+const logActivity = async (action: string, patientId: string) => {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) return;
+    await fetch('/api/activity/log', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ action, patient_id: patientId }),
+    });
+  } catch {
+    // التسجيل لا يعطّل العمل: فشله لا يمنع فتح واتساب
+  }
+};
+
 // ═══════════════════════════════════════════════════════
 // TYPES
 // ═══════════════════════════════════════════════════════
@@ -291,7 +308,10 @@ export default function PharmacistDashboard() {
     if (!confirmSent) return;
     const { patientId } = confirmSent;
     setConfirmSent(null);
-    if (!confirmed) return; // لم يُرسَل — لا تغيير
+    if (!confirmed) {
+      logActivity('reminder_not_sent', patientId);
+      return; // لم يُرسَل — لا تغيير
+    }
     await upsertPipeline(pharmacyId, patientId, 'messaged', { reminded_at: new Date().toISOString() });
     setTodayAlerts(prev => prev.filter(a => a.patient_id !== patientId));
   };
@@ -312,6 +332,7 @@ export default function PharmacistDashboard() {
     if (!waMsgModal) return;
     const { patient } = waMsgModal;
     setWaMsgModal(null);
+    logActivity('reminder_opened', patient.id);
     window.open(`https://wa.me/962${patient.phone_number.replace(/^0/, '')}?text=${encodeURIComponent(customMsg)}`, '_blank');
     setTimeout(() => setConfirmSent({ patientId: patient.id, patientName: patient.name }), 1500);
   };

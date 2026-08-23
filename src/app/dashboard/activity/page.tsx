@@ -32,6 +32,9 @@ const ACTION_LABELS: Record<string, string> = {
   recommendation_updated: 'عدّل مكمّلاً',
   recommendation_deactivated: 'أخفى مكمّلاً',
   recommendation_deleted: 'حذف مكمّلاً',
+  reminder_sent: 'أرسل تذكير تجديد',
+  reminder_opened: 'فتح رسالة تذكير',
+  reminder_not_sent: 'أفاد بعدم الإرسال',
 };
 
 type PeriodKey = '7d' | '30d' | '3m' | 'all';
@@ -56,6 +59,7 @@ const ENTITY_TYPE_OPTIONS: { key: string; label: string }[] = [
   { key: 'patient', label: 'المرضى' },
   { key: 'catalog', label: 'الكتالوج' },
   { key: 'recommendation', label: 'المكملات' },
+  { key: 'reminder', label: 'التذكيرات' },
 ];
 
 function formatEntryTime(iso: string): string {

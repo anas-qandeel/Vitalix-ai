@@ -257,3 +257,57 @@ for each row execute function public.log_catalog_activity();
 create trigger trg_log_recommendation_activity
 after insert or update or delete on public.pharmacy_recommendations
 for each row execute function public.log_catalog_activity();
+
+-- ═══════════════════════════════════════════════════════════════
+-- ٧) تريغر تذكير التجديد
+--
+-- يُسجَّل عند انتقال pipeline_stage إلى messaged، وهو ما يحدث حين
+-- يؤكّد الصيدلاني الإرسال بنفسه — فالسجل يوثّق إقراره لا ضغطة زر.
+-- أما فتح الرسالة وإنكار الإرسال فلا يمسّان القاعدة، ويُسجَّلان
+-- عبر /api/activity/log
+-- ═══════════════════════════════════════════════════════════════
+
+create or replace function public.log_reminder_activity()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_staff_id   uuid;
+  v_staff_name text;
+  v_pharmacy   uuid;
+  v_patient    text;
+begin
+  -- التذكير وحده يُسجَّل، وعند الانتقال الفعلي إلى messaged لا في كل تحديث
+  if new.pipeline_stage is distinct from 'messaged' then
+    return new;
+  end if;
+  if TG_OP = 'UPDATE' and old.pipeline_stage = 'messaged' then
+    return new;
+  end if;
+
+  v_staff_id := public.current_staff_id();
+  if v_staff_id is null then
+    return new;
+  end if;
+
+  select ps.name, ps.pharmacy_id into v_staff_name, v_pharmacy
+  from public.pharmacy_staff ps where ps.id = v_staff_id;
+
+  select p.name into v_patient
+  from public.patients p where p.id = new.patient_id;
+
+  insert into public.activity_log
+    (pharmacy_id, staff_id, staff_name, action, entity_type, entity_id, entity_label)
+  values
+    (coalesce(v_pharmacy, new.pharmacy_id), v_staff_id, v_staff_name,
+     'reminder_sent', 'reminder', new.patient_id, v_patient);
+
+  return new;
+end;
+$$;
+
+create trigger trg_log_reminder_activity
+after insert or update on public.refill_tracking_pipeline
+for each row execute function public.log_reminder_activity();

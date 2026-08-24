@@ -392,7 +392,6 @@ export default function VitalsPage() {
 
   // ── حالة البحث ──
   const [searchQuery, setSearchQuery] = useState('');
-  const [allPatients, setAllPatients] = useState<Patient[]>([]);
   const [nameResults, setNameResults] = useState<Patient[]>([]);
   const [highlightedIdx, setHighlightedIdx] = useState(-1);
   const [searchingPatient, setSearchingPatient] = useState(false);
@@ -493,24 +492,6 @@ export default function VitalsPage() {
     setBmiLive({ value: Math.round(bmi * 10) / 10, label, labelShort, color, bgColor, borderColor, dot, emoji, idealMin, idealMax, toLoose, firstGoal });
   }, [weightValue, currentPatient?.height, activeTests.weight]);
 
-  // ── تحميل كاش المرضى ──
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) return;
-        const pid = await getPharmacyId();
-        if (!pid) return;
-        const { data } = await supabase
-          .from('patients')
-          .select('id, name, phone_number, gender, birth_date, height, diagnosed_conditions')
-          .eq('pharmacy_id', pid);
-        if (data) setAllPatients(data as Patient[]);
-      } catch (e) { console.error(e); }
-    };
-    load();
-  }, []);
-
   // ── إغلاق dropdown خارجه ──
   useEffect(() => {
     const h = (e: MouseEvent) => {
@@ -588,8 +569,12 @@ export default function VitalsPage() {
         if (!pid) return;
         const { data: found } = await supabase.from('patients').select('*')
           .eq('pharmacy_id', pid).eq('phone_number', normalizePhone(value));
-        if (found && found.length > 0) {
+        if (found && found.length === 1) {
           await selectPatient(found[0] as Patient, true); // keepQuery=true يحافظ على رقم الهاتف في الحقل
+        } else if (found && found.length > 1) {
+          // أكثر من مريض بنفس الرقم — اعرضهم ليختار الصيدلي
+          setNameResults(found as Patient[]);
+          setHighlightedIdx(-1);
         }
         // إذا لم يجد → سيظهر زر "مريض جديد" تلقائياً
       } catch { }
@@ -597,21 +582,28 @@ export default function VitalsPage() {
       return;
     }
 
-    // بحث بالاسم — من الكاش المحلي فقط مع تطبيع الهمزات
-    // ilike في Supabase لا يدعم تطبيع الهمزات العربية لذا نعتمد على الكاش+normalizeAr
-    if (value.trim().length < 1) { setHighlightedIdx(-1); return; }
+    if (value.trim().length < 1) { setHighlightedIdx(-1); setNameResults([]); return; }
     setHighlightedIdx(-1);
     setCurrentPatient(null);
-    const normQ = normalizeAr(value);
-    const matches = allPatients.filter(p => normalizeAr(p.name).includes(normQ));
-    setNameResults(matches);
+    setSearchingPatient(true);
+    try {
+      const pid = await getPharmacyId();
+      if (!pid) { setNameResults([]); return; }
+      const { data, error } = await supabase
+        .from('patients')
+        .select('id, name, phone_number, gender, birth_date, height, diagnosed_conditions')
+        .eq('pharmacy_id', pid)
+        .ilike('name_normalized', `%${normalizeAr(value)}%`)
+        .limit(20);
+      if (error) { console.error('[vitals] patient name search failed:', error.message); setNameResults([]); return; }
+      setNameResults((data || []) as Patient[]);
+    } finally { setSearchingPatient(false); }
   };
 
   // ── إنشاء مريض جديد من Modal ──
   const handleNewPatientCreated = (p: Patient) => {
     setCurrentPatient(p);
     setSearchQuery(p.name);
-    setAllPatients(prev => [...prev, p]);
     setShowNewPatientModal(false);
   };
 

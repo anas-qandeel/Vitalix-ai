@@ -43,6 +43,11 @@ const NO_RESPONSE_ARCHIVE_DAYS = Number(
     : 30
 );
 
+// ميزة تنبيهات التفاعلات الدوائية معطّلة في النسخة الأولى (قرار ترخيص).
+// الكود ومحتوى الجدول محفوظان — التفعيل بضبط المتغيّر إلى 'true'.
+const INTERACTIONS_ENABLED =
+  typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_ENABLE_INTERACTIONS === 'true';
+
 // ── Toast ──
 interface ToastMsg { id: number; text: string; type: 'success' | 'error' | 'info' }
 let toastId = 0;
@@ -911,7 +916,7 @@ function MedModal({ patientId, pharmacyId, existingMeds, patientName, onClose, o
           </div>
         )}
 
-        {interactions.length > 0 && (
+        {INTERACTIONS_ENABLED && interactions.length > 0 && (
           <div className="mx-6 mt-4 space-y-2 shrink-0">
             {interactions.map((f, i) => (
               <div key={i}

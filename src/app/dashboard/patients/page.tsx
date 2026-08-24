@@ -7,17 +7,7 @@ import DashboardHeader from '../components/DashboardHeader';
 import AppFooter from '../../components/AppFooter';
 import AddPatientForm from '@/components/AddPatientForm';
 import { getPharmacyId, getUserRole } from '@/lib/tenant';
-
-function normalizeAr(s: string): string {
-  return s.trim()
-    .replace(/[أإآٱٲٳٵ]/g, 'ا')
-    .replace(/[ءؤئ]/g, 'ء')
-    .replace(/ة/g, 'ه')
-    .replace(/[ىی]/g, 'ي')
-    .replace(/[\u064B-\u065F\u0670]/g, '')
-    .replace(/[\u0653-\u0655]/g, '')
-    .toLowerCase();
-}
+import { normalizeAr } from '@/lib/arabic';
 
 // ═══════════════════════════════════════════════════════
 // TYPES

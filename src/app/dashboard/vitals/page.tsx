@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import DashboardHeader, { usePharmacyInfo } from '../components/DashboardHeader';
 import AppFooter from '../../components/AppFooter';
 import { getPharmacyId, getStaffId, getStaffName } from '@/lib/tenant';
+import { normalizeAr } from '@/lib/arabic';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -56,24 +57,6 @@ function normalizePhone(phone: string): string {
   if (c.startsWith('00962')) c = '0' + c.substring(5);
   else if (c.startsWith('962') && c.length > 10) c = '0' + c.substring(3);
   return c;
-}
-function normalizeAr(s: string): string {
-  return s.trim()
-    // توحيد الألف بكل أشكالها
-    .replace(/[أإآٱٲٳٵ]/g, 'ا')
-    // توحيد الهمزة المفردة والمتصلة
-    .replace(/[ءؤئ]/g, 'ء')
-    // توحيد التاء المربوطة
-    .replace(/ة/g, 'ه')
-    // توحيد الياء والألف المقصورة
-    .replace(/[ىی]/g, 'ي')
-    // توحيد الواو مع الهمزة
-    .replace(/ؤ/g, 'و')
-    // حذف التشكيل كاملاً (فتحة، ضمة، كسرة، شدة، سكون ...)
-    .replace(/[\u064B-\u065F\u0670]/g, '')
-    // حذف المدة والصفة المشبهة
-    .replace(/[\u0653-\u0655]/g, '')
-    .toLowerCase();
 }
 function detectInputType(q: string): 'phone' | 'name' {
   const t = q.trim();

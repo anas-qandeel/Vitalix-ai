@@ -9,6 +9,7 @@ import { CareStage, PipelineRecord, upsertPipeline } from '@/lib/pipeline';
 import { Patient, ChronicMed, calcDaysLeft } from '@/lib/chronic';
 import WaMsgModal from '@/components/WaMsgModal';
 import { getPharmacyId } from '@/lib/tenant';
+import { normalizeAr } from '@/lib/arabic';
 import { checkInteractions } from '@/lib/interaction-check';
 import { logActivity } from '@/lib/activity';
 
@@ -325,15 +326,6 @@ function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill }: {
   const toggleCondition = (key: string) => {
     setConditions(prev => prev.includes(key) ? prev.filter(c => c !== key) : [...prev, key]);
   };
-
-  // ── تطبيع النص: يوحّد الهمزات ويزيل التشكيل ────────────────────────────
-  const normalizeAr = (s: string) =>
-    s.trim()
-     .replace(/[أإآ]/g, 'ا')
-     .replace(/ة/g, 'ه')
-     .replace(/ى/g, 'ي')
-     .replace(/[\u064B-\u065F]/g, '') // تشكيل
-     .toLowerCase();
 
   // ── جلب كل مرضى الصيدلية وأدويتهم مرة واحدة عند الفتح ─────────────────
   useEffect(() => {

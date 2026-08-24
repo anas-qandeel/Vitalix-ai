@@ -1717,7 +1717,7 @@ ${planUrl}
                     </svg>
                     <div>
                       <p className="text-xs font-bold text-rose-700">{errorMsg}</p>
-                      <p className="text-[10px] text-rose-500 mt-0.5">لم يتم الحفظ — يرجى تصحيح القراءة أولاً</p>
+                      <p className="text-[10px] text-rose-500 mt-0.5">لم يتم الحفظ — تحقّق من الاتصال وأعد المحاولة</p>
                     </div>
                   </div>
                 )}

@@ -438,6 +438,7 @@ export default function VitalsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [latestGeneratedReport, setLatestGeneratedReport] = useState<string | null>(null);
+  const [isFallbackReport, setIsFallbackReport] = useState(false);
   const [latestVisitId, setLatestVisitId] = useState<string | null>(null);
 
   // ── نظام إدارة الوزن ────────────────────────────────────────────────
@@ -747,7 +748,7 @@ export default function VitalsPage() {
       return;
     }
 
-    setSubmitting(true); setErrorMsg(''); setSoftWarningMsg('');
+    setSubmitting(true); setErrorMsg(''); setSoftWarningMsg(''); setIsFallbackReport(false);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('انتهت الجلسة');
@@ -795,6 +796,7 @@ export default function VitalsPage() {
         } catch (e) { console.error('[vitals] AI report request failed:', e); }
 
         if (!report) {
+          setIsFallbackReport(true);
           const parts: string[] = [];
           if (visitPayload.bp_systolic && visitPayload.bp_diastolic) {
             const s = visitPayload.bp_systolic, d = visitPayload.bp_diastolic;
@@ -1768,6 +1770,11 @@ ${planUrl}
             {/* ══ التقرير بعد الحفظ ══ */}
             {latestVisitId && latestGeneratedReport && (
               <div ref={reportRef} className="space-y-4 saas-slide-up scroll-mt-24">
+                {isFallbackReport && (
+                  <div className="mb-3 text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 px-4 py-2.5 rounded-lg">
+                    ⚠️ تعذّر توليد التقرير الذكي — هذا تقرير مختصر مبني على القراءات مباشرة. القراءة محفوظة.
+                  </div>
+                )}
                 <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
                   <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50 flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2.5">

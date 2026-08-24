@@ -752,7 +752,7 @@ export default function VitalsPage() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('انتهت الجلسة');
       const pid = await getPharmacyId();
-      if (!pid) return;
+      if (!pid) { setErrorMsg('تعذّر تحديد الصيدلية — أعد تحميل الصفحة'); return; }
       const staffName = await getStaffName();
 
       const visitPayload = {
@@ -792,7 +792,7 @@ export default function VitalsPage() {
             body: JSON.stringify({ patient: currentPatient, currentVisit: aiPayload, history: patientHistory, pharmacyName }),
           });
           if (res.ok) { const d = await res.json(); if (d.report) report = d.report; }
-        } catch { }
+        } catch (e) { console.error('[vitals] AI report request failed:', e); }
 
         if (!report) {
           const parts: string[] = [];
@@ -839,7 +839,7 @@ export default function VitalsPage() {
         if (activeTests.weight && weightValue && currentPatient?.height) {
           const { data: { session: s } } = await supabase.auth.getSession();
           const pid2 = await getPharmacyId();
-          if (!pid2) return;
+          if (!pid2) { setWeightStatus('error'); console.error('[vitals] weight plan: pharmacy id missing'); return; }
           setWeightStatus('saving');
 
           // الخطوة 1: إنشاء weight_plan (فوري، بدون AI)
@@ -853,7 +853,7 @@ export default function VitalsPage() {
               height_cm:    Number(currentPatient.height),
               performed_by: staffName,
             }),
-          }).then(r => r.json()).catch(() => null);
+          }).then(r => r.json()).catch((e) => { console.error('[vitals] weight-plan request failed:', e); return null; });
 
           if (planRes?.plan_id) {
             const planId  = planRes.plan_id;

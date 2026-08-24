@@ -604,6 +604,16 @@ export const DRUG_FOOD_INTERACTIONS: DrugEntry[] = [
     foods: [],
     depletes: ['b12', 'magnesium_potassium', 'calcium', 'iron'],
   },
+  {
+    generic: 'lansoprazole',
+    genericAr: 'لانسوبرازول',
+    brands: ['Lansazol', 'لانسازول', 'Lazal', 'لازال', 'Lanzopral', 'لانزوبرال', 'Prevacid', 'Lansoprazole'],
+    drugClass: 'مثبط مضخة البروتون',
+    classCode: 'PPI',
+    timing: 'قبل الوجبة بنصف ساعة',
+    foods: [],
+    depletes: ['b12', 'magnesium_potassium', 'calcium', 'iron'],
+  },
 
   // ─────────────── النقرس والعظام ───────────────
   {

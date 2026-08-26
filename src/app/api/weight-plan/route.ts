@@ -22,23 +22,6 @@ const GEMINI_MODELS_FALLBACK = [
 const MAX_PLAUSIBLE_MONTHLY_RATE_PERCENT = 10;
 
 // ═══════════════════════════════════════════════════════════════════════
-// مسار حتمي لحالة النحافة (bmi_category === 'underweight') — لا نُولّد خطة
-// غذائية ولا هدف وزن رقمي لمريض ناقص الوزن، لأن السبب قد يكون مرضياً (غدة
-// درقية، سوء امتصاص...) ويستوجب تقييماً طبياً أولاً بدل خطة عامة قد تُطمئن
-// المريض خطأً أو تُخفي مؤشراً يستحق المتابعة. لذلك هذا المسار لا يستدعي
-// Gemini إطلاقاً ولا يمرّ بالقالب الاحتياطي المعتاد
-// ═══════════════════════════════════════════════════════════════════════
-const UNDERWEIGHT_PERSONAL_MESSAGE = (patientName: string) =>
-  `${patientName}، نقص الوزن يستحقّ تقييماً طبياً لتحديد سببه بدقة قبل البدء بأي خطة غذائية. ` +
-  `ننصحك بمراجعة طبيبك في أقرب وقت مناسب لك، وصيدليتك هنا لدعمك في هذه الخطوة.`;
-
-const UNDERWEIGHT_CLINICAL_REASONING =
-  'المريض ضمن فئة النحافة (bmi_category = underweight) — امتنع النظام عمداً عن توليد خطة غذائية ' +
-  'أو هدف وزني رقمي، لأن نقص الوزن قد يعكس سبباً مرضياً يستوجب تقييماً طبياً أولاً بدل خطة تغذية عامة. ' +
-  'الفحوصات الأولية المتعارف عليها لتقييم نقص الوزن: صورة دم كاملة، وظائف الغدة الدرقية (TSH)، وظائف كبد ' +
-  'وكلى، سكر صائم، سرعة الترسيب — يحدّدها الطبيب بحسب التاريخ والفحص السريري، ولا تُطلب عشوائياً.';
-
-// ═══════════════════════════════════════════════════════════════════════
 // قائمة الفئات السريرية — نص جاهز للحقن في البرومبت
 // ═══════════════════════════════════════════════════════════════════════
 const CATEGORY_LIST_TEXT = SUPPLEMENT_CATEGORIES.map(c => `- ${c.code} — ${c.labelAr}`).join('\n');
@@ -542,32 +525,9 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
     }
 
     let nutritionData: (Omit<NutritionData, 'pharmacy_products'> & { pharmacy_products: PharmacyProductSuggestion[] }) | null = null;
-
-    // ── مسار حتمي لحالة النحافة — راجع تعريف الثوابت أعلى الملف لسبب القرار ──
-    if (plan.bmi_category === 'underweight') {
-      // التفاعلات الدوائية الغذائية المحسوبة حتمياً في matchedDrugs صحيحة
-      // بصرف النظر عن فئة الوزن — نستخدم نصوصها المعتمدة للمريض (patientText) كما هي
-      const underweightAlertParts = matchedDrugs
-        .filter(d => d.foods.length > 0)
-        .map(d => `${d.genericAr}: ${d.foods.map(f => f.patientText).join(' ')}`);
-
-      nutritionData = {
-        personal_message:   UNDERWEIGHT_PERSONAL_MESSAGE(patient_name),
-        smart_habits:       [],
-        breakfast:          [],
-        lunch:              [],
-        dinner:             [],
-        snacks:             [],
-        pharmacy_products:  [],
-        medications_alert:  underweightAlertParts.length > 0 ? underweightAlertParts.join('\n') : '',
-        lab_alerts:         [],
-        clinical_reasoning: UNDERWEIGHT_CLINICAL_REASONING,
-      };
-    }
-
     const geminiApiKey = process.env.GEMINI_API_KEY;
 
-    if (geminiApiKey && !nutritionData) {
+    if (geminiApiKey) {
       const ai = new GoogleGenAI({ apiKey: geminiApiKey });
 
       for (const modelName of GEMINI_MODELS_FALLBACK) {

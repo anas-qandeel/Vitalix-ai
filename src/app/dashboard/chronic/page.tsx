@@ -12,6 +12,7 @@ import { getPharmacyId } from '@/lib/tenant';
 import { normalizeAr } from '@/lib/arabic';
 import { checkInteractions } from '@/lib/interaction-check';
 import { logActivity } from '@/lib/activity';
+import { normalizePhone, displayPhone, validatePhone } from '@/lib/phone';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -87,13 +88,6 @@ function ToastContainer({ toasts }: { toasts: ToastMsg[] }) {
 // ═══════════════════════════════════════════════════════
 // HELPERS
 // ═══════════════════════════════════════════════════════
-function normalizePhone(p: string): string {
-  let c = p.replace(/[^0-9]/g, '');
-  if (c.startsWith('00962')) c = '0' + c.substring(5);
-  else if (c.startsWith('962') && c.length > 10) c = '0' + c.substring(3);
-  return c;
-}
-
 function pluralizeDays(days: number): string {
   if (days === 1) return 'يوم واحد';
   if (days === 2) return 'يومان';
@@ -454,6 +448,8 @@ function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill }: {
     if (found) { onAdded(found, patientNote.trim(), true, foundMeds, foundIsArchived); return; } // مريض موجود
     if (!canRegisterNew) { setErr('ابحث برقم الهاتف لتسجيل مريض جديد'); return; }
     if (!name.trim()) { setErr('يجب إدخال اسم المريض قبل المتابعة'); return; }
+    const phoneCheck = validatePhone(query);
+    if (!phoneCheck.valid) { setErr(phoneCheck.message || 'رقم الهاتف غير صحيح'); return; }
     setSaving(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -485,6 +481,7 @@ function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill }: {
               className="w-full px-4 py-3 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-all text-slate-900 shadow-sm" />
             {searching && <div className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />}
           </div>
+          <p className="text-[11px] text-slate-400 mt-1.5">للأرقام خارج الأردن ابدأ بمفتاح الدولة — مثال: 00966501234567</p>
         </div>
 
         {/* المنطقة المتمرّرة — تمتد وتتقلص بهدوء دون تحريك الـ modal */}
@@ -521,7 +518,7 @@ function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill }: {
                             <span dir="ltr" className="block min-w-0 truncate text-right">{matchedDrugs.map(m => m.medication_name).join(' · ')}</span>
                           </p>
                         ) : (
-                          <p className="text-[11px] text-slate-400 font-mono mt-0.5">{r.phone_number}</p>
+                          <p className="text-[11px] text-slate-400 font-mono mt-0.5">{displayPhone(r.phone_number)}</p>
                         )}
                       </div>
                       <svg className="w-4 h-4 text-slate-300 shrink-0 rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -543,7 +540,7 @@ function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill }: {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className={`text-sm font-semibold truncate ${foundIsArchived ? 'text-amber-900' : 'text-slate-900'}`}>{found.name}</p>
-                  <p className="text-[11px] text-slate-400 font-mono mt-0.5">{found.phone_number}</p>
+                  <p className="text-[11px] text-slate-400 font-mono mt-0.5">{displayPhone(found.phone_number)}</p>
                   {foundIsArchived && (
                     <p className="text-xs text-amber-700 mt-0.5">🔄 مريض عائد — كنّا قد فقدنا تواصلنا معه. سجّل أدويته الجديدة لإعادة متابعته.</p>
                   )}
@@ -1310,7 +1307,7 @@ function PatientMedsModal({ patient, cards, onClose }: {
             </div>
             <div className="min-w-0">
               <p className="text-sm font-semibold text-slate-900 truncate">{card.patient.name}</p>
-              <p className="text-xs text-slate-400 font-mono mt-0.5 truncate">{card.patient.phone_number}</p>
+              <p className="text-xs text-slate-400 font-mono mt-0.5 truncate">{displayPhone(card.patient.phone_number)}</p>
             </div>
           </div>
           <button onClick={onClose}
@@ -1692,7 +1689,7 @@ function PatientCard({ card, pharmacyName, onAction, onNotesUpdate }: {
 
       {open && (
         <div className="border-t border-slate-100 px-5 pt-4 pb-5 space-y-4 bg-slate-50/30">
-          <p className="text-xs text-slate-500 font-mono">{patient.phone_number}</p>
+          <p className="text-xs text-slate-500 font-mono">{displayPhone(patient.phone_number)}</p>
           <NotesField notes={card.notes} pipelineId={card.pipeline?.id} onSaved={(n) => onNotesUpdate(patient.id, n)} />
 
           {/* بادجات الأدوية مع Days */}
@@ -1785,7 +1782,7 @@ function PatientCard({ card, pharmacyName, onAction, onNotesUpdate }: {
             )}
             {stage === 'no_response' && (
               <>
-                <a href={`tel:${patient.phone_number}`} onClick={e => e.stopPropagation()}
+                <a href={`tel:+${normalizePhone(patient.phone_number)}`} onClick={e => e.stopPropagation()}
                   className="flex-1 h-10 flex items-center justify-center bg-slate-900 text-white rounded-lg text-sm font-medium hover:bg-slate-800 transition-colors shadow-sm">
                   اتصال هاتفي
                 </a>
@@ -2379,7 +2376,7 @@ export default function ChronicPage() {
                 <div key={card.patient.id} className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
                     <p className="text-sm font-semibold text-slate-900">{card.patient.name}</p>
-                    <p className="text-xs text-slate-500 mt-1">{card.patient.phone_number}</p>
+                    <p className="text-xs text-slate-500 mt-1">{displayPhone(card.patient.phone_number)}</p>
                   </div>
                 </div>
               ))}

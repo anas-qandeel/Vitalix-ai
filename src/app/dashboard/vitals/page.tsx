@@ -8,6 +8,7 @@ import DashboardHeader, { usePharmacyInfo } from '../components/DashboardHeader'
 import AppFooter from '../../components/AppFooter';
 import { getPharmacyId, getStaffId, getStaffName } from '@/lib/tenant';
 import { normalizeAr } from '@/lib/arabic';
+import { calcWeightGoals } from '@/lib/weight-math';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -475,13 +476,7 @@ export default function VitalsPage() {
     const w = Number(weightValue);
     const h = currentPatient?.height ? Number(currentPatient.height) : null;
     if (!activeTests.weight || !w || !h || w < 10 || h < 50) { setBmiLive(null); return; }
-    const hm = h / 100;
-    const bmi = w / (hm * hm);
-    const idealMin = Math.round(18.5 * hm * hm * 10) / 10;
-    const idealMax = Math.round(24.9 * hm * hm * 10) / 10;
-    const toLoose = w > idealMax ? Math.round((w - idealMax) * 10) / 10 : 0;
-    const firstGoalUncapped = Math.round(w * 0.05 * 2) / 2;
-    const firstGoal = toLoose > 0 ? Math.min(firstGoalUncapped, toLoose) : firstGoalUncapped;
+    const { bmi, idealMin, idealMax, toLoose, firstGoal } = calcWeightGoals(w, h);
     // تصنيف BMI
     let label = 'وزن صحي', labelShort = 'طبيعي', color = 'text-teal-700',
         bgColor = 'bg-teal-50', borderColor = 'border-teal-200', dot = 'bg-teal-500', emoji = '🟢';

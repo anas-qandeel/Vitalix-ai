@@ -1,4 +1,4 @@
-type DisclaimerVariant = 'pharmacist' | 'patient' | 'pdf';
+type DisclaimerVariant = 'pharmacist' | 'patient' | 'pdf' | 'patient-en';
 
 const TEXT: Record<DisclaimerVariant, string> = {
   pharmacist:
@@ -6,6 +6,8 @@ const TEXT: Record<DisclaimerVariant, string> = {
   patient:
     'هذه المعلومات للتوعية والمتابعة فقط، وليست تشخيصاً طبياً ولا وصفة علاجية ولا بديلاً عن استشارة طبيبك أو صيدلانيك. لا توقف أو تغيّر أي دواء بناءً عليها. عند أي عرَض مقلق راجع أقرب مركز صحي فوراً.',
   pdf: 'تقرير مساعد مولَّد آلياً. لا يُعدّ تشخيصاً طبياً ولا بديلاً عن استشارة الطبيب.',
+  'patient-en':
+    'This information is for awareness and follow-up only. It is not a medical diagnosis, a prescription, or a substitute for consulting your doctor or pharmacist. Do not stop or change any medication based on it. If you experience any worrying symptom, visit the nearest health centre immediately.',
 };
 
 function IconInfo({ className = 'w-4 h-4' }: { className?: string }) {
@@ -35,6 +37,17 @@ export default function Disclaimer({ variant }: { variant: DisclaimerVariant }) 
   if (variant === 'patient') {
     return (
       <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-4">
+        <p className="flex items-start gap-2 text-sm text-slate-600">
+          <IconInfo className="w-5 h-5 shrink-0 mt-0.5" />
+          <span>{text}</span>
+        </p>
+      </div>
+    );
+  }
+
+  if (variant === 'patient-en') {
+    return (
+      <div dir="ltr" className="bg-white border border-slate-200 rounded-2xl shadow-sm p-4 text-left">
         <p className="flex items-start gap-2 text-sm text-slate-600">
           <IconInfo className="w-5 h-5 shrink-0 mt-0.5" />
           <span>{text}</span>

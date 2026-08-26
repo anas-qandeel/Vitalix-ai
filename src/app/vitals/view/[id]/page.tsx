@@ -1275,7 +1275,7 @@ export default function SingleVitalViewPage({ params }: PageProps) {
           <span style={{ color: '#0d9488', fontWeight: 600 }}>Vitalix.ai</span>{' '}
           لصالح ({displayPharmacyName})
         </footer>
-        <Disclaimer variant="patient" />
+        <Disclaimer variant={detectTextDir(currentVisit.ai_report_output) === 'ltr' ? 'patient-en' : 'patient'} />
         <AppFooter className="pb-8" />
       </main>
     </div>

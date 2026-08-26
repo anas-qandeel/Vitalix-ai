@@ -68,6 +68,18 @@ const SYSTEM_INSTRUCTION = `أنت مساعد تحليلي متقدم في من�
 10. اختم بتوصية واضحة: مراجعة الطبيب / إعادة القياس في ظروف أهدأ / طمأنينة — دون اقتراح علاج أو تعديل جرعة.
 10. أعراض الطوارئ: إذا وُجد ألم في الصدر أو ضيق في التنفس بغض النظر عن القراءة، شدّد على التوجه الفوري لأقرب طوارئ أو مركز صحي — هذه الأعراض لا تنتظر موعداً.`;
 
+// تُلحق بنهاية SYSTEM_INSTRUCTION (وبنهاية COMPRESS_INSTRUCTION عند الضغط)
+// فقط عندما تكون اللغة المطلوبة 'en' — لا تُترجم SYSTEM_INSTRUCTION نفسه
+const ENGLISH_OUTPUT_INSTRUCTION = `Write the entire report in clear, simplified, patient-facing English. All the rules and standards above apply exactly as stated. Keep the semantic symbols 🔴🟡🟢 exactly as they are. Do not write a single Arabic word in the output.`;
+
+// الترحيب الملصَق في بداية كل تقرير — مصدر واحد بدل تكرار النص حرفياً في أكثر
+// من موضع، حتى لا تنحرف النسخ عن بعضها بصمت عند أي تعديل مستقبلي
+function buildReportGreeting(patientName: string, pharmacyDisplayName: string, language: 'ar' | 'en'): string {
+  return language === 'en'
+    ? `Hello ${patientName}, from the ${pharmacyDisplayName} team 👋`
+    : `مرحباً ${patientName}، من فريق ${pharmacyDisplayName} 👋`;
+}
+
 // استخراج كود HTTP من أي شكل يأتي به خطأ الـ API
 function getErrStatus(e: any): number {
   if (typeof e?.status === 'number') return e.status;
@@ -79,10 +91,11 @@ function getErrStatus(e: any): number {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { patient, currentVisit, history, pharmacyName } = body;
+    const { patient, currentVisit, history, pharmacyName, language: languageRaw } = body;
+    const language: 'ar' | 'en' = languageRaw === 'en' ? 'en' : 'ar';
 
-    const patientName = patient?.name?.trim() || 'عزيزنا المريض';
-    const pharmacyDisplayName = pharmacyName || 'صيدليتك';
+    const patientName = patient?.name?.trim() || (language === 'en' ? 'Dear patient' : 'عزيزنا المريض');
+    const pharmacyDisplayName = pharmacyName || (language === 'en' ? 'your pharmacy' : 'صيدليتك');
     const diagnosedConditions: string[] = patient?.diagnosed_conditions || [];
 
     // بناء وصف الحالة السريرية
@@ -231,6 +244,15 @@ ${recentVisitsLine}`;
 4. احتفظ بجميع الأرقام والرموز 🔴🟡🟢 والتوصيات الأساسية.
 5. لا تضف معلومات جديدة — فقط نقّح ما هو موجود.`;
 
+        // اللغة الإنجليزية تُلحق كتعليمة إضافية بنهاية كل تعليمة نظام — لا تُترجم
+        // النصوص العربية نفسها (راجع ENGLISH_OUTPUT_INSTRUCTION أعلى الملف)
+        const finalSystemInstruction = language === 'en'
+          ? `${SYSTEM_INSTRUCTION}\n\n${ENGLISH_OUTPUT_INSTRUCTION}`
+          : SYSTEM_INSTRUCTION;
+        const finalCompressInstruction = language === 'en'
+          ? `${COMPRESS_INSTRUCTION}\n\n${ENGLISH_OUTPUT_INSTRUCTION}`
+          : COMPRESS_INSTRUCTION;
+
         for (const modelName of GEMINI_MODELS_FALLBACK) {
           try {
             // ── الطلب الأول: توليد خام ──
@@ -238,7 +260,7 @@ ${recentVisitsLine}`;
               model: modelName,
               contents: userPrompt,
               config: {
-                systemInstruction: SYSTEM_INSTRUCTION,
+                systemInstruction: finalSystemInstruction,
                 maxOutputTokens: 4096,
               },
             });
@@ -261,7 +283,7 @@ ${recentVisitsLine}`;
                 model: modelName,
                 contents: `التقرير الخام:\n${rawTxt}`,
                 config: {
-                  systemInstruction: COMPRESS_INSTRUCTION,
+                  systemInstruction: finalCompressInstruction,
                   maxOutputTokens: 600,
                 },
               });
@@ -294,7 +316,7 @@ ${recentVisitsLine}`;
         }
 
         if (reportText) {
-          const greeting = `مرحباً ${patientName}، من فريق ${pharmacyDisplayName} 👋`;
+          const greeting = buildReportGreeting(patientName, pharmacyDisplayName, language);
           return NextResponse.json({ report: `${greeting} ${reportText}` });
         }
         throw lastModelErr || new Error('no model returned a response');
@@ -303,9 +325,11 @@ ${recentVisitsLine}`;
       }
     }
 
+    // المسار الاحتياطي عربي بالكامل حالياً — ترجمة جمله السريرية بند مستقل،
+    // وحتى ذلك الحين تبقى تحيته عربية ليتناسق مع جسمه بدل خليط لغتين
     const fallbackReport = buildAdaptiveFallbackReport(
       currentVisit, bmi, patientName, pharmacyDisplayName,
-      lastVisit, recentVisits, diagnosedConditions
+      lastVisit, recentVisits, diagnosedConditions, 'ar'
     );
     return NextResponse.json({ report: fallbackReport });
 
@@ -317,7 +341,7 @@ ${recentVisitsLine}`;
 function buildAdaptiveFallbackReport(
   visit: any, bmi: string | null, patientName: string,
   pharmacyDisplayName: string, lastVisit: any,
-  recentVisits: any[], diagnosedConditions: string[]
+  recentVisits: any[], diagnosedConditions: string[], language: 'ar' | 'en'
 ) {
   const sys = visit?.bp_systolic;
   const dia = visit?.bp_diastolic;
@@ -388,6 +412,6 @@ function buildAdaptiveFallbackReport(
   if (parts.length === 0) parts.push('تم توثيق الزيارة بنجاح ولا توجد قراءات خارج الطبيعي.');
   if (bmi) parts.push(`BMI: ${bmi}.`);
 
-  const greeting = `مرحباً ${patientName}، من فريق ${pharmacyDisplayName} 👋`;
+  const greeting = buildReportGreeting(patientName, pharmacyDisplayName, language);
   return `${greeting} ${parts.join(' ')}`;
 }

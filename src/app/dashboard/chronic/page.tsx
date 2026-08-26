@@ -160,24 +160,6 @@ function buildWaLink(phone: string, msg: string): string {
   return `https://api.whatsapp.com/send?phone=${withCode}&text=${encodeURIComponent(msg)}`;
 }
 
-function buildWaMsg1(patient: Patient, meds: ChronicMed[], pharmacyName: string): string {
-  // نذكر فقط الأدوية التي تنفد خلال 3 أيام — نفس حد التظليل في الكارت
-  const urgentMeds = meds.filter(m => calcDaysLeft(m.next_refill_date) <= 3);
-  const targetMeds = urgentMeds.length > 0 ? urgentMeds : meds;
-  const names = targetMeds.map(m => m.medication_name).join(' و');
-  const firstName = patient.name.split(' ')[0];
-  return `مرحباً ${firstName} 😊\nنتمنى أن تكونوا بأتم الصحة والعافية.\n\nنُبلّغكم من ${pharmacyName} بأن دواء (${names}) سيكفيكم لأيام قليلة.\n\nنحن هنا متى احتجتمونا 🌿`;
-}
-
-function buildWaMsg2(patient: Patient, meds: ChronicMed[], pharmacyName: string): string {
-  // نفس المنطق — الأدوية الأكثر إلحاحاً فقط
-  const urgentMeds = meds.filter(m => calcDaysLeft(m.next_refill_date) <= 3);
-  const targetMeds = urgentMeds.length > 0 ? urgentMeds : meds;
-  const names = targetMeds.map(m => m.medication_name).join(' و');
-  const firstName = patient.name.split(' ')[0];
-  return `مرحباً ${firstName} 🌿\nمعكم ${pharmacyName}.\n\nتذكّرنا بكم واحتفظنا بـ (${names}) جاهزاً لكم.\n\nعندما يناسبكم، نحن هنا 😊`;
-}
-
 function getTimeOfDay(): 'morning' | 'noon' | 'afternoon' | 'evening' {
   const h = new Date().getHours();
   if (h >= 6  && h < 11) return 'morning';

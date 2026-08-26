@@ -50,11 +50,13 @@ export default function WaMsgModal({ patient, meds, pharmacyName, msgType, onClo
 
   const previewMsg = msgType === 'msg1'
     ? previewMeds.length === 0
-      ? `مرحباً ${firstName} 😊\nنودّ تذكيركم بمواعيد أدويتكم. نسعد بخدمتكم في أقرب وقت. 🌿`
+      ? `مرحباً ${firstName} 😊\nمعكم ${pharmacyName}.\nنودّ تذكيركم بمواعيد أدويتكم. نسعد بخدمتكم دائماً 💚`
       : previewMeds.length === 1
-        ? `مرحباً ${firstName} 😊\nنودّ تذكيركم بأن دواء (${previewMeds[0].medication_name}) ${medStatusSingular(previewMeds[0])}. نسعد بخدمتكم في أقرب وقت. 🌿`
-        : `مرحباً ${firstName} 😊\nنودّ تذكيركم بأدويتكم:\n${previewMeds.map(m => `- ${m.medication_name} — ${medStatusForList(m)}`).join('\n')}\nنسعد بخدمتكم لتجديدها في أقرب وقت. 🌿`
-    : `مرحباً ${firstName} 🌿\nمعكم ${pharmacyName}.\n\nتذكّرنا بكم واحتفظنا بـ (${names || '...'}) جاهزاً لكم.\n\nعندما يناسبكم، نحن هنا 😊`;
+        ? `مرحباً ${firstName} 😊\nمعكم ${pharmacyName}.\nنودّ تذكيركم بأن دواء (${previewMeds[0].medication_name}) ${medStatusSingular(previewMeds[0])}. نسعد بخدمتكم دائماً 💚`
+        : `مرحباً ${firstName} 😊\nمعكم ${pharmacyName}.\nنودّ تذكيركم بأدويتكم:\n${previewMeds.map(m => `- ${m.medication_name} — ${medStatusForList(m)}`).join('\n')}\nنسعد بخدمتكم دائماً 💚`
+    : previewMeds.length > 1
+      ? `مرحباً ${firstName}\nمعكم ${pharmacyName}.\nلاحظنا أن أدويتكم لم تُجدَّد بعد:\n${previewMeds.map(m => `- ${m.medication_name}`).join('\n')}\nونحب أن نطمئن — إن كان الأمر يحتاج ترتيباً من طرفنا فأخبرونا.\nنسعد بخدمتكم دائماً 💚`
+      : `مرحباً ${firstName}\nمعكم ${pharmacyName}.\nلاحظنا أن (${names || '...'}) لم تُجدَّد بعد، ونحب أن نطمئن — إن كان الأمر يحتاج ترتيباً من طرفنا فأخبرونا.\nنسعد بخدمتكم دائماً 💚`;
 
   const allSelectedIds = new Set([
     ...urgentMeds.map(m => m.id),

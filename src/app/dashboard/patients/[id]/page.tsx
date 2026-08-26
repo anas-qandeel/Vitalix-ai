@@ -905,12 +905,19 @@ export default function PatientCardPage({ params }: PageProps) {
                           <div>
                             <div className="flex items-center justify-between mb-2">
                               <p className="text-[10px] font-bold text-slate-400">التقرير الذكي</p>
-                              <a href={`https://wa.me/${cleanPhone(patient.phone_number)}?text=${encodeURIComponent(v.ai_report_output)}`}
-                                target="_blank" rel="noreferrer"
-                                className="flex items-center gap-1 text-[10px] font-bold text-[#25D366] hover:underline">
-                                <IconWhatsApp className="w-3 h-3" />
-                                إرسال للمريض
-                              </a>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); window.open(`/vitals/view/${v.id}`, '_blank'); }}
+                                  className="text-[10px] font-bold text-teal-700 bg-teal-50 border border-teal-200 px-2.5 py-1 rounded-lg hover:bg-teal-100 transition cursor-pointer">
+                                  عرض صفحة المريض
+                                </button>
+                                <a href={`https://wa.me/${cleanPhone(patient.phone_number)}?text=${encodeURIComponent(v.ai_report_output)}`}
+                                  target="_blank" rel="noreferrer"
+                                  className="flex items-center gap-1 text-[10px] font-bold text-[#25D366] hover:underline">
+                                  <IconWhatsApp className="w-3 h-3" />
+                                  إرسال للمريض
+                                </a>
+                              </div>
                             </div>
                             <div className="bg-white border border-slate-200 rounded-xl p-4 text-[11px] text-slate-700 leading-relaxed font-medium">
                               {v.ai_report_output}

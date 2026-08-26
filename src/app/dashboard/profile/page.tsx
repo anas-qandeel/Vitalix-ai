@@ -11,6 +11,7 @@ interface PharmacyProfile {
   id: string;
   name: string;
   pharmacy_name: string | null;
+  name_en?: string | null;
   pharmacist_name: string;
   phone_number: string;
   country: string;
@@ -257,6 +258,7 @@ export default function ProfilePage() {
   const [editPhone, setEditPhone] = useState('');
   const [editCity, setEditCity] = useState('');
   const [editPharmacistName, setEditPharmacistName] = useState('');
+  const [editNameEn, setEditNameEn] = useState('');
   const [isEditing, setIsEditing] = useState(false);
 
   // فريق العمل
@@ -330,6 +332,7 @@ export default function ProfilePage() {
       setEditPhone(data.phone_number || '');
       setEditCity(data.city_address || '');
       setEditPharmacistName(data.pharmacist_name || '');
+      setEditNameEn(data.name_en || '');
 
       // تحميل فريق العمل عبر مسار API
       await fetchStaffList();
@@ -467,6 +470,7 @@ export default function ProfilePage() {
           phone_number: editPhone.trim(),
           city_address: editCity.trim(),
           pharmacist_name: editPharmacistName.trim(),
+          name_en: editNameEn.trim() || null,
         })
         .eq('id', profile.id);
 
@@ -477,6 +481,7 @@ export default function ProfilePage() {
         phone_number: editPhone.trim(),
         city_address: editCity.trim(),
         pharmacist_name: editPharmacistName.trim(),
+        name_en: editNameEn.trim() || null,
       } : prev);
 
       setSuccessMsg('✅ تم حفظ البيانات بنجاح');
@@ -627,6 +632,7 @@ export default function ProfilePage() {
                     setEditPhone(profile?.phone_number || '');
                     setEditCity(profile?.city_address || '');
                     setEditPharmacistName(profile?.pharmacist_name || '');
+                    setEditNameEn(profile?.name_en || '');
                     setErrorMsg('');
                   }}
                   className="text-[11px] font-black text-slate-500 hover:text-slate-700 bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-xl transition cursor-pointer"
@@ -648,6 +654,14 @@ export default function ProfilePage() {
             {!isEditing ? (
               <>
                 <InfoRow label="اسم الصيدلية" value={getPharmacyDisplayName()} />
+                <InfoRow
+                  label="الاسم بالإنجليزية"
+                  value={
+                    profile?.name_en
+                      ? <span dir="ltr">{profile.name_en}</span>
+                      : <span className="text-slate-400 font-semibold">لم يُحدَّد</span>
+                  }
+                />
                 <InfoRow label="اسم الصيدلاني" value={profile?.pharmacist_name || '—'} />
                 <InfoRow label="رقم الهاتف" value={profile?.phone_number || '—'} />
                 <InfoRow label="الدولة" value={profile?.country || '—'} />
@@ -717,6 +731,19 @@ export default function ProfilePage() {
                     className="w-full px-3.5 py-2.5 text-xs bg-white border border-slate-200 rounded-xl focus:border-teal-500 focus:ring-1 focus:ring-teal-500 focus:outline-none transition text-slate-800 font-semibold"
                     placeholder="عمان — شارع ..."
                   />
+                </div>
+                {/* اسم الصيدلية بالإنجليزية */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-black text-slate-600">اسم الصيدلية بالإنجليزية (اختياري)</label>
+                  <input
+                    type="text"
+                    value={editNameEn}
+                    onChange={(e) => setEditNameEn(e.target.value)}
+                    className="w-full px-3.5 py-2.5 text-xs bg-white border border-slate-200 rounded-xl focus:border-teal-500 focus:ring-1 focus:ring-teal-500 focus:outline-none transition text-slate-800 font-semibold"
+                    placeholder="Pharmacy Name in English"
+                    dir="ltr"
+                  />
+                  <p className="text-[10px] text-slate-400">يُستخدم في التقارير والرسائل الإنجليزية — إن تُرك فارغاً يُستعمل الاسم العربي</p>
                 </div>
               </div>
             )}

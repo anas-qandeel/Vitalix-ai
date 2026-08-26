@@ -654,7 +654,7 @@ function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill }: {
             <>
               <button onClick={() => onRenew(found, foundMeds, foundIsArchived)}
                 className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-sm font-semibold transition-all active:scale-[0.98] shadow-sm flex items-center justify-center gap-2">
-                <span>🔄</span><span>تجديد الأدوية الموجودة</span>
+                <span>🔄</span><span>تجديد أو تعديل الأدوية</span>
               </button>
               <button onClick={next} disabled={saving}
                 className="w-full py-3 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg text-sm font-medium transition-all active:scale-[0.98] disabled:opacity-50 shadow-sm flex items-center justify-center gap-2">

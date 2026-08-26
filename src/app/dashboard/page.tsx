@@ -10,6 +10,7 @@ import { Patient, ChronicMed, pluralizeDaysLeft } from '@/lib/chronic';
 import WaMsgModal from '@/components/WaMsgModal';
 import { getPharmacyId, getStaffId, getStaffName, getUserRole } from '@/lib/tenant';
 import { logActivity } from '@/lib/activity';
+import { normalizePhone } from '@/lib/phone';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -162,7 +163,7 @@ function BirthdayModal({ patients, pharmacyName, onClose, greetedToday, onGreet 
                     )}
                   </div>
                 </div>
-                <a href={`https://wa.me/962${p.phone_number.replace(/^0/, '')}?text=${encodeURIComponent(msg)}`}
+                <a href={`https://wa.me/${normalizePhone(p.phone_number)}?text=${encodeURIComponent(msg)}`}
                   target="_blank" rel="noreferrer" onClick={() => { onGreet(p.id); onClose(); }}
                   className={`shrink-0 flex items-center justify-center gap-1.5 h-9 px-3 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-medium transition-all shadow-sm ${greetedToday.has(p.id) ? 'opacity-60' : ''}`}>
                   <IconWhatsapp className="w-3.5 h-3.5" />
@@ -330,7 +331,7 @@ export default function PharmacistDashboard() {
     const { patient } = waMsgModal;
     setWaMsgModal(null);
     logActivity('reminder_opened', patient.id);
-    window.open(`https://wa.me/962${patient.phone_number.replace(/^0/, '')}?text=${encodeURIComponent(customMsg)}`, '_blank');
+    window.open(`https://wa.me/${normalizePhone(patient.phone_number)}?text=${encodeURIComponent(customMsg)}`, '_blank');
     setTimeout(() => setConfirmSent({ patientId: patient.id, patientName: patient.name }), 1500);
   };
 
@@ -605,7 +606,7 @@ export default function PharmacistDashboard() {
                         )}
                       </div>
                     </div>
-                    <a href={`https://wa.me/962${p.phone_number.replace(/^0/, '')}?text=${encodeURIComponent(msg)}`} target="_blank" rel="noreferrer"
+                    <a href={`https://wa.me/${normalizePhone(p.phone_number)}?text=${encodeURIComponent(msg)}`} target="_blank" rel="noreferrer"
                       onClick={() => recordGreeting(p.id)}
                       className={`shrink-0 flex items-center justify-center w-8 h-8 bg-slate-900 hover:bg-slate-800 text-white rounded-lg transition-all shadow-sm ${greetedToday.has(p.id) ? 'opacity-60' : ''}`}>
                       <IconWhatsapp className="w-4 h-4" />

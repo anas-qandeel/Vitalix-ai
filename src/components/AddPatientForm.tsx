@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { upsertPipeline } from '@/lib/pipeline';
 import { getPharmacyId } from '@/lib/tenant';
+import { normalizePhone, validatePhone } from '@/lib/phone';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -33,18 +34,6 @@ interface AddPatientFormProps {
 // ═══════════════════════════════════════════════════════
 // HELPERS
 // ═══════════════════════════════════════════════════════
-function normalizePhone(phone: string): string {
-  let c = phone.replace(/[^0-9]/g, '');
-  if (c.startsWith('00962')) c = '0' + c.substring(5);
-  else if (c.startsWith('962') && c.length > 10) c = '0' + c.substring(3);
-  return c;
-}
-// تحقق إجباري: أرقام فقط، ويبدأ بـ 07
-function isValidPhone(phone: string): boolean {
-  const digits = normalizePhone(phone);
-  return /^07\d{8}$/.test(digits);
-}
-
 // ═══════════════════════════════════════════════════════
 // ICONS
 // ═══════════════════════════════════════════════════════
@@ -84,7 +73,8 @@ export default function AddPatientForm({
 
   const save = async () => {
     if (!name.trim()) { setErr('يرجى إدخال اسم المريض'); return; }
-    if (!isValidPhone(phone)) { setErr('رقم هاتف غير صحيح — يجب أن يبدأ بـ 07 ويتكوّن من أرقام فقط'); return; }
+    const phoneCheck = validatePhone(phone);
+    if (!phoneCheck.valid) { setErr(phoneCheck.message || 'رقم الهاتف غير صحيح'); return; }
     setSaving(true); setErr('');
     try {
       let pid = pharmacyId;

@@ -8,6 +8,7 @@ import AppFooter from '../../components/AppFooter';
 import AddPatientForm from '@/components/AddPatientForm';
 import { getPharmacyId, getUserRole } from '@/lib/tenant';
 import { normalizeAr } from '@/lib/arabic';
+import { normalizePhone, displayPhone } from '@/lib/phone';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -124,10 +125,14 @@ export default function PatientsListPage() {
       .range(offset, offset + PAGE_SIZE - 1);
 
     const digits = searchTerm.replace(/[^0-9]/g, '');
+    // بعض الأرقام مخزّنة بالصيغة المحلية القديمة (07...) وبعضها بصيغة E.164 الجديدة (962...)
+    // لذا نطابق على الجزء المشترك بعد حذف مفتاح الدولة من قيمة البحث المطبّعة
+    const normalizedDigits = normalizePhone(digits);
+    const phoneSearchTerm = normalizedDigits.startsWith('962') ? normalizedDigits.slice(3) : normalizedDigits;
     if (searchTerm) {
       const normTerm = normalizeAr(searchTerm);
       q = digits
-        ? q.or(`name_normalized.ilike.%${normTerm}%,phone_number.ilike.%${digits}%`)
+        ? q.or(`name_normalized.ilike.%${normTerm}%,phone_number.ilike.%${phoneSearchTerm}%`)
         : q.ilike('name_normalized', `%${normTerm}%`);
     }
 
@@ -214,7 +219,7 @@ export default function PatientsListPage() {
                       <div className="min-w-0">
                         <p className="text-sm font-semibold text-slate-900 truncate">{p.name}</p>
                         <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-xs text-slate-500 font-mono" dir="ltr">{p.phone_number}</span>
+                          <span className="text-xs text-slate-500 font-mono" dir="ltr">{displayPhone(p.phone_number)}</span>
                           {age !== null && (
                             <>
                               <span className="text-slate-300">·</span>

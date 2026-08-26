@@ -8,6 +8,7 @@ import AppFooter from '../../../components/AppFooter';
 import Disclaimer from '@/components/Disclaimer';
 import { getPharmacyId } from '@/lib/tenant';
 import { detectTextDir } from '@/lib/text-direction';
+import { normalizePhone, displayPhone, validatePhone } from '@/lib/phone';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -100,19 +101,6 @@ function calculateAge(birthDate: string) {
 function bmiCalc(weight: number | null, height: number | null) {
   if (!height || !weight) return null;
   return (weight / ((height / 100) ** 2)).toFixed(1);
-}
-function cleanPhone(p: string) {
-  return p.replace(/[^0-9]/g, '').replace(/^0/, '962');
-}
-function normalizePhone(phone: string): string {
-  let c = phone.replace(/[^0-9]/g, '');
-  if (c.startsWith('00962')) c = '0' + c.substring(5);
-  else if (c.startsWith('962') && c.length > 10) c = '0' + c.substring(3);
-  return c;
-}
-function isValidPhone(phone: string): boolean {
-  const digits = phone.replace(/[^0-9]/g, '');
-  return digits.length >= 9 && digits.length <= 10;
 }
 function sugarTypeLabel(t: string | null) {
   if (t === 'fasting') return 'صائم';
@@ -424,7 +412,8 @@ export default function PatientCardPage({ params }: PageProps) {
   const saveInfo = async () => {
     if (!patient) return;
     if (!editName.trim()) { setInfoErr('يرجى إدخال اسم المريض'); return; }
-    if (!isValidPhone(editPhone)) { setInfoErr('رقم هاتف غير صحيح'); return; }
+    const phoneCheck = validatePhone(editPhone);
+    if (!phoneCheck.valid) { setInfoErr(phoneCheck.message || 'رقم الهاتف غير صحيح'); return; }
     setSavingInfo(true); setInfoErr('');
     try {
       const updated = {
@@ -549,8 +538,8 @@ export default function PatientCardPage({ params }: PageProps) {
   const age = calculateAge(patient.birth_date);
   const lastVisit = visits[0];
   const conditions = patient.diagnosed_conditions || [];
-  const whatsappUrl = `https://wa.me/${cleanPhone(patient.phone_number)}`;
-  const callUrl = `tel:${patient.phone_number}`;
+  const whatsappUrl = `https://wa.me/${normalizePhone(patient.phone_number)}`;
+  const callUrl = `tel:+${normalizePhone(patient.phone_number)}`;
 
   return (
     <div className="min-h-screen bg-slate-50/50 antialiased pb-16" dir="rtl">
@@ -641,7 +630,7 @@ export default function PatientCardPage({ params }: PageProps) {
               <a href={callUrl}
                 className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 transition">
                 <IconPhone className="w-3.5 h-3.5" />
-                <span className="font-mono">{patient.phone_number}</span>
+                <span className="font-mono">{displayPhone(patient.phone_number)}</span>
               </a>
               <a href={whatsappUrl} target="_blank" rel="noreferrer"
                 className="flex items-center gap-1.5 px-3.5 py-2 bg-[#25D366] hover:bg-[#20BD5A] text-white rounded-xl text-xs font-bold transition shadow-sm">
@@ -912,7 +901,7 @@ export default function PatientCardPage({ params }: PageProps) {
                                   className="text-[10px] font-bold text-teal-700 bg-teal-50 border border-teal-200 px-2.5 py-1 rounded-lg hover:bg-teal-100 transition cursor-pointer">
                                   عرض صفحة المريض
                                 </button>
-                                <a href={`https://wa.me/${cleanPhone(patient.phone_number)}?text=${encodeURIComponent(v.ai_report_output)}`}
+                                <a href={`https://wa.me/${normalizePhone(patient.phone_number)}?text=${encodeURIComponent(v.ai_report_output)}`}
                                   target="_blank" rel="noreferrer"
                                   className="flex items-center gap-1 text-[10px] font-bold text-[#25D366] hover:underline">
                                   <IconWhatsApp className="w-3 h-3" />

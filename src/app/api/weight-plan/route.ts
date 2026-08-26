@@ -466,8 +466,7 @@ ${rateWarningLine}`;
 مؤشر كتلة الجسم: ${plan.bmi} (${bmiCategoryLabel})
 الوزن المثالي: ${plan.ideal_weight_min}–${plan.ideal_weight_max} كغ
 المطلوب إنقاصه: ${plan.target_loss_kg > 0 ? plan.target_loss_kg + ' كغ' : 'الوزن ضمن النطاق المثالي'}
-الهدف المبدئي: ${plan.first_goal_kg} كغ (5٪ من الوزن الحالي)
-الأمراض المزمنة: ${conditionsText}
+${plan.first_goal_kg > 0 ? `الهدف المبدئي: ${plan.first_goal_kg} كغ (5٪ من الوزن الحالي)\n` : ''}الأمراض المزمنة: ${conditionsText}
 الأدوية المزمنة: ${medsText}
 
 التفاعلات الدوائية الغذائية المعروفة لأدويته — معطاة لك حتمياً ولا تُستنتج:
@@ -576,10 +575,12 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
 
       const goalText = plan.bmi_category === 'underweight'
         ? `زيادة وزنك بمقدار ${(plan.ideal_weight_min - plan.weight_kg).toFixed(1)} كغ`
-        : `إنقاص ${plan.first_goal_kg} كغ كهدف مبدئي`;
+        : plan.first_goal_kg > 0
+          ? `إنقاص ${plan.first_goal_kg} كغ كهدف مبدئي`
+          : 'المحافظة على وزنك الحالي ضمن النطاق الصحي';
 
       nutritionData = {
-        personal_message: `${patient_name}، وزنك الحالي ${plan.weight_kg} كغ ومؤشر جسمك ${plan.bmi} (${bmiCategoryLabel}). هدفك القريب هو ${goalText} — خطوة قابلة للتحقيق خلال 4 إلى 8 أسابيع مع الالتزام. صيدليتك هنا لدعمك في كل خطوة.`,
+        personal_message: `${patient_name}، وزنك الحالي ${plan.weight_kg} كغ ومؤشر جسمك ${plan.bmi} (${bmiCategoryLabel}). هدفك القريب هو ${goalText}${plan.bmi_category === 'underweight' || plan.first_goal_kg > 0 ? ' — خطوة قابلة للتحقيق خلال 4 إلى 8 أسابيع مع الالتزام' : ''}. صيدليتك هنا لدعمك في كل خطوة.`,
         smart_habits: [
           hasDiabetes
             ? 'ابدأ كل وجبة بالخضار والبروتين قبل الكربوهيدرات — يُقلل ارتفاع السكر بعد الأكل بشكل ملحوظ'

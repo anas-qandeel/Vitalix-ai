@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import DashboardHeader, { usePharmacyInfo } from '../../components/DashboardHeader';
 import AppFooter from '../../../components/AppFooter';
+import Disclaimer from '@/components/Disclaimer';
 import { getPharmacyId } from '@/lib/tenant';
 
 // ═══════════════════════════════════════════════════════
@@ -913,6 +914,9 @@ export default function PatientCardPage({ params }: PageProps) {
                             </div>
                             <div className="bg-white border border-slate-200 rounded-xl p-4 text-[11px] text-slate-700 leading-relaxed font-medium">
                               {v.ai_report_output}
+                            </div>
+                            <div className="mt-3">
+                              <Disclaimer variant="pharmacist" />
                             </div>
                           </div>
                         )}

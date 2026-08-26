@@ -549,9 +549,9 @@ function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill }: {
                   )}
                   <p className="text-xs text-slate-500 mt-0.5">{foundMeds.length} {foundMeds.length === 1 ? 'دواء مزمن مسجّل' : 'أدوية مزمنة مسجّلة'}</p>
                 </div>
-                <button onClick={() => { setFound(null); setResults([]); setFoundMeds([]); }}
+                <button onClick={() => search('')}
                   className="text-[11px] text-slate-400 hover:text-slate-700 font-medium shrink-0 transition-colors px-2 py-2">
-                  تغيير
+                  بحث آخر
                 </button>
               </div>
               {foundMeds.length > 0 && (

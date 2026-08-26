@@ -14,6 +14,13 @@ const GEMINI_MODELS_FALLBACK = [
   'gemini-3.5-flash-lite',
 ].filter(Boolean) as string[];
 
+// عتبة اعتبار بيانات تقدّم الوزن مشكوكاً فيها — تخصّ حالات النقصان فقط، ولا
+// علاقة لها بمعدل الإنقاص الصحي الموصى به (5% المستخدمة في rateWarning أدناه)؛
+// نقصان يفوق 10% من الوزن السابق خلال شهر غالباً خطأ إدخال (وزن أو تاريخ خاطئ)
+// لا تغيّراً حقيقياً. الزيادة السريعة لا تخضع لهذه العتبة لأنها معلومة سريرية
+// حقيقية محتملة (احتباس سوائل، ستيرويدات) ويجب ألّا تُحجب عن النموذج
+const MAX_PLAUSIBLE_MONTHLY_RATE_PERCENT = 10;
+
 // ═══════════════════════════════════════════════════════════════════════
 // قائمة الفئات السريرية — نص جاهز للحقن في البرومبت
 // ═══════════════════════════════════════════════════════════════════════
@@ -357,6 +364,7 @@ export async function PATCH(req: Request) {
       diffFromBaseline:  number;
       daysSinceBaseline: number;
       rateWarning:       boolean;
+      dataSuspect?:      boolean; // نقصان غير معقول سريرياً (>10% شهرياً) — الواجهة تعرضه، والنموذج لا يتلقى تقدّماً
     };
 
     let progressText: string | null = null;
@@ -391,6 +399,7 @@ export async function PATCH(req: Request) {
         // حراسة القسمة على صفر: عدد أيام أو وزن سابق صفر يمنعان الحساب
         let rateWarning = false;
         let rateWarningLine = 'معدل النزول ضمن المعتاد.';
+        let dataSuspect = false;
         if (daysSincePrevious > 0 && previous.weight_kg > 0) {
           const monthlyRatePercent = (diffFromPrevious / previous.weight_kg) * (30 / daysSincePrevious) * 100;
           if (diffFromPrevious < 0 && Math.abs(monthlyRatePercent) > 5) {
@@ -398,9 +407,14 @@ export async function PATCH(req: Request) {
             const pct = Math.round(Math.abs(monthlyRatePercent) * 10) / 10;
             rateWarningLine = `تنبيه: معدل النزول سريع (${pct}% شهرياً) — نبّه المريض بلطف أن هذا يستحق فحصاً طبياً.`;
           }
+          if (diffFromPrevious < 0 && Math.abs(monthlyRatePercent) > MAX_PLAUSIBLE_MONTHLY_RATE_PERCENT) dataSuspect = true;
+        }
+        if (daysSinceBaseline > 0 && baseline.weight_kg > 0) {
+          const monthlyRateFromBaselinePercent = (diffFromBaseline / baseline.weight_kg) * (30 / daysSinceBaseline) * 100;
+          if (diffFromBaseline < 0 && Math.abs(monthlyRateFromBaselinePercent) > MAX_PLAUSIBLE_MONTHLY_RATE_PERCENT) dataSuspect = true;
         }
 
-        progressText =
+        progressText = dataSuspect ? null :
 `الوزن الأول: ${baseline.weight_kg} كغ بتاريخ ${fmtDate(baselineDate)}
 الوزن في آخر زيارة سابقة: ${previous.weight_kg} كغ بتاريخ ${fmtDate(previousDate)}
 الوزن الحالي: ${plan.weight_kg} كغ
@@ -419,6 +433,7 @@ ${rateWarningLine}`;
           diffFromBaseline,
           daysSinceBaseline,
           rateWarning,
+          ...(dataSuspect ? { dataSuspect: true } : {}),
         };
       }
     }

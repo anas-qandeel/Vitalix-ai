@@ -29,6 +29,7 @@ interface ProgressData {
   diffFromBaseline:  number;
   daysSinceBaseline: number;
   rateWarning:       boolean;
+  dataSuspect?:      boolean; // نقصان وزن غير معقول سريرياً — لا تُعرض أرقام التقدّم للمريض
 }
 interface NutritionData {
   personal_message:   string;
@@ -376,7 +377,7 @@ export default function WeightPlanPage({ params }: PageProps) {
             )}
           </div>
           {/* بطاقة تقدّم المريض — تظهر فقط عند وجود خطة سابقة مؤهّلة للمقارنة */}
-          {nutrition?.progress && (
+          {nutrition?.progress && !nutrition.progress.dataSuspect && (
             <div className="px-5 pt-4">
               <div className="grid grid-cols-2 gap-3">
                 <ProgressStat label="منذ البداية"   diff={nutrition.progress.diffFromBaseline} days={nutrition.progress.daysSinceBaseline} goalDirection={plan.bmi_category === 'underweight' ? 'gain' : 'loss'} />

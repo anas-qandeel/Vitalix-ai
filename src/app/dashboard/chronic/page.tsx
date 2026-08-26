@@ -684,12 +684,12 @@ function MedModal({ patientId, pharmacyId, existingMeds, patientName, onClose, o
   onBack?: () => void;
   isNewPatient?: boolean; // لإظهار banner تأكيد التسجيل
 }) {
-  const isRenewal = existingMeds.length > 0;
+  const isRenewal_initial = existingMeds.length > 0;
   const today = new Date().toISOString().split('T')[0];
   const [deleting, setDeleting] = useState<string | null>(null);
 
   const [meds, setMeds] = useState(
-    isRenewal
+    isRenewal_initial
       ? [...existingMeds].sort((a, b) => calcDaysLeft(a.next_refill_date) - calcDaysLeft(b.next_refill_date)).map(m => {
           const willRenew = calcDaysLeft(m.next_refill_date) <= 7;
 
@@ -742,6 +742,7 @@ function MedModal({ patientId, pharmacyId, existingMeds, patientName, onClose, o
            dosage_unit: 'pill', last_refill_date: today, next_refill_date: '', selected: true,
            original_next_refill: '', remaining_pills: null as number | null }]
   );
+  const isRenewal = meds.some(m => m.id);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
 
@@ -956,6 +957,11 @@ function MedModal({ patientId, pharmacyId, existingMeds, patientName, onClose, o
         )}
 
         <div className="overflow-y-auto flex-1 p-6 space-y-4 bg-slate-50/50">
+          {meds.length === 0 && (
+            <div className="bg-white border border-slate-200 rounded-xl p-6 text-center">
+              <p className="text-sm text-slate-500">لم تعد هناك أدوية مسجّلة لهذا المريض — أضف دواءً جديداً أو أغلق النافذة</p>
+            </div>
+          )}
           {meds.map((m, idx) => {
             const daysRemaining = m.original_next_refill ? calcDaysLeft(m.original_next_refill) : null;
             const isSelected = m.selected;

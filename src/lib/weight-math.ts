@@ -34,16 +34,16 @@ export function calcWeightGoals(weightKg: number, heightCm: number): {
   idealMin: number;   // الحد الأدنى للوزن المثالي (BMI 18.5)
   idealMax: number;   // الحد الأعلى للوزن المثالي (BMI 24.9)
   toLoose: number;    // كيلو يجب إنقاصها للوصول لـ idealMax (0 إذا كان الوزن مثالياً أو أقل)
-  firstGoal: number;  // الهدف المبدئي: 5% من الوزن الحالي (مقرّب لـ 0.5)
+  firstGoal: number;  // الهدف المبدئي: 5% من الوزن الحالي، بحد أقصى المطلوب إنقاصه، وصفر إذا كان الوزن ضمن النطاق المثالي أو أقل
 } {
   const h = heightCm / 100;
   const bmi = weightKg / (h * h);
   const idealMin = Math.round(18.5 * h * h * 10) / 10;
   const idealMax = Math.round(24.9 * h * h * 10) / 10;
   const toLoose = weightKg > idealMax ? Math.round((weightKg - idealMax) * 10) / 10 : 0;
-  // الهدف المبدئي: 5% من الوزن الحالي — لكن لا يتجاوز المطلوب إنقاصه
+  // الهدف المبدئي: 5% من الوزن الحالي، بحد أقصى المطلوب إنقاصه، وصفر إذا كان الوزن ضمن النطاق المثالي أو أقل
   const firstGoalRaw = weightKg * 0.05;
   const firstGoalUncapped = Math.round(firstGoalRaw * 2) / 2;
-  const firstGoal = toLoose > 0 ? Math.min(firstGoalUncapped, toLoose) : firstGoalUncapped;
+  const firstGoal = toLoose > 0 ? Math.min(firstGoalUncapped, toLoose) : 0;
   return { bmi, idealMin, idealMax, toLoose, firstGoal };
 }

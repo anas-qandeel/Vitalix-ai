@@ -372,7 +372,11 @@ export default function WeightPlanPage({ params }: PageProps) {
             )}
             {plan.bmi_category === 'underweight' && (
               <div className="mt-4 bg-blue-50/60 border border-blue-100 rounded-xl px-4 py-3">
-                <p className="text-xs font-bold text-blue-900 text-center">وزنك أقل من المعدل الطبيعي — الخطة أدناه تساعدك على الوصول لوزن صحي تدريجياً. وإن كان هذا النقص حديثاً أو غير مبرَّر، يُنصح بمراجعة الطبيب.</p>
+                <p className="text-xs font-bold text-blue-900 text-center">
+                  {(nutrition?.breakfast?.length ?? 0) > 0 || (nutrition?.lunch?.length ?? 0) > 0 || (nutrition?.dinner?.length ?? 0) > 0 || (nutrition?.snacks?.length ?? 0) > 0
+                    ? 'وزنك أقل من المعدل الطبيعي — الخطة أدناه تساعدك على الوصول لوزن صحي تدريجياً. وإن كان هذا النقص حديثاً أو غير مبرَّر، يُنصح بمراجعة الطبيب.'
+                    : 'وزنك أقل من المعدل الطبيعي — يُنصح بمراجعة الطبيب لتحديد السبب قبل البدء بأي خطة غذائية.'}
+                </p>
               </div>
             )}
           </div>

@@ -19,7 +19,27 @@ const GEMINI_MODELS_FALLBACK = [
 // نقصان يفوق 10% من الوزن السابق خلال شهر غالباً خطأ إدخال (وزن أو تاريخ خاطئ)
 // لا تغيّراً حقيقياً. الزيادة السريعة لا تخضع لهذه العتبة لأنها معلومة سريرية
 // حقيقية محتملة (احتباس سوائل، ستيرويدات) ويجب ألّا تُحجب عن النموذج
+// سند العتبة: معيار CMS لدور الرعاية طويلة الأمد يعتبر فقدان 5% خلال 30 يوماً
+// مستوجباً للتقييم الطبي — وهو ما تغطّيه عتبة rateWarning أعلاه؛ 10% هنا ضعف
+// ذلك، واختيارها هندسي لاستبعاد أخطاء الإدخال لا للتشخيص، وتُضبط لاحقاً بالتجربة الميدانية
 const MAX_PLAUSIBLE_MONTHLY_RATE_PERCENT = 10;
+
+// ═══════════════════════════════════════════════════════════════════════
+// مسار حتمي لحالة النحافة مع نزول وزن مشكوك فيه (bmi_category === 'underweight'
+// و dataSuspect === true معاً) — النحافة وحدها لا تكفي لحجب الخطة (قد تكون
+// طبيعية لدى كثيرين)، والنزول المشكوك فيه وحده لا يكفي أيضاً؛ لكن اجتماعهما
+// يعني احتمال نقص وزن حديث حقيقي فوق بيانات مشكوك في دقتها، فنمتنع عمداً عن
+// توليد خطة غذائية أو هدف وزني ونوجّه المريض للطبيب بدلاً من ذلك
+// ═══════════════════════════════════════════════════════════════════════
+const UNDERWEIGHT_SUSPECT_PERSONAL_MESSAGE = (patientName: string) =>
+  `${patientName}، تشير قراءاتك إلى نقص وزن حديث يستحقّ تقييماً طبياً لتحديد سببه قبل البدء بأي خطة غذائية. ` +
+  `ننصحك بمراجعة طبيبك، وصيدليتك هنا لدعمك.`;
+
+const UNDERWEIGHT_SUSPECT_CLINICAL_REASONING =
+  'المريض ضمن فئة النحافة مع فرق وزن يتجاوز عتبة الاشتباه (dataSuspect) — امتنع النظام عمداً عن توليد ' +
+  'خطة غذائية. راجع دقّة الوزن المُدخل أولاً؛ فإن كانت القراءات صحيحة فهذا نقص وزن حديث يستوجب تقييماً ' +
+  'طبياً. الفحوصات الأولية المتعارف عليها: صورة دم كاملة، وظائف الغدة الدرقية (TSH)، وظائف كبد وكلى، سكر ' +
+  'صائم، سرعة الترسيب — يحدّدها الطبيب بحسب التاريخ والفحص السريري.';
 
 // ═══════════════════════════════════════════════════════════════════════
 // قائمة الفئات السريرية — نص جاهز للحقن في البرومبت
@@ -369,6 +389,7 @@ export async function PATCH(req: Request) {
 
     let progressText: string | null = null;
     let progressData: ProgressData | null = null;
+    let dataSuspect = false;
 
     if (priorPlans && priorPlans.length > 0) {
       const currentDate = new Date(plan.created_at);
@@ -399,7 +420,6 @@ export async function PATCH(req: Request) {
         // حراسة القسمة على صفر: عدد أيام أو وزن سابق صفر يمنعان الحساب
         let rateWarning = false;
         let rateWarningLine = 'معدل النزول ضمن المعتاد.';
-        let dataSuspect = false;
         if (daysSincePrevious > 0 && previous.weight_kg > 0) {
           const monthlyRatePercent = (diffFromPrevious / previous.weight_kg) * (30 / daysSincePrevious) * 100;
           if (diffFromPrevious < 0 && Math.abs(monthlyRatePercent) > 5) {
@@ -525,9 +545,33 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
     }
 
     let nutritionData: (Omit<NutritionData, 'pharmacy_products'> & { pharmacy_products: PharmacyProductSuggestion[] }) | null = null;
+
+    // ── مسار حتمي لحالة النحافة مع نزول وزن مشكوك فيه معاً — راجع تعريف
+    // الثوابت أعلى الملف لسبب القرار ──
+    if (plan.bmi_category === 'underweight' && dataSuspect) {
+      // التفاعلات الدوائية الغذائية المحسوبة حتمياً في matchedDrugs صحيحة
+      // بصرف النظر عن فئة الوزن — نستخدم نصوصها المعتمدة للمريض (patientText) كما هي
+      const suspectAlertParts = matchedDrugs
+        .filter(d => d.foods.length > 0)
+        .map(d => `${d.genericAr}: ${d.foods.map(f => f.patientText).join(' ')}`);
+
+      nutritionData = {
+        personal_message:   UNDERWEIGHT_SUSPECT_PERSONAL_MESSAGE(patient_name),
+        smart_habits:       [],
+        breakfast:          [],
+        lunch:              [],
+        dinner:             [],
+        snacks:             [],
+        pharmacy_products:  [],
+        medications_alert:  suspectAlertParts.length > 0 ? suspectAlertParts.join('\n') : '',
+        lab_alerts:         [],
+        clinical_reasoning: UNDERWEIGHT_SUSPECT_CLINICAL_REASONING,
+      };
+    }
+
     const geminiApiKey = process.env.GEMINI_API_KEY;
 
-    if (geminiApiKey) {
+    if (geminiApiKey && !nutritionData) {
       const ai = new GoogleGenAI({ apiKey: geminiApiKey });
 
       for (const modelName of GEMINI_MODELS_FALLBACK) {

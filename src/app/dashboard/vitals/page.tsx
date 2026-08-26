@@ -438,6 +438,7 @@ export default function VitalsPage() {
   const [weightPlanId,  setWeightPlanId]  = useState<string | null>(null);
   const [weightPlanUrl, setWeightPlanUrl] = useState<string | null>(null);
   const [weightStatus,  setWeightStatus]  = useState<'idle'|'saving'|'generating'|'sent'|'error'>('idle');
+  const [weightDataSuspect, setWeightDataSuspect] = useState(false);
 
   // ── العوامل المؤثرة ──
   const [bpFactors, setBpFactors] = useState<string[]>([]);
@@ -531,7 +532,7 @@ export default function VitalsPage() {
     setSelectedSymptoms([]); setBpFactors([]); setSugarFactors([]);
     setErrorMsg(''); setSoftWarningMsg(''); setSoftWarningConfirmed(false);
     setLatestGeneratedReport(null); setLatestVisitId(null);
-    setWeightPlanId(null); setWeightPlanUrl(null); setWeightStatus('idle'); setBmiLive(null);
+    setWeightPlanId(null); setWeightPlanUrl(null); setWeightStatus('idle'); setBmiLive(null); setWeightDataSuspect(false);
     setSearchingPatient(true);
     try { await loadHistory(p); } catch { }
     finally { setSearchingPatient(false); }
@@ -860,7 +861,7 @@ export default function VitalsPage() {
               }),
             })
               .then(r => r.json())
-              .then(d => { if (d.success) setWeightStatus('sent'); })
+              .then(d => { if (d.success) { setWeightStatus('sent'); setWeightDataSuspect(!!d.dataSuspect); } })
               .catch(() => setWeightStatus('error'));
 
             // الخطوة 3: فتح WhatsApp فوراً بعد إنشاء الـ plan_id
@@ -919,7 +920,7 @@ ${planUrl}
     setIsDualBp(true);
     setLatestGeneratedReport(null);
     setLatestVisitId(null);
-    setWeightPlanId(null); setWeightPlanUrl(null); setWeightStatus('idle'); setBmiLive(null);
+    setWeightPlanId(null); setWeightPlanUrl(null); setWeightStatus('idle'); setBmiLive(null); setWeightDataSuspect(false);
     setErrorMsg('');
   };
 
@@ -1920,6 +1921,16 @@ ${planUrl}
                             </p>
                           </div>
                         </div>
+
+                        {/* تنبيه فرق وزن غير معتاد — أرقام التقدّم لم تُعرض للمريض */}
+                        {weightDataSuspect && (
+                          <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl border bg-amber-50 border-amber-200 text-amber-800">
+                            <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                            </svg>
+                            <p className="text-[11px] font-bold">فرق وزن غير معتاد مقارنةً بالقراءات السابقة — راجع دقّة الوزن المُدخل. لم تُعرض أرقام التقدّم للمريض.</p>
+                          </div>
+                        )}
 
                         {/* زر عرض صفحة المريض */}
                         <button

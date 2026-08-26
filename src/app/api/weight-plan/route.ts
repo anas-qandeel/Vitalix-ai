@@ -742,7 +742,7 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
       return NextResponse.json({ error: 'تعذر حفظ القائمة الغذائية' }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, dataSuspect: progressData?.dataSuspect ?? false });
   } catch (err: any) {
     console.error('[weight-plan PATCH] error:', err);
     return NextResponse.json({ error: err.message || 'خطأ في السيرفر' }, { status: 500 });

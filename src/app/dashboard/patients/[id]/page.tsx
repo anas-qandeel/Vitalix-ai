@@ -7,6 +7,7 @@ import DashboardHeader, { usePharmacyInfo } from '../../components/DashboardHead
 import AppFooter from '../../../components/AppFooter';
 import Disclaimer from '@/components/Disclaimer';
 import { getPharmacyId } from '@/lib/tenant';
+import { detectTextDir } from '@/lib/text-direction';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -919,7 +920,11 @@ export default function PatientCardPage({ params }: PageProps) {
                                 </a>
                               </div>
                             </div>
-                            <div className="bg-white border border-slate-200 rounded-xl p-4 text-[11px] text-slate-700 leading-relaxed font-medium">
+                            <div
+                              className="bg-white border border-slate-200 rounded-xl p-4 text-[11px] text-slate-700 leading-relaxed font-medium"
+                              dir={detectTextDir(v.ai_report_output)}
+                              style={{ textAlign: detectTextDir(v.ai_report_output) === 'ltr' ? 'left' : 'right' }}
+                            >
                               {v.ai_report_output}
                             </div>
                             <div className="mt-3">

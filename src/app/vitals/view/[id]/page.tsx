@@ -3,6 +3,7 @@
 import { useEffect, useState, use } from 'react';
 import AppFooter from '../../../components/AppFooter';
 import Disclaimer from '@/components/Disclaimer';
+import { detectTextDir } from '@/lib/text-direction';
 
 interface Patient {
   id: string;
@@ -873,6 +874,7 @@ export default function SingleVitalViewPage({ params }: PageProps) {
 
           {/* نص التقرير */}
           <div
+            dir={detectTextDir(currentVisit.ai_report_output)}
             style={{
               background: '#f8fafc',
               border: '1px solid #e2e8f0',
@@ -882,6 +884,7 @@ export default function SingleVitalViewPage({ params }: PageProps) {
               color: '#334155',
               lineHeight: 1.9,
               whiteSpace: 'pre-line',
+              textAlign: detectTextDir(currentVisit.ai_report_output) === 'ltr' ? 'left' : 'right',
             }}
           >
             {currentVisit.ai_report_output}

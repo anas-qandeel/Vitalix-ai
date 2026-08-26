@@ -9,6 +9,7 @@ import AppFooter from '../../components/AppFooter';
 import { getPharmacyId, getStaffId, getStaffName } from '@/lib/tenant';
 import { normalizeAr } from '@/lib/arabic';
 import { calcWeightGoals } from '@/lib/weight-math';
+import { detectTextDir } from '@/lib/text-direction';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -423,6 +424,7 @@ export default function VitalsPage() {
   const [latestGeneratedReport, setLatestGeneratedReport] = useState<string | null>(null);
   const [isFallbackReport, setIsFallbackReport] = useState(false);
   const [latestVisitId, setLatestVisitId] = useState<string | null>(null);
+  const [reportLanguage, setReportLanguage] = useState<'ar' | 'en'>('ar');
 
   // ── نظام إدارة الوزن ────────────────────────────────────────────────
   // bmiLive     : BMI فوري أثناء الإدخال — لا AI
@@ -533,6 +535,7 @@ export default function VitalsPage() {
     setErrorMsg(''); setSoftWarningMsg(''); setSoftWarningConfirmed(false);
     setLatestGeneratedReport(null); setLatestVisitId(null);
     setWeightPlanId(null); setWeightPlanUrl(null); setWeightStatus('idle'); setBmiLive(null); setWeightDataSuspect(false);
+    setReportLanguage('ar');
     setSearchingPatient(true);
     try { await loadHistory(p); } catch { }
     finally { setSearchingPatient(false); }
@@ -761,7 +764,7 @@ export default function VitalsPage() {
           const res = await fetch('/api/generate-ai-report', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ patient: currentPatient, currentVisit: aiPayload, history: patientHistory, pharmacyName }),
+            body: JSON.stringify({ patient: currentPatient, currentVisit: aiPayload, history: patientHistory, pharmacyName, language: reportLanguage }),
           });
           if (res.ok) { const d = await res.json(); if (d.report) report = d.report; }
         } catch (e) { console.error('[vitals] AI report request failed:', e); }
@@ -921,6 +924,7 @@ ${planUrl}
     setLatestGeneratedReport(null);
     setLatestVisitId(null);
     setWeightPlanId(null); setWeightPlanUrl(null); setWeightStatus('idle'); setBmiLive(null); setWeightDataSuspect(false);
+    setReportLanguage('ar');
     setErrorMsg('');
   };
 
@@ -1720,6 +1724,24 @@ ${planUrl}
                   </div>
                 )}
 
+                <div className="flex items-center justify-center gap-2">
+                  <span className="text-[10px] font-bold text-slate-400">لغة التقرير:</span>
+                  <div className="flex items-center gap-1 bg-slate-100 border border-slate-200 rounded-lg p-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setReportLanguage('ar')}
+                      className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition cursor-pointer ${reportLanguage === 'ar' ? 'bg-white text-teal-700 border border-teal-200 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                      عربي
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setReportLanguage('en')}
+                      className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition cursor-pointer ${reportLanguage === 'en' ? 'bg-white text-teal-700 border border-teal-200 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                      <span dir="ltr">English</span>
+                    </button>
+                  </div>
+                </div>
+
                 <button
                   onClick={() => handleSave()}
                   disabled={submitting || !hasAnyReading || !!softWarningMsg}
@@ -1772,7 +1794,11 @@ ${planUrl}
                     </div>
                   </div>
                   <div className="p-5">
-                    <p className="text-sm text-slate-700 leading-relaxed font-medium bg-slate-50 border border-slate-100 rounded-xl p-4">
+                    <p
+                      className="text-sm text-slate-700 leading-relaxed font-medium bg-slate-50 border border-slate-100 rounded-xl p-4"
+                      dir={detectTextDir(latestGeneratedReport)}
+                      style={{ textAlign: detectTextDir(latestGeneratedReport) === 'ltr' ? 'left' : 'right' }}
+                    >
                       {latestGeneratedReport}
                     </p>
                   </div>

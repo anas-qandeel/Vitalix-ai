@@ -70,7 +70,9 @@ const SYSTEM_INSTRUCTION = `أنت مساعد تحليلي متقدم في من�
 
 // تُلحق بنهاية SYSTEM_INSTRUCTION (وبنهاية COMPRESS_INSTRUCTION عند الضغط)
 // فقط عندما تكون اللغة المطلوبة 'en' — لا تُترجم SYSTEM_INSTRUCTION نفسه
-const ENGLISH_OUTPUT_INSTRUCTION = `Write the entire report in clear, simplified, patient-facing English. All the rules and standards above apply exactly as stated. Keep the semantic symbols 🔴🟡🟢 exactly as they are. Do not write a single Arabic word in the output.`;
+const ENGLISH_OUTPUT_INSTRUCTION = `Write the entire report in clear, simplified, patient-facing English. All the rules and standards above apply exactly as stated. Keep the semantic symbols 🔴🟡🟢 exactly as they are. Do not write a single Arabic word in the output.
+
+The Arabic rule above that says "do not write the patient's name or the pharmacy's name" does NOT apply in this English mode. Instead, begin the report with a greeting in exactly this form: "Hello [patient name], from the [pharmacy name] team 👋" — using the patient name and pharmacy name given to you in the data (provided in Arabic), transliterated into Latin letters, not translated in meaning. For example, "صيدلية نور الربيع" becomes "Nour Al-Rabee Pharmacy". Then continue the rest of the report in the same paragraph, right after the greeting.`;
 
 // الترحيب الملصَق في بداية كل تقرير — مصدر واحد بدل تكرار النص حرفياً في أكثر
 // من موضع، حتى لا تنحرف النسخ عن بعضها بصمت عند أي تعديل مستقبلي
@@ -219,7 +221,9 @@ export async function POST(req: Request) {
           : null;
         const ageCategory = ageNum ? (ageNum > 60 ? 'فوق 60 سنة' : '60 سنة أو أقل') : 'غير محدد';
 
-        const userPrompt = `الجنس: ${genderLine} - العمر: ${patientAge} (${ageCategory})
+        const userPrompt = `اسم المريض: ${patientName}
+اسم الصيدلية: ${pharmacyDisplayName}
+الجنس: ${genderLine} - العمر: ${patientAge} (${ageCategory})
 ${clinicalStatusLine}
 ضغط الدم: ${bpLine}
 معدل النبض: ${heartRateLine}
@@ -316,8 +320,12 @@ ${recentVisitsLine}`;
         }
 
         if (reportText) {
-          const greeting = buildReportGreeting(patientName, pharmacyDisplayName, language);
-          return NextResponse.json({ report: `${greeting} ${reportText}` });
+          // بالإنجليزية النموذج يكتب التحية بنفسه (بأسماء منقحَرة — راجع
+          // ENGLISH_OUTPUT_INSTRUCTION) فلا نلصق تحية عربية الأسماء فوقها
+          const report = language === 'en'
+            ? reportText
+            : `${buildReportGreeting(patientName, pharmacyDisplayName, language)} ${reportText}`;
+          return NextResponse.json({ report });
         }
         throw lastModelErr || new Error('no model returned a response');
       } catch (aiErr) {

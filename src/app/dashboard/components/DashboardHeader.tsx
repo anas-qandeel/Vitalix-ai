@@ -30,6 +30,7 @@ function pluralizeDays(days: number): string {
 
 export function usePharmacyInfo() {
   const [pharmacyName, setPharmacyName] = useState('');
+  const [pharmacyNameEn, setPharmacyNameEn] = useState('');
   const [pharmacistName, setPharmacistName] = useState('');
   const [pharmacyStatus, setPharmacyStatus] = useState('');
   const [expiryDate, setExpiryDate] = useState<string | null>(null);
@@ -46,10 +47,11 @@ export function usePharmacyInfo() {
         if (!pid) return;
         const { data } = await supabase
           .from('pharmacies')
-          .select('name, pharmacy_name, pharmacist_name, status, expiry_date')
+          .select('name, pharmacy_name, name_en, pharmacist_name, status, expiry_date')
           .eq('id', pid)
           .single();
         setPharmacyName(resolvePharmacyName(data));
+        setPharmacyNameEn(data?.name_en || '');
         setPharmacistName(data?.pharmacist_name || '');
         setPharmacyStatus(data?.status || '');
         setExpiryDate(data?.expiry_date || null);
@@ -64,7 +66,7 @@ export function usePharmacyInfo() {
     return Math.max(0, Math.ceil((new Date(expiryDate).getTime() - Date.now()) / 86400000));
   };
 
-  return { pharmacyName, pharmacistName, pharmacyStatus, expiryDate, daysLeft: getDaysLeft(), loading };
+  return { pharmacyName, pharmacyNameEn, pharmacistName, pharmacyStatus, expiryDate, daysLeft: getDaysLeft(), loading };
 }
 
 const NAV_LINKS = [

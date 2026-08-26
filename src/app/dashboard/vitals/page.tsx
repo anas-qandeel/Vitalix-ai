@@ -388,7 +388,7 @@ function HeightEditor({
 
 export default function VitalsPage() {
   const router = useRouter();
-  const { pharmacyName } = usePharmacyInfo();
+  const { pharmacyName, pharmacyNameEn } = usePharmacyInfo();
   const searchRef = useRef<HTMLDivElement>(null);
   const reportRef = useRef<HTMLDivElement>(null);
 
@@ -425,6 +425,8 @@ export default function VitalsPage() {
   const [isFallbackReport, setIsFallbackReport] = useState(false);
   const [latestVisitId, setLatestVisitId] = useState<string | null>(null);
   const [reportLanguage, setReportLanguage] = useState<'ar' | 'en'>('ar');
+  // اسم الصيدلية للمخرجات الإنجليزية — الاسم الإنجليزي إن وُجد وإلا العربي كما هو الآن
+  const pharmacyNameForOutput = reportLanguage === 'en' ? (pharmacyNameEn || pharmacyName) : pharmacyName;
 
   // ── نظام إدارة الوزن ────────────────────────────────────────────────
   // bmiLive     : BMI فوري أثناء الإدخال — لا AI
@@ -764,7 +766,7 @@ export default function VitalsPage() {
           const res = await fetch('/api/generate-ai-report', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ patient: currentPatient, currentVisit: aiPayload, history: patientHistory, pharmacyName, language: reportLanguage }),
+            body: JSON.stringify({ patient: currentPatient, currentVisit: aiPayload, history: patientHistory, pharmacyName: pharmacyNameForOutput, language: reportLanguage }),
           });
           if (res.ok) { const d = await res.json(); if (d.report) report = d.report; }
         } catch (e) { console.error('[vitals] AI report request failed:', e); }
@@ -899,7 +901,7 @@ ${planUrl}
     const cleanPhone = phone.startsWith('0') ? '962' + phone.substring(1) : phone;
     const visitUrl = `${window.location.origin}/vitals/view/${latestVisitId}`;
     const msg = reportLanguage === 'en'
-      ? `Hello ${currentPatient.name} 👋\nYour vitals have been recorded at ${pharmacyName}.\n\nYour medical report:\n${visitUrl}\n\n🔒 A secure link, personal to you\n\nBest regards, the ${pharmacyName} team 🌿`
+      ? `Hello ${currentPatient.name} 👋\nYour vitals have been recorded at ${pharmacyNameForOutput}.\n\nYour medical report:\n${visitUrl}\n\n🔒 A secure link, personal to you\n\nBest regards, the ${pharmacyNameForOutput} team 🌿`
       : `مرحباً ${currentPatient.name} 👋\nتم توثيق فحوصاتك الحيوية لدى ${pharmacyName}.\n\nرابط تقريرك الطبي:\n${visitUrl}\n\n🔒 رابط آمن ومخصص لك\n\nمع تحيات فريق ${pharmacyName} 🌿`;
     window.open(`https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(msg)}`, '_blank');
   };

@@ -344,12 +344,7 @@ export default function WeightPlanPage({ params }: PageProps) {
                     </div>
                   )}
                 </>
-              ) : plan.bmi_category === 'underweight' ? (
-                <div className="bg-blue-50 border border-blue-200 rounded-xl px-3 py-2.5 text-center">
-                  <p className="text-[9px] font-bold text-slate-400 mb-1">المطلوب زيادته</p>
-                  <p className="text-lg font-black text-blue-700">{(plan.ideal_weight_min - plan.weight_kg).toFixed(1)}<span className="text-xs font-normal text-blue-500"> كغ</span></p>
-                </div>
-              ) : (
+              ) : plan.bmi_category === 'underweight' ? null : (
                 <div className="bg-teal-50 border border-teal-200 rounded-xl px-3 py-2.5 text-center flex items-center justify-center">
                   <p className="text-[10px] font-bold text-teal-700">وزن مثالي 🎯</p>
                 </div>
@@ -372,7 +367,7 @@ export default function WeightPlanPage({ params }: PageProps) {
             )}
             {plan.bmi_category === 'underweight' && (
               <div className="mt-4 bg-blue-50/60 border border-blue-100 rounded-xl px-4 py-3">
-                <p className="text-xs font-bold text-blue-900 text-center">وزنك أقل من المعدل الطبيعي — الخطة أدناه تساعدك على الوصول لوزن صحي تدريجياً</p>
+                <p className="text-xs font-bold text-blue-900 text-center">وزنك أقل من المعدل الطبيعي — يُنصح بمراجعة الطبيب لتحديد السبب</p>
               </div>
             )}
           </div>
@@ -436,18 +431,28 @@ export default function WeightPlanPage({ params }: PageProps) {
               </div>
             )}
 
-            {/* الفاصل */}
-            <div className="flex items-center gap-2 px-1">
-              <div className="flex-1 h-px bg-slate-200" />
-              <p className="text-[11px] font-bold text-slate-400 whitespace-nowrap">اختر من هذه الخيارات يومياً</p>
-              <div className="flex-1 h-px bg-slate-200" />
-            </div>
+            {/* الفاصل — لا يظهر إذا وصلت كل قوائم الوجبات فارغة (مثال: حالة النحافة) */}
+            {(nutrition.breakfast.length > 0 || nutrition.lunch.length > 0 || nutrition.dinner.length > 0 || nutrition.snacks.length > 0) && (
+              <div className="flex items-center gap-2 px-1">
+                <div className="flex-1 h-px bg-slate-200" />
+                <p className="text-[11px] font-bold text-slate-400 whitespace-nowrap">اختر من هذه الخيارات يومياً</p>
+                <div className="flex-1 h-px bg-slate-200" />
+              </div>
+            )}
 
             {/* قوائم الوجبات */}
-            <MealSection icon="☀️" title="خيارات الإفطار"      color={mealColors.breakfast} items={nutrition.breakfast} />
-            <MealSection icon="🍽️" title="خيارات الغداء"        color={mealColors.lunch}     items={nutrition.lunch}     />
-            <MealSection icon="🌙" title="خيارات العشاء"        color={mealColors.dinner}    items={nutrition.dinner}    />
-            <MealSection icon="🍎" title="وجبات خفيفة صحية"     color={mealColors.snacks}    items={nutrition.snacks}    />
+            {nutrition.breakfast.length > 0 && (
+              <MealSection icon="☀️" title="خيارات الإفطار"      color={mealColors.breakfast} items={nutrition.breakfast} />
+            )}
+            {nutrition.lunch.length > 0 && (
+              <MealSection icon="🍽️" title="خيارات الغداء"        color={mealColors.lunch}     items={nutrition.lunch}     />
+            )}
+            {nutrition.dinner.length > 0 && (
+              <MealSection icon="🌙" title="خيارات العشاء"        color={mealColors.dinner}    items={nutrition.dinner}    />
+            )}
+            {nutrition.snacks.length > 0 && (
+              <MealSection icon="🍎" title="وجبات خفيفة صحية"     color={mealColors.snacks}    items={nutrition.snacks}    />
+            )}
 
             {/* منتجات الصيدلية — Trojan Horse */}
             {nutrition.pharmacy_products && nutrition.pharmacy_products.filter(p => CATEGORY_LABELS[p.category_code]).length > 0 && (

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, use } from 'react';
 import AppFooter from '../../../components/AppFooter';
+import Disclaimer from '@/components/Disclaimer';
 
 interface Patient {
   id: string;
@@ -1271,6 +1272,7 @@ export default function SingleVitalViewPage({ params }: PageProps) {
           <span style={{ color: '#0d9488', fontWeight: 600 }}>Vitalix.ai</span>{' '}
           لصالح ({displayPharmacyName})
         </footer>
+        <Disclaimer variant="patient" />
         <AppFooter className="pb-8" />
       </main>
     </div>

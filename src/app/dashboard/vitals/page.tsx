@@ -898,7 +898,9 @@ ${planUrl}
     const phone = currentPatient.phone_number.replace(/[^0-9]/g, '');
     const cleanPhone = phone.startsWith('0') ? '962' + phone.substring(1) : phone;
     const visitUrl = `${window.location.origin}/vitals/view/${latestVisitId}`;
-    const msg = `مرحباً ${currentPatient.name} 👋\nتم توثيق فحوصاتك الحيوية لدى ${pharmacyName}.\n\nرابط تقريرك الطبي:\n${visitUrl}\n\n🔒 رابط آمن ومخصص لك\n\nمع تحيات فريق ${pharmacyName} 🌿`;
+    const msg = reportLanguage === 'en'
+      ? `Hello ${currentPatient.name} 👋\nYour vitals have been recorded at ${pharmacyName}.\n\nYour medical report:\n${visitUrl}\n\n🔒 A secure link, personal to you\n\nBest regards, the ${pharmacyName} team 🌿`
+      : `مرحباً ${currentPatient.name} 👋\nتم توثيق فحوصاتك الحيوية لدى ${pharmacyName}.\n\nرابط تقريرك الطبي:\n${visitUrl}\n\n🔒 رابط آمن ومخصص لك\n\nمع تحيات فريق ${pharmacyName} 🌿`;
     window.open(`https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(msg)}`, '_blank');
   };
 

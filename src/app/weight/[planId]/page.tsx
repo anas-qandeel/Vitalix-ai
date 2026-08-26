@@ -344,7 +344,12 @@ export default function WeightPlanPage({ params }: PageProps) {
                     </div>
                   )}
                 </>
-              ) : plan.bmi_category === 'underweight' ? null : (
+              ) : plan.bmi_category === 'underweight' ? (
+                <div className="bg-blue-50 border border-blue-200 rounded-xl px-3 py-2.5 text-center">
+                  <p className="text-[9px] font-bold text-slate-400 mb-1">المطلوب زيادته</p>
+                  <p className="text-lg font-black text-blue-700">{(plan.ideal_weight_min - plan.weight_kg).toFixed(1)}<span className="text-xs font-normal text-blue-500"> كغ</span></p>
+                </div>
+              ) : (
                 <div className="bg-teal-50 border border-teal-200 rounded-xl px-3 py-2.5 text-center flex items-center justify-center">
                   <p className="text-[10px] font-bold text-teal-700">وزن مثالي 🎯</p>
                 </div>
@@ -367,7 +372,7 @@ export default function WeightPlanPage({ params }: PageProps) {
             )}
             {plan.bmi_category === 'underweight' && (
               <div className="mt-4 bg-blue-50/60 border border-blue-100 rounded-xl px-4 py-3">
-                <p className="text-xs font-bold text-blue-900 text-center">وزنك أقل من المعدل الطبيعي — يُنصح بمراجعة الطبيب لتحديد السبب</p>
+                <p className="text-xs font-bold text-blue-900 text-center">وزنك أقل من المعدل الطبيعي — الخطة أدناه تساعدك على الوصول لوزن صحي تدريجياً. وإن كان هذا النقص حديثاً أو غير مبرَّر، يُنصح بمراجعة الطبيب.</p>
               </div>
             )}
           </div>

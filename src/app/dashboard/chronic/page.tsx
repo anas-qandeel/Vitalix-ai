@@ -131,10 +131,28 @@ function fmtDate(d: string): string {
   });
 }
 
-const UNITS: Record<string, string> = {
-  pill: 'حبة', drop: 'قطرة', ml: 'مل',
-  spoon: 'ملعقة', puff: 'بخة', patch: 'لصقة', unit: 'وحدة',
+const UNITS: Record<string, { one: string; many: string; pack: string }> = {
+  pill:  { one: 'حبة',   many: 'حبات',   pack: 'علبة' },
+  drop:  { one: 'قطرة',  many: 'قطرات',  pack: 'عبوة' },
+  ml:    { one: 'مل',    many: 'مل',     pack: 'عبوة' },
+  spoon: { one: 'ملعقة', many: 'ملاعق',  pack: 'عبوة' },
+  puff:  { one: 'بخة',   many: 'بخات',   pack: 'عبوة' },
+  patch: { one: 'لصقة',  many: 'لصقات',  pack: 'عبوة' },
+  unit:  { one: 'وحدة',  many: 'وحدات',  pack: 'عبوة' },
 };
+
+// يشتق تسميات الجرعة/العبوة من مفتاح الوحدة — جمع "علبة" هو "علب" بينما جمع "عبوة" هو "عبوات"
+// لذا لا يمكن اشتقاق الجمع بلاحقة ثابتة، بل عبر هذا الجدول الصغير.
+function getUnitLabels(unitKey: string) {
+  const u = UNITS[unitKey] || UNITS.pill;
+  const packPlural = u.pack === 'علبة' ? 'علب' : 'عبوات';
+  return {
+    perBox: `${u.many}/${u.pack}`,
+    boxesCount: `عدد ال${packPlural}`,
+    dosePerDay: `${u.one}/يوم`,
+    remaining: `${u.many} متبقية عند المريض`,
+  };
+}
 
 function buildWaLink(phone: string, msg: string): string {
   const clean = phone.replace(/[^0-9]/g, '');
@@ -558,7 +576,7 @@ function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill }: {
                 <div className="border-t border-slate-200 divide-y divide-slate-100">
                   {[...foundMeds].sort((a,b) => calcDaysLeft(a.next_refill_date) - calcDaysLeft(b.next_refill_date)).map(m => {
                     const d = calcDaysLeft(m.next_refill_date);
-                    const unitLabel = UNITS[m.dosage_unit] || m.dosage_unit;
+                    const unitLabel = UNITS[m.dosage_unit]?.one || m.dosage_unit;
                     return (
                       <div key={m.id} className="flex items-center justify-between px-4 py-2.5 gap-3">
                         <div className="flex-1 min-w-0">
@@ -1029,9 +1047,9 @@ function MedModal({ patientId, pharmacyId, existingMeds, patientName, onClose, o
                     )}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       {[
-                        { label: 'حبات/علبة', field: 'pills_per_box', min: 1, step: 1 },
-                        { label: 'عدد العلب',  field: 'boxes_count',  min: 1, step: 1 },
-                        { label: 'جرعة/يوم',  field: 'daily_dosage', min: 0.5, step: 0.5 },
+                        { label: getUnitLabels(m.dosage_unit).perBox,     field: 'pills_per_box', min: 1, step: 1 },
+                        { label: getUnitLabels(m.dosage_unit).boxesCount, field: 'boxes_count',  min: 1, step: 1 },
+                        { label: getUnitLabels(m.dosage_unit).dosePerDay, field: 'daily_dosage', min: 0.5, step: 0.5 },
                       ].map(({ label, field, min, step }) => (
                         <div key={field}>
                           <label className="block text-[10px] font-medium text-slate-500 mb-1.5">{label}</label>
@@ -1044,7 +1062,7 @@ function MedModal({ patientId, pharmacyId, existingMeds, patientName, onClose, o
                         <label className="block text-[10px] font-medium text-slate-500 mb-1.5">الوحدة</label>
                         <select value={m.dosage_unit} onChange={e => update(idx, 'dosage_unit', e.target.value)}
                           className="w-full px-2 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 transition-all text-slate-900 shadow-sm">
-                          {Object.entries(UNITS).map(([v,l]) => <option key={v} value={v}>{l}</option>)}
+                          {Object.entries(UNITS).map(([v,l]) => <option key={v} value={v}>{l.one}</option>)}
                         </select>
                       </div>
                     </div>
@@ -1054,7 +1072,7 @@ function MedModal({ patientId, pharmacyId, existingMeds, patientName, onClose, o
                       <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 space-y-2">
                         <div className="flex items-center justify-between">
                           <label className="text-xs font-semibold text-amber-800">
-                            💊 حبات متبقية عند المريض
+                            💊 {getUnitLabels(m.dosage_unit).remaining}
                           </label>
                           <span className="text-[10px] text-emerald-600 font-medium bg-emerald-100 px-2 py-0.5 rounded-full">محسوبة تلقائياً</span>
                         </div>
@@ -1333,7 +1351,7 @@ function PatientMedsModal({ patient, cards, onClose }: {
                                d <= 3 ? 'text-amber-700 font-semibold' :
                                d <= 7 ? 'text-orange-600 font-medium' :
                                'text-slate-400';
-              const unitLabel = UNITS[m.dosage_unit] || m.dosage_unit;
+              const unitLabel = UNITS[m.dosage_unit]?.one || m.dosage_unit;
               return (
                 <div key={m.id} className={`border rounded-xl px-4 py-3 ${urgentStyle}`}>
                   <div className="flex items-center justify-between gap-2">
@@ -1438,7 +1456,7 @@ function InventoryTab({ cards, onClose }: {
           </div>
           <div className="divide-y divide-slate-100">
             {pending.map(item => {
-              const unitLabel = UNITS[item.dosage_unit] || item.dosage_unit;
+              const unitLabel = UNITS[item.dosage_unit]?.one || item.dosage_unit;
               const d = item.nearest_refill_days;
               return (
                 <div key={item.key} className={`px-5 py-4 space-y-3 ${item.is_urgent ? 'bg-rose-50/40' : ''}`}>

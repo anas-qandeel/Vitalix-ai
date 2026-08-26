@@ -10,6 +10,7 @@ import { getPharmacyId, getStaffId, getStaffName } from '@/lib/tenant';
 import { normalizeAr } from '@/lib/arabic';
 import { calcWeightGoals } from '@/lib/weight-math';
 import { detectTextDir } from '@/lib/text-direction';
+import { normalizePhone, displayPhone, validatePhone } from '@/lib/phone';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -53,12 +54,6 @@ function formatDate(dateStr: string) {
 }
 function formatTime(dateStr: string) {
   return new Date(dateStr).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', hour12: true, numberingSystem: 'latn' });
-}
-function normalizePhone(phone: string): string {
-  let c = phone.replace(/[^0-9]/g, '');
-  if (c.startsWith('00962')) c = '0' + c.substring(5);
-  else if (c.startsWith('962') && c.length > 10) c = '0' + c.substring(3);
-  return c;
 }
 function detectInputType(q: string): 'phone' | 'name' {
   const t = q.trim();
@@ -162,6 +157,8 @@ function NewPatientModal({ phone, onClose, onCreated }: {
 
   const save = async () => {
     if (!name.trim()) { setErr('يرجى إدخال اسم المريض'); return; }
+    const phoneCheck = validatePhone(phone);
+    if (!phoneCheck.valid) { setErr(phoneCheck.message || 'رقم الهاتف غير صحيح'); return; }
     setSaving(true); setErr('');
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -568,8 +565,12 @@ export default function VitalsPage() {
         if (!session) return;
         const pid = await getPharmacyId();
         if (!pid) return;
+        // بعض الأرقام مخزّنة بالصيغة المحلية القديمة (07...) وبعضها بصيغة E.164 الجديدة (962...)
+        // لذا نطابق على الجزء المشترك بعد حذف مفتاح الدولة من قيمة البحث المطبّعة
+        const normalizedSearch = normalizePhone(value);
+        const searchTerm = normalizedSearch.startsWith('962') ? normalizedSearch.slice(3) : normalizedSearch;
         const { data: found } = await supabase.from('patients').select('*')
-          .eq('pharmacy_id', pid).eq('phone_number', normalizePhone(value));
+          .eq('pharmacy_id', pid).ilike('phone_number', `%${searchTerm}%`);
         if (found && found.length === 1) {
           await selectPatient(found[0] as Patient, true); // keepQuery=true يحافظ على رقم الهاتف في الحقل
         } else if (found && found.length > 1) {
@@ -870,8 +871,7 @@ export default function VitalsPage() {
               .catch(() => setWeightStatus('error'));
 
             // الخطوة 3: فتح WhatsApp فوراً بعد إنشاء الـ plan_id
-            const phone = currentPatient.phone_number.replace(/[^0-9]/g, '');
-            const cleanPhone = phone.startsWith('0') ? '962' + phone.substring(1) : phone;
+            const cleanPhone = normalizePhone(currentPatient.phone_number);
             const msg =
 `مرحباً ${currentPatient.name} 👋
 من فريق ${pharmacyName}
@@ -897,8 +897,7 @@ ${planUrl}
 
   const sendWhatsApp = () => {
     if (!latestVisitId || !currentPatient) return;
-    const phone = currentPatient.phone_number.replace(/[^0-9]/g, '');
-    const cleanPhone = phone.startsWith('0') ? '962' + phone.substring(1) : phone;
+    const cleanPhone = normalizePhone(currentPatient.phone_number);
     const visitUrl = `${window.location.origin}/vitals/view/${latestVisitId}`;
     const msg = reportLanguage === 'en'
       ? `Hello ${currentPatient.name} 👋\nYour vitals have been recorded at ${pharmacyNameForOutput}.\n\nYour medical report:\n${visitUrl}\n\n🔒 A secure link, personal to you\n\nBest regards, the ${pharmacyNameForOutput} team 🌿`
@@ -1041,7 +1040,7 @@ ${planUrl}
                               <div className="flex-1 min-w-0">
                                 <p className="text-sm font-semibold text-slate-900 truncate">{p.name}</p>
                                 <div className="flex items-center gap-2 mt-0.5">
-                                  <span className="text-xs font-bold text-slate-600 font-mono bg-slate-100 px-2 py-0.5 rounded-md">{p.phone_number}</span>
+                                  <span className="text-xs font-bold text-slate-600 font-mono bg-slate-100 px-2 py-0.5 rounded-md">{displayPhone(p.phone_number)}</span>
                                   {age && <span className="text-[10px] text-slate-400">{age} سنة</span>}
                                 </div>
                               </div>

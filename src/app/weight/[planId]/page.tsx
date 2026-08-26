@@ -336,10 +336,12 @@ export default function WeightPlanPage({ params }: PageProps) {
                     <p className="text-[9px] font-bold text-slate-400 mb-1">للوصول للوزن المثالي</p>
                     <p className={`text-lg font-black ${bmiStyle.color}`}>{plan.target_loss_kg}<span className="text-xs font-normal"> كغ</span></p>
                   </div>
-                  <div className="bg-purple-50 border border-purple-200 rounded-xl px-3 py-2.5 text-center">
-                    <p className="text-[9px] font-bold text-slate-400 mb-1">الهدف المبدئي</p>
-                    <p className="text-lg font-black text-purple-700">{plan.first_goal_kg}<span className="text-xs font-normal text-purple-500"> كغ</span></p>
-                  </div>
+                  {plan.first_goal_kg < plan.target_loss_kg && (
+                    <div className="bg-purple-50 border border-purple-200 rounded-xl px-3 py-2.5 text-center">
+                      <p className="text-[9px] font-bold text-slate-400 mb-1">الهدف المبدئي</p>
+                      <p className="text-lg font-black text-purple-700">{plan.first_goal_kg}<span className="text-xs font-normal text-purple-500"> كغ</span></p>
+                    </div>
+                  )}
                 </>
               ) : plan.bmi_category === 'underweight' ? (
                 <div className="bg-blue-50 border border-blue-200 rounded-xl px-3 py-2.5 text-center">

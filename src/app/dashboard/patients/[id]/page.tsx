@@ -565,6 +565,7 @@ export default function PatientCardPage({ params }: PageProps) {
                   <input value={editPhone} onChange={e => setEditPhone(e.target.value)} placeholder="رقم الهاتف" dir="ltr"
                     className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 transition text-slate-900 font-mono text-left" />
                 </div>
+                <p className="text-[11px] text-slate-400">للأرقام خارج الأردن ابدأ بمفتاح الدولة — مثال: 00966501234567</p>
                 <div className="grid sm:grid-cols-2 gap-3">
                   <div className="flex bg-slate-100 p-1 rounded-lg w-fit">
                     {[{ v: 'male', l: 'ذكر' }, { v: 'female', l: 'أنثى' }].map(g => (

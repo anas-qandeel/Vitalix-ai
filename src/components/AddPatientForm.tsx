@@ -123,6 +123,7 @@ export default function AddPatientForm({
             <input type="tel" dir="ltr" value={phone} onChange={e => setPhone(e.target.value)} placeholder="07XXXXXXXX"
               readOnly={lockPhone}
               className={`w-full px-4 py-3 text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-slate-900 transition text-slate-900 font-mono text-left ${lockPhone ? 'bg-slate-100 text-slate-500' : 'bg-slate-50'}`} />
+            <p className="text-[11px] text-slate-400 mt-1.5">للأرقام خارج الأردن ابدأ بمفتاح الدولة — مثال: 00966501234567</p>
           </div>
 
           <div className="grid grid-cols-2 gap-3">

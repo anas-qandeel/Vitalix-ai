@@ -1059,6 +1059,7 @@ ${planUrl}
                     <p className="mt-1.5 text-[11px] text-slate-400 text-center">لم يُعثر على مريض بهذا الاسم</p>
                   )}
                 </div>
+                <p className="text-[11px] text-slate-400 mt-1.5">للأرقام خارج الأردن ابدأ بمفتاح الدولة — مثال: 00966501234567</p>
 
                 {/* زر تسجيل مريض جديد (رقم هاتف غير موجود) */}
                 {canShowNewPatient && (

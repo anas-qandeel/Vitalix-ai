@@ -2,6 +2,7 @@
 
 import { useEffect, useState, use, useRef } from 'react';
 import AppFooter from '../../components/AppFooter';
+import Disclaimer from '@/components/Disclaimer';
 import { SUPPLEMENT_CATEGORIES } from '@/lib/supplement-categories';
 
 const CATEGORY_LABELS: Record<string, string> = Object.fromEntries(
@@ -552,6 +553,8 @@ export default function WeightPlanPage({ params }: PageProps) {
             <SkeletonCard /><SkeletonCard />
           </div>
         )}
+
+        <Disclaimer variant="patient" />
 
         {/* Footer */}
         <div className="text-center pt-2 pb-4">

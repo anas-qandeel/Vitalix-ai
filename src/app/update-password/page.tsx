@@ -4,8 +4,28 @@ import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { getPharmacyId } from '@/lib/tenant';
-import { validatePassword } from '@/lib/password';
+import { validatePassword, checkPassword, isPasswordValid } from '@/lib/password';
 import AppFooter from '../components/AppFooter';
+
+// نفس نطاقات الأحرف العربية المعرّفة في detectTextDir بـ src/lib/text-direction.ts —
+// غير مصدّرة من هناك فأُعيد تعريفها هنا محلياً لمنع كتابة أحرف عربية في كلمة المرور
+const ARABIC_LETTER_RE = /[؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿]/g;
+
+function IconEye({ className = 'w-4 h-4' }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+    </svg>
+  );
+}
+function IconEyeOff({ className = 'w-4 h-4' }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12c1.292 4.338 5.31 7.5 10.066 7.5.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
+    </svg>
+  );
+}
 
 function UpdatePasswordContent() {
   const searchParams = useSearchParams();
@@ -16,11 +36,15 @@ function UpdatePasswordContent() {
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [confirmError, setConfirmError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+
+  const checks = checkPassword(password);
 
   useEffect(() => {
     const checkSession = async () => {
@@ -179,18 +203,40 @@ function UpdatePasswordContent() {
                 <label htmlFor="password" className="block text-xs font-semibold text-[#0F172A]">
                   كلمة المرور الجديدة
                 </label>
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  autoComplete="new-password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-3 text-sm bg-white border border-slate-200 rounded-xl focus:border-[#0F172A] focus:ring-1 focus:ring-[#0F172A] focus:outline-none transition-all text-[#0F172A] placeholder:text-slate-400 font-normal shadow-sm"
-                  placeholder="••••••••"
-                />
-                <p className="text-[11px] text-slate-400">8 أحرف على الأقل، وتحوي أحرفاً وأرقاماً</p>
+                <div className="relative">
+                  <input
+                    id="password"
+                    name="password"
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="new-password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value.replace(ARABIC_LETTER_RE, ''))}
+                    className="w-full px-4 py-3 pl-11 text-sm bg-white border border-slate-200 rounded-xl focus:border-[#0F172A] focus:ring-1 focus:ring-[#0F172A] focus:outline-none transition-all text-[#0F172A] placeholder:text-slate-400 font-normal shadow-sm"
+                    placeholder="••••••••"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(v => !v)}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#0F172A] transition-colors cursor-pointer"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <IconEyeOff /> : <IconEye />}
+                  </button>
+                </div>
+                <ul className="space-y-1 text-[11px]">
+                  {[
+                    { ok: checks.length, label: '8 أحرف على الأقل' },
+                    { ok: checks.hasLetter, label: 'تحوي حرفاً إنجليزياً' },
+                    { ok: checks.hasDigit, label: 'تحوي رقماً' },
+                    { ok: checks.notSimple, label: 'ليست نمطاً بسيطاً أو كلمة شائعة' },
+                  ].map((item, i) => (
+                    <li key={i} className={`flex items-center gap-1.5 ${item.ok ? 'text-emerald-600' : 'text-slate-400'}`}>
+                      <span>{item.ok ? '✓' : '✗'}</span>
+                      <span>{item.label}</span>
+                    </li>
+                  ))}
+                </ul>
                 {passwordError && (
                   <p className="text-[11px] font-semibold text-rose-600">{passwordError}</p>
                 )}
@@ -200,17 +246,27 @@ function UpdatePasswordContent() {
                 <label htmlFor="confirmPassword" className="block text-xs font-semibold text-[#0F172A]">
                   تأكيد كلمة المرور
                 </label>
-                <input
-                  id="confirmPassword"
-                  name="confirmPassword"
-                  type="password"
-                  autoComplete="new-password"
-                  required
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full px-4 py-3 text-sm bg-white border border-slate-200 rounded-xl focus:border-[#0F172A] focus:ring-1 focus:ring-[#0F172A] focus:outline-none transition-all text-[#0F172A] placeholder:text-slate-400 font-normal shadow-sm"
-                  placeholder="••••••••"
-                />
+                <div className="relative">
+                  <input
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    autoComplete="new-password"
+                    required
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value.replace(ARABIC_LETTER_RE, ''))}
+                    className="w-full px-4 py-3 pl-11 text-sm bg-white border border-slate-200 rounded-xl focus:border-[#0F172A] focus:ring-1 focus:ring-[#0F172A] focus:outline-none transition-all text-[#0F172A] placeholder:text-slate-400 font-normal shadow-sm"
+                    placeholder="••••••••"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(v => !v)}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#0F172A] transition-colors cursor-pointer"
+                    tabIndex={-1}
+                  >
+                    {showConfirmPassword ? <IconEyeOff /> : <IconEye />}
+                  </button>
+                </div>
                 {confirmError && (
                   <p className="text-[11px] font-semibold text-rose-600">{confirmError}</p>
                 )}
@@ -218,7 +274,7 @@ function UpdatePasswordContent() {
 
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || !isPasswordValid(checks) || password !== confirmPassword}
                 className="w-full pt-3 pb-3 px-4 text-sm font-semibold text-white bg-[#0F172A] hover:bg-slate-800 active:scale-[0.98] disabled:opacity-50 transition-all rounded-xl shadow-md shadow-slate-900/10 flex items-center justify-center cursor-pointer mt-2"
               >
                 {loading ? (

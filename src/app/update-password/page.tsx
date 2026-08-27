@@ -1,10 +1,15 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { getPharmacyId } from '@/lib/tenant';
 import AppFooter from '../components/AppFooter';
 
-export default function UpdatePasswordPage() {
+function UpdatePasswordContent() {
+  const searchParams = useSearchParams();
+  const forced = searchParams.get('forced') === '1';
+
   const [checkingSession, setCheckingSession] = useState(true);
   const [hasSession, setHasSession] = useState(false);
 
@@ -52,9 +57,32 @@ export default function UpdatePasswordPage() {
       return;
     }
 
+    // تصفير must_change_password فور نجاح تغيير كلمة المرور — قبل أي signOut، لأن هذا
+    // التحديث محمي بسياسة RLS تشترط جلسة نشطة لمالك الصيدلية (current_role_name()='owner').
+    // لغير المالك (موظف يغيّر كلمته عبر "نسيت كلمة المرور" مثلاً) لا صلة لهذا العلم بحسابه
+    // أصلاً وسياسة RLS ترفض التحديث بصمت، فلا نُفشل العملية بسببه — الفشل حاسم فقط في وضع
+    // الإجبار (forced) لأن تجاهله هناك يُعيد المالك لحلقة التوجيه بلا فهم للسبب
+    const pharmacyId = await getPharmacyId();
+    const { error: flagError } = pharmacyId
+      ? await supabase.from('pharmacies').update({ must_change_password: false }).eq('id', pharmacyId)
+      : { error: null };
+
+    if (forced && flagError) {
+      setFormError('تعذّر إكمال العملية، يرجى المحاولة مجدداً أو التواصل مع الدعم.');
+      setLoading(false);
+      return;
+    }
+
     // إبطال كل الجلسات الأخرى لهذا الحساب — إن كان أحد قد سرق الحساب يُطرد فوراً بعد تغيير
     // كلمة المرور. لا نُفشل العملية إن فشل هذا الاستدعاء: كلمة المرور تغيّرت فعلاً بنجاح
     await supabase.auth.signOut({ scope: 'others' });
+
+    if (forced) {
+      // المالك مُوثَّق بالفعل ويكمل خطوة إجبارية بلا اختيار منه — لا داعٍ لتسجيل خروج/دخول
+      // إضافي كما في مسار "نسيت كلمة المرور" الاختياري، ننقله مباشرة إلى لوحة التحكم
+      window.location.href = '/dashboard';
+      return;
+    }
 
     // ننهي الجلسة الحالية أيضاً حتى يضطر المستخدم لتسجيل الدخول من جديد بكلمته الجديدة —
     // هذا يتأكد فعلياً أنها تعمل ويرسّخها في ذاكرته، بدل الدخول التلقائي للوحة مباشرة
@@ -138,7 +166,13 @@ export default function UpdatePasswordPage() {
               تم تغيير كلمة المرور بنجاح. سجّل دخولك بكلمتك الجديدة.
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <>
+              {forced && (
+                <div className="p-3.5 rounded-xl text-xs font-medium text-center border bg-blue-50 border-blue-200 text-blue-700 leading-relaxed">
+                  لحمايتك، يجب تغيير كلمة المرور الأولى قبل استخدام النظام
+                </div>
+              )}
+              <form onSubmit={handleSubmit} className="space-y-5">
               <div className="space-y-1.5">
                 <label htmlFor="password" className="block text-xs font-semibold text-[#0F172A]">
                   كلمة المرور الجديدة
@@ -203,11 +237,24 @@ export default function UpdatePasswordPage() {
                 </div>
               )}
             </form>
+            </>
           )}
         </div>
 
         <AppFooter className="mt-8" />
       </div>
     </div>
+  );
+}
+
+export default function UpdatePasswordPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center bg-[#F8FAFC] font-sans" dir="rtl">
+        <p className="text-sm font-semibold text-slate-500 animate-pulse">جاري التحميل...</p>
+      </div>
+    }>
+      <UpdatePasswordContent />
+    </Suspense>
   );
 }

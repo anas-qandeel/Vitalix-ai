@@ -80,6 +80,7 @@ export async function POST(request: Request) {
         country,
         city_address,
         status: pharmacyStatus,
+        must_change_password: true, // القيمة الافتراضية في القاعدة true أصلاً — تصريح بها هنا لتوضيح النية
         total_amount_due: totalDueNum,
         paid_amount: paidAmountNum,
         expiry_date: formattedExpiryDate,

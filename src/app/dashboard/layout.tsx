@@ -33,7 +33,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       const { data: pharmacy } = await supabase
         .from('pharmacies')
-        .select('status')
+        .select('status, must_change_password')
         .eq('id', pid)
         .single();
 
@@ -42,6 +42,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       if (pharmacy?.status === 'suspended' || pharmacy?.status === 'archived') {
         await supabase.auth.signOut();
         router.push('/?blocked=suspended');
+        return;
+      }
+
+      // إجبار المالك على تغيير كلمة مروره الأولى قبل أي استخدام للنظام — نظير must_change_pin
+      // أدناه الخاص بالموظف. /update-password خارج شجرة /dashboard تماماً (src/app/update-password
+      // لا src/app/dashboard/update-password) فلا يمر عبر هذا الـ layout إطلاقاً، ولا خطر حلقة توجيه
+      if ((await getUserRole()) === 'owner' && pharmacy?.must_change_password) {
+        router.replace('/update-password?forced=1');
         return;
       }
 

@@ -95,7 +95,28 @@ export async function POST(request: Request) {
       throw new Error(dbError.message);
     }
 
-    // 4. كتابة pharmacy_id و role في app_metadata — getTenantContext يقرأهما من التوكن حصراً،
+    // 4. إدراج صفّ المالك في pharmacy_staff — current_pharmacy_id() في القاعدة يشترط وجود
+    // صفّ نشط هناك (user_id + pharmacy_id مطابقان للتوكن)، وإلا تفشل كل سياسات RLS
+    // على بيانات الصيدلية. نفس النمط المعتمد في صيدليات backfill: role='owner'،
+    // login_slug=null (المالك يسجّل دخول بالبريد/كلمة المرور لا بنظام PIN)،
+    // must_change_pin=false (لا ينطبق عليه نظام PIN أصلاً)
+    const { error: staffError } = await supabaseAdmin.from('pharmacy_staff').insert({
+      pharmacy_id: userId,
+      user_id: userId,
+      name: (pharmacist_name || '').trim() || 'المالك',
+      role: 'owner',
+      login_slug: null,
+      is_active: true,
+      must_change_pin: false,
+    });
+
+    if (staffError) {
+      await supabaseAdmin.from('pharmacies').delete().eq('id', userId);
+      await supabaseAdmin.auth.admin.deleteUser(userId);
+      throw new Error(`تعذّر إنشاء صفّ المالك: ${staffError.message}`);
+    }
+
+    // 5. كتابة pharmacy_id و role في app_metadata — getTenantContext يقرأهما من التوكن حصراً،
     // ولا يمكن تمريرهما عند createUser لأن معرّف الصيدلية هو نفسه userId غير المتوفر حينها.
     // فشل هذه الخطوة يُعامَل كفشل كامل (حساب بلا app_metadata يبدو ناجحاً ثم يعلق في التوجيه)
     const { error: metaError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
@@ -103,6 +124,7 @@ export async function POST(request: Request) {
     });
 
     if (metaError) {
+      await supabaseAdmin.from('pharmacy_staff').delete().eq('pharmacy_id', userId);
       await supabaseAdmin.from('pharmacies').delete().eq('id', userId);
       await supabaseAdmin.auth.admin.deleteUser(userId);
       throw new Error(`تعذّر تفعيل صلاحيات الصيدلية: ${metaError.message}`);

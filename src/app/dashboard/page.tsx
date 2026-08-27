@@ -11,6 +11,7 @@ import WaMsgModal from '@/components/WaMsgModal';
 import { getPharmacyId, getStaffId, getStaffName, getUserRole } from '@/lib/tenant';
 import { logActivity } from '@/lib/activity';
 import { normalizePhone } from '@/lib/phone';
+import { formatPharmacistName } from '@/lib/name-format';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -369,8 +370,9 @@ export default function PharmacistDashboard() {
   const daysLeft       = !pharmacy?.expiry_date ? 0 : Math.max(0, Math.ceil((new Date(pharmacy.expiry_date).getTime() - Date.now()) / 86400000));
   const isExpiringSoon = daysLeft <= 14;
   const displayName    = staffName || pharmacy?.pharmacist_name || 'الصيدلي';
-  // بادئة "د." تليق بمن يمارس الصيدلة فعلاً (المالك أو الصيدلاني) — لا تصح على مساعد أو موظف
-  const namePrefix      = (userRole === 'owner' || userRole === 'pharmacist') ? 'د. ' : '';
+  // بادئة "د." تليق بمن يمارس الصيدلة فعلاً (مالك، صيدلاني، أو مساعد) — لا تصح على موظف
+  const withPharmacistTitle = userRole === 'owner' || userRole === 'pharmacist' || userRole === 'assistant';
+  const formattedDisplayName = formatPharmacistName(displayName, withPharmacistTitle);
 
   if (loading) return (
     <div className="min-h-screen bg-slate-50/50 flex items-center justify-center" dir="rtl">
@@ -484,7 +486,7 @@ export default function PharmacistDashboard() {
           {/* الجانب الأيمن (الترحيب والهوية) */}
           <div className="p-6 md:p-8 flex flex-col justify-center min-w-[280px] lg:w-[320px] shrink-0 relative z-20">
             <p className="text-teal-600 text-[11px] font-bold mb-1.5 uppercase tracking-widest">مرحباً بعودتك</p>
-            <h1 className="text-2xl font-black text-slate-900 truncate tracking-tight">{namePrefix}{displayName}</h1>
+            <h1 className="text-2xl font-black text-slate-900 truncate tracking-tight">{formattedDisplayName}</h1>
             <p className="text-slate-500 text-xs mt-2 font-medium">
               {new Date().toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', numberingSystem: 'latn' })}
             </p>

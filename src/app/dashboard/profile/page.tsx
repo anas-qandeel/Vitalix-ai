@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import DashboardHeader from '../components/DashboardHeader';
 import AppFooter from '../../components/AppFooter';
 import { getPharmacyId } from '@/lib/tenant';
+import { formatPharmacistName } from '@/lib/name-format';
 
 interface PharmacyProfile {
   id: string;
@@ -572,7 +573,7 @@ export default function ProfilePage() {
               {profile?.pharmacist_name?.trim().split(' ').map(w => w[0]).slice(0, 2).join('') || '؟'}
             </div>
             <div className="min-w-0">
-              <h1 className="text-base font-black truncate">د. {profile?.pharmacist_name || 'الصيدلي المسؤول'}</h1>
+              <h1 className="text-base font-black truncate">{formatPharmacistName(profile?.pharmacist_name) || 'الصيدلي المسؤول'}</h1>
               <p className="text-sm text-teal-300 font-semibold truncate mt-0.5">{getPharmacyDisplayName()}</p>
               <p className="text-[11px] text-slate-400 mt-1">{email}</p>
             </div>

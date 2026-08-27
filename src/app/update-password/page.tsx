@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { getPharmacyId } from '@/lib/tenant';
+import { validatePassword } from '@/lib/password';
 import AppFooter from '../components/AppFooter';
 
 function UpdatePasswordContent() {
@@ -37,8 +38,9 @@ function UpdatePasswordContent() {
     setFormError(null);
 
     let hasError = false;
-    if (password.length < 8) {
-      setPasswordError('كلمة المرور يجب ألا تقل عن 8 خانات');
+    const passwordCheck = validatePassword(password);
+    if (!passwordCheck.valid) {
+      setPasswordError(passwordCheck.message || 'كلمة المرور غير صحيحة');
       hasError = true;
     }
     if (password !== confirmPassword) {
@@ -188,6 +190,7 @@ function UpdatePasswordContent() {
                   className="w-full px-4 py-3 text-sm bg-white border border-slate-200 rounded-xl focus:border-[#0F172A] focus:ring-1 focus:ring-[#0F172A] focus:outline-none transition-all text-[#0F172A] placeholder:text-slate-400 font-normal shadow-sm"
                   placeholder="••••••••"
                 />
+                <p className="text-[11px] text-slate-400">8 أحرف على الأقل، وتحوي أحرفاً وأرقاماً</p>
                 {passwordError && (
                   <p className="text-[11px] font-semibold text-rose-600">{passwordError}</p>
                 )}

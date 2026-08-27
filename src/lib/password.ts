@@ -20,9 +20,17 @@ const DIGIT_RE = /[0-9٠-٩]/;
 const ALNUM_EN_RE = /[a-z0-9]/;
 
 const SEQUENTIAL_MIN_LEN = 5;
+const REPEATED_MIN_LEN = 5;
 
-function isAllSameChar(pw: string): boolean {
-  return pw.split('').every(c => c === pw[0]);
+// محرف واحد يتكرر minLen مرة أو أكثر متتالية في أي موضع من الكلمة — لا يشترط
+// أن تكون الكلمة كاملة من نفس المحرف (نفس نمط hasSequentialRun أدناه)
+function hasRepeatedRun(pw: string, minLen: number): boolean {
+  let runLen = 1;
+  for (let i = 1; i < pw.length; i++) {
+    runLen = pw[i] === pw[i - 1] ? runLen + 1 : 1;
+    if (runLen >= minLen) return true;
+  }
+  return false;
 }
 
 function isCommonPassword(pw: string): boolean {
@@ -51,7 +59,7 @@ export type PasswordChecks = {
   length: boolean;      // 8 أحرف على الأقل
   hasLetter: boolean;   // حرف إنجليزي واحد على الأقل (a-z أو A-Z فقط — لا عربي)
   hasDigit: boolean;    // رقم واحد على الأقل
-  notSimple: boolean;   // ليست تكراراً لمحرف واحد، ولا تحوي تسلسلاً من 5 محارف أو أكثر، ولا كلمة شائعة
+  notSimple: boolean;   // لا محرف يتكرر 5 مرات أو أكثر متتالية، ولا تحوي تسلسلاً من 5 محارف أو أكثر، ولا كلمة شائعة
 };
 
 export function checkPassword(pw: string): PasswordChecks {
@@ -59,7 +67,7 @@ export function checkPassword(pw: string): PasswordChecks {
     length: pw.length >= 8,
     hasLetter: LETTER_RE.test(pw),
     hasDigit: DIGIT_RE.test(pw),
-    notSimple: !isAllSameChar(pw) && !hasSequentialRun(pw, SEQUENTIAL_MIN_LEN) && !isCommonPassword(pw),
+    notSimple: !hasRepeatedRun(pw, REPEATED_MIN_LEN) && !hasSequentialRun(pw, SEQUENTIAL_MIN_LEN) && !isCommonPassword(pw),
   };
 }
 
@@ -81,8 +89,8 @@ export function validatePassword(pw: string): { valid: boolean; message?: string
     return { valid: false, message: 'يجب أن تحوي أحرفاً وأرقاماً معاً' };
   }
   if (!checks.notSimple) {
-    if (isAllSameChar(pw)) {
-      return { valid: false, message: 'كلمة المرور بسيطة جداً — لا تكرّر نفس الحرف' };
+    if (hasRepeatedRun(pw, REPEATED_MIN_LEN)) {
+      return { valid: false, message: 'كلمة المرور بسيطة جداً — لا تكرّر نفس الحرف عدة مرات متتالية' };
     }
     if (hasSequentialRun(pw, SEQUENTIAL_MIN_LEN)) {
       return { valid: false, message: 'كلمة المرور بسيطة جداً — تجنّب التسلسل' };

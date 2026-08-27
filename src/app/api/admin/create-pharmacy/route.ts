@@ -95,6 +95,19 @@ export async function POST(request: Request) {
       throw new Error(dbError.message);
     }
 
+    // 4. كتابة pharmacy_id و role في app_metadata — getTenantContext يقرأهما من التوكن حصراً،
+    // ولا يمكن تمريرهما عند createUser لأن معرّف الصيدلية هو نفسه userId غير المتوفر حينها.
+    // فشل هذه الخطوة يُعامَل كفشل كامل (حساب بلا app_metadata يبدو ناجحاً ثم يعلق في التوجيه)
+    const { error: metaError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+      app_metadata: { pharmacy_id: userId, role: 'owner' }
+    });
+
+    if (metaError) {
+      await supabaseAdmin.from('pharmacies').delete().eq('id', userId);
+      await supabaseAdmin.auth.admin.deleteUser(userId);
+      throw new Error(`تعذّر تفعيل صلاحيات الصيدلية: ${metaError.message}`);
+    }
+
     return NextResponse.json({ success: true, message: 'تم إنشاء الصيدلية بنجاح' });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'حدث خطأ غير متوقع' }, { status: 400 });

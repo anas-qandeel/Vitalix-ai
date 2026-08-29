@@ -7,6 +7,7 @@ import DashboardHeader from '../components/DashboardHeader';
 import AppFooter from '../../components/AppFooter';
 import { getPharmacyId } from '@/lib/tenant';
 import { formatPharmacistName } from '@/lib/name-format';
+import { authedFetch } from '@/lib/authed-fetch';
 
 interface PharmacyProfile {
   id: string;
@@ -303,12 +304,18 @@ export default function ProfilePage() {
   // فريق العمل عبر مسار API بدل القراءة المباشرة من المتصفح — يتحقق من صلاحية المالك عبر التوكن
   const fetchStaffList = async () => {
     try {
-      const token = await getAuthToken();
-      if (!token) return;
-      const res = await fetch('/api/staff', { headers: { Authorization: `Bearer ${token}` } });
+      const res = await authedFetch('/api/staff');
       const json = await res.json();
-      if (res.ok) setStaff((json.staff as StaffMember[]) || []);
-    } catch { }
+      if (res.ok) {
+        setStaff((json.staff as StaffMember[]) || []);
+      } else {
+        console.error('فشل تحميل فريق العمل:', res.status, json?.error);
+      }
+    } catch (e) {
+      if ((e as Error).message !== 'SESSION_EXPIRED') {
+        console.error('خطأ في تحميل فريق العمل:', e);
+      }
+    }
   };
 
   const fetchProfile = async () => {

@@ -38,6 +38,11 @@ function LoginContent() {
     if (searchParams.get('blocked') === 'suspended') {
       setMessage({ type: 'error', text: 'تم إيقاف هذا الحساب مؤقتاً. يرجى التواصل مع مسؤول المنصة لمزيد من التفاصيل.' });
     }
+    // رسالة توضيحية إن كان المستخدم قد أُخرج تلقائياً لانتهاء جلسته
+    // (يضبطها الاعتراض المركزي في src/lib/supabase.ts عند رفض السيرفر بـ401)
+    else if (searchParams.get('expired') === '1') {
+      setMessage({ type: 'error', text: 'انتهت جلستك. سجّل الدخول من جديد للمتابعة.' });
+    }
 
     const checkExistingSession = async () => {
       // قالب بريد الاستعادة الافتراضي في Supabase يوجّه إلى Site URL (هذه الصفحة) مع الرمز في
@@ -136,6 +141,18 @@ function LoginContent() {
           </div>
 
           {/* Login Form */}
+          {message && (
+            <div
+              className={`p-3.5 rounded-xl text-xs font-medium text-center border ${
+                message.type === 'error'
+                  ? 'bg-rose-50 border-rose-200 text-rose-700'
+                  : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+              }`}
+            >
+              {message.text}
+            </div>
+          )}
+
           <form onSubmit={handleLogin} className="space-y-5">
             <div className="space-y-1.5">
               <label htmlFor="email" className="block text-xs font-semibold text-[#0F172A]">
@@ -210,18 +227,6 @@ function LoginContent() {
           >
             دخول الموظفين برمز PIN
           </Link>
-
-          {message && (
-            <div
-              className={`p-3.5 rounded-xl text-xs font-medium text-center border ${
-                message.type === 'error'
-                  ? 'bg-rose-50 border-rose-200 text-rose-700'
-                  : 'bg-emerald-50 border-emerald-200 text-emerald-700'
-              }`}
-            >
-              {message.text}
-            </div>
-          )}
         </div>
 
         <AppFooter className="mt-8" />

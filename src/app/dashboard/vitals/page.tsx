@@ -1777,7 +1777,13 @@ ${planUrl}
                         </div>
                         <div>
                           <p className="text-base font-black text-slate-900">{currentPatient?.name}</p>
-                          <p className="text-[11px] text-slate-400 mt-0.5">فحص وزن · {formatDate(new Date().toISOString())}</p>
+                          <p className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1.5">
+                            <span>فحص وزن · {formatDate(new Date().toISOString())}</span>
+                            <span className="flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                              <span className="text-emerald-600 font-bold">تم الحفظ</span>
+                            </span>
+                          </p>
                         </div>
                       </div>
                       {/* شارات: تصنيف BMI + الحالة العامة + تم الحفظ + حالة خطة الوزن */}
@@ -1789,10 +1795,6 @@ ${planUrl}
                         <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border ${status.border} ${status.bg}`}>
                           <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${status.dot}`} />
                           <span className={`text-[10px] font-bold ${status.color}`}>{status.label}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                          <span className="text-[10px] font-bold text-emerald-600">تم الحفظ</span>
                         </div>
                         <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border shrink-0 ${
                           weightStatus === 'sent' ? 'bg-teal-50 border-teal-200'

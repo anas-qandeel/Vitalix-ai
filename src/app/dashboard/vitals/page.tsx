@@ -445,6 +445,8 @@ export default function VitalsPage() {
   } | null>(null);
   const [weightPlanId,  setWeightPlanId]  = useState<string | null>(null);
   const [weightSummary, setWeightSummary] = useState<PharmacistSummary | null>(null);
+  const [excludedProducts, setExcludedProducts] = useState<Set<number>>(new Set());
+  const [excludedLabs,     setExcludedLabs]     = useState<Set<number>>(new Set());
   const [weightPlanUrl, setWeightPlanUrl] = useState<string | null>(null);
   const [weightStatus,  setWeightStatus]  = useState<'idle'|'saving'|'generating'|'sent'|'error'>('idle');
   // تأكيد مراجعة الصيدلاني لمحتوى التقرير قبل تسليمه للمريض — يُصفَّر مع كل خطة جديدة
@@ -539,7 +541,7 @@ export default function VitalsPage() {
     setSelectedSymptoms([]); setBpFactors([]); setSugarFactors([]);
     setErrorMsg(''); setSoftWarningMsg(''); setSoftWarningConfirmed(false);
     setLatestGeneratedReport(null); setLatestVisitId(null);
-    setWeightPlanId(null); setWeightSummary(null); setWeightPlanUrl(null); setWeightStatus('idle'); setBmiLive(null); setWeightDataSuspect(false); setWeightReviewed(false); setWeightWaMsg('');
+    setWeightPlanId(null); setWeightSummary(null); setExcludedProducts(new Set()); setExcludedLabs(new Set()); setWeightPlanUrl(null); setWeightStatus('idle'); setBmiLive(null); setWeightDataSuspect(false); setWeightReviewed(false); setWeightWaMsg('');
     setReportLanguage('ar');
     setSearchingPatient(true);
     try { await loadHistory(p); } catch { }
@@ -931,7 +933,7 @@ ${planUrl}
     setIsDualBp(true);
     setLatestGeneratedReport(null);
     setLatestVisitId(null);
-    setWeightPlanId(null); setWeightSummary(null); setWeightPlanUrl(null); setWeightStatus('idle'); setBmiLive(null); setWeightDataSuspect(false); setWeightReviewed(false); setWeightWaMsg('');
+    setWeightPlanId(null); setWeightSummary(null); setExcludedProducts(new Set()); setExcludedLabs(new Set()); setWeightPlanUrl(null); setWeightStatus('idle'); setBmiLive(null); setWeightDataSuspect(false); setWeightReviewed(false); setWeightWaMsg('');
     setReportLanguage('ar');
     setErrorMsg('');
   };
@@ -1951,39 +1953,61 @@ ${planUrl}
                       );
                     })()}
 
-                    {/* ٥. نص التقرير الذكي — سطران بحد أقصى مع «عرض الكل» */}
-                    {latestGeneratedReport && (() => {
-                      const dir = detectTextDir(latestGeneratedReport);
-                      const align: 'left' | 'right' = dir === 'ltr' ? 'left' : 'right';
-                      const isLong = latestGeneratedReport.length > 100;
-                      if (!isLong) {
-                        return (
-                          <div className="px-5 pt-4">
-                            <div className="bg-slate-50 border border-slate-100 rounded-xl p-4">
-                              <p className="text-sm text-slate-700 leading-relaxed font-medium" dir={dir} style={{ textAlign: align }}>
-                                {latestGeneratedReport}
-                              </p>
+                    {/* ٥. ملخص للصيدلاني — clinical_reasoning + تنبيه الأدوية + المكمّلات والفحوصات بخانات اختيار (الاختيارات لا تُحفظ بعد) */}
+                    {weightStatus === 'sent' && weightSummary && (
+                      <div className="px-5 pt-4">
+                        <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 space-y-3">
+                          <p className="text-[10px] font-bold text-slate-400">ملخص للصيدلاني — لا يصل للمريض</p>
+
+                          {weightSummary.clinical_reasoning && (
+                            <p className="text-sm text-slate-700 leading-relaxed font-medium">{weightSummary.clinical_reasoning}</p>
+                          )}
+
+                          {weightSummary.medications_alert && (
+                            <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                              <p className="text-[9px] font-bold text-amber-700 mb-0.5">تنبيه الأدوية</p>
+                              <p className="text-xs text-amber-800 leading-relaxed">{weightSummary.medications_alert}</p>
                             </div>
-                          </div>
-                        );
-                      }
-                      return (
-                        <div className="px-5 pt-4">
-                          <details className="group bg-slate-50 border border-slate-100 rounded-xl p-4">
-                            <summary className="list-none cursor-pointer [&::-webkit-details-marker]:hidden">
-                              <p className="text-sm text-slate-700 leading-relaxed font-medium line-clamp-2 group-open:hidden" dir={dir} style={{ textAlign: align }}>
-                                {latestGeneratedReport}
-                              </p>
-                              <p className="hidden group-open:block text-sm text-slate-700 leading-relaxed font-medium" dir={dir} style={{ textAlign: align }}>
-                                {latestGeneratedReport}
-                              </p>
-                              <span className="mt-2 inline-block text-[11px] font-bold text-purple-600 group-open:hidden">عرض الكل</span>
-                              <span className="hidden group-open:inline-block mt-2 text-[11px] font-bold text-purple-600">عرض أقل</span>
-                            </summary>
-                          </details>
+                          )}
+
+                          {weightSummary.pharmacy_products.length > 0 && (
+                            <div>
+                              <p className="text-[9px] font-bold text-slate-400 mb-1.5">المكمّلات المقترحة — أزل ما لا تريد وصوله للمريض</p>
+                              <div className="space-y-1">
+                                {weightSummary.pharmacy_products.map((p, i) => (
+                                  <label key={i} className="flex items-start gap-2 cursor-pointer">
+                                    <input type="checkbox" className="mt-0.5 accent-purple-600 shrink-0"
+                                      checked={!excludedProducts.has(i)}
+                                      onChange={() => setExcludedProducts(prev => { const n = new Set(prev); n.has(i) ? n.delete(i) : n.add(i); return n; })} />
+                                    <span className={`text-xs leading-relaxed ${excludedProducts.has(i) ? 'text-slate-400 line-through' : 'text-slate-700'}`}>
+                                      <span className="font-bold">{p.product?.product_name ?? p.category_code}</span>
+                                      {p.product?.price != null && <span className="text-slate-400"> · {p.product.price} د.أ</span>}
+                                      <span className="text-slate-500"> — {p.reason}</span>
+                                    </span>
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {weightSummary.lab_alerts.length > 0 && (
+                            <div>
+                              <p className="text-[9px] font-bold text-slate-400 mb-1.5">فحوصات يُنصح بها — أزل ما لا تريد وصوله للمريض</p>
+                              <div className="space-y-1">
+                                {weightSummary.lab_alerts.map((l, i) => (
+                                  <label key={i} className="flex items-start gap-2 cursor-pointer">
+                                    <input type="checkbox" className="mt-0.5 accent-purple-600 shrink-0"
+                                      checked={!excludedLabs.has(i)}
+                                      onChange={() => setExcludedLabs(prev => { const n = new Set(prev); n.has(i) ? n.delete(i) : n.add(i); return n; })} />
+                                    <span className={`text-xs leading-relaxed ${excludedLabs.has(i) ? 'text-slate-400 line-through' : 'text-slate-700'}`}>{l}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
-                      );
-                    })()}
+                      </div>
+                    )}
 
                     {/* تنبيه فرق وزن غير معتاد — أرقام التقدّم لم تُعرض للمريض */}
                     {weightDataSuspect && (

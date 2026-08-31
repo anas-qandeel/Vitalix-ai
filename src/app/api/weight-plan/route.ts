@@ -385,6 +385,7 @@ export async function PATCH(req: Request) {
       daysSinceBaseline: number;
       rateWarning:       boolean;
       dataSuspect?:      boolean; // نقصان غير معقول سريرياً (>10% شهرياً) — الواجهة تعرضه، والنموذج لا يتلقى تقدّماً
+      weightHistory?:    { weight: number; created_at: string }[];
     };
 
     let progressText: string | null = null;
@@ -442,6 +443,13 @@ export async function PATCH(req: Request) {
 الفرق عن البداية: ${fmtDiff(diffFromBaseline)} خلال ${daysSinceBaseline} يوماً
 ${rateWarningLine}`;
 
+        // سلسلة نقاط لرسم "سجل الوزن" في الواجهة — priorPlans كاملة بلا فلترة
+        // eligiblePrevious الزمنية، بالإضافة إلى الخطة الحالية كنقطة أخيرة
+        const weightHistory = [
+          ...priorPlans.map(p => ({ weight: p.weight_kg, created_at: p.created_at })),
+          { weight: plan.weight_kg, created_at: plan.created_at },
+        ];
+
         progressData = {
           baselineWeight:    baseline.weight_kg,
           baselineDate:      baselineDate.toISOString(),
@@ -454,6 +462,7 @@ ${rateWarningLine}`;
           daysSinceBaseline,
           rateWarning,
           ...(dataSuspect ? { dataSuspect: true } : {}),
+          ...(dataSuspect ? {} : { weightHistory }),
         };
       }
     }

@@ -31,6 +31,7 @@ interface ProgressData {
   daysSinceBaseline: number;
   rateWarning:       boolean;
   dataSuspect?:      boolean; // نقصان وزن غير معقول سريرياً — لا تُعرض أرقام التقدّم للمريض
+  weightHistory?:    { weight: number; created_at: string }[];
 }
 interface NutritionData {
   personal_message:   string;
@@ -75,26 +76,24 @@ function parseNutrition(raw: NutritionData | string | null): NutritionData | nul
 // COMPONENTS
 // ════════════════════════════════════════════════════════════════════════
 function BMIBar({ bmi }: { bmi: number }) {
-  const pos = Math.min(Math.max(((bmi - 10) / 40) * 100, 2), 97);
+  const pos = Math.min(Math.max(((bmi - 10) / 35) * 100, 1), 99);
   return (
-    <div>
-      <div className="relative h-2 rounded-full overflow-hidden" dir="ltr">
-        <div className="absolute inset-0 flex">
-          <div className="h-full bg-blue-300"   style={{ width: '15%' }} />
-          <div className="h-full bg-teal-400"   style={{ width: '26%' }} />
-          <div className="h-full bg-amber-400"  style={{ width: '20%' }} />
-          <div className="h-full bg-orange-400" style={{ width: '20%' }} />
-          <div className="h-full bg-rose-400"   style={{ width: '19%' }} />
-        </div>
-        <div className="absolute top-1/2 w-3.5 h-3.5 bg-white border-2 border-slate-700 rounded-full shadow-md"
-          style={{ left: `${pos}%`, transform: 'translateX(-50%) translateY(-50%)' }} />
-      </div>
-      <div className="flex justify-between mt-1.5" dir="ltr">
-        {[{ v:'10', l:'نحافة' }, { v:'18.5', l:'طبيعي' }, { v:'25', l:'زيادة' }, { v:'30', l:'سمنة' }, { v:'35+', l:'مفرطة' }].map(({ v, l }) => (
-          <div key={v} className="flex flex-col items-center">
-            <span className="text-[7px] font-mono text-slate-400">{v}</span>
-            <span className="text-[7px] text-slate-300">{l}</span>
-          </div>
+    <div dir="ltr">
+      <svg viewBox="0 0 100 10" preserveAspectRatio="none" className="w-full h-2 overflow-visible">
+        <defs>
+          <linearGradient id="bmiRangeGradientPatient" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#60A5FA" />
+            <stop offset="33%" stopColor="#34D399" />
+            <stop offset="66%" stopColor="#FBBF24" />
+            <stop offset="100%" stopColor="#FB7185" />
+          </linearGradient>
+        </defs>
+        <rect x="0" y="3" width="100" height="4" rx="2" fill="url(#bmiRangeGradientPatient)" />
+        <line x1={pos} x2={pos} y1="-2" y2="12" stroke="#0F172A" strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+      <div className="flex justify-between mt-2">
+        {['نحافة', 'طبيعي', 'زيادة', 'سمنة'].map((l) => (
+          <span key={l} className="text-[9px] font-semibold text-slate-400">{l}</span>
         ))}
       </div>
     </div>
@@ -315,39 +314,109 @@ export default function WeightPlanPage({ params }: PageProps) {
           </div>
           <div className="px-5 pt-4">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-              <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-center">
+              <div className="bg-slate-50 border-2 border-slate-200 rounded-xl px-3 py-2.5 text-center">
                 <p className="text-[9px] font-bold text-slate-400 mb-1">الوزن الحالي</p>
                 <p className="text-lg font-black text-slate-900">{plan.weight_kg}<span className="text-xs font-normal text-slate-400"> كغ</span></p>
               </div>
-              <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-center">
+              <div className={`rounded-xl px-3 py-2.5 text-center border-2 ${bmiStyle.borderColor} ${bmiStyle.bgColor}`}>
                 <p className="text-[9px] font-bold text-slate-400 mb-1">مؤشر كتلة الجسم</p>
-                <p className="text-lg font-black text-slate-900">{plan.bmi}</p>
+                <p className={`text-lg font-black ${bmiStyle.color}`}>{plan.bmi}</p>
+                <p className={`text-[9px] font-bold mt-0.5 ${bmiStyle.color}`}>{bmiStyle.label}</p>
               </div>
               {plan.target_loss_kg > 0 ? (
                 <>
-                  <div className={`rounded-xl px-3 py-2.5 text-center border ${bmiStyle.borderColor} ${bmiStyle.bgColor}`}>
+                  <div className={`rounded-xl px-3 py-2.5 text-center border-2 ${bmiStyle.borderColor} ${bmiStyle.bgColor}`}>
                     <p className="text-[9px] font-bold text-slate-400 mb-1">للوصول للوزن المثالي</p>
                     <p className={`text-lg font-black ${bmiStyle.color}`}>{plan.target_loss_kg}<span className="text-xs font-normal"> كغ</span></p>
                   </div>
                   {plan.first_goal_kg < plan.target_loss_kg && (
-                    <div className="bg-purple-50 border border-purple-200 rounded-xl px-3 py-2.5 text-center">
+                    <div className="bg-purple-50 border-2 border-purple-200 rounded-xl px-3 py-2.5 text-center">
                       <p className="text-[9px] font-bold text-slate-400 mb-1">الهدف المبدئي</p>
                       <p className="text-lg font-black text-purple-700">{plan.first_goal_kg}<span className="text-xs font-normal text-purple-500"> كغ</span></p>
                     </div>
                   )}
                 </>
               ) : plan.bmi_category === 'underweight' ? (
-                <div className="bg-blue-50 border border-blue-200 rounded-xl px-3 py-2.5 text-center">
+                <div className="bg-blue-50 border-2 border-blue-200 rounded-xl px-3 py-2.5 text-center">
                   <p className="text-[9px] font-bold text-slate-400 mb-1">المطلوب زيادته</p>
                   <p className="text-lg font-black text-blue-700">{(plan.ideal_weight_min - plan.weight_kg).toFixed(1)}<span className="text-xs font-normal text-blue-500"> كغ</span></p>
                 </div>
               ) : (
-                <div className="bg-teal-50 border border-teal-200 rounded-xl px-3 py-2.5 text-center flex items-center justify-center">
+                <div className="bg-teal-50 border-2 border-teal-200 rounded-xl px-3 py-2.5 text-center flex items-center justify-center">
                   <p className="text-[10px] font-bold text-teal-700">وزن مثالي 🎯</p>
                 </div>
               )}
             </div>
             <BMIBar bmi={plan.bmi} />
+
+            {/* ٤. سجل الوزن — منحنى ناعم (يظهر من الزيارة الثانية فأكثر) */}
+            {(() => {
+              // weightHistory تصل من الخادم مرتبة تصاعدياً أصلاً (الأقدم أولاً،
+              // وتنتهي بالخطة الحالية) — بعكس patientHistory في شاشة الصيدلي التي
+              // تُبنى تنازلياً وتحتاج .reverse()، فلا حاجة لعكسها هنا
+              const points = (nutrition?.progress?.weightHistory ?? []).filter(v => v.weight != null).slice(-8);
+              if (points.length < 2) return null;
+
+              const W = 300, H = 70, PADX = 8, PADY = 10;
+              const plotW = W - PADX * 2, plotH = H - PADY * 2;
+              const weights = points.map(p => Number(p.weight));
+              const minW = Math.min(...weights), maxW = Math.max(...weights);
+              const range = maxW - minW || 1;
+              const isFlat = maxW === minW;
+              const coords = points.map((p, i) => ({
+                x: PADX + (1 - i / (points.length - 1)) * plotW,
+                y: isFlat ? (PADY + plotH / 2) : PADY + (1 - (Number(p.weight) - minW) / range) * plotH,
+              }));
+
+              let path = `M ${coords[0].x},${coords[0].y}`;
+              for (let i = 0; i < coords.length - 1; i++) {
+                const p0 = coords[i === 0 ? i : i - 1];
+                const p1 = coords[i];
+                const p2 = coords[i + 1];
+                const p3 = coords[i + 2 < coords.length ? i + 2 : i + 1];
+                const c1x = p1.x + (p2.x - p0.x) / 6;
+                const c1y = p1.y + (p2.y - p0.y) / 6;
+                const c2x = p2.x - (p3.x - p1.x) / 6;
+                const c2y = p2.y - (p3.y - p1.y) / 6;
+                path += ` C ${c1x},${c1y} ${c2x},${c2y} ${p2.x},${p2.y}`;
+              }
+
+              const first = points[0];
+              const last = points[points.length - 1];
+              const improved = Number(first.weight) > Number(last.weight);
+              const lineColor = improved ? '#1D9E75' : '#E9A63A';
+              const diff = Number(last.weight) - Number(first.weight);
+              const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
+              const diffLabel = `${diff > 0 ? '+' : diff < 0 ? '-' : ''}${fmt(Math.abs(diff))} كغ`;
+
+              return (
+                <div className="px-5 pt-3 pb-4 border-t border-slate-100">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs font-bold text-slate-700">سجل الوزن</p>
+                    <span className="text-xs font-black tabular-nums" style={{ color: lineColor }}>
+                      {diff === 0 ? 'مستقر' : `${improved ? '▼ ' : '▲ '}${diffLabel}`}
+                    </span>
+                  </div>
+                  <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-[70px] overflow-visible" preserveAspectRatio="none">
+                    <defs>
+                      <filter id="weightGlow" x="-30%" y="-60%" width="160%" height="220%">
+                        <feGaussianBlur stdDeviation="3.5" result="blur" />
+                        <feMerge>
+                          <feMergeNode in="blur" />
+                          <feMergeNode in="SourceGraphic" />
+                        </feMerge>
+                      </filter>
+                    </defs>
+                    <path d={path} fill="none" stroke={lineColor} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" filter="url(#weightGlow)" />
+                  </svg>
+                  <div className="flex items-center justify-between mt-1">
+                    <span className="text-[10px] font-bold text-slate-400">{first.weight} كغ · {formatDate(first.created_at)}</span>
+                    <span className="text-[10px] font-bold text-slate-400">اليوم</span>
+                  </div>
+                </div>
+              );
+            })()}
+
             <p className="text-[10px] text-slate-500 text-center mt-2">الوزن المثالي: {plan.ideal_weight_min}–{plan.ideal_weight_max} كغ</p>
             {plan.target_loss_kg > 0 && (
               isSetback ? (

@@ -511,17 +511,87 @@ export default function VitalsPage() {
     return () => document.removeEventListener('mousedown', h);
   }, []);
 
+  // رسالة واتساب خطة الوزن — قالب واحد يُستدعى بعد التوليد وبعد الاستعادة من كرت المريض
+  const buildWeightWaMsg = (planUrl: string, patient: Patient) => {
+    const cleanPhone = normalizePhone(patient.phone_number);
+    const msg =
+`مرحباً ${patient.name} 👋
+من فريق ${pharmacyName}
+
+تم تحليل وزنك وإعداد خطتك الصحية الشخصية.
+افتح الرابط أدناه لتطّلع على نتائجك وقائمة الأغذية المناسبة لك:
+
+${planUrl}
+
+مع تحيات ${pharmacyName} 💜`;
+    return `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(msg)}`;
+  };
+
+  // استعادة خطة وزن محفوظة بعد العودة من كرت المريض: نقرأ من القاعدة مباشرة
+  // (شاشة مصادَقة تحت RLS، كما يفعل كرت المريض) لا من GET العام الذي يحجب
+  // clinical_reasoning. الملخص يُبنى من _all_products (النسخة الأصلية) والاستثناءات
+  // المحفوظة تُستعاد من الفرق بينها وبين pharmacy_products الحالية.
+  // patient يُمرَّر كمعامل بدل الاعتماد على currentPatient: هذه الدالة تُستدعى مباشرة
+  // بعد setCurrentPatient في نفس الـ useEffect، وتحديث الحالة غير متزامن فلن تكون
+  // currentPatient قد تحدّثت بعد عند التنفيذ.
+  const restoreWeightPlan = async (planId: string, patient: Patient, savedWeight?: string) => {
+    const { data: wp, error } = await supabase
+      .from('weight_plans')
+      .select('id, weight_kg, nutrition_plan, approved_at')
+      .eq('id', planId)
+      .single();
+    if (error || !wp) {
+      console.error('[vitals] restoreWeightPlan failed:', error);
+      return;
+    }
+    const np = (wp.nutrition_plan ?? null) as any;
+    setActiveTests(prev => ({ ...prev, weight: true }));
+    setWeightValue(savedWeight ?? String(wp.weight_kg));
+    setWeightPlanId(wp.id);
+    const planUrl = `${window.location.origin}/weight/${wp.id}`;
+    setWeightPlanUrl(planUrl);
+    if (!np) {
+      setWeightStatus('error');
+      return;
+    }
+    const allProducts = np._all_products ?? np.pharmacy_products ?? [];
+    const allLabs     = np._all_labs     ?? np.lab_alerts        ?? [];
+    setWeightSummary({
+      clinical_reasoning: np.clinical_reasoning ?? '',
+      medications_alert:  np.medications_alert  ?? '',
+      pharmacy_products:  allProducts,
+      lab_alerts:         allLabs,
+    });
+    // الاستثناءات المحفوظة = عناصر النسخة الأصلية الغائبة عن النسخة الحالية
+    const curP = new Set((np.pharmacy_products ?? []).map((p: any) => p.category_code));
+    const curL = new Set(np.lab_alerts ?? []);
+    const exP = new Set<number>(allProducts.map((p: any, i: number) => curP.has(p.category_code) ? -1 : i).filter((i: number) => i >= 0));
+    const exL = new Set<number>(allLabs.map((l: string, i: number) => curL.has(l) ? -1 : i).filter((i: number) => i >= 0));
+    setExcludedProducts(exP); setExcludedLabs(exL);
+    setSavedExclusions(JSON.stringify({ p: [...exP].sort(), l: [...exL].sort() }));
+    setWeightDataSuspect(!!np.progress?.dataSuspect);
+    setWeightStatus('sent');
+    // رسالة واتساب تُعاد كما تُبنى بعد التوليد — نفس القالب المستخرَج لـ buildWeightWaMsg
+    setWeightWaMsg(buildWeightWaMsg(planUrl, patient));
+  };
+
   // ── استعادة مريض من sessionStorage ──
   useEffect(() => {
     const saved = sessionStorage.getItem('vitalix_current_patient');
     if (saved) {
       try {
-        const { patient, history, searchQuery: savedQuery } = JSON.parse(saved);
+        const { patient, history, searchQuery: savedQuery, weightPlanId: savedWeightPlanId, weightValue: savedWeightValue, latestVisitId: savedVisitId } = JSON.parse(saved);
         setCurrentPatient(patient);
         setPatientHistory(history || []);
+        if (savedVisitId) {
+          setLatestVisitId(savedVisitId);
+          const v = (history || []).find((h: VisitationRecord) => h.id === savedVisitId);
+          if (v?.ai_report_output) setLatestGeneratedReport(v.ai_report_output);
+        }
         // استعادة طريقة البحث الأصلية (رقم هاتف أو اسم)
         setSearchQuery(savedQuery || patient.name || '');
-      } catch { }
+        if (savedWeightPlanId) restoreWeightPlan(savedWeightPlanId, patient, savedWeightValue);
+      } catch (e) { console.error("[vitals] restore failed:", e); }
       sessionStorage.removeItem('vitalix_current_patient');
     }
   }, []);
@@ -884,20 +954,9 @@ export default function VitalsPage() {
               .catch(() => setWeightStatus('error'));
 
             // الخطوة 3: فتح WhatsApp فوراً بعد إنشاء الـ plan_id
-            const cleanPhone = normalizePhone(currentPatient.phone_number);
-            const msg =
-`مرحباً ${currentPatient.name} 👋
-من فريق ${pharmacyName}
-
-تم تحليل وزنك وإعداد خطتك الصحية الشخصية.
-افتح الرابط أدناه لتطّلع على نتائجك وقائمة الأغذية المناسبة لك:
-
-${planUrl}
-
-مع تحيات ${pharmacyName} 💜`;
             // لا يُفتح واتساب تلقائياً: التسليم للمريض قرار الصيدلاني بعد مراجعة المحتوى.
             // تُحفظ الرسالة جاهزة ويُرسلها بزرّ صريح تحت البطاقة.
-            setWeightWaMsg(`https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(msg)}`);
+            setWeightWaMsg(buildWeightWaMsg(planUrl, currentPatient));
           } else {
             setWeightStatus('error');
           }
@@ -1112,7 +1171,7 @@ ${planUrl}
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
                         <button onClick={() => {
-                          sessionStorage.setItem('vitalix_current_patient', JSON.stringify({ patient: currentPatient, history: patientHistory, searchQuery }));
+                          sessionStorage.setItem('vitalix_current_patient', JSON.stringify({ patient: currentPatient, history: patientHistory, searchQuery, weightPlanId, weightValue, latestVisitId }));
                           router.push(`/dashboard/patients/${currentPatient.id}`);
                         }} className="text-[10px] font-bold text-slate-600 bg-white border border-slate-200 px-2.5 py-1.5 rounded-lg hover:bg-slate-50 transition shadow-sm">
                           السجل
@@ -1602,7 +1661,7 @@ ${planUrl}
                               أضف الطول من{' '}
                               <button
                                 onClick={() => {
-                                  sessionStorage.setItem('vitalix_current_patient', JSON.stringify({ patient: currentPatient, history: patientHistory, searchQuery }));
+                                  sessionStorage.setItem('vitalix_current_patient', JSON.stringify({ patient: currentPatient, history: patientHistory, searchQuery, weightPlanId, weightValue, latestVisitId }));
                                   router.push(`/dashboard/patients/${currentPatient!.id}`);
                                 }}
                                 className="underline font-bold"

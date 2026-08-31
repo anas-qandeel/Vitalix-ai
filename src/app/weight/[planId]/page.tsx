@@ -325,9 +325,9 @@ export default function WeightPlanPage({ params }: PageProps) {
               </div>
               {plan.target_loss_kg > 0 ? (
                 <>
-                  <div className={`rounded-xl px-3 py-2.5 text-center border-2 ${bmiStyle.borderColor} ${bmiStyle.bgColor}`}>
-                    <p className="text-[9px] font-bold text-slate-400 mb-1">للوصول للوزن المثالي</p>
-                    <p className={`text-lg font-black ${bmiStyle.color}`}>{plan.target_loss_kg}<span className="text-xs font-normal"> كغ</span></p>
+                  <div className="bg-blue-50 border-2 border-blue-200 rounded-xl px-3 py-2.5 text-center">
+                    <p className="text-[9px] font-bold text-slate-400 mb-1">نقص مطلوب</p>
+                    <p className="text-lg font-black text-blue-700">{plan.target_loss_kg}<span className="text-xs font-normal"> كغ</span></p>
                   </div>
                   {plan.first_goal_kg < plan.target_loss_kg && (
                     <div className="bg-purple-50 border-2 border-purple-200 rounded-xl px-3 py-2.5 text-center">
@@ -338,12 +338,12 @@ export default function WeightPlanPage({ params }: PageProps) {
                 </>
               ) : plan.bmi_category === 'underweight' ? (
                 <div className="bg-blue-50 border-2 border-blue-200 rounded-xl px-3 py-2.5 text-center">
-                  <p className="text-[9px] font-bold text-slate-400 mb-1">المطلوب زيادته</p>
+                  <p className="text-[9px] font-bold text-slate-400 mb-1">زيادة مطلوبة</p>
                   <p className="text-lg font-black text-blue-700">{(plan.ideal_weight_min - plan.weight_kg).toFixed(1)}<span className="text-xs font-normal text-blue-500"> كغ</span></p>
                 </div>
               ) : (
-                <div className="bg-teal-50 border-2 border-teal-200 rounded-xl px-3 py-2.5 text-center flex items-center justify-center">
-                  <p className="text-[10px] font-bold text-teal-700">وزن مثالي 🎯</p>
+                <div className="bg-blue-50 border-2 border-blue-200 rounded-xl px-3 py-2.5 text-center flex items-center justify-center">
+                  <p className="text-sm font-black text-blue-700 mt-1">ضمن المثالي</p>
                 </div>
               )}
             </div>

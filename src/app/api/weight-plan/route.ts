@@ -538,6 +538,11 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
       clinical_reasoning: string;        // تحليل داخلي — لا يُعرض للمريض
       progress?:          ProgressData | null; // يحفظه الخادم فقط — النموذج لا يُنتجه
       drug_matching?:     { matched: string[]; unknown: string[] }; // يحفظه الخادم فقط — النموذج لا يُنتجه
+      // نسخة كاملة غير مُصفّاة من pharmacy_products/lab_alerts كما ولّدهما PATCH —
+      // يقرأها PUT دائماً لإعادة بناء الاستبعادات بفهارس صحيحة (راجع تعليق PUT أدناه)،
+      // وتُحذف في GET قبل الوصول لصفحة المريض
+      _all_products?:     EnrichedPharmacyProduct[];
+      _all_labs?:         string[];
     };
 
     // شرط قبول رد النموذج: يفحص البنية (أنواع الحقول) لا مجرد الوجود
@@ -767,14 +772,19 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
       }
     }
 
+    const enrichedProducts = nutritionData.pharmacy_products.map(p => ({
+      ...p,
+      product: recommendationsByCategory.get(p.category_code) || null,
+    }));
+
     const finalNutritionData: NutritionData = {
       ...nutritionData,
-      pharmacy_products: nutritionData.pharmacy_products.map(p => ({
-        ...p,
-        product: recommendationsByCategory.get(p.category_code) || null,
-      })),
+      pharmacy_products: enrichedProducts,
       progress: progressData,
       drug_matching: { matched: matchedDrugs.map(d => d.genericAr), unknown: unknownDrugs },
+      // نسخة كاملة أصلية — يقرأها PUT عند بناء الاستبعادات (راجع تعليق PUT)
+      _all_products: enrichedProducts,
+      _all_labs: nutritionData.lab_alerts,
     };
 
     // ── حفظ JSON في DB ────────────────────────────────────────────────
@@ -803,6 +813,50 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
     });
   } catch (err: any) {
     console.error('[weight-plan PATCH] error:', err);
+    return NextResponse.json({ error: err.message || 'خطأ في السيرفر' }, { status: 500 });
+  }
+}
+
+// PUT — يحذف المكمّلات والفحوصات التي استبعدها الصيدلاني من nutrition_plan المحفوظ
+// (فصفحة المريض تقرأ ما بقي فقط، بلا تعديل عليها). finalize=true (الافتراضي، زر
+// "إرسال للمريض") يسجّل وقت الاعتماد أيضاً؛ finalize=false (زر "حفظ الاستثناءات")
+// يحفظ المحتوى فقط بلا approved_at.
+// المستبعَدات فهارس في مصفوفتي pharmacy_products و lab_alerts كما أعادهما PATCH
+// أصلاً — نعيد البناء دائماً من _all_products/_all_labs (النسخة الكاملة الأصلية
+// التي يحفظها PATCH) لا من pharmacy_products/lab_alerts الحاليين، لأن حفظاً سابقاً
+// (finalize=false) قد يكون قصّر المصفوفة فعلاً فتصبح الفهارس اللاحقة غير مطابقة.
+export async function PUT(req: Request) {
+  try {
+    const { plan_id, excluded_products = [], excluded_labs = [], finalize = true } = await req.json();
+    if (!plan_id) return NextResponse.json({ error: 'معرف الخطة مطلوب' }, { status: 400 });
+
+    const { data: plan, error: fetchErr } = await supabaseAdmin
+      .from('weight_plans').select('nutrition_plan').eq('id', plan_id).single();
+    if (fetchErr || !plan) return NextResponse.json({ error: 'الخطة غير موجودة' }, { status: 404 });
+
+    const np = (plan.nutrition_plan ?? {}) as any;
+    const exP = new Set<number>(excluded_products);
+    const exL = new Set<number>(excluded_labs);
+    // خطط قديمة سبقت إضافة _all_products/_all_labs تسقط رجوعاً إلى المصفوفة الحالية
+    const allProducts = np._all_products ?? np.pharmacy_products ?? [];
+    const allLabs      = np._all_labs     ?? np.lab_alerts        ?? [];
+    const updated = {
+      ...np,
+      pharmacy_products: allProducts.filter((_: unknown, i: number) => !exP.has(i)),
+      lab_alerts:        allLabs.filter((_: unknown, i: number) => !exL.has(i)),
+    };
+
+    const { error: updErr } = await supabaseAdmin
+      .from('weight_plans')
+      .update({ nutrition_plan: updated, ...(finalize ? { approved_at: new Date().toISOString() } : {}) })
+      .eq('id', plan_id);
+    if (updErr) {
+      console.error('[weight-plan PUT] update failed:', updErr);
+      return NextResponse.json({ error: 'تعذر حفظ الاعتماد' }, { status: 500 });
+    }
+    return NextResponse.json({ success: true });
+  } catch (err: any) {
+    console.error('[weight-plan PUT] error:', err);
     return NextResponse.json({ error: err.message || 'خطأ في السيرفر' }, { status: 500 });
   }
 }
@@ -851,13 +905,15 @@ export async function GET(req: Request) {
 
     const patient = plan.patient as any;
 
-    // نحذف clinical_reasoning (تحليل داخلي للمراجعة الصيدلانية) و drug_matching
-    // (تفاصيل مطابقة الأدوية) من الاستجابة العامة فقط — الصفحة بلا مصادقة،
-    // فأي حقل هنا يصل مباشرة لمتصفح المريض ضمن استجابة الشبكة. يبقيان في القاعدة.
+    // نحذف clinical_reasoning (تحليل داخلي للمراجعة الصيدلانية)، drug_matching
+    // (تفاصيل مطابقة الأدوية)، و_all_products/_all_labs (النسخة الكاملة قبل
+    // استبعادات الصيدلاني، يستخدمها PUT فقط) من الاستجابة العامة فقط — الصفحة
+    // بلا مصادقة، فأي حقل هنا يصل مباشرة لمتصفح المريض ضمن استجابة الشبكة.
+    // تبقى كلها في القاعدة.
     const rawNutritionPlan = plan.nutrition_plan as any;
     const nutritionPlanForPatient = rawNutritionPlan
       ? (() => {
-          const { clinical_reasoning, drug_matching, ...safeNutritionPlan } = rawNutritionPlan;
+          const { clinical_reasoning, drug_matching, _all_products, _all_labs, ...safeNutritionPlan } = rawNutritionPlan;
           return safeNutritionPlan;
         })()
       : rawNutritionPlan;

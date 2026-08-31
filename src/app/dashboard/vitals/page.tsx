@@ -46,6 +46,13 @@ interface VisitationRecord {
   created_at: string;
 }
 
+type PharmacistSummary = {
+  clinical_reasoning: string;
+  medications_alert:  string;
+  pharmacy_products:  { category_code: string; reason: string; instruction: string; product: { product_name: string; price: number; image_url: string | null } | null }[];
+  lab_alerts:         string[];
+};
+
 // ═══════════════════════════════════════════════════════
 // HELPERS
 // ═══════════════════════════════════════════════════════
@@ -437,6 +444,7 @@ export default function VitalsPage() {
     idealMin: number; idealMax: number; toLoose: number; firstGoal: number;
   } | null>(null);
   const [weightPlanId,  setWeightPlanId]  = useState<string | null>(null);
+  const [weightSummary, setWeightSummary] = useState<PharmacistSummary | null>(null);
   const [weightPlanUrl, setWeightPlanUrl] = useState<string | null>(null);
   const [weightStatus,  setWeightStatus]  = useState<'idle'|'saving'|'generating'|'sent'|'error'>('idle');
   // تأكيد مراجعة الصيدلاني لمحتوى التقرير قبل تسليمه للمريض — يُصفَّر مع كل خطة جديدة
@@ -531,7 +539,7 @@ export default function VitalsPage() {
     setSelectedSymptoms([]); setBpFactors([]); setSugarFactors([]);
     setErrorMsg(''); setSoftWarningMsg(''); setSoftWarningConfirmed(false);
     setLatestGeneratedReport(null); setLatestVisitId(null);
-    setWeightPlanId(null); setWeightPlanUrl(null); setWeightStatus('idle'); setBmiLive(null); setWeightDataSuspect(false); setWeightReviewed(false); setWeightWaMsg('');
+    setWeightPlanId(null); setWeightSummary(null); setWeightPlanUrl(null); setWeightStatus('idle'); setBmiLive(null); setWeightDataSuspect(false); setWeightReviewed(false); setWeightWaMsg('');
     setReportLanguage('ar');
     setSearchingPatient(true);
     try { await loadHistory(p); } catch { }
@@ -865,7 +873,7 @@ export default function VitalsPage() {
               }),
             })
               .then(r => r.json())
-              .then(d => { if (d.success) { setWeightStatus('sent'); setWeightDataSuspect(!!d.dataSuspect); } })
+              .then(d => { if (d.success) { setWeightStatus('sent'); setWeightDataSuspect(!!d.dataSuspect); setWeightSummary(d.pharmacistSummary ?? null); } })
               .catch(() => setWeightStatus('error'));
 
             // الخطوة 3: فتح WhatsApp فوراً بعد إنشاء الـ plan_id
@@ -923,7 +931,7 @@ ${planUrl}
     setIsDualBp(true);
     setLatestGeneratedReport(null);
     setLatestVisitId(null);
-    setWeightPlanId(null); setWeightPlanUrl(null); setWeightStatus('idle'); setBmiLive(null); setWeightDataSuspect(false); setWeightReviewed(false); setWeightWaMsg('');
+    setWeightPlanId(null); setWeightSummary(null); setWeightPlanUrl(null); setWeightStatus('idle'); setBmiLive(null); setWeightDataSuspect(false); setWeightReviewed(false); setWeightWaMsg('');
     setReportLanguage('ar');
     setErrorMsg('');
   };

@@ -791,7 +791,16 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
       return NextResponse.json({ error: 'تعذر حفظ القائمة الغذائية' }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, dataSuspect: progressData?.dataSuspect ?? false });
+    return NextResponse.json({
+      success: true,
+      dataSuspect: progressData?.dataSuspect ?? false,
+      pharmacistSummary: {
+        clinical_reasoning: finalNutritionData.clinical_reasoning ?? '',
+        medications_alert:  finalNutritionData.medications_alert ?? '',
+        pharmacy_products:  finalNutritionData.pharmacy_products ?? [],
+        lab_alerts:         finalNutritionData.lab_alerts ?? [],
+      },
+    });
   } catch (err: any) {
     console.error('[weight-plan PATCH] error:', err);
     return NextResponse.json({ error: err.message || 'خطأ في السيرفر' }, { status: 500 });

@@ -313,7 +313,7 @@ export default function WeightPlanPage({ params }: PageProps) {
             </div>
           </div>
           <div className="px-5 pt-4">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+            <div className="grid grid-cols-2 gap-3 mb-4">
               <div className="bg-slate-50 border-2 border-slate-200 rounded-xl px-3 py-2.5 text-center">
                 <p className="text-[9px] font-bold text-slate-400 mb-1">الوزن الحالي</p>
                 <p className="text-lg font-black text-slate-900">{plan.weight_kg}<span className="text-xs font-normal text-slate-400"> كغ</span></p>

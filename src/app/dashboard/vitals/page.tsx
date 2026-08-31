@@ -8,7 +8,7 @@ import DashboardHeader, { usePharmacyInfo } from '../components/DashboardHeader'
 import AppFooter from '../../components/AppFooter';
 import { getPharmacyId, getStaffId, getStaffName } from '@/lib/tenant';
 import { normalizeAr } from '@/lib/arabic';
-import { calcWeightGoals } from '@/lib/weight-math';
+import { calcWeightGoals, getBMICategory } from '@/lib/weight-math';
 import { detectTextDir } from '@/lib/text-direction';
 import { normalizePhone, displayPhone, validatePhone } from '@/lib/phone';
 
@@ -482,14 +482,9 @@ export default function VitalsPage() {
     const h = currentPatient?.height ? Number(currentPatient.height) : null;
     if (!activeTests.weight || !w || !h || w < 10 || h < 50) { setBmiLive(null); return; }
     const { bmi, idealMin, idealMax, toLoose, firstGoal } = calcWeightGoals(w, h);
-    // تصنيف BMI
-    let label = 'وزن صحي', labelShort = 'طبيعي', color = 'text-teal-700',
-        bgColor = 'bg-teal-50', borderColor = 'border-teal-200', dot = 'bg-teal-500', emoji = '🟢';
-    if (bmi < 18.5) { label = 'نحافة'; labelShort = 'نحافة'; color = 'text-blue-700'; bgColor = 'bg-blue-50'; borderColor = 'border-blue-200'; dot = 'bg-blue-500'; emoji = '🔵'; }
-    else if (bmi >= 25 && bmi < 30) { label = 'زيادة وزن'; labelShort = 'زيادة'; color = 'text-amber-700'; bgColor = 'bg-amber-50'; borderColor = 'border-amber-200'; dot = 'bg-amber-500'; emoji = '🟡'; }
-    else if (bmi >= 30 && bmi < 35) { label = 'سمنة درجة أولى'; labelShort = 'سمنة'; color = 'text-orange-700'; bgColor = 'bg-orange-50'; borderColor = 'border-orange-200'; dot = 'bg-orange-500'; emoji = '🟠'; }
-    else if (bmi >= 35) { label = 'سمنة درجة ثانية أو أعلى'; labelShort = 'سمنة'; color = 'text-rose-700'; bgColor = 'bg-rose-50'; borderColor = 'border-rose-200'; dot = 'bg-rose-500'; emoji = '🔴'; }
-    setBmiLive({ value: Math.round(bmi * 10) / 10, label, labelShort, color, bgColor, borderColor, dot, emoji, idealMin, idealMax, toLoose, firstGoal });
+    // تصنيف BMI — من المصدر الموحّد في weight-math.ts
+    const cat = getBMICategory(bmi);
+    setBmiLive({ value: Math.round(bmi * 10) / 10, ...cat, idealMin, idealMax, toLoose, firstGoal });
   }, [weightValue, currentPatient?.height, activeTests.weight]);
 
   // ── إغلاق dropdown خارجه ──
@@ -1563,15 +1558,6 @@ ${planUrl}
                         <span className="text-sm font-bold text-slate-900">الوزن</span>
                         <span className="text-[10px] text-slate-400">(kg)</span>
                       </div>
-                      {/* مؤشر BMI الفوري في الـ header */}
-                      {bmiLive && (
-                        <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border ${bmiLive.borderColor} ${bmiLive.bgColor}`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${bmiLive.dot}`} />
-                          <span className={`text-[10px] font-bold ${bmiLive.color}`}>
-                            BMI {bmiLive.value} · {bmiLive.labelShort}
-                          </span>
-                        </div>
-                      )}
                     </div>
 
                     <div className="p-5 space-y-4">
@@ -1585,72 +1571,6 @@ ${planUrl}
                         onWheel={e => e.currentTarget.blur()}
                         className="w-full px-4 py-4 text-3xl sm:text-4xl font-black text-center bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-purple-500 transition num-input placeholder:text-slate-200"
                       />
-
-                      {/* ── لوحة BMI — تظهر فور إدخال وزن صحيح ── */}
-                      {bmiLive && (
-                        <div className="space-y-3">
-
-                          {/* صف المعلومات الثلاثة */}
-                          <div className="grid grid-cols-3 gap-2">
-                            {/* مؤشر كتلة الجسم */}
-                            <div className={`rounded-xl border ${bmiLive.borderColor} ${bmiLive.bgColor} px-3 py-2.5 text-center`}>
-                              <p className="text-[9px] font-bold text-slate-400 mb-1">مؤشر الجسم</p>
-                              <p className={`text-xl font-black tabular-nums ${bmiLive.color}`}>{bmiLive.value}</p>
-                              <p className={`text-[9px] font-bold mt-0.5 ${bmiLive.color}`}>{bmiLive.emoji} {bmiLive.labelShort}</p>
-                            </div>
-                            {/* الوزن المثالي */}
-                            <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-center">
-                              <p className="text-[9px] font-bold text-slate-400 mb-1">الوزن المثالي</p>
-                              <p className="text-sm font-black text-slate-700">{bmiLive.idealMin}–{bmiLive.idealMax}</p>
-                              <p className="text-[9px] text-slate-400 mt-0.5">كيلوغرام</p>
-                            </div>
-                            {/* الهدف المبدئي أو وزن مثالي */}
-                            {bmiLive.toLoose > 0 ? (
-                              <div className="bg-purple-50 border border-purple-200 rounded-xl px-3 py-2.5 text-center">
-                                <p className="text-[9px] font-bold text-slate-400 mb-1">الهدف المبدئي</p>
-                                <p className="text-xl font-black text-purple-700">{bmiLive.firstGoal}</p>
-                                <p className="text-[9px] text-purple-500 mt-0.5">كغ · 5٪</p>
-                              </div>
-                            ) : bmiLive.value < 18.5 ? (
-                              <div className="bg-blue-50 border border-blue-200 rounded-xl px-3 py-2.5 text-center">
-                                <p className="text-[9px] font-bold text-slate-400 mb-1">المطلوب</p>
-                                <p className="text-sm font-black text-blue-700">زيادة</p>
-                                <p className="text-[9px] text-blue-500 mt-0.5">{(bmiLive.idealMin - Number(weightValue)).toFixed(1)} كغ</p>
-                              </div>
-                            ) : (
-                              <div className="bg-teal-50 border border-teal-200 rounded-xl px-3 py-2.5 text-center flex items-center justify-center">
-                                <p className="text-[10px] font-bold text-teal-700">وزن مثالي 🎯</p>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* شريط BMI — نفس نمط النظام */}
-                          <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-3">
-                            <div className="relative h-2 rounded-full overflow-hidden" dir="ltr">
-                              <div className="absolute inset-0 flex">
-                                <div className="h-full bg-blue-300"   style={{ width: '15%' }} />
-                                <div className="h-full bg-teal-400"   style={{ width: '26%' }} />
-                                <div className="h-full bg-amber-400"  style={{ width: '20%' }} />
-                                <div className="h-full bg-orange-400" style={{ width: '20%' }} />
-                                <div className="h-full bg-rose-400"   style={{ width: '19%' }} />
-                              </div>
-                              <div
-                                className="absolute top-1/2 w-3.5 h-3.5 bg-white border-2 border-slate-700 rounded-full shadow-md transition-all duration-500"
-                                style={{ left: `${Math.min(Math.max(((bmiLive.value - 10) / 40) * 100, 2), 97)}%`, transform: 'translateX(-50%) translateY(-50%)' }}
-                              />
-                            </div>
-                            <div className="flex justify-between mt-1.5" dir="ltr">
-                              {[{ v: '10', l: 'نحافة' }, { v: '18.5', l: 'طبيعي' }, { v: '25', l: 'زيادة' }, { v: '30', l: 'سمنة' }, { v: '35+', l: 'مفرطة' }].map(({ v, l }) => (
-                                <div key={v} className="flex flex-col items-center">
-                                  <span className="text-[7px] font-mono text-slate-400">{v}</span>
-                                  <span className="text-[7px] text-slate-300">{l}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-
-                        </div>
-                      )}
 
                       {/* تنبيه: لا يوجد طول مسجّل */}
                       {activeTests.weight && weightValue && !currentPatient?.height && (
@@ -1769,12 +1689,15 @@ ${planUrl}
             {/* ══ التقرير بعد الحفظ ══ */}
             {latestVisitId && latestGeneratedReport && (
               <div ref={reportRef} className="space-y-4 saas-slide-up scroll-mt-24">
-                {isFallbackReport && (
-                  <div className="mb-3 text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 px-4 py-2.5 rounded-lg">
-                    ⚠️ تعذّر توليد التقرير الذكي — هذا تقرير مختصر مبني على القراءات مباشرة. القراءة محفوظة.
-                  </div>
-                )}
-                <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                {/* بطاقة التقرير الطبي الذكي — تُخفى في مسار الوزن وحده لتفادي التكرار مع بطاقة خطة الوزن */}
+                {!(activeTests.weight && !activeTests.bp && !activeTests.sugar) && (
+                  <>
+                    {isFallbackReport && (
+                      <div className="mb-3 text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 px-4 py-2.5 rounded-lg">
+                        ⚠️ تعذّر توليد التقرير الذكي — هذا تقرير مختصر مبني على القراءات مباشرة. القراءة محفوظة.
+                      </div>
+                    )}
+                    <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
                   <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50 flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2.5">
                       <div className="w-8 h-8 rounded-xl bg-slate-900 flex items-center justify-center shrink-0">
@@ -1836,146 +1759,245 @@ ${planUrl}
                     </div>
                   </div>
                 </div>
+                  </>
+                )}
 
                 {/* ══ بطاقة الوزن — تظهر بعد بدء الحفظ ══ */}
                 {activeTests.weight && weightValue && bmiLive && weightStatus !== 'idle' && (
                   <div className="bg-white border border-purple-200 rounded-2xl shadow-sm overflow-hidden saas-slide-up">
 
-                    {/* Header — نفس نمط بطاقات الضغط والسكر */}
-                    <div className="bg-purple-50/60 px-5 py-3.5 border-b border-purple-100 flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <IconScale className="w-4 h-4 text-purple-600" />
+                    {/* ١. ترويسة: أيقونة شخص + اسم المريض + شارة الحالة */}
+                    <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50 flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
+                          <svg className="w-5 h-5 text-slate-400" viewBox="0 0 24 24" fill="currentColor">
+                            <circle cx="12" cy="8" r="3.5" />
+                            <path d="M5 21c0-4.42 3.13-8 7-8s7 3.58 7 8" />
+                          </svg>
+                        </div>
                         <div>
-                          <p className="text-sm font-bold text-slate-900">خطة إدارة الوزن</p>
-                          <p className="text-[10px] text-slate-400 mt-0.5">Vitalix Weight AI · {currentPatient?.name}</p>
+                          <p className="text-base font-black text-slate-900">{currentPatient?.name}</p>
+                          <p className="text-[11px] text-slate-400 mt-0.5">فحص وزن · {formatDate(new Date().toISOString())}</p>
                         </div>
                       </div>
-                      {/* badge BMI */}
-                      <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border ${bmiLive.borderColor} ${bmiLive.bgColor}`}>
-                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${bmiLive.dot}`} />
-                        <span className={`text-[10px] font-bold ${bmiLive.color}`}>{bmiLive.emoji} {bmiLive.labelShort} · {bmiLive.value}</span>
+                      {/* شارات: تصنيف BMI + الحالة العامة + تم الحفظ + حالة خطة الوزن */}
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border ${bmiLive.borderColor} ${bmiLive.bgColor}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${bmiLive.dot}`} />
+                          <span className={`text-[10px] font-bold ${bmiLive.color}`}>{bmiLive.label}</span>
+                        </div>
+                        <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border ${status.border} ${status.bg}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${status.dot}`} />
+                          <span className={`text-[10px] font-bold ${status.color}`}>{status.label}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                          <span className="text-[10px] font-bold text-emerald-600">تم الحفظ</span>
+                        </div>
+                        <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border shrink-0 ${
+                          weightStatus === 'sent' ? 'bg-teal-50 border-teal-200'
+                          : weightStatus === 'error' ? 'bg-rose-50 border-rose-200'
+                          : 'bg-purple-50 border-purple-200'
+                        }`}>
+                          {weightStatus === 'sent' ? (
+                            <span className="w-1.5 h-1.5 rounded-full bg-teal-500 shrink-0" />
+                          ) : weightStatus === 'error' ? (
+                            <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                          ) : (
+                            <div className="w-2.5 h-2.5 border-2 border-purple-400 border-t-purple-700 rounded-full animate-spin shrink-0" />
+                          )}
+                          <span className={`text-[10px] font-bold ${
+                            weightStatus === 'sent' ? 'text-teal-700' : weightStatus === 'error' ? 'text-rose-700' : 'text-purple-700'
+                          }`}>
+                            {weightStatus === 'sent' && 'الخطة جاهزة'}
+                            {weightStatus === 'error' && 'تعذر التوليد'}
+                            {(weightStatus === 'saving' || weightStatus === 'generating') && 'جاري التحضير'}
+                          </span>
+                        </div>
                       </div>
                     </div>
 
-                    {/* أرقام الوزن */}
-                    <div className="px-5 pt-4 grid grid-cols-3 gap-3">
-                      <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-center">
+                    {/* ٢. أربع بطاقات أرقام 2×2 */}
+                    <div className="px-5 pt-4 grid grid-cols-2 gap-3">
+                      <div className="bg-slate-50 border-2 border-slate-200 rounded-xl px-3 py-2.5 text-center">
                         <p className="text-[9px] font-bold text-slate-400 mb-1">الوزن الحالي</p>
                         <p className="text-lg font-black text-slate-900">{weightValue}<span className="text-xs font-normal text-slate-400"> كغ</span></p>
                       </div>
-                      <div className={`rounded-xl px-3 py-2.5 text-center border ${bmiLive.borderColor} ${bmiLive.bgColor}`}>
-                        <p className="text-[9px] font-bold text-slate-400 mb-1">الوزن المثالي</p>
-                        <p className={`text-sm font-black ${bmiLive.color}`}>{bmiLive.idealMin}–{bmiLive.idealMax}<span className="text-[9px] font-normal"> كغ</span></p>
+                      <div className={`rounded-xl px-3 py-2.5 text-center border-2 ${bmiLive.borderColor} ${bmiLive.bgColor}`}>
+                        <p className="text-[9px] font-bold text-slate-400 mb-1">مؤشر كتلة الجسم</p>
+                        <p className={`text-lg font-black ${bmiLive.color}`}>{bmiLive.value}</p>
+                        <p className={`text-[9px] font-bold mt-0.5 ${bmiLive.color}`}>{bmiLive.label}</p>
                       </div>
-                      {bmiLive.toLoose > 0 ? (
-                        <div className="bg-purple-50 border border-purple-200 rounded-xl px-3 py-2.5 text-center">
-                          <p className="text-[9px] font-bold text-slate-400 mb-1">الهدف المبدئي</p>
-                          <p className="text-lg font-black text-purple-700">{bmiLive.firstGoal}<span className="text-xs font-normal text-purple-500"> كغ</span></p>
-                        </div>
-                      ) : bmiLive.value < 18.5 ? (
-                        <div className="bg-blue-50 border border-blue-200 rounded-xl px-3 py-2.5 text-center">
-                          <p className="text-[9px] font-bold text-slate-400 mb-1">المطلوب زيادته</p>
-                          <p className="text-lg font-black text-blue-700">{(bmiLive.idealMin - Number(weightValue)).toFixed(1)}<span className="text-xs font-normal text-blue-500"> كغ</span></p>
-                        </div>
-                      ) : (
-                        <div className="bg-teal-50 border border-teal-200 rounded-xl px-3 py-2.5 text-center flex items-center justify-center">
-                          <p className="text-[10px] font-bold text-teal-700">وزن مثالي 🎯</p>
-                        </div>
-                      )}
+                      {(() => {
+                        const wv = Number(weightValue);
+                        const overBy = wv - bmiLive.idealMax;
+                        const underBy = bmiLive.idealMin - wv;
+                        const diffValue = overBy > 0 ? overBy : underBy > 0 ? underBy : 0;
+                        const diffLabel = overBy > 0 ? 'نقص مطلوب' : underBy > 0 ? 'زيادة مطلوبة' : 'للوصول للوزن المثالي';
+                        return (
+                          <div className="bg-blue-50 border-2 border-blue-200 rounded-xl px-3 py-2.5 text-center">
+                            <p className="text-[9px] font-bold text-slate-400 mb-1">{diffLabel}</p>
+                            {diffValue > 0 ? (
+                              <p className="text-lg font-black text-blue-700">{diffValue.toFixed(1)}<span className="text-xs font-normal text-blue-500"> كغ</span></p>
+                            ) : (
+                              <p className="text-sm font-black text-blue-700 mt-1">ضمن المثالي</p>
+                            )}
+                          </div>
+                        );
+                      })()}
+                      <div className="bg-purple-50 border-2 border-purple-200 rounded-xl px-3 py-2.5 text-center">
+                        <p className="text-[9px] font-bold text-slate-400 mb-1">الهدف المبدئي</p>
+                        <p className="text-lg font-black text-purple-700">{bmiLive.firstGoal}<span className="text-xs font-normal text-purple-500"> كغ</span></p>
+                      </div>
                     </div>
 
-                    {/* شريط BMI */}
-                    <div className="px-5 pt-3 pb-4">
-                      <div className="relative h-2 rounded-full overflow-hidden" dir="ltr">
-                        <div className="absolute inset-0 flex">
-                          <div className="h-full bg-blue-300"   style={{ width: '15%' }} />
-                          <div className="h-full bg-teal-400"   style={{ width: '26%' }} />
-                          <div className="h-full bg-amber-400"  style={{ width: '20%' }} />
-                          <div className="h-full bg-orange-400" style={{ width: '20%' }} />
-                          <div className="h-full bg-rose-400"   style={{ width: '19%' }} />
-                        </div>
-                        <div className="absolute top-1/2 w-3.5 h-3.5 bg-white border-2 border-slate-700 rounded-full shadow-md"
-                          style={{ left: `${Math.min(Math.max(((bmiLive.value - 10) / 40) * 100, 2), 97)}%`, transform: 'translateX(-50%) translateY(-50%)' }} />
-                      </div>
-                      <div className="flex justify-between mt-1.5" dir="ltr">
-                        {[{ v: '10', l: 'نحافة' }, { v: '18.5', l: 'طبيعي' }, { v: '25', l: 'زيادة' }, { v: '30', l: 'سمنة' }, { v: '35+', l: 'مفرطة' }].map(({ v, l }) => (
-                          <div key={v} className="flex flex-col items-center">
-                            <span className="text-[7px] font-mono text-slate-400">{v}</span>
-                            <span className="text-[7px] text-slate-300">{l}</span>
-                          </div>
+                    {/* ٣. مؤشر BMI — تدرّج مستمر، نمط رفيع مع خط موقع بارز */}
+                    <div className="px-5 pt-4 pb-2" dir="ltr">
+                      <svg viewBox="0 0 100 10" preserveAspectRatio="none" className="w-full h-2 overflow-visible">
+                        <defs>
+                          <linearGradient id="bmiRangeGradient" x1="0" y1="0" x2="1" y2="0">
+                            <stop offset="0%" stopColor="#60A5FA" />
+                            <stop offset="33%" stopColor="#34D399" />
+                            <stop offset="66%" stopColor="#FBBF24" />
+                            <stop offset="100%" stopColor="#FB7185" />
+                          </linearGradient>
+                        </defs>
+                        <rect x="0" y="3" width="100" height="4" rx="2" fill="url(#bmiRangeGradient)" />
+                        <line
+                          x1={Math.min(Math.max(((bmiLive.value - 10) / 35) * 100, 1), 99)}
+                          x2={Math.min(Math.max(((bmiLive.value - 10) / 35) * 100, 1), 99)}
+                          y1="-2" y2="12" stroke="#0F172A" strokeWidth="1.5" strokeLinecap="round"
+                        />
+                      </svg>
+                      <div className="flex justify-between mt-2" dir="ltr">
+                        {['نحافة', 'طبيعي', 'زيادة', 'سمنة'].map((l) => (
+                          <span key={l} className="text-[9px] font-semibold text-slate-400">{l}</span>
                         ))}
                       </div>
                     </div>
 
-                    {/* حالة الإرسال + زر عرض صفحة المريض */}
-                    {weightPlanUrl && (
-                      <div className="px-5 pb-5 border-t border-purple-100 pt-4 space-y-3">
+                    {/* ٤. سجل الوزن — منحنى ناعم (يظهر من الزيارة الثانية فأكثر) */}
+                    {(() => {
+                      const points = patientHistory.filter(v => v.weight != null).slice().reverse().slice(-8);
+                      if (points.length < 2) return null;
 
-                        {/* حالة التوليد */}
-                        <div className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border ${
-                          weightStatus === 'generating'
-                            ? 'bg-purple-50 border-purple-200'
-                            : weightStatus === 'sent'
-                            ? 'bg-teal-50 border-teal-200'
-                            : 'bg-rose-50 border-rose-200'
-                        }`}>
-                          {weightStatus === 'generating' ? (
-                            <div className="w-3.5 h-3.5 border-2 border-purple-400 border-t-purple-700 rounded-full animate-spin shrink-0" />
-                          ) : weightStatus === 'sent' ? (
-                            <div className="w-5 h-5 rounded-full bg-teal-500 flex items-center justify-center shrink-0">
-                              <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                              </svg>
-                            </div>
-                          ) : (
-                            <svg className="w-3.5 h-3.5 text-rose-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
-                            </svg>
-                          )}
-                          <div>
-                            <p className={`text-xs font-bold ${
-                              weightStatus === 'generating' ? 'text-purple-800'
-                              : weightStatus === 'sent' ? 'text-teal-800'
-                              : 'text-rose-800'
-                            }`}>
-                              {weightStatus === 'generating' && 'خبير التغذية يُعد قائمة الأغذية...'}
-                              {weightStatus === 'sent'       && 'خطة إدارة الوزن جاهزة'}
-                              {weightStatus === 'error'      && 'تعذر توليد القائمة — الرابط جاهز'}
-                            </p>
-                            <p className={`text-[10px] mt-0.5 ${
-                              weightStatus === 'generating' ? 'text-purple-500'
-                              : weightStatus === 'sent' ? 'text-teal-600'
-                              : 'text-rose-500'
-                            }`}>
-                              {weightStatus === 'generating' && 'ستظهر على صفحة المريض تلقائياً عند اكتمالها'}
-                              {weightStatus === 'sent'       && `راجع الخطة واعتمدها لإرسالها إلى ${currentPatient?.name}`}
-                              {weightStatus === 'error'      && 'يمكن للمريض رؤية BMI والأهداف في الرابط'}
-                            </p>
+                      const W = 300, H = 70, PADX = 8, PADY = 10;
+                      const plotW = W - PADX * 2, plotH = H - PADY * 2;
+                      const weights = points.map(p => Number(p.weight));
+                      const minW = Math.min(...weights), maxW = Math.max(...weights);
+                      const range = maxW - minW || 1;
+                      const isFlat = maxW === minW;
+                      const coords = points.map((p, i) => ({
+                        x: PADX + (1 - i / (points.length - 1)) * plotW,
+                        y: isFlat ? (PADY + plotH / 2) : PADY + (1 - (Number(p.weight) - minW) / range) * plotH,
+                      }));
+
+                      let path = `M ${coords[0].x},${coords[0].y}`;
+                      for (let i = 0; i < coords.length - 1; i++) {
+                        const p0 = coords[i === 0 ? i : i - 1];
+                        const p1 = coords[i];
+                        const p2 = coords[i + 1];
+                        const p3 = coords[i + 2 < coords.length ? i + 2 : i + 1];
+                        const c1x = p1.x + (p2.x - p0.x) / 6;
+                        const c1y = p1.y + (p2.y - p0.y) / 6;
+                        const c2x = p2.x - (p3.x - p1.x) / 6;
+                        const c2y = p2.y - (p3.y - p1.y) / 6;
+                        path += ` C ${c1x},${c1y} ${c2x},${c2y} ${p2.x},${p2.y}`;
+                      }
+
+                      const first = points[0];
+                      const last = points[points.length - 1];
+                      const improved = Number(first.weight) > Number(last.weight);
+                      const lineColor = improved ? '#1D9E75' : '#E9A63A';
+                      const diff = Number(last.weight) - Number(first.weight);
+                      const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
+                      const diffLabel = `${diff > 0 ? '+' : diff < 0 ? '-' : ''}${fmt(Math.abs(diff))} كغ`;
+
+                      return (
+                        <div className="px-5 pt-3 pb-4 border-t border-slate-100">
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-xs font-bold text-slate-700">سجل الوزن</p>
+                            <span className="text-xs font-black tabular-nums" style={{ color: lineColor }}>
+                              {diff === 0 ? 'مستقر' : `${improved ? '▼ ' : '▲ '}${diffLabel}`}
+                            </span>
+                          </div>
+                          <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-[70px] overflow-visible" preserveAspectRatio="none">
+                            <defs>
+                              <filter id="weightGlow" x="-30%" y="-60%" width="160%" height="220%">
+                                <feGaussianBlur stdDeviation="3.5" result="blur" />
+                                <feMerge>
+                                  <feMergeNode in="blur" />
+                                  <feMergeNode in="SourceGraphic" />
+                                </feMerge>
+                              </filter>
+                            </defs>
+                            <path d={path} fill="none" stroke={lineColor} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" filter="url(#weightGlow)" />
+                          </svg>
+                          <div className="flex items-center justify-between mt-1">
+                            <span className="text-[10px] font-bold text-slate-400">{first.weight} كغ · {formatDate(first.created_at)}</span>
+                            <span className="text-[10px] font-bold text-slate-400">اليوم</span>
                           </div>
                         </div>
+                      );
+                    })()}
 
-                        {/* تنبيه فرق وزن غير معتاد — أرقام التقدّم لم تُعرض للمريض */}
-                        {weightDataSuspect && (
-                          <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl border bg-amber-50 border-amber-200 text-amber-800">
-                            <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-                            </svg>
-                            <p className="text-[11px] font-bold">فرق وزن غير معتاد مقارنةً بالقراءات السابقة — راجع دقّة الوزن المُدخل. لم تُعرض أرقام التقدّم للمريض.</p>
+                    {/* ٥. نص التقرير الذكي — سطران بحد أقصى مع «عرض الكل» */}
+                    {latestGeneratedReport && (() => {
+                      const dir = detectTextDir(latestGeneratedReport);
+                      const align: 'left' | 'right' = dir === 'ltr' ? 'left' : 'right';
+                      const isLong = latestGeneratedReport.length > 100;
+                      if (!isLong) {
+                        return (
+                          <div className="px-5 pt-4">
+                            <div className="bg-slate-50 border border-slate-100 rounded-xl p-4">
+                              <p className="text-sm text-slate-700 leading-relaxed font-medium" dir={dir} style={{ textAlign: align }}>
+                                {latestGeneratedReport}
+                              </p>
+                            </div>
                           </div>
-                        )}
+                        );
+                      }
+                      return (
+                        <div className="px-5 pt-4">
+                          <details className="group bg-slate-50 border border-slate-100 rounded-xl p-4">
+                            <summary className="list-none cursor-pointer [&::-webkit-details-marker]:hidden">
+                              <p className="text-sm text-slate-700 leading-relaxed font-medium line-clamp-2 group-open:hidden" dir={dir} style={{ textAlign: align }}>
+                                {latestGeneratedReport}
+                              </p>
+                              <p className="hidden group-open:block text-sm text-slate-700 leading-relaxed font-medium" dir={dir} style={{ textAlign: align }}>
+                                {latestGeneratedReport}
+                              </p>
+                              <span className="mt-2 inline-block text-[11px] font-bold text-purple-600 group-open:hidden">عرض الكل</span>
+                              <span className="hidden group-open:inline-block mt-2 text-[11px] font-bold text-purple-600">عرض أقل</span>
+                            </summary>
+                          </details>
+                        </div>
+                      );
+                    })()}
 
-                        {/* زر عرض صفحة المريض */}
+                    {/* تنبيه فرق وزن غير معتاد — أرقام التقدّم لم تُعرض للمريض */}
+                    {weightDataSuspect && (
+                      <div className="mx-5 mt-4 flex items-start gap-2 px-3 py-2.5 rounded-xl border bg-amber-50 border-amber-200 text-amber-800">
+                        <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                        </svg>
+                        <p className="text-[11px] font-bold">فرق وزن غير معتاد مقارنةً بالقراءات السابقة — راجع دقّة الوزن المُدخل. لم تُعرض أرقام التقدّم للمريض.</p>
+                      </div>
+                    )}
+
+                    {/* ٦. معاينة ← اعتماد ← تسليم */}
+                    {weightPlanUrl && (
+                      <div className="mx-5 my-5 border border-slate-200 rounded-xl divide-y divide-slate-200 overflow-hidden">
                         <button
                           onClick={() => window.open(weightPlanUrl, '_blank')}
-                          className="w-full flex items-center justify-center gap-2 py-3 bg-white border border-purple-200 text-purple-700 rounded-xl text-xs font-bold transition hover:bg-purple-50 shadow-sm">
+                          className="w-full flex items-center justify-center gap-2 py-3 bg-white text-purple-700 text-xs font-bold transition hover:bg-purple-50 cursor-pointer">
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
                           </svg>
-                          عرض صفحة المريض
+                          معاينة خطة الوزن
                         </button>
 
-                        {/* تأكيد المراجعة — شرط لتفعيل الإرسال */}
-                        <label className="flex items-start gap-2.5 px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 cursor-pointer">
+                        <label className="flex items-start gap-2.5 px-4 py-3 bg-slate-50 cursor-pointer">
                           <input
                             type="checkbox"
                             checked={weightReviewed}
@@ -1987,16 +2009,26 @@ ${planUrl}
                           </span>
                         </label>
 
-                        {/* إرسال للمريض — معطّل حتى تتم المراجعة */}
-                        <button
-                          onClick={() => { if (weightWaMsg) window.open(weightWaMsg, '_blank'); }}
-                          disabled={!weightReviewed || !weightWaMsg}
-                          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-bold transition shadow-sm disabled:opacity-40 disabled:cursor-not-allowed bg-teal-600 text-white hover:bg-teal-700">
-                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 00-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-                          </svg>
-                          إرسال للمريض عبر واتساب
-                        </button>
+                        <div className="flex">
+                          <button
+                            onClick={() => { if (weightWaMsg) window.open(weightWaMsg, '_blank'); }}
+                            disabled={!weightReviewed || !weightWaMsg}
+                            className="flex-[2] flex items-center justify-center gap-2 py-3 border-l border-slate-200 text-xs font-bold transition disabled:opacity-40 disabled:cursor-not-allowed bg-[#25D366] hover:bg-[#20BD5A] text-white cursor-pointer">
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 00-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                            </svg>
+                            إرسال للمريض
+                          </button>
+                          <button
+                            onClick={handlePrintPDF}
+                            disabled={!weightReviewed}
+                            className="flex-1 flex items-center justify-center gap-2 py-3 text-slate-700 text-xs font-bold transition disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 cursor-pointer">
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-1.913-.247M6.34 18H5.25A2.25 2.25 0 013 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 011.913-.247m10.5 0a48.536 48.536 0 00-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5zm-3 0h.008v.008H15V10.5z" />
+                            </svg>
+                            طباعة
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>

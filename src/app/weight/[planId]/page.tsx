@@ -4,6 +4,7 @@ import { useEffect, useState, use, useRef } from 'react';
 import AppFooter from '../../components/AppFooter';
 import Disclaimer from '@/components/Disclaimer';
 import { SUPPLEMENT_CATEGORIES } from '@/lib/supplement-categories';
+import { getBMICategory } from '@/lib/weight-math';
 
 const CATEGORY_LABELS: Record<string, string> = Object.fromEntries(
   SUPPLEMENT_CATEGORIES.map(c => [c.code, c.labelAr])
@@ -57,15 +58,6 @@ interface PageProps { params: Promise<{ planId: string }>; }
 // ════════════════════════════════════════════════════════════════════════
 function formatDate(d: string) {
   return new Date(d).toLocaleDateString('ar-EG', { numberingSystem: 'latn', year: 'numeric', month: 'long', day: 'numeric' });
-}
-function getBMIStyle(cat: string) {
-  switch (cat) {
-    case 'underweight': return { label:'نحافة',             color:'text-blue-700',   bg:'bg-blue-50',   border:'border-blue-200',   dot:'bg-blue-500',   emoji:'🔵' };
-    case 'normal':      return { label:'وزن صحي',          color:'text-teal-700',   bg:'bg-teal-50',   border:'border-teal-200',   dot:'bg-teal-500',   emoji:'🟢' };
-    case 'overweight':  return { label:'زيادة وزن',        color:'text-amber-700',  bg:'bg-amber-50',  border:'border-amber-200',  dot:'bg-amber-500',  emoji:'🟡' };
-    case 'obese_1':     return { label:'سمنة درجة أولى',   color:'text-orange-700', bg:'bg-orange-50', border:'border-orange-200', dot:'bg-orange-500', emoji:'🟠' };
-    default:            return { label:'سمنة درجة ثانية+', color:'text-rose-700',   bg:'bg-rose-50',   border:'border-rose-200',   dot:'bg-rose-500',   emoji:'🔴' };
-  }
 }
 function parseNutrition(raw: NutritionData | string | null): NutritionData | null {
   if (!raw) return null;
@@ -228,7 +220,7 @@ export default function WeightPlanPage({ params }: PageProps) {
   );
 
   const { plan, patient, pharmacyName, pharmacyPhone } = pageData;
-  const bmiStyle  = getBMIStyle(plan.bmi_category);
+  const bmiStyle  = getBMICategory(plan.bmi);
   const nutrition = parseNutrition(plan.nutrition_plan);
   const hasData   = !!nutrition;
   const isSetback = !!nutrition?.progress && nutrition.progress.diffFromPrevious > 0;
@@ -316,7 +308,7 @@ export default function WeightPlanPage({ params }: PageProps) {
               </svg>
               <p className="text-sm font-bold text-slate-900">تحليل وزنك الحالي</p>
             </div>
-            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border ${bmiStyle.border} ${bmiStyle.bg}`}>
+            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border ${bmiStyle.borderColor} ${bmiStyle.bgColor}`}>
               <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${bmiStyle.dot}`} />
               <span className={`text-[10px] font-bold ${bmiStyle.color}`}>{bmiStyle.emoji} {bmiStyle.label}</span>
             </div>
@@ -333,7 +325,7 @@ export default function WeightPlanPage({ params }: PageProps) {
               </div>
               {plan.target_loss_kg > 0 ? (
                 <>
-                  <div className={`rounded-xl px-3 py-2.5 text-center border ${bmiStyle.border} ${bmiStyle.bg}`}>
+                  <div className={`rounded-xl px-3 py-2.5 text-center border ${bmiStyle.borderColor} ${bmiStyle.bgColor}`}>
                     <p className="text-[9px] font-bold text-slate-400 mb-1">للوصول للوزن المثالي</p>
                     <p className={`text-lg font-black ${bmiStyle.color}`}>{plan.target_loss_kg}<span className="text-xs font-normal"> كغ</span></p>
                   </div>

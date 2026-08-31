@@ -462,11 +462,7 @@ ${rateWarningLine}`;
     const hasHypertension  = diagnosed_conditions.includes('hypertension');
     const genderAr         = gender === 'female' ? 'أنثى' : 'ذكر';
 
-    const bmiCategoryLabel =
-      plan.bmi_category === 'underweight' ? 'نحافة'        :
-      plan.bmi_category === 'normal'      ? 'وزن صحي'      :
-      plan.bmi_category === 'overweight'  ? 'زيادة وزن'    :
-      plan.bmi_category === 'obese_1'     ? 'سمنة درجة أولى' : 'سمنة درجة ثانية أو أعلى';
+    const bmiCategoryLabel = getBMICategory(plan.bmi).label;
 
     const conditionsText = [
       hasDiabetes     ? 'السكري'           : '',

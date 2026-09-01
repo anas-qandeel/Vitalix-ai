@@ -13,6 +13,7 @@ import { detectTextDir } from '@/lib/text-direction';
 import { normalizePhone, displayPhone, validatePhone } from '@/lib/phone';
 import { SUPPLEMENT_CATEGORIES } from '@/lib/supplement-categories';
 import WeightHistoryChart from '@/components/WeightHistoryChart';
+import WeightThinkingOverlay from '@/components/WeightThinkingOverlay';
 
 const CATEGORY_LABELS: Record<string, string> = Object.fromEntries(SUPPLEMENT_CATEGORIES.map(c => [c.code, c.labelAr]));
 
@@ -1972,6 +1973,15 @@ ${planUrl}
                     <WeightHistoryChart weightHistory={patientHistory.filter((v): v is VisitationRecord & { weight: number } => v.weight != null).slice().reverse()} formatDate={formatDate} />
 
                     {/* ٥. ملخص للصيدلاني — clinical_reasoning + تنبيه الأدوية + المكمّلات والفحوصات بخانات اختيار (الاختيارات لا تُحفظ بعد) */}
+                    {(weightStatus === 'saving' || weightStatus === 'generating') && (
+                      <WeightThinkingOverlay
+                        weightKg={weightValue ? Number(weightValue) : null}
+                        heightCm={currentPatient?.height ? Number(currentPatient.height) : null}
+                        ageYears={currentPatient?.birth_date ? Math.floor((Date.now() - new Date(currentPatient.birth_date).getTime()) / (365.25 * 86400000)) : null}
+                        gender={currentPatient?.gender ?? null}
+                        sugarMgDl={activeTests.sugar && sugarValue ? Number(sugarValue) : null}
+                      />
+                    )}
                     {weightStatus === 'sent' && weightSummary && (
                       <div className="px-5 pt-4">
                         <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 space-y-3">

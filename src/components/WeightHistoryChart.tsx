@@ -1,5 +1,7 @@
 'use client';
 
+import { useState } from 'react';
+
 type WeightPoint = { weight: number; created_at: string };
 
 export default function WeightHistoryChart({
@@ -9,6 +11,7 @@ export default function WeightHistoryChart({
   weightHistory: WeightPoint[] | null | undefined;
   formatDate: (d: string) => string;
 }) {
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const points = (weightHistory ?? []).filter(v => v.weight != null).slice(-8);
   if (points.length < 2) return null;
 
@@ -52,7 +55,8 @@ export default function WeightHistoryChart({
           {diff === 0 ? 'مستقر' : `${improved ? '▼ ' : '▲ '}${diffLabel}`}
         </span>
       </div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-[70px] overflow-visible" preserveAspectRatio="none">
+      <div className="relative">
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-[70px] overflow-visible" preserveAspectRatio="none" onClick={() => setActiveIndex(null)} onMouseLeave={() => setActiveIndex(null)}>
         <defs>
           <filter id="weightGlow" x="-30%" y="-60%" width="160%" height="220%">
             <feGaussianBlur stdDeviation="3.5" result="blur" />
@@ -63,7 +67,33 @@ export default function WeightHistoryChart({
           </filter>
         </defs>
         <path d={path} fill="none" stroke={lineColor} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" filter={diff === 0 ? undefined : "url(#weightGlow)"} />
+        {coords.map((c, i) => (
+          <g key={i}>
+            <circle
+              cx={c.x} cy={c.y} r={7}
+              fill="transparent"
+              onMouseEnter={() => setActiveIndex(i)}
+              onTouchStart={(e) => { e.stopPropagation(); setActiveIndex(i === activeIndex ? null : i); }}
+              style={{ cursor: 'pointer' }}
+            />
+            <circle cx={c.x} cy={c.y} r={activeIndex === i ? 3.5 : 0} fill={lineColor} />
+          </g>
+        ))}
       </svg>
+        {activeIndex !== null && (
+          <div
+            className="absolute pointer-events-none bg-white border border-slate-200 rounded-xl shadow-md px-3 py-1.5 text-center whitespace-nowrap"
+            style={{
+              left: `${(coords[activeIndex].x / W) * 100}%`,
+              top: `${(coords[activeIndex].y / H) * 100}%`,
+              transform: 'translate(-50%, calc(-100% - 10px))',
+            }}
+          >
+            <div className="text-sm font-black text-slate-900 tabular-nums leading-tight">{points[activeIndex].weight} كغ</div>
+            <div className="text-[10px] font-medium text-slate-400 leading-tight mt-0.5">{formatDate(points[activeIndex].created_at)}</div>
+          </div>
+        )}
+      </div>
       <div className="flex items-center justify-between mt-1">
         <span className="text-[10px] font-bold text-slate-400">{first.weight} كغ · {formatDate(first.created_at)}</span>
         <span className="text-[10px] font-bold text-slate-400">اليوم</span>

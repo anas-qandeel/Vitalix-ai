@@ -986,6 +986,11 @@ export default function PatientCardPage({ params }: PageProps) {
                           className="text-[10px] font-bold text-teal-700 bg-teal-50 border border-teal-200 px-2.5 py-1 rounded-lg hover:bg-teal-100 transition cursor-pointer">
                           فتح الخطة
                         </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); window.open(`https://api.whatsapp.com/send?phone=${normalizePhone(patient.phone_number)}&text=${encodeURIComponent(`مرحباً ${patient.name} 😊\nمعكم ${pharmacyName}.\nخطتك الغذائية بتاريخ ${formatDate(wp.created_at)}:\n${window.location.origin}/weight/${wp.id}\nنسعد بخدمتكم دائماً 💚`)}`, '_blank'); }}
+                          className="text-[10px] font-bold text-green-700 bg-green-50 border border-green-200 px-2.5 py-1 rounded-lg hover:bg-green-100 transition cursor-pointer">
+                          إرسال واتساب
+                        </button>
                         <IconChevron className="w-4 h-4 text-slate-400 shrink-0" open={isOpen} />
                       </div>
                     </div>

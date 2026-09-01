@@ -530,6 +530,13 @@ ${planUrl}
     return `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(msg)}`;
   };
 
+  // يبني رسالة واتساب تلقائياً فقط بعد اكتمال اسم الصيدلية والمريض ورابط الخطة معاً —
+  // مهما كان ترتيب اكتمالها (استعادة أو توليد جديد)، فلا تُبنى رسالة باسم صيدلية فارغ لأي صيدلية.
+  useEffect(() => {
+    if (!weightPlanUrl || !currentPatient || !pharmacyName) return;
+    setWeightWaMsg(buildWeightWaMsg(weightPlanUrl, currentPatient));
+  }, [weightPlanUrl, currentPatient, pharmacyName]);
+
   // استعادة خطة وزن محفوظة بعد العودة من كرت المريض: نقرأ من القاعدة مباشرة
   // (شاشة مصادَقة تحت RLS، كما يفعل كرت المريض) لا من GET العام الذي يحجب
   // clinical_reasoning. الملخص يُبنى من _all_products (النسخة الأصلية) والاستثناءات
@@ -574,8 +581,7 @@ ${planUrl}
     setSavedExclusions(JSON.stringify({ p: [...exP].sort(), l: [...exL].sort() }));
     setWeightDataSuspect(!!np.progress?.dataSuspect);
     setWeightStatus('sent');
-    // رسالة واتساب تُعاد كما تُبنى بعد التوليد — نفس القالب المستخرَج لـ buildWeightWaMsg
-    setWeightWaMsg(buildWeightWaMsg(planUrl, patient));
+    // weightWaMsg يُبنى تلقائياً في useEffect مستقل بعد اكتمال pharmacyName (يمنع رسالة باسم صيدلية فارغ)
   };
 
   // ── استعادة مريض من sessionStorage ──
@@ -965,7 +971,7 @@ ${planUrl}
             // الخطوة 3: فتح WhatsApp فوراً بعد إنشاء الـ plan_id
             // لا يُفتح واتساب تلقائياً: التسليم للمريض قرار الصيدلاني بعد مراجعة المحتوى.
             // تُحفظ الرسالة جاهزة ويُرسلها بزرّ صريح تحت البطاقة.
-            setWeightWaMsg(buildWeightWaMsg(planUrl, currentPatient));
+            // weightWaMsg يُبنى تلقائياً في useEffect مستقل بعد اكتمال pharmacyName (يمنع رسالة باسم صيدلية فارغ)
           } else {
             setWeightStatus('error');
           }

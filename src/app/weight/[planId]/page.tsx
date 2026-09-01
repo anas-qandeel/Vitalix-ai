@@ -384,8 +384,8 @@ export default function WeightPlanPage({ params }: PageProps) {
               const first = points[0];
               const last = points[points.length - 1];
               const improved = Number(first.weight) > Number(last.weight);
-              const lineColor = improved ? '#1D9E75' : '#E9A63A';
               const diff = Number(last.weight) - Number(first.weight);
+              const lineColor = diff === 0 ? '#64748B' : improved ? '#1D9E75' : '#E9A63A';
               const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
               const diffLabel = `${diff > 0 ? '+' : diff < 0 ? '-' : ''}${fmt(Math.abs(diff))} كغ`;
 
@@ -407,7 +407,7 @@ export default function WeightPlanPage({ params }: PageProps) {
                         </feMerge>
                       </filter>
                     </defs>
-                    <path d={path} fill="none" stroke={lineColor} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" filter="url(#weightGlow)" />
+                    <path d={path} fill="none" stroke={lineColor} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" filter={diff === 0 ? undefined : "url(#weightGlow)"} />
                   </svg>
                   <div className="flex items-center justify-between mt-1">
                     <span className="text-[10px] font-bold text-slate-400">{first.weight} كغ · {formatDate(first.created_at)}</span>

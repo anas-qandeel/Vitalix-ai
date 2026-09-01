@@ -96,7 +96,7 @@ export default function WeightHistoryChart({
       </div>
       <div className="flex items-center justify-between mt-1">
         <span className="text-[10px] font-bold text-slate-400">{first.weight} كغ · {formatDate(first.created_at)}</span>
-        <span className="text-[10px] font-bold text-slate-400">اليوم</span>
+        <span className="text-[10px] font-bold text-slate-400">{last.weight} كغ · {formatDate(last.created_at)}</span>
       </div>
     </div>
   );

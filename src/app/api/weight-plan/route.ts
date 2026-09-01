@@ -403,9 +403,13 @@ export async function PATCH(req: Request) {
         return days >= 7;
       });
 
-      if (eligiblePrevious.length > 0) {
+      {
+        // مرجعان منفصلان بغرضين مختلفين:
+        // - previous (آخر خطة فعلية مهما قرُب فارقها): الأرقام المعروضة للمريض والصيدلي ونص التشجيع.
+        // - clinicalRef (آخر خطة تبعد 7 أيام فأكثر، إن وُجدت): التحذير السريري فقط، لأن المعدّل الشهري يحتاج فارقاً زمنياً معقولاً.
         const baseline = priorPlans[0];
-        const previous = eligiblePrevious[eligiblePrevious.length - 1];
+        const previous = priorPlans[priorPlans.length - 1];
+        const clinicalRef = eligiblePrevious.length > 0 ? eligiblePrevious[eligiblePrevious.length - 1] : null;
         const baselineDate = new Date(baseline.created_at);
         const previousDate = new Date(previous.created_at);
 
@@ -421,14 +425,19 @@ export async function PATCH(req: Request) {
         // حراسة القسمة على صفر: عدد أيام أو وزن سابق صفر يمنعان الحساب
         let rateWarning = false;
         let rateWarningLine = 'معدل النزول ضمن المعتاد.';
-        if (daysSincePrevious > 0 && previous.weight_kg > 0) {
-          const monthlyRatePercent = (diffFromPrevious / previous.weight_kg) * (30 / daysSincePrevious) * 100;
-          if (diffFromPrevious < 0 && Math.abs(monthlyRatePercent) > 5) {
-            rateWarning = true;
-            const pct = Math.round(Math.abs(monthlyRatePercent) * 10) / 10;
-            rateWarningLine = `تنبيه: معدل النزول سريع (${pct}% شهرياً) — نبّه المريض بلطف أن هذا يستحق فحصاً طبياً.`;
+        if (clinicalRef) {
+          const clinicalDate = new Date(clinicalRef.created_at);
+          const daysSinceClinical = Math.round((currentDate.getTime() - clinicalDate.getTime()) / 86400000);
+          const diffFromClinical = Math.round((plan.weight_kg - clinicalRef.weight_kg) * 10) / 10;
+          if (daysSinceClinical > 0 && clinicalRef.weight_kg > 0) {
+            const monthlyRatePercent = (diffFromClinical / clinicalRef.weight_kg) * (30 / daysSinceClinical) * 100;
+            if (diffFromClinical < 0 && Math.abs(monthlyRatePercent) > 5) {
+              rateWarning = true;
+              const pct = Math.round(Math.abs(monthlyRatePercent) * 10) / 10;
+              rateWarningLine = `تنبيه: معدل النزول سريع (${pct}% شهرياً) — نبّه المريض بلطف أن هذا يستحق فحصاً طبياً.`;
+            }
+            if (diffFromClinical < 0 && Math.abs(monthlyRatePercent) > MAX_PLAUSIBLE_MONTHLY_RATE_PERCENT) dataSuspect = true;
           }
-          if (diffFromPrevious < 0 && Math.abs(monthlyRatePercent) > MAX_PLAUSIBLE_MONTHLY_RATE_PERCENT) dataSuspect = true;
         }
         if (daysSinceBaseline > 0 && baseline.weight_kg > 0) {
           const monthlyRateFromBaselinePercent = (diffFromBaseline / baseline.weight_kg) * (30 / daysSinceBaseline) * 100;

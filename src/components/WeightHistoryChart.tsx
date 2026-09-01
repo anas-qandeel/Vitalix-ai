@@ -41,8 +41,9 @@ export default function WeightHistoryChart({
 
   const first = points[0];
   const last = points[points.length - 1];
-  const improved = Number(first.weight) > Number(last.weight);
-  const diff = Number(last.weight) - Number(first.weight);
+  const prev = points[points.length - 2];
+  const improved = Number(prev.weight) > Number(last.weight);
+  const diff = Number(last.weight) - Number(prev.weight);
   const lineColor = diff === 0 ? '#64748B' : improved ? '#1D9E75' : '#E9A63A';
   const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
   const diffLabel = `${diff > 0 ? '+' : diff < 0 ? '-' : ''}${fmt(Math.abs(diff))} كغ`;

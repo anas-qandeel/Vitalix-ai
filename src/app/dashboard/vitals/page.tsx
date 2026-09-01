@@ -592,9 +592,15 @@ ${planUrl}
         setSearchQuery(savedQuery || patient.name || '');
         if (savedWeightPlanId) restoreWeightPlan(savedWeightPlanId, patient, savedWeightValue);
       } catch (e) { console.error("[vitals] restore failed:", e); }
-      sessionStorage.removeItem('vitalix_current_patient');
     }
   }, []);
+
+  // مزامنة الشاشة مع sessionStorage: يُكتب عند كل تغيّر، ويُحذف حين لا يكون هناك مريض.
+  // يجب أن يبقى بعد useEffect الاستعادي أعلاه: على أول تحميل يحذف المخزون قبل أن تُملأ الحالة، فلا بد أن يكون الاستعادي قد قرأه أولاً.
+  useEffect(() => {
+    if (!currentPatient) { sessionStorage.removeItem('vitalix_current_patient'); return; }
+    sessionStorage.setItem('vitalix_current_patient', JSON.stringify({ patient: currentPatient, history: patientHistory, searchQuery, weightPlanId, weightValue, latestVisitId }));
+  }, [currentPatient, patientHistory, searchQuery, weightPlanId, weightValue, latestVisitId]);
 
   // ── تحميل تاريخ مريض ──
   const loadHistory = async (p: Patient) => {
@@ -1171,7 +1177,6 @@ ${planUrl}
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
                         <button onClick={() => {
-                          sessionStorage.setItem('vitalix_current_patient', JSON.stringify({ patient: currentPatient, history: patientHistory, searchQuery, weightPlanId, weightValue, latestVisitId }));
                           router.push(`/dashboard/patients/${currentPatient.id}`);
                         }} className="text-[10px] font-bold text-slate-600 bg-white border border-slate-200 px-2.5 py-1.5 rounded-lg hover:bg-slate-50 transition shadow-sm">
                           السجل
@@ -1661,7 +1666,6 @@ ${planUrl}
                               أضف الطول من{' '}
                               <button
                                 onClick={() => {
-                                  sessionStorage.setItem('vitalix_current_patient', JSON.stringify({ patient: currentPatient, history: patientHistory, searchQuery, weightPlanId, weightValue, latestVisitId }));
                                   router.push(`/dashboard/patients/${currentPatient!.id}`);
                                 }}
                                 className="underline font-bold"

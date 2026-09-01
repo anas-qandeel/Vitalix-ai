@@ -11,6 +11,9 @@ import { normalizeAr } from '@/lib/arabic';
 import { calcWeightGoals, getBMICategory } from '@/lib/weight-math';
 import { detectTextDir } from '@/lib/text-direction';
 import { normalizePhone, displayPhone, validatePhone } from '@/lib/phone';
+import { SUPPLEMENT_CATEGORIES } from '@/lib/supplement-categories';
+
+const CATEGORY_LABELS: Record<string, string> = Object.fromEntries(SUPPLEMENT_CATEGORIES.map(c => [c.code, c.labelAr]));
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -2051,7 +2054,7 @@ ${planUrl}
                                       checked={!excludedProducts.has(i)}
                                       onChange={() => setExcludedProducts(prev => { const n = new Set(prev); n.has(i) ? n.delete(i) : n.add(i); return n; })} />
                                     <span className={`text-xs leading-relaxed ${excludedProducts.has(i) ? 'text-slate-400 line-through' : 'text-slate-700'}`}>
-                                      <span className="font-bold">{p.product?.product_name ?? p.category_code}</span>
+                                      <span className="font-bold">{p.product?.product_name ?? CATEGORY_LABELS[p.category_code] ?? p.category_code}</span>
                                       {p.product?.price != null && <span className="text-slate-400"> · {p.product.price} د.أ</span>}
                                       <span className="text-slate-500"> — {p.reason}</span>
                                     </span>

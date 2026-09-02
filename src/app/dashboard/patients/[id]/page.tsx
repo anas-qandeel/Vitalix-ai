@@ -850,10 +850,12 @@ export default function PatientCardPage({ params }: PageProps) {
                         </div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <div className="flex items-center gap-1.5">
-                          <span className={`w-2 h-2 rounded-full shrink-0 ${vstatus.dot}`} />
-                          <span className={`text-[10px] font-bold hidden sm:block ${vstatus.color}`}>{vstatus.label}</span>
-                        </div>
+                        {(v.bp_systolic || v.sugar_value) && (
+                          <div className="flex items-center gap-1.5">
+                            <span className={`w-2 h-2 rounded-full shrink-0 ${vstatus.dot}`} />
+                            <span className={`text-[10px] font-bold hidden sm:block ${vstatus.color}`}>{vstatus.label}</span>
+                          </div>
+                        )}
                         <IconChevron className="w-4 h-4 text-slate-400 shrink-0" open={isOpen} />
                       </div>
                     </button>

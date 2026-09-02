@@ -99,22 +99,21 @@ function BMIBar({ bmi }: { bmi: number }) {
   );
 }
 
-type MealColor = { bg: string; border: string; headerBg: string; headerBorder: string; dot: string; };
-function MealSection({ icon, title, color, items }: { icon: string; title: string; color: MealColor; items: string[]; }) {
+function MealSection({ icon, title, dotColor, items }: { icon: React.ReactNode; title: string; dotColor: string; items: string[] }) {
   return (
-    <div className={`bg-white border ${color.border} rounded-2xl shadow-sm overflow-hidden`}>
-      <div className={`${color.headerBg} px-5 py-3.5 border-b ${color.headerBorder} flex items-center justify-between`}>
+    <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+      <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className={`w-1.5 h-1.5 rounded-full ${color.dot}`} />
+          <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />
           <p className="text-sm font-bold text-slate-900">{title}</p>
         </div>
-        <span className="text-base">{icon}</span>
+        <span className="text-slate-400">{icon}</span>
       </div>
       <ul className="px-5 py-4 space-y-3">
         {items.map((item, i) => (
           <li key={i} className="flex items-start gap-3">
-            <div className={`w-5 h-5 rounded-lg border ${color.border} ${color.bg} flex items-center justify-center shrink-0 mt-0.5`}>
-              <span className="text-[9px] font-black text-slate-500">{i + 1}</span>
+            <div className="w-5 h-5 rounded-lg bg-slate-50 flex items-center justify-center shrink-0 mt-0.5">
+              <span className="text-[9px] font-black text-slate-400">{i + 1}</span>
             </div>
             <p className="text-sm text-slate-700 leading-relaxed">{item}</p>
           </li>
@@ -222,13 +221,6 @@ export default function WeightPlanPage({ params }: PageProps) {
   const isSetback = !!nutrition?.progress && nutrition.progress.diffFromPrevious > 0;
   const age       = patient.birth_date ? new Date().getFullYear() - new Date(patient.birth_date).getFullYear() : null;
   const waPhone   = pharmacyPhone?.replace(/[^0-9]/g, '').replace(/^0/, '962') || '';
-
-  const mealColors: Record<string, MealColor> = {
-    breakfast: { bg:'bg-amber-50',  border:'border-amber-200',  headerBg:'bg-amber-50/60',  headerBorder:'border-amber-100',  dot:'bg-amber-500'  },
-    lunch:     { bg:'bg-teal-50',   border:'border-teal-200',   headerBg:'bg-teal-50/60',   headerBorder:'border-teal-100',   dot:'bg-teal-500'   },
-    dinner:    { bg:'bg-blue-50',   border:'border-blue-200',   headerBg:'bg-blue-50/60',   headerBorder:'border-blue-100',   dot:'bg-blue-500'   },
-    snacks:    { bg:'bg-purple-50', border:'border-purple-200', headerBg:'bg-purple-50/60', headerBorder:'border-purple-100', dot:'bg-purple-500' },
-  };
 
   return (
     <div className="min-h-screen bg-slate-50/50 antialiased text-slate-900 pb-20" dir="rtl">
@@ -435,17 +427,19 @@ export default function WeightPlanPage({ params }: PageProps) {
 
             {/* العادات الذكية */}
             {nutrition.smart_habits && nutrition.smart_habits.length > 0 && (
-              <div className="bg-white border border-teal-200 rounded-2xl shadow-sm overflow-hidden">
-                <div className="bg-teal-50/60 px-5 py-3.5 border-b border-teal-100 flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-teal-500" />
-                  <p className="text-sm font-bold text-slate-900">عادات ذكية تُسرّع نتائجك</p>
-                  <span className="text-base mr-auto">💡</span>
+              <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-teal-500" />
+                    <p className="text-sm font-bold text-slate-900">عادات ذكية تُسرّع نتائجك</p>
+                  </div>
+                  <svg className="w-[18px] h-[18px] text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 001.5-.189m-1.5.189a6.01 6.01 0 01-1.5-.189m3.75 7.478a12.06 12.06 0 01-4.5 0m3.75 2.383a14.406 14.406 0 01-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 10-7.517 0c.85.493 1.509 1.333 1.509 2.316V18" /></svg>
                 </div>
                 <ul className="px-5 py-4 space-y-3">
                   {nutrition.smart_habits.map((habit, i) => (
                     <li key={i} className="flex items-start gap-3">
-                      <div className="w-5 h-5 rounded-lg bg-teal-50 border border-teal-200 flex items-center justify-center shrink-0 mt-0.5">
-                        <span className="text-[9px] font-black text-teal-600">{i + 1}</span>
+                      <div className="w-5 h-5 rounded-lg bg-slate-50 flex items-center justify-center shrink-0 mt-0.5">
+                        <span className="text-[9px] font-black text-slate-400">{i + 1}</span>
                       </div>
                       <p className="text-sm text-slate-700 leading-relaxed">{habit}</p>
                     </li>
@@ -456,8 +450,8 @@ export default function WeightPlanPage({ params }: PageProps) {
 
             {/* تحذير دوائي */}
             {nutrition.medications_alert && (
-              <div className="bg-white border border-amber-200 rounded-2xl shadow-sm overflow-hidden">
-                <div className="bg-amber-50/60 px-5 py-3.5 border-b border-amber-100 flex items-center gap-2">
+              <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                <div className="px-5 py-3.5 border-b border-slate-100 flex items-center gap-2">
                   <svg className="w-4 h-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
                   </svg>
@@ -480,16 +474,16 @@ export default function WeightPlanPage({ params }: PageProps) {
 
             {/* قوائم الوجبات */}
             {nutrition.breakfast.length > 0 && (
-              <MealSection icon="☀️" title="خيارات الإفطار"      color={mealColors.breakfast} items={nutrition.breakfast} />
+              <MealSection icon={<svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" /></svg>} title="خيارات الإفطار" dotColor="bg-amber-500" items={nutrition.breakfast} />
             )}
             {nutrition.lunch.length > 0 && (
-              <MealSection icon="🍽️" title="خيارات الغداء"        color={mealColors.lunch}     items={nutrition.lunch}     />
+              <MealSection icon={<svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d="M19 3v12h-5c-.023-3.681.184-7.406 5-12zM19 15v6h-1v-3M9 3v17M6 3l3 4 3-4" /></svg>} title="خيارات الغداء" dotColor="bg-teal-500" items={nutrition.lunch} />
             )}
             {nutrition.dinner.length > 0 && (
-              <MealSection icon="🌙" title="خيارات العشاء"        color={mealColors.dinner}    items={nutrition.dinner}    />
+              <MealSection icon={<svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 007.92 12.446A9 9 0 1112 3z" /></svg>} title="خيارات العشاء" dotColor="bg-blue-500" items={nutrition.dinner} />
             )}
             {nutrition.snacks.length > 0 && (
-              <MealSection icon="🍎" title="وجبات خفيفة صحية"     color={mealColors.snacks}    items={nutrition.snacks}    />
+              <MealSection icon={<svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d="M12 14c0-3 2-5 5-5" /><path d="M9.5 9C6.5 9 4 11.5 4 15c0 3 2.5 6 8 6s8-3 8-6c0-3.5-2.5-6-5.5-6C13 9 12 10 12 10S11 9 9.5 9z" /><path d="M12 10V6c0-1.1.9-2 2-2h1" /></svg>} title="وجبات خفيفة صحية" dotColor="bg-purple-500" items={nutrition.snacks} />
             )}
 
             {/* منتجات الصيدلية — Trojan Horse */}

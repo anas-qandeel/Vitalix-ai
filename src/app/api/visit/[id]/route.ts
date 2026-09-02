@@ -46,6 +46,12 @@ export async function GET(
 
     const patient = visit.patient as unknown as { name: string; phone_number: string; height: number | null } | null;
 
+    const { data: relatedWeightPlan } = await supabaseAdmin
+      .from('weight_plans')
+      .select('id')
+      .eq('visitation_id', id)
+      .maybeSingle();
+
     // 2. اسم ورقم هاتف الصيدلية فقط (لا بياناتها المالية)
     // الأولوية: name (العمود الرسمي) ← pharmacy_name (fallback للسجلات القديمة)
     let pharmacyName = 'صيدليتك المعتمدة';
@@ -125,6 +131,7 @@ export async function GET(
       pharmacyPhone,
       history,
       recommendations,
+      relatedWeightPlanId: relatedWeightPlan?.id || null,
     }, {
       headers: { 'Cache-Control': 'no-store, max-age=0' },
     });

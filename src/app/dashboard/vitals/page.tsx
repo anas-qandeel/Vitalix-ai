@@ -14,6 +14,7 @@ import { normalizePhone, displayPhone, validatePhone } from '@/lib/phone';
 import { SUPPLEMENT_CATEGORIES } from '@/lib/supplement-categories';
 import WeightHistoryChart from '@/components/WeightHistoryChart';
 import WeightThinkingOverlay from '@/components/WeightThinkingOverlay';
+import VitalsThinkingOverlay from '@/components/VitalsThinkingOverlay';
 
 const CATEGORY_LABELS: Record<string, string> = Object.fromEntries(SUPPLEMENT_CATEGORIES.map(c => [c.code, c.labelAr]));
 
@@ -1786,6 +1787,20 @@ ${planUrl}
                     </>
                   )}
                 </button>
+                {submitting && (activeTests.bp || activeTests.sugar) && (
+                  <VitalsThinkingOverlay
+                    bpSystolic={activeTests.bp && bpSys1 ? Number(bpSys1) : null}
+                    bpDiastolic={activeTests.bp && bpDia1 ? Number(bpDia1) : null}
+                    heartRate={activeTests.bp && heartRate ? Number(heartRate) : null}
+                    sugarMgDl={activeTests.sugar && sugarValue ? Number(sugarValue) : null}
+                    sugarType={activeTests.sugar ? sugarType : null}
+                    visitCount={patientHistory.length}
+                    prevBpSys={patientHistory.find(v => v.bp_systolic != null)?.bp_systolic ?? null}
+                    prevBpDia={patientHistory.find(v => v.bp_diastolic != null)?.bp_diastolic ?? null}
+                    prevSugar={patientHistory.find(v => v.sugar_value != null)?.sugar_value ?? null}
+                    patientName={currentPatient?.name ?? null}
+                  />
+                )}
               </div>
             )}
 

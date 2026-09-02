@@ -68,6 +68,7 @@ interface WeightPlanNutrition {
 
 interface WeightPlan {
   id: string;
+  visitation_id: string | null;
   weight_kg: number;
   bmi: number;
   bmi_category: string;
@@ -376,7 +377,7 @@ export default function PatientCardPage({ params }: PageProps) {
       // خطط إدارة الوزن السابقة — استعلام مباشر كبقية الصفحة، RLS تعزل بالصيدلية
       const { data: weightPlansData } = await supabase
         .from('weight_plans')
-        .select('id, weight_kg, bmi, bmi_category, target_loss_kg, first_goal_kg, nutrition_plan, plan_generated_at, created_at')
+        .select('id, visitation_id, weight_kg, bmi, bmi_category, target_loss_kg, first_goal_kg, nutrition_plan, plan_generated_at, created_at')
         .eq('patient_id', patientId)
         .order('created_at', { ascending: false });
       setWeightPlans((weightPlansData as WeightPlan[]) || []);
@@ -789,6 +790,7 @@ export default function PatientCardPage({ params }: PageProps) {
                 const isOpen = expandedVisitId === v.id;
                 const bmi = bmiCalc(v.weight, patient.height);
                 const vstatus = getVisitStatus(v);
+                const matchedWeightPlan = weightPlans.find(wp => wp.visitation_id === v.id);
                 const factors = [
                   v.had_stimulants && 'منبهات',
                   v.recent_exertion && 'مجهود بدني',

@@ -891,7 +891,7 @@ export async function GET(req: Request) {
     const { data: plan, error } = await supabaseAdmin
       .from('weight_plans')
       .select(`
-        id, performed_by, weight_kg, height_cm, bmi, bmi_category,
+        id, performed_by, visitation_id, weight_kg, height_cm, bmi, bmi_category,
         ideal_weight_min, ideal_weight_max, target_loss_kg, first_goal_kg,
         nutrition_plan, plan_generated_at, created_at,
         patient:patients(name, phone_number, gender, birth_date),
@@ -952,6 +952,15 @@ export async function GET(req: Request) {
       pharmacyName,
       pharmacyPhone,
       performedBy: plan.performed_by || null,
+      relatedVisitId: await (async () => {
+        if (!plan.visitation_id) return null;
+        const { data: v } = await supabaseAdmin
+          .from('visitations')
+          .select('bp_systolic, sugar_value')
+          .eq('id', plan.visitation_id)
+          .maybeSingle();
+        return (v?.bp_systolic || v?.sugar_value) ? plan.visitation_id : null;
+      })(),
     }, {
       headers: { 'Cache-Control': 'no-store, max-age=0' },
     });

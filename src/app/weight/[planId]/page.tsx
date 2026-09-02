@@ -129,15 +129,13 @@ function MealSection({ icon, title, color, items }: { icon: string; title: strin
 // لا rose/red — الاتجاه غير المرغوب ليس فشلاً ولا يستحق لوناً تحذيرياً
 function ProgressStat({ label, diff, days, goalDirection }: { label: string; diff: number; days: number; goalDirection: 'gain' | 'loss' }) {
   const isOnTrack = diff === 0 ? false : goalDirection === 'gain' ? diff > 0 : diff < 0;
-  const color = isOnTrack
-    ? { bg: 'bg-teal-50', border: 'border-teal-200', text: 'text-teal-700' }
-    : { bg: 'bg-slate-50', border: 'border-slate-200', text: 'text-slate-700' };
+  const valueColor = isOnTrack ? 'text-teal-700' : 'text-slate-900';
   const valueText = diff === 0 ? 'ثبات' : `${diff > 0 ? '+' : ''}${diff} كغ`;
   return (
-    <div className={`rounded-xl px-3 py-2.5 text-center border ${color.border} ${color.bg}`}>
-      <p className="text-[9px] font-bold text-slate-400 mb-1">{label}</p>
-      <p className={`text-lg font-black ${color.text}`}>{valueText}</p>
-      <p className="text-[9px] text-slate-400 mt-0.5">خلال {days} يوماً</p>
+    <div className="text-center">
+      <p className="text-[11px] text-slate-400 mb-1">{label}</p>
+      <p className={`text-xl font-black ${valueColor}`}>{valueText}</p>
+      <p className="text-[10px] text-slate-400 mt-0.5">خلال {days} يوماً</p>
     </div>
   );
 }
@@ -385,20 +383,20 @@ export default function WeightPlanPage({ params }: PageProps) {
             <p className="text-[10px] text-slate-500 text-center mt-2">الوزن المثالي: {plan.ideal_weight_min}–{plan.ideal_weight_max} كغ</p>
             {plan.target_loss_kg > 0 && (
               isSetback ? (
-                <div className="mt-4 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
-                  <p className="text-xs font-bold text-slate-700 text-center">نبدأ بـ {plan.first_goal_kg} كغ كهدف أول — والمسافة الكاملة {plan.target_loss_kg} كغ نقطعها خطوة خطوة</p>
+                <div className="mt-4 bg-slate-50 rounded-xl px-4 py-3">
+                  <p className="text-xs font-bold text-slate-900 text-center">نبدأ بـ {plan.first_goal_kg} كغ كهدف أول — والمسافة الكاملة {plan.target_loss_kg} كغ نقطعها خطوة خطوة</p>
                   <p className="text-[10px] text-slate-400 text-center mt-1">هذه النسبة الصغيرة تُحسّن طاقتك وتخفف الضغط على مفاصلك</p>
                 </div>
               ) : (
-                <div className="mt-4 bg-purple-50/60 border border-purple-100 rounded-xl px-4 py-3">
-                  <p className="text-xs font-bold text-purple-900 text-center">تحتاج إنقاص {plan.target_loss_kg} كغ للوصول لوزنك المثالي — نبدأ بـ {plan.first_goal_kg} كغ كهدف أول خلال 4–8 أسابيع</p>
-                  <p className="text-[10px] text-purple-600 text-center mt-1">هذه النسبة الصغيرة تُحسّن طاقتك وتخفف الضغط على مفاصلك</p>
+                <div className="mt-4 bg-slate-50 rounded-xl px-4 py-3">
+                  <p className="text-xs font-bold text-slate-900 text-center">تحتاج إنقاص {plan.target_loss_kg} كغ للوصول لوزنك المثالي — نبدأ بـ {plan.first_goal_kg} كغ كهدف أول خلال 4–8 أسابيع</p>
+                  <p className="text-[10px] text-slate-400 text-center mt-1">هذه النسبة الصغيرة تُحسّن طاقتك وتخفف الضغط على مفاصلك</p>
                 </div>
               )
             )}
             {plan.bmi_category === 'underweight' && (
-              <div className="mt-4 bg-blue-50/60 border border-blue-100 rounded-xl px-4 py-3">
-                <p className="text-xs font-bold text-blue-900 text-center">
+              <div className="mt-4 bg-slate-50 rounded-xl px-4 py-3">
+                <p className="text-xs font-bold text-slate-900 text-center">
                   {(nutrition?.breakfast?.length ?? 0) > 0 || (nutrition?.lunch?.length ?? 0) > 0 || (nutrition?.dinner?.length ?? 0) > 0 || (nutrition?.snacks?.length ?? 0) > 0
                     ? 'وزنك أقل من المعدل الطبيعي — الخطة أدناه تساعدك على الوصول لوزن صحي تدريجياً. وإن كان هذا النقص حديثاً أو غير مبرَّر، يُنصح بمراجعة الطبيب.'
                     : 'وزنك أقل من المعدل الطبيعي — يُنصح بمراجعة الطبيب لتحديد السبب قبل البدء بأي خطة غذائية.'}
@@ -409,9 +407,14 @@ export default function WeightPlanPage({ params }: PageProps) {
           {/* بطاقة تقدّم المريض — تظهر فقط عند وجود خطة سابقة مؤهّلة للمقارنة */}
           {nutrition?.progress && !nutrition.progress.dataSuspect && (
             <div className="px-5 pt-4">
-              <div className="grid grid-cols-2 gap-3">
-                <ProgressStat label="منذ البداية"   diff={nutrition.progress.diffFromBaseline} days={nutrition.progress.daysSinceBaseline} goalDirection={plan.bmi_category === 'underweight' ? 'gain' : 'loss'} />
-                <ProgressStat label="منذ آخر زيارة" diff={nutrition.progress.diffFromPrevious} days={nutrition.progress.daysSincePrevious} goalDirection={plan.bmi_category === 'underweight' ? 'gain' : 'loss'} />
+              <div className="flex text-center">
+                <div className="flex-1">
+                  <ProgressStat label="منذ آخر زيارة" diff={nutrition.progress.diffFromPrevious} days={nutrition.progress.daysSincePrevious} goalDirection={plan.bmi_category === 'underweight' ? 'gain' : 'loss'} />
+                </div>
+                <div className="w-px bg-slate-200" />
+                <div className="flex-1">
+                  <ProgressStat label="منذ البداية" diff={nutrition.progress.diffFromBaseline} days={nutrition.progress.daysSinceBaseline} goalDirection={plan.bmi_category === 'underweight' ? 'gain' : 'loss'} />
+                </div>
               </div>
             </div>
           )}

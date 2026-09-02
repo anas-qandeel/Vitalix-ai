@@ -20,11 +20,11 @@ export function getBMICategory(bmi: number): {
     color: 'text-amber-700', bgColor: 'bg-amber-50', borderColor: 'border-amber-200', dot: 'bg-amber-500', emoji: '🟡',
   };
   if (bmi < 35) return {
-    label: 'سمنة درجة أولى', labelShort: 'سمنة',
+    label: 'سمنة درجة أولى', labelShort: 'سمنة أولى',
     color: 'text-orange-700', bgColor: 'bg-orange-50', borderColor: 'border-orange-200', dot: 'bg-orange-500', emoji: '🟠',
   };
   return {
-    label: 'سمنة درجة ثانية أو أعلى', labelShort: 'سمنة',
+    label: 'سمنة درجة ثانية أو أعلى', labelShort: 'سمنة ثانية+',
     color: 'text-rose-700', bgColor: 'bg-rose-50', borderColor: 'border-rose-200', dot: 'bg-rose-500', emoji: '🔴',
   };
 }

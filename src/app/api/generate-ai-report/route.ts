@@ -248,6 +248,13 @@ ${recentVisitsLine}`;
 4. احتفظ بجميع الأرقام والرموز 🔴🟡🟢 والتوصيات الأساسية.
 5. لا تضف معلومات جديدة — فقط نقّح ما هو موجود.`;
 
+        const PHARMACIST_SUMMARY_INSTRUCTION = `أنت مساعد سريري للصيدلاني في منصة Vitalix.ai. ستُعطى بيانات فحص مريض. أخرج JSON فقط بلا أي نص آخر، بلا Markdown، بلا \`\`\`، بهذه البنية حرفياً:
+{"pharmacist_summary":"...","medications_alert":"..."}
+
+- pharmacist_summary: سطران إلى ثلاثة بلغة سريرية مهنية موجهة للصيدلاني (ليس للمريض): التقييم السريري للقراءات، الارتباط بالتشخيصات المزمنة والأدوية، وأي نمط ملحوظ من الزيارات السابقة. مصطلحات طبية مسموحة هنا.
+- medications_alert: جملة واحدة عن تداخل أو تنبيه دوائي مهم متعلق بالقراءات الحالية إن وُجد (مثل دواء يخفي أعراض هبوط السكر). إن لم يوجد تنبيه حقيقي، اجعل قيمته null.
+- لا تقترح تعديل جرعات — أشر فقط لما يستحق انتباه الصيدلاني.`;
+
         // اللغة الإنجليزية تُلحق كتعليمة إضافية بنهاية كل تعليمة نظام — لا تُترجم
         // النصوص العربية نفسها (راجع ENGLISH_OUTPUT_INSTRUCTION أعلى الملف)
         const finalSystemInstruction = language === 'en'
@@ -325,7 +332,34 @@ ${recentVisitsLine}`;
           const report = language === 'en'
             ? reportText
             : `${buildReportGreeting(patientName, pharmacyDisplayName, language)} ${reportText}`;
-          return NextResponse.json({ report });
+          // ── استدعاء ثالث خفيف: ملخص الصيدلاني + تنبيه الأدوية (JSON) ──
+          // فشله لا يمس نص المريض إطلاقاً — يُرجع null للحقلين فقط
+          let pharmacistSummary: string | null = null;
+          let medicationsAlert: string | null = null;
+          try {
+            const summaryResponse = await ai.models.generateContent({
+              model: GEMINI_MODELS_FALLBACK[0],
+              contents: userPrompt,
+              config: {
+                systemInstruction: PHARMACIST_SUMMARY_INSTRUCTION,
+                maxOutputTokens: 500,
+              },
+            });
+            const summaryRaw = summaryResponse.text?.trim() || '';
+            const jsonMatch = summaryRaw.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+              const parsed = JSON.parse(jsonMatch[0]);
+              if (typeof parsed.pharmacist_summary === 'string' && parsed.pharmacist_summary.trim()) {
+                pharmacistSummary = parsed.pharmacist_summary.trim();
+              }
+              if (typeof parsed.medications_alert === 'string' && parsed.medications_alert.trim() && parsed.medications_alert !== 'null') {
+                medicationsAlert = parsed.medications_alert.trim();
+              }
+            }
+          } catch (summaryErr) {
+            console.warn('[Gemini] pharmacist summary failed (non-blocking):', summaryErr);
+          }
+          return NextResponse.json({ report, pharmacistSummary, medicationsAlert });
         }
         throw lastModelErr || new Error('no model returned a response');
       } catch (aiErr) {
@@ -339,7 +373,7 @@ ${recentVisitsLine}`;
       currentVisit, bmi, patientName, pharmacyDisplayName,
       lastVisit, recentVisits, diagnosedConditions, 'ar'
     );
-    return NextResponse.json({ report: fallbackReport });
+    return NextResponse.json({ report: fallbackReport, pharmacistSummary: null, medicationsAlert: null });
 
   } catch (error: any) {
     return NextResponse.json({ error: error.message || 'خطأ في السيرفر' }, { status: 500 });

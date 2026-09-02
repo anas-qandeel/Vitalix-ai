@@ -401,6 +401,7 @@ export default function VitalsPage() {
   const { pharmacyName, pharmacyNameEn } = usePharmacyInfo();
   const searchRef = useRef<HTMLDivElement>(null);
   const reportRef = useRef<HTMLDivElement>(null);
+  const thinkingRef = useRef<HTMLDivElement>(null);
 
   // ── حالة البحث ──
   const [searchQuery, setSearchQuery] = useState('');
@@ -837,6 +838,7 @@ ${planUrl}
     }
 
     setSubmitting(true); setErrorMsg(''); setSoftWarningMsg(''); setIsFallbackReport(false);
+    setTimeout(() => { thinkingRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 120);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('انتهت الجلسة');
@@ -1788,6 +1790,7 @@ ${planUrl}
                   )}
                 </button>
                 {submitting && (activeTests.bp || activeTests.sugar) && (
+                  <div ref={thinkingRef}>
                   <VitalsThinkingOverlay
                     bpSystolic={activeTests.bp && bpSys1 ? Number(bpSys1) : null}
                     bpDiastolic={activeTests.bp && bpDia1 ? Number(bpDia1) : null}
@@ -1800,6 +1803,7 @@ ${planUrl}
                     prevSugar={patientHistory.find(v => v.sugar_value != null)?.sugar_value ?? null}
                     patientName={currentPatient?.name ?? null}
                   />
+                  </div>
                 )}
               </div>
             )}

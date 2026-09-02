@@ -306,8 +306,11 @@ export default function WeightPlanPage({ params }: PageProps) {
         {/* بطاقة المريض */}
         <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden saas-slide-up">
           <div className="bg-slate-50/50 px-5 py-4 border-b border-slate-100 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center font-bold text-slate-700 text-base shadow-sm shrink-0">
-              {patient.name.charAt(0)}
+            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 ${patient.gender === 'female' ? 'bg-pink-50' : 'bg-blue-50'}`}>
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke={patient.gender === 'female' ? '#993556' : '#185FA5'} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="8" r="4" />
+                <path d="M6 21v-2a6 6 0 0112 0v2" />
+              </svg>
             </div>
             <div>
               <p className="text-sm font-bold text-slate-900">{patient.name}</p>

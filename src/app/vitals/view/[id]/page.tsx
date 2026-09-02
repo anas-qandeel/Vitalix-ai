@@ -261,6 +261,7 @@ export default function SingleVitalViewPage({ params }: PageProps) {
   const [pharmacyName, setPharmacyName] = useState<string>('');
   const [pharmacyPhone, setPharmacyPhone] = useState<string>('');
   const [recommendations, setRecommendations] = useState<RecommendationItem[]>([]);
+  const [relatedWeightPlanId, setRelatedWeightPlanId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
 
   const fetchVisitDetails = async () => {
@@ -278,6 +279,7 @@ export default function SingleVitalViewPage({ params }: PageProps) {
       setPharmacyPhone(data.pharmacyPhone || '');
       setPatientHistory(data.history || []);
       setRecommendations(data.recommendations || []);
+      setRelatedWeightPlanId(data.relatedWeightPlanId || null);
     } catch (err: any) {
       setErrorMsg(err.message || 'حدث خطأ أثناء تحميل السجل الطبي');
     } finally {
@@ -890,6 +892,17 @@ export default function SingleVitalViewPage({ params }: PageProps) {
             {currentVisit.ai_report_output}
           </div>
         </section>
+
+        {relatedWeightPlanId && (
+          <section className="vcard" style={{ padding: '20px 24px' }}>
+            <a href={`/weight/${relatedWeightPlanId}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', textDecoration: 'none', color: 'inherit' }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: '#0F172A' }}>خطة إدارة الوزن من نفس الزيارة</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="1.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9m0 0v9m0-9L10.5 15" />
+              </svg>
+            </a>
+          </section>
+        )}
 
         {/* ─── 2. التوصيات الذكية ─── */}
         {recommendations.length > 0 && (

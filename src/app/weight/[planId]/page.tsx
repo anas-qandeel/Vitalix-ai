@@ -52,7 +52,7 @@ interface WeightPlan {
   first_goal_kg: number; nutrition_plan: NutritionData | string | null; created_at: string;
 }
 interface PatientInfo { name: string; gender: string; birth_date: string | null; }
-interface PageData { plan: WeightPlan; patient: PatientInfo; pharmacyName: string; pharmacyPhone: string; }
+interface PageData { plan: WeightPlan; patient: PatientInfo; pharmacyName: string; pharmacyPhone: string; performedBy: string | null; }
 interface PageProps { params: Promise<{ planId: string }>; }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -214,7 +214,7 @@ export default function WeightPlanPage({ params }: PageProps) {
     </div>
   );
 
-  const { plan, patient, pharmacyName, pharmacyPhone } = pageData;
+  const { plan, patient, pharmacyName, pharmacyPhone, performedBy } = pageData;
   const bmiStyle  = getBMICategory(plan.bmi);
   const nutrition = parseNutrition(plan.nutrition_plan);
   const hasData   = !!nutrition;
@@ -599,8 +599,10 @@ export default function WeightPlanPage({ params }: PageProps) {
 
         {/* Footer */}
         <div className="text-center pt-2 pb-4">
+          <p className="text-xs text-slate-600 mb-3">
+            أُعدّ هذا التقرير بواسطة {pharmacyName}{performedBy ? `، د. ${performedBy}` : ''}
+          </p>
           <AppFooter />
-          <p className="text-[11px] text-slate-400 mt-2">أُعدّ هذا التقرير بواسطة {pharmacyName}</p>
         </div>
       </main>
     </div>

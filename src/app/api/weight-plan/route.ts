@@ -890,7 +890,7 @@ export async function GET(req: Request) {
     const { data: plan, error } = await supabaseAdmin
       .from('weight_plans')
       .select(`
-        id, weight_kg, height_cm, bmi, bmi_category,
+        id, performed_by, weight_kg, height_cm, bmi, bmi_category,
         ideal_weight_min, ideal_weight_max, target_loss_kg, first_goal_kg,
         nutrition_plan, plan_generated_at, created_at,
         patient:patients(name, phone_number, gender, birth_date),
@@ -950,6 +950,7 @@ export async function GET(req: Request) {
       },
       pharmacyName,
       pharmacyPhone,
+      performedBy: plan.performed_by || null,
     }, {
       headers: { 'Cache-Control': 'no-store, max-age=0' },
     });

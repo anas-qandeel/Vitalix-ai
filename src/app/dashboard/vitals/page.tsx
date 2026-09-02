@@ -1868,10 +1868,31 @@ ${planUrl}
                       {latestGeneratedReport}
                     </p>
                   </div>
-                  {(latestPharmacistSummary || latestMedicationsAlert) && (
+                  {(latestPharmacistSummary || latestMedicationsAlert || selectedSymptoms.length > 0) && (
                     <div className="px-5 pb-2">
                       <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 space-y-3">
                         <p className="text-[10px] font-bold text-slate-400">ملخص للصيدلاني — لا يصل للمريض</p>
+                        {selectedSymptoms.length > 0 && (
+                          <div>
+                            <p className="text-[9px] font-bold text-slate-400 mb-1.5">الأعراض المصاحبة</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {selectedSymptoms.map(s => (
+                                <span key={s} className="text-[10px] font-bold text-slate-600 bg-white border border-slate-200 px-2.5 py-1 rounded-lg">{s}</span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {(bpFactors.length > 0 || sugarFactors.length > 0) && (
+                          <div>
+                            <p className="text-[9px] font-bold text-slate-400 mb-1.5">عوامل مؤثرة على القياس</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {[...new Set([...bpFactors, ...sugarFactors])].map(f => {
+                                const label = f === 'had_stimulants' ? 'شرب قهوة / شاي / مكيّف' : f === 'recent_exertion' ? 'مجهود بدني مؤخراً' : f === 'recent_heavy_meal' ? 'تناول وجبة دسمة مؤخراً' : f === 'is_stressed' ? 'يشعر بتوتر أو قلق' : f;
+                                return <span key={f} className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg">{label}</span>;
+                              })}
+                            </div>
+                          </div>
+                        )}
                         {latestPharmacistSummary && (
                           <p className="text-sm text-slate-700 leading-relaxed font-medium">{latestPharmacistSummary}</p>
                         )}

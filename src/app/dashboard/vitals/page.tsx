@@ -433,6 +433,8 @@ export default function VitalsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [latestGeneratedReport, setLatestGeneratedReport] = useState<string | null>(null);
+  const [latestPharmacistSummary, setLatestPharmacistSummary] = useState<string | null>(null);
+  const [latestMedicationsAlert, setLatestMedicationsAlert] = useState<string | null>(null);
   const [isFallbackReport, setIsFallbackReport] = useState(false);
   const [latestVisitId, setLatestVisitId] = useState<string | null>(null);
   const [reportLanguage, setReportLanguage] = useState<'ar' | 'en'>('ar');
@@ -645,6 +647,7 @@ ${planUrl}
     setSelectedSymptoms([]); setBpFactors([]); setSugarFactors([]);
     setErrorMsg(''); setSoftWarningMsg(''); setSoftWarningConfirmed(false);
     setLatestGeneratedReport(null); setLatestVisitId(null);
+    setLatestPharmacistSummary(null); setLatestMedicationsAlert(null);
     setWeightPlanId(null); setWeightSummary(null); setExcludedProducts(new Set()); setExcludedLabs(new Set()); setWeightPlanUrl(null); setWeightStatus('idle'); setBmiLive(null); setWeightDataSuspect(false); setWeightReviewed(false); setWeightWaMsg(''); setWeightApproveError(''); setWeightSaving(false); setSavedExclusions(''); setWeightSaveError('');
     setReportLanguage('ar');
     setSearchingPatient(true);
@@ -871,6 +874,8 @@ ${planUrl}
       const { took_bp_medication: _tbp, took_sugar_medication: _tsg, ...dbPayload } = visitPayload;
 
       let report = '';
+      let pharmacistSummaryLocal: string | null = null;
+      let medicationsAlertLocal: string | null = null;
 
       // الوزن وحده: لا نستدعي generate-ai-report — تقرير إدارة الوزن المنفصل يتولى ذلك
       const isWeightOnly = activeTests.weight && !activeTests.bp && !activeTests.sugar;
@@ -882,7 +887,14 @@ ${planUrl}
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ patient: currentPatient, currentVisit: aiPayload, history: patientHistory, pharmacyName: pharmacyNameForOutput, language: reportLanguage }),
           });
-          if (res.ok) { const d = await res.json(); if (d.report) report = d.report; }
+          if (res.ok) {
+            const d = await res.json();
+            if (d.report) report = d.report;
+            pharmacistSummaryLocal = d.pharmacistSummary || null;
+            medicationsAlertLocal = d.medicationsAlert || null;
+            setLatestPharmacistSummary(pharmacistSummaryLocal);
+            setLatestMedicationsAlert(medicationsAlertLocal);
+          }
         } catch (e) { console.error('[vitals] AI report request failed:', e); }
 
         if (!report) {
@@ -916,6 +928,8 @@ ${planUrl}
         patient_id: currentPatient.id,
         ...dbPayload,
         ai_report_output: report,
+        pharmacist_summary: pharmacistSummaryLocal,
+        medications_alert: medicationsAlertLocal,
         recorded_by: staffId,
       }).select().single();
       if (visitError) throw new Error('تعذر حفظ بيانات الفحص');
@@ -1028,6 +1042,7 @@ ${planUrl}
     setIsDualBp(true);
     setLatestGeneratedReport(null);
     setLatestVisitId(null);
+    setLatestPharmacistSummary(null); setLatestMedicationsAlert(null);
     setWeightPlanId(null); setWeightSummary(null); setExcludedProducts(new Set()); setExcludedLabs(new Set()); setWeightPlanUrl(null); setWeightStatus('idle'); setBmiLive(null); setWeightDataSuspect(false); setWeightReviewed(false); setWeightWaMsg(''); setWeightApproveError(''); setWeightSaving(false); setSavedExclusions(''); setWeightSaveError('');
     setReportLanguage('ar');
     setErrorMsg('');

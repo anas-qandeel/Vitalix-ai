@@ -900,12 +900,21 @@ export default function PatientCardPage({ params }: PageProps) {
                           <div>
                             <div className="flex items-center justify-between mb-2">
                               <p className="text-[10px] font-bold text-slate-400">التقرير الذكي</p>
-                              <div className="flex items-center gap-2">
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); window.open(`/vitals/view/${v.id}`, '_blank'); }}
-                                  className="text-[10px] font-bold text-teal-700 bg-teal-50 border border-teal-200 px-2.5 py-1 rounded-lg hover:bg-teal-100 transition cursor-pointer">
-                                  عرض صفحة المريض
-                                </button>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                {(v.bp_systolic || v.sugar_value) && (
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); window.open(`/vitals/view/${v.id}`, '_blank'); }}
+                                    className="text-[10px] font-bold text-teal-700 bg-teal-50 border border-teal-200 px-2.5 py-1 rounded-lg hover:bg-teal-100 transition cursor-pointer">
+                                    عرض القراءات
+                                  </button>
+                                )}
+                                {matchedWeightPlan && (
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); window.open(`/weight/${matchedWeightPlan.id}`, '_blank'); }}
+                                    className="text-[10px] font-bold text-purple-700 bg-purple-50 border border-purple-200 px-2.5 py-1 rounded-lg hover:bg-purple-100 transition cursor-pointer">
+                                    خطة إدارة الوزن
+                                  </button>
+                                )}
                                 <a href={`https://wa.me/${normalizePhone(patient.phone_number)}?text=${encodeURIComponent(v.ai_report_output)}`}
                                   target="_blank" rel="noreferrer"
                                   className="flex items-center gap-1 text-[10px] font-bold text-[#25D366] hover:underline">

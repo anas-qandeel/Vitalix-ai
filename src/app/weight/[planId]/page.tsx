@@ -258,26 +258,45 @@ export default function WeightPlanPage({ params }: PageProps) {
         </div>
       )}
 
-      {/* Header */}
-      <div className="sticky top-0 z-40 h-1 bg-slate-900" />
-      <header className="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-1 z-30">
-        <div className="max-w-2xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center shadow-sm">
-              <svg className="w-5 h-5" viewBox="0 0 32 32" fill="none">
-                <path d="M6 8L14.5 25C14.8 25.6 15.6 25.6 15.9 25L20 17" stroke="white" strokeWidth="3.5" strokeLinecap="round"/>
-                <path d="M24 6C24 9.3 26.7 12 30 12C26.7 12 24 14.7 24 18C24 14.7 21.3 12 18 12C21.3 12 24 9.3 24 6Z" fill="#8B5CF6"/>
-              </svg>
-            </div>
-            <div>
-              <p className="text-[15px] font-black tracking-tight text-slate-900">Vitalix<span className="text-purple-600">.ai</span></p>
-              {/* إخفاء الوصف الفرعي على أضيق الشاشات لمنع تجاوز محتوى الهيدر ذي الارتفاع الثابت */}
-              <p className="hidden sm:block text-[10px] text-slate-500 font-semibold">مستشار التغذية الشخصي</p>
-            </div>
+      {/* Header — بهوية الصيدلية بالكامل، بلا أي ذكر لـ Vitalix.ai */}
+      <header className="sticky top-0 z-30 overflow-hidden" style={{ background: '#0F6E56' }}>
+        <svg className="absolute text-white pointer-events-none" style={{ left: '4%', top: '-10px', width: '78px', height: '78px', opacity: 0.13, transform: 'rotate(-10deg)' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M12 3v17.25m0 0c-1.472 0-2.882.265-4.185.75M12 20.25c1.472 0 2.882.265 4.185.75M18.75 4.97A48.416 48.416 0 0012 4.5c-2.291 0-4.545.16-6.75.47m13.5 0c1.01.143 2.01.317 3 .52m-3-.52 2.62 10.726c.122.499-.106 1.028-.589 1.202a5.988 5.988 0 01-2.031.352 5.988 5.988 0 01-2.031-.352c-.483-.174-.711-.703-.59-1.202L18.75 4.971Zm-16.5.52c.99-.203 1.99-.377 3-.52m0 0 2.62 10.726c.122.499-.106 1.028-.589 1.202a5.989 5.989 0 01-2.031.352 5.989 5.989 0 01-2.031-.352c-.483-.174-.711-.703-.59-1.202L5.25 4.971Z" />
+        </svg>
+        <svg className="absolute text-white pointer-events-none hidden sm:block" style={{ left: '20%', bottom: '-6px', width: '44px', height: '44px', opacity: 0.11 }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M12 6.5c-.9-1.2-2.3-2-3.8-2C5.9 4.5 4 6.8 4 10c0 5 3.5 9.5 7 9.5s7-4.5 7-9.5c0-3.2-1.9-5.5-4.2-5.5-1.5 0-2.9.8-3.8 2Z" />
+          <path d="M12 6.5V4c0-.6.4-1.5 1.2-2" />
+          <path d="M12 4c1 0 2 .3 2.5 1" />
+        </svg>
+        <svg className="absolute text-white pointer-events-none hidden sm:block" style={{ left: '32%', top: '4px', width: '40px', height: '40px', opacity: 0.1 }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M3 19l6-6 4 4 8-8" />
+          <circle cx="9" cy="13" r="1" fill="currentColor" stroke="none" />
+          <circle cx="13" cy="17" r="1" fill="currentColor" stroke="none" />
+          <circle cx="21" cy="9" r="1" fill="currentColor" stroke="none" />
+        </svg>
+        <svg className="absolute text-white pointer-events-none" style={{ right: '5%', bottom: '2px', width: '32px', height: '32px', opacity: 0.11, transform: 'rotate(25deg)' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M20 4C10 4 4 10 4 18c0 1 0 2 .5 2.5C10 21 20 15 20 4Z" />
+          <path d="M6 20c3-3 6-6 10-12" />
+        </svg>
+        <svg className="absolute text-white pointer-events-none hidden sm:block" style={{ right: '18%', top: '2px', width: '46px', height: '46px', opacity: 0.1 }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="8" />
+          <path d="M8 12c1-2 2-3 4-3s3 1 4 3" />
+          <path d="M8 14c1 1 2 1.5 4 1.5s3-.5 4-1.5" />
+        </svg>
+        <div className="relative max-w-2xl mx-auto px-4 py-4 sm:py-5 flex items-center gap-3 sm:gap-4">
+          <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-white/15 border border-white/25 flex items-center justify-center shrink-0">
+            <svg className="text-white" style={{ width: '24px', height: '24px' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M4 21V9l8-5 8 5v12" />
+              <path d="M9 21v-6h6v6" />
+              <path d="M9 12h.01M9 15h.01M15 12h.01M15 15h.01" />
+            </svg>
           </div>
-          <div className="flex items-center gap-2 bg-gradient-to-r from-teal-50/50 to-emerald-50/50 border border-teal-100/60 px-3 py-1.5 rounded-full shadow-sm">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]" />
-            <span className="text-sm font-bold text-teal-900 max-w-[150px] truncate">{pharmacyName}</span>
+          <div className="min-w-0">
+            <p className="text-[19px] sm:text-[24px] font-bold text-white truncate leading-tight">{pharmacyName}</p>
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
+              <span className="text-[11px] text-teal-100/90">مستشارك الصحي الموثوق</span>
+              <span className="text-[10px] text-white bg-white/15 px-2.5 py-0.5 rounded-full">خطة إدارة الوزن</span>
+            </div>
           </div>
         </div>
       </header>

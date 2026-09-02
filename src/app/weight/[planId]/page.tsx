@@ -547,18 +547,19 @@ export default function WeightPlanPage({ params }: PageProps) {
 
             {/* فحوصات مطلوبة */}
             {nutrition.lab_alerts && nutrition.lab_alerts.length > 0 && (
-              <div className="bg-white border border-blue-200 rounded-2xl shadow-sm overflow-hidden">
-                <div className="bg-blue-50/60 px-5 py-3.5 border-b border-blue-100 flex items-center gap-2">
-                  <svg className="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" />
-                  </svg>
-                  <p className="text-sm font-bold text-slate-900">فحوصات يُنصح بإجرائها</p>
+              <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                    <p className="text-sm font-bold text-slate-900">فحوصات يُنصح بإجرائها</p>
+                  </div>
+                  <svg className="w-[18px] h-[18px] text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" /></svg>
                 </div>
-                <ul className="px-5 py-4 space-y-2.5">
+                <ul className="px-5 py-4 space-y-3">
                   {nutrition.lab_alerts.map((alert, i) => (
                     <li key={i} className="flex items-start gap-3">
-                      <div className="w-5 h-5 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center shrink-0 mt-0.5">
-                        <span className="text-[9px] font-black text-blue-600">{i + 1}</span>
+                      <div className="w-5 h-5 rounded-lg bg-slate-50 flex items-center justify-center shrink-0 mt-0.5">
+                        <span className="text-[9px] font-black text-slate-400">{i + 1}</span>
                       </div>
                       <p className="text-sm text-slate-700 leading-relaxed">{alert}</p>
                     </li>
@@ -599,7 +600,7 @@ export default function WeightPlanPage({ params }: PageProps) {
         {/* Footer */}
         <div className="text-center pt-2 pb-4">
           <AppFooter />
-          <p className="text-[10px] text-slate-300 mt-2">أُعدّ هذا التقرير بواسطة {pharmacyName}</p>
+          <p className="text-[11px] text-slate-400 mt-2">أُعدّ هذا التقرير بواسطة {pharmacyName}</p>
         </div>
       </main>
     </div>

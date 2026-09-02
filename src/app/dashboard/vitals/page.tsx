@@ -602,6 +602,16 @@ ${planUrl}
         // استعادة طريقة البحث الأصلية (رقم هاتف أو اسم)
         setSearchQuery(savedQuery || patient.name || '');
         if (savedWeightPlanId) restoreWeightPlan(savedWeightPlanId, patient, savedWeightValue);
+        const { activeTests: savedActiveTests, bpSys1: sBpSys1, bpDia1: sBpDia1, bpSys2: sBpSys2, bpDia2: sBpDia2, heartRate: sHr1, heartRate2: sHr2, sugarValue: sSugar, sugarType: sSugarType } = JSON.parse(saved);
+        if (savedActiveTests) setActiveTests(savedActiveTests);
+        if (sBpSys1) setBpSys1(sBpSys1);
+        if (sBpDia1) setBpDia1(sBpDia1);
+        if (sBpSys2) setBpSys2(sBpSys2);
+        if (sBpDia2) setBpDia2(sBpDia2);
+        if (sHr1) setHeartRate(sHr1);
+        if (sHr2) setHeartRate2(sHr2);
+        if (sSugar) setSugarValue(sSugar);
+        if (sSugarType) setSugarType(sSugarType);
       } catch (e) { console.error("[vitals] restore failed:", e); }
     }
   }, []);
@@ -610,8 +620,8 @@ ${planUrl}
   // يجب أن يبقى بعد useEffect الاستعادي أعلاه: على أول تحميل يحذف المخزون قبل أن تُملأ الحالة، فلا بد أن يكون الاستعادي قد قرأه أولاً.
   useEffect(() => {
     if (!currentPatient) { sessionStorage.removeItem('vitalix_current_patient'); return; }
-    sessionStorage.setItem('vitalix_current_patient', JSON.stringify({ patient: currentPatient, history: patientHistory, searchQuery, weightPlanId, weightValue, latestVisitId }));
-  }, [currentPatient, patientHistory, searchQuery, weightPlanId, weightValue, latestVisitId]);
+    sessionStorage.setItem('vitalix_current_patient', JSON.stringify({ patient: currentPatient, history: patientHistory, searchQuery, weightPlanId, weightValue, latestVisitId, activeTests, bpSys1, bpDia1, bpSys2, bpDia2, heartRate, heartRate2, sugarValue, sugarType }));
+  }, [currentPatient, patientHistory, searchQuery, weightPlanId, weightValue, latestVisitId, activeTests, bpSys1, bpDia1, bpSys2, bpDia2, heartRate, heartRate2, sugarValue, sugarType]);
 
   // ── تحميل تاريخ مريض ──
   const loadHistory = async (p: Patient) => {

@@ -1911,59 +1911,65 @@ ${planUrl}
                       </div>
                     </div>
 
-                    {/* ٢. أربع بطاقات أرقام 2×2 */}
-                    <div className="px-5 pt-4 grid grid-cols-2 gap-3">
-                      <div className="bg-slate-50 border-2 border-slate-200 rounded-xl px-3 py-2.5 text-center">
-                        <p className="text-[9px] font-bold text-slate-400 mb-1">الوزن الحالي</p>
-                        <p className="text-lg font-black text-slate-900">{weightValue}<span className="text-xs font-normal text-slate-400"> كغ</span></p>
+                    {/* ٢. بطاقة أرقام موحّدة */}
+                    <div className="px-5 pt-4">
+                      <div className="flex items-baseline gap-1.5">
+                        <span className="text-[34px] font-black text-slate-900 leading-none">{weightValue}</span>
+                        <span className="text-sm text-slate-400">كغ حالياً</span>
+                        <span className={`mr-auto text-[13px] font-bold ${bmiLive.color}`}>BMI {bmiLive.value} · {bmiLive.labelShort}</span>
                       </div>
-                      <div className={`rounded-xl px-3 py-2.5 text-center border-2 ${bmiLive.borderColor} ${bmiLive.bgColor}`}>
-                        <p className="text-[9px] font-bold text-slate-400 mb-1">مؤشر كتلة الجسم</p>
-                        <p className={`text-lg font-black ${bmiLive.color}`}>{bmiLive.value}</p>
-                        <p className={`text-[9px] font-bold mt-0.5 ${bmiLive.color}`}>{bmiLive.label}</p>
-                      </div>
+                      <div className="h-px bg-slate-200 my-3.5" />
                       {(() => {
                         const wv = Number(weightValue);
                         const overBy = wv - bmiLive.idealMax;
                         const underBy = bmiLive.idealMin - wv;
                         const diffValue = overBy > 0 ? overBy : underBy > 0 ? underBy : 0;
-                        const diffLabel = overBy > 0 ? 'نقص مطلوب' : underBy > 0 ? 'زيادة مطلوبة' : 'للوصول للوزن المثالي';
+                        const diffLabel = overBy > 0 ? 'نقص مطلوب (كغ)' : underBy > 0 ? 'زيادة مطلوبة (كغ)' : '';
+                        const idealMid = ((bmiLive.idealMin + bmiLive.idealMax) / 2).toFixed(1);
+                        if (diffValue > 0) {
+                          return (
+                            <div className="flex text-center mb-4">
+                              <div className="flex-1">
+                                <p className="text-xl font-black text-slate-900">{diffValue.toFixed(1)}</p>
+                                <p className="text-[11px] text-slate-400 mt-0.5">{diffLabel}</p>
+                              </div>
+                              <div className="w-px bg-slate-200" />
+                              <div className="flex-1">
+                                <p className="text-xl font-black text-slate-900">{bmiLive.firstGoal}</p>
+                                <p className="text-[11px] text-slate-400 mt-0.5">الهدف المبدئي (كغ)</p>
+                              </div>
+                              <div className="w-px bg-slate-200" />
+                              <div className="flex-1">
+                                <p className="text-xl font-black text-slate-900">{idealMid}</p>
+                                <p className="text-[11px] text-slate-400 mt-0.5">الوزن المثالي (كغ)</p>
+                              </div>
+                            </div>
+                          );
+                        }
                         return (
-                          <div className="bg-blue-50 border-2 border-blue-200 rounded-xl px-3 py-2.5 text-center">
-                            <p className="text-[9px] font-bold text-slate-400 mb-1">{diffLabel}</p>
-                            {diffValue > 0 ? (
-                              <p className="text-lg font-black text-blue-700">{diffValue.toFixed(1)}<span className="text-xs font-normal text-blue-500"> كغ</span></p>
-                            ) : (
-                              <p className="text-sm font-black text-blue-700 mt-1">ضمن المثالي</p>
-                            )}
+                          <div className="flex justify-center text-center mb-4">
+                            <div>
+                              <p className="text-base font-black text-teal-700">ضمن المثالي</p>
+                              <p className="text-[11px] text-slate-400 mt-0.5">الحالة</p>
+                            </div>
                           </div>
                         );
                       })()}
-                      <div className="bg-purple-50 border-2 border-purple-200 rounded-xl px-3 py-2.5 text-center">
-                        <p className="text-[9px] font-bold text-slate-400 mb-1">الهدف المبدئي</p>
-                        <p className="text-lg font-black text-purple-700">{bmiLive.firstGoal}<span className="text-xs font-normal text-purple-500"> كغ</span></p>
-                      </div>
                     </div>
 
-                    {/* ٣. مؤشر BMI — تدرّج مستمر، نمط رفيع مع خط موقع بارز */}
+                    {/* ٣. مؤشر BMI — تدرّج مستمر مع مؤشر HTML */}
                     <div className="px-5 pt-4 pb-2" dir="ltr">
-                      <svg viewBox="0 0 100 10" preserveAspectRatio="none" className="w-full h-2 overflow-visible">
-                        <defs>
-                          <linearGradient id="bmiRangeGradient" x1="0" y1="0" x2="1" y2="0">
-                            <stop offset="0%" stopColor="#60A5FA" />
-                            <stop offset="33%" stopColor="#34D399" />
-                            <stop offset="66%" stopColor="#FBBF24" />
-                            <stop offset="100%" stopColor="#FB7185" />
-                          </linearGradient>
-                        </defs>
-                        <rect x="0" y="3" width="100" height="4" rx="2" fill="url(#bmiRangeGradient)" />
-                        <line
-                          x1={Math.min(Math.max(((bmiLive.value - 10) / 35) * 100, 1), 99)}
-                          x2={Math.min(Math.max(((bmiLive.value - 10) / 35) * 100, 1), 99)}
-                          y1="-2" y2="12" stroke="#0F172A" strokeWidth="1.5" strokeLinecap="round"
+                      <div className="relative h-[14px] flex items-center">
+                        <div
+                          className="w-full h-2 rounded-full"
+                          style={{ background: 'linear-gradient(90deg, #85B7EB, #97C459 33%, #FAC775 66%, #F09595)' }}
                         />
-                      </svg>
-                      <div className="flex justify-between mt-2" dir="ltr">
+                        <div
+                          className="absolute bg-white"
+                          style={{ left: `calc(${Math.min(Math.max(((bmiLive.value - 10) / 35) * 100, 1), 99)}% - 3.5px)`, top: 0, width: '3px', height: '14px', border: '2px solid #0b0b0b', borderRadius: '2px', boxSizing: 'content-box' as const }}
+                        />
+                      </div>
+                      <div className="flex justify-between mt-2">
                         {['نحافة', 'طبيعي', 'زيادة', 'سمنة'].map((l) => (
                           <span key={l} className="text-[9px] font-semibold text-slate-400">{l}</span>
                         ))}

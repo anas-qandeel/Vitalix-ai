@@ -320,54 +320,64 @@ export default function WeightPlanPage({ params }: PageProps) {
         </div>
 
         {/* بطاقة تحليل الوزن */}
-        <div className="bg-white border border-purple-200 rounded-2xl shadow-sm overflow-hidden saas-slide-up">
-          <div className="bg-purple-50/60 px-5 py-3.5 border-b border-purple-100 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <svg className="w-4 h-4 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v17.25m0 0c-1.472 0-2.882.265-4.185.75M12 20.25c1.472 0 2.882.265 4.185.75M18.75 4.97A48.416 48.416 0 0012 4.5c-2.291 0-4.545.16-6.75.47m13.5 0c1.01.143 2.01.317 3 .52m-3-.52l2.62 10.726c.122.499-.106 1.028-.589 1.202a5.988 5.988 0 01-2.031.352 5.988 5.988 0 01-2.031-.352c-.483-.174-.711-.703-.59-1.202L18.75 4.971zm-16.5.52c.99-.203 1.99-.377 3-.52m0 0l2.62 10.726c.122.499-.106 1.028-.589 1.202a5.989 5.989 0 01-2.031.352 5.989 5.989 0 01-2.031-.352c-.483-.174-.711-.703-.59-1.202L5.25 4.971z" />
-              </svg>
+        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden saas-slide-up">
+          <div className="px-5 pt-5">
+            <div className="flex justify-between items-center mb-4">
               <p className="text-sm font-bold text-slate-900">تحليل وزنك الحالي</p>
+              <span className={`w-2 h-2 rounded-full ${bmiStyle.dot}`} />
             </div>
-            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border ${bmiStyle.borderColor} ${bmiStyle.bgColor}`}>
-              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${bmiStyle.dot}`} />
-              <span className={`text-[10px] font-bold ${bmiStyle.color}`}>{bmiStyle.emoji} {bmiStyle.label}</span>
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-[34px] font-black text-slate-900 leading-none">{plan.weight_kg}</span>
+              <span className="text-sm text-slate-400">كغ حالياً</span>
+              <span className={`mr-auto text-[13px] font-bold ${bmiStyle.color}`}>BMI {plan.bmi} · {bmiStyle.labelShort}</span>
             </div>
-          </div>
-          <div className="px-5 pt-4">
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              <div className="bg-slate-50 border-2 border-slate-200 rounded-xl px-3 py-2.5 text-center">
-                <p className="text-[9px] font-bold text-slate-400 mb-1">الوزن الحالي</p>
-                <p className="text-lg font-black text-slate-900">{plan.weight_kg}<span className="text-xs font-normal text-slate-400"> كغ</span></p>
-              </div>
-              <div className={`rounded-xl px-3 py-2.5 text-center border-2 ${bmiStyle.borderColor} ${bmiStyle.bgColor}`}>
-                <p className="text-[9px] font-bold text-slate-400 mb-1">مؤشر كتلة الجسم</p>
-                <p className={`text-lg font-black ${bmiStyle.color}`}>{plan.bmi}</p>
-                <p className={`text-[9px] font-bold mt-0.5 ${bmiStyle.color}`}>{bmiStyle.label}</p>
-              </div>
-              {plan.target_loss_kg > 0 ? (
-                <>
-                  <div className="bg-blue-50 border-2 border-blue-200 rounded-xl px-3 py-2.5 text-center">
-                    <p className="text-[9px] font-bold text-slate-400 mb-1">نقص مطلوب</p>
-                    <p className="text-lg font-black text-blue-700">{plan.target_loss_kg}<span className="text-xs font-normal"> كغ</span></p>
-                  </div>
-                  {plan.first_goal_kg < plan.target_loss_kg && (
-                    <div className="bg-purple-50 border-2 border-purple-200 rounded-xl px-3 py-2.5 text-center">
-                      <p className="text-[9px] font-bold text-slate-400 mb-1">الهدف المبدئي</p>
-                      <p className="text-lg font-black text-purple-700">{plan.first_goal_kg}<span className="text-xs font-normal text-purple-500"> كغ</span></p>
+            <div className="h-px bg-slate-200 my-3.5" />
+            {plan.target_loss_kg > 0 ? (
+              <div className="flex text-center mb-4">
+                <div className="flex-1">
+                  <p className="text-xl font-black text-slate-900">{plan.target_loss_kg}</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">نقص مطلوب (كغ)</p>
+                </div>
+                <div className="w-px bg-slate-200" />
+                {plan.first_goal_kg < plan.target_loss_kg && (
+                  <>
+                    <div className="flex-1">
+                      <p className="text-xl font-black text-slate-900">{plan.first_goal_kg}</p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">الهدف المبدئي (كغ)</p>
                     </div>
-                  )}
-                </>
-              ) : plan.bmi_category === 'underweight' ? (
-                <div className="bg-blue-50 border-2 border-blue-200 rounded-xl px-3 py-2.5 text-center">
-                  <p className="text-[9px] font-bold text-slate-400 mb-1">زيادة مطلوبة</p>
-                  <p className="text-lg font-black text-blue-700">{(plan.ideal_weight_min - plan.weight_kg).toFixed(1)}<span className="text-xs font-normal text-blue-500"> كغ</span></p>
+                    <div className="w-px bg-slate-200" />
+                  </>
+                )}
+                <div className="flex-1">
+                  <p className="text-xl font-black text-slate-900">{((plan.ideal_weight_min + plan.ideal_weight_max) / 2).toFixed(1)}</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">الوزن المثالي (كغ)</p>
                 </div>
-              ) : (
-                <div className="bg-blue-50 border-2 border-blue-200 rounded-xl px-3 py-2.5 text-center flex items-center justify-center">
-                  <p className="text-sm font-black text-blue-700 mt-1">ضمن المثالي</p>
+              </div>
+            ) : plan.bmi_category === 'underweight' ? (
+              <div className="flex text-center mb-4">
+                <div className="flex-1">
+                  <p className="text-xl font-black text-slate-900">{(plan.ideal_weight_min - plan.weight_kg).toFixed(1)}</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">زيادة مطلوبة (كغ)</p>
                 </div>
-              )}
-            </div>
+                <div className="w-px bg-slate-200" />
+                <div className="flex-1">
+                  <p className="text-xl font-black text-slate-900">—</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">الهدف المبدئي</p>
+                </div>
+                <div className="w-px bg-slate-200" />
+                <div className="flex-1">
+                  <p className="text-xl font-black text-slate-900">{plan.ideal_weight_min}</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">الوزن المثالي (كغ)</p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex justify-center text-center mb-4">
+                <div>
+                  <p className="text-base font-black text-teal-700">ضمن المثالي</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">الحالة</p>
+                </div>
+              </div>
+            )}
             <BMIBar bmi={plan.bmi} />
 
             <WeightHistoryChart weightHistory={nutrition?.progress?.weightHistory} formatDate={formatDate} />

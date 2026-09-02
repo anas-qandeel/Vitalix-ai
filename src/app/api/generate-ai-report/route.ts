@@ -342,7 +342,7 @@ ${recentVisitsLine}`;
               contents: userPrompt,
               config: {
                 systemInstruction: PHARMACIST_SUMMARY_INSTRUCTION,
-                maxOutputTokens: 500,
+                maxOutputTokens: 1500,
               },
             });
             const summaryRaw = summaryResponse.text?.trim() || '';

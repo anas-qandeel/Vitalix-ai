@@ -1868,6 +1868,22 @@ ${planUrl}
                       {latestGeneratedReport}
                     </p>
                   </div>
+                  {(latestPharmacistSummary || latestMedicationsAlert) && (
+                    <div className="px-5 pb-2">
+                      <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 space-y-3">
+                        <p className="text-[10px] font-bold text-slate-400">ملخص للصيدلاني — لا يصل للمريض</p>
+                        {latestPharmacistSummary && (
+                          <p className="text-sm text-slate-700 leading-relaxed font-medium">{latestPharmacistSummary}</p>
+                        )}
+                        {latestMedicationsAlert && (
+                          <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                            <p className="text-[9px] font-bold text-amber-700 mb-0.5">تنبيه الأدوية</p>
+                            <p className="text-xs text-amber-800 leading-relaxed">{latestMedicationsAlert}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                   <div className="px-5 pb-5 space-y-3">
                     {/* زر عرض صفحة المريض */}
                     <button onClick={() => window.open(`${window.location.origin}/vitals/view/${latestVisitId}`, '_blank')}

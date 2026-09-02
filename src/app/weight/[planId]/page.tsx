@@ -52,7 +52,7 @@ interface WeightPlan {
   first_goal_kg: number; nutrition_plan: NutritionData | string | null; created_at: string;
 }
 interface PatientInfo { name: string; gender: string; birth_date: string | null; }
-interface PageData { plan: WeightPlan; patient: PatientInfo; pharmacyName: string; pharmacyPhone: string; performedBy: string | null; }
+interface PageData { plan: WeightPlan; patient: PatientInfo; pharmacyName: string; pharmacyPhone: string; performedBy: string | null; relatedVisitId: string | null; }
 interface PageProps { params: Promise<{ planId: string }>; }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -214,7 +214,7 @@ export default function WeightPlanPage({ params }: PageProps) {
     </div>
   );
 
-  const { plan, patient, pharmacyName, pharmacyPhone, performedBy } = pageData;
+  const { plan, patient, pharmacyName, pharmacyPhone, performedBy, relatedVisitId } = pageData;
   const bmiStyle  = getBMICategory(plan.bmi);
   const nutrition = parseNutrition(plan.nutrition_plan);
   const hasData   = !!nutrition;
@@ -308,6 +308,16 @@ export default function WeightPlanPage({ params }: PageProps) {
             </div>
           </div>
         </div>
+
+        {relatedVisitId && (
+          <a href={`/vitals/view/${relatedVisitId}`}
+            className="flex items-center justify-between bg-white border border-slate-200 rounded-2xl shadow-sm px-5 py-3.5 hover:bg-slate-50 transition saas-slide-up">
+            <span className="text-sm font-bold text-slate-900">قراءات الضغط والسكري من نفس الزيارة</span>
+            <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9m0 0v9m0-9L10.5 15" />
+            </svg>
+          </a>
+        )}
 
         {/* بطاقة تحليل الوزن */}
         <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden saas-slide-up">

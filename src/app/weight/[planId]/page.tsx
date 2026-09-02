@@ -89,8 +89,8 @@ function BMIBar({ bmi }: { bmi: number }) {
             <stop offset="100%" stopColor="#FB7185" />
           </linearGradient>
         </defs>
-        <rect x="0" y="3" width="100" height="4" rx="2" fill="url(#bmiRangeGradientPatient)" />
-        <line x1={pos} x2={pos} y1="-2" y2="12" stroke="#0F172A" strokeWidth="1.5" strokeLinecap="round" />
+        <rect x="0" y="1" width="100" height="8" rx="4" fill="url(#bmiRangeGradientPatient)" />
+        <rect x={pos - 1.5} y="-1.4" width="3" height="12.8" rx="1.5" fill="#fff" stroke="#0F172A" strokeWidth="1.2" />
       </svg>
       <div className="flex justify-between mt-2">
         {['نحافة', 'طبيعي', 'زيادة', 'سمنة'].map((l) => (

@@ -256,7 +256,7 @@ function getErrStatus(e: any): number {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { patient_id, pharmacy_id, weight_kg, height_cm, performed_by } = body;
+    const { patient_id, pharmacy_id, weight_kg, height_cm, performed_by, visitation_id } = body;
 
     if (!patient_id || !pharmacy_id || !weight_kg || !height_cm) {
       return NextResponse.json({ error: 'بيانات ناقصة' }, { status: 400 });
@@ -295,6 +295,7 @@ export async function POST(req: Request) {
         target_loss_kg:   goals.toLoose,
         first_goal_kg:    goals.firstGoal,
         performed_by:     performed_by || null,
+        visitation_id:    visitation_id || null,
       })
       .select('id')
       .single();

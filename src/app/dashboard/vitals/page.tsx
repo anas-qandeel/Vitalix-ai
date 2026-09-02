@@ -926,11 +926,12 @@ ${planUrl}
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              patient_id:   currentPatient.id,
-              pharmacy_id:  pid2,
-              weight_kg:    Number(weightValue),
-              height_cm:    Number(currentPatient.height),
-              performed_by: staffName,
+              patient_id:    currentPatient.id,
+              pharmacy_id:   pid2,
+              weight_kg:     Number(weightValue),
+              height_cm:     Number(currentPatient.height),
+              performed_by:  staffName,
+              visitation_id: inserted.id,
             }),
           }).then(r => r.json()).catch((e) => { console.error('[vitals] weight-plan request failed:', e); return null; });
 

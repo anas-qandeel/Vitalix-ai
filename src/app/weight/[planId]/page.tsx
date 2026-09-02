@@ -80,18 +80,16 @@ function BMIBar({ bmi }: { bmi: number }) {
   const pos = Math.min(Math.max(((bmi - 10) / 35) * 100, 1), 99);
   return (
     <div dir="ltr">
-      <svg viewBox="0 0 100 10" preserveAspectRatio="none" className="w-full h-2 overflow-visible">
-        <defs>
-          <linearGradient id="bmiRangeGradientPatient" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="#60A5FA" />
-            <stop offset="33%" stopColor="#34D399" />
-            <stop offset="66%" stopColor="#FBBF24" />
-            <stop offset="100%" stopColor="#FB7185" />
-          </linearGradient>
-        </defs>
-        <rect x="0" y="1" width="100" height="8" rx="4" fill="url(#bmiRangeGradientPatient)" />
-        <rect x={pos - 1.5} y="-1.4" width="3" height="12.8" rx="1.5" fill="#fff" stroke="#0F172A" strokeWidth="1.2" />
-      </svg>
+      <div className="relative h-[14px] flex items-center">
+        <div
+          className="w-full h-2 rounded-full"
+          style={{ background: 'linear-gradient(90deg, #85B7EB, #97C459 33%, #FAC775 66%, #F09595)' }}
+        />
+        <div
+          className="absolute bg-white"
+          style={{ left: `calc(${pos}% - 3.5px)`, top: 0, width: '3px', height: '14px', border: '2px solid #0b0b0b', borderRadius: '2px', boxSizing: 'content-box' }}
+        />
+      </div>
       <div className="flex justify-between mt-2">
         {['نحافة', 'طبيعي', 'زيادة', 'سمنة'].map((l) => (
           <span key={l} className="text-[9px] font-semibold text-slate-400">{l}</span>

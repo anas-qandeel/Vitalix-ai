@@ -2124,7 +2124,7 @@ ${planUrl}
                                     onChange={() => setExcludedVitalsProducts(prev => { const n = new Set(prev); n.has(p.id) ? n.delete(p.id) : n.add(p.id); return n; })} />
                                   <span className={`text-xs leading-relaxed ${excludedVitalsProducts.has(p.id) ? 'text-slate-400 line-through' : 'text-slate-700'}`}>
                                     <span className="font-bold">{p.brand_name}</span>
-                                    {p.price != null && <span className="text-slate-400"> · {p.price} د.أ</span>}
+                                    {p.price != null && <span className="text-slate-400"> · <span dir="ltr" className="tabular-nums inline-block">{p.price}</span> د.أ</span>}
                                     {p.ai_pitch_prompt && <span className="text-slate-500"> — {p.ai_pitch_prompt.slice(0, 60)}{p.ai_pitch_prompt.length > 60 ? '…' : ''}</span>}
                                   </span>
                                 </label>

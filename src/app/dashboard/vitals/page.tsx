@@ -455,6 +455,8 @@ export default function VitalsPage() {
   const [isFallbackReport, setIsFallbackReport] = useState(false);
   const [latestVisitId, setLatestVisitId] = useState<string | null>(null);
   const [patientMedications, setPatientMedications] = useState<{ id: string; medication_name: string; daily_dosage: number | null; dosage_unit: string | null }[]>([]);
+  const [vitalsRecommendations, setVitalsRecommendations] = useState<{ id: string; category: string; brand_name: string; price: number | null; image_url: string | null; ai_pitch_prompt: string | null }[]>([]);
+  const [excludedVitalsProducts, setExcludedVitalsProducts] = useState<Set<string>>(new Set());
   const [reportExpanded, setReportExpanded] = useState(false);
   const [reportLanguage, setReportLanguage] = useState<'ar' | 'en'>('ar');
   // اسم الصيدلية للمخرجات الإنجليزية — الاسم الإنجليزي إن وُجد وإلا العربي كما هو الآن
@@ -679,6 +681,7 @@ ${planUrl}
     setWeightPlanId(null); setWeightSummary(null); setExcludedProducts(new Set()); setExcludedLabs(new Set()); setWeightPlanUrl(null); setWeightStatus('idle'); setBmiLive(null); setWeightDataSuspect(false); setWeightReviewed(false); setWeightWaMsg(''); setWeightApproveError(''); setWeightSaving(false); setSavedExclusions(''); setWeightSaveError('');
     setReportLanguage('ar');
     setPatientMedications([]);
+    setVitalsRecommendations([]); setExcludedVitalsProducts(new Set());
     setSearchingPatient(true);
     try {
       await loadHistory(p);
@@ -979,6 +982,11 @@ ${planUrl}
         setLatestVisitId(inserted.id);
         if (pharmacistSummaryLocal) setLatestPharmacistSummary(pharmacistSummaryLocal);
         if (medicationsAlertLocal) setLatestMedicationsAlert(medicationsAlertLocal);
+        // جلب التوصيات البيعية من نفس مسار صفحة المريض — يعيد استخدام المنطق القائم
+        fetch(`/api/visit/${inserted.id}`)
+          .then(r => r.json())
+          .then(d => { if (d.recommendations) setVitalsRecommendations(d.recommendations); })
+          .catch(() => {});
         setPatientHistory([inserted as VisitationRecord, ...patientHistory]);
         // تمرير تلقائي إلى التقرير بعد لحظة قصيرة للسماح بالrender
         setTimeout(() => {
@@ -1074,6 +1082,7 @@ ${planUrl}
 
   const handleNewVisit = () => {
     setCurrentPatient(null);
+    setVitalsRecommendations([]); setExcludedVitalsProducts(new Set());
     setPatientHistory([]);
     setSearchQuery('');
     setNameResults([]);

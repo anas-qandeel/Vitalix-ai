@@ -346,6 +346,7 @@ ${recentVisitsLine}`;
               },
             });
             const summaryRaw = summaryResponse.text?.trim() || '';
+            console.log('[Gemini] pharmacist summaryRaw length:', summaryRaw.length, '| first 100:', summaryRaw.slice(0, 100));
             const jsonMatch = summaryRaw.match(/\{[\s\S]*\}/);
             if (jsonMatch) {
               const parsed = JSON.parse(jsonMatch[0]);

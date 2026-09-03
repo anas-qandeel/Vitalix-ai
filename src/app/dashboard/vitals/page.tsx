@@ -1883,14 +1883,15 @@ ${planUrl}
                   {(latestPharmacistSummary || latestMedicationsAlert || selectedSymptoms.length > 0 || bpFactors.length > 0 || sugarFactors.length > 0) && (
                     <div className="px-5 pb-2">
                       <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 space-y-3">
-                        <p className="text-[10px] font-bold text-slate-400">ملخص للصيدلاني — لا يصل للمريض</p>
+                        <p className="text-xs font-bold text-slate-400">ملخص للصيدلاني — لا يصل للمريض</p>
 
+                        <div className={activeTests.bp && activeTests.sugar ? 'grid grid-cols-2 gap-3 items-start' : ''}>
                         {/* قسم ضغط الدم */}
                         {activeTests.bp && (
                           <div className="space-y-2">
-                            <p className="text-[10px] font-bold text-slate-500 border-b border-slate-200 pb-1">ضغط الدم</p>
+                            <p className="text-xs font-bold text-slate-500 border-b border-slate-200 pb-1">ضغط الدم</p>
                             {isDualBp ? (
-                              <div className="text-[10px] text-slate-500 space-y-0.5">
+                              <div className="text-xs text-slate-500 space-y-0.5">
                                 <div className="flex gap-3">
                                   <span className="text-slate-400 font-bold">ق١:</span>
                                   <span>{bpSys1}/{bpDia1} مم{heartRate ? ` · نبض ${heartRate}` : ''}</span>
@@ -1905,7 +1906,7 @@ ${planUrl}
                                 </div>
                               </div>
                             ) : (
-                              <div className="text-[10px] text-slate-500">
+                              <div className="text-xs text-slate-500">
                                 <span className="text-slate-400 font-bold ml-2">قراءة مفردة:</span>
                                 <span>{bpSys1}/{bpDia1} مم{heartRate ? ` · نبض ${heartRate}` : ''}</span>
                               </div>
@@ -1942,8 +1943,13 @@ ${planUrl}
 
                         {/* قسم السكري */}
                         {activeTests.sugar && (
-                          <div className="space-y-2">
-                            <p className="text-[10px] font-bold text-slate-500 border-b border-slate-200 pb-1">السكري</p>
+                          <div className={`space-y-2 ${activeTests.bp ? 'border-r border-slate-200 pr-3' : ''}`}>
+                            <p className="text-xs font-bold text-slate-500 border-b border-slate-200 pb-1">السكري</p>
+                            <div className="text-xs text-slate-500">
+                              <span className="font-bold text-slate-700">{sugarValue}</span>
+                              <span className="text-slate-400 mr-1"> mg/dL</span>
+                              {sugarType && <span className="mr-2"> · {sugarType === 'fasting' ? 'صائم' : sugarType === 'postprandial' ? 'بعد الأكل' : 'عشوائي'}</span>}
+                            </div>
                             <div className="flex items-center gap-2">
                               <span className="text-[9px] font-bold text-slate-400">دواء السكري:</span>
                               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${tookSugarMed ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-500'}`}>
@@ -1974,6 +1980,7 @@ ${planUrl}
                           </div>
                         )}
 
+                        </div>
                         {latestPharmacistSummary && (
                           <p className="text-sm text-slate-700 leading-relaxed font-medium">{latestPharmacistSummary}</p>
                         )}

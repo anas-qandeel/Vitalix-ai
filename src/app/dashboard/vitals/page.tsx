@@ -2215,7 +2215,7 @@ ${planUrl}
                         className="mt-0.5 w-4 h-4 shrink-0 accent-teal-600 cursor-pointer"
                       />
                       <span className="text-[11px] font-bold text-slate-700 leading-relaxed">
-                        راجعتُ التقرير بخبرتي وأعتمده للمريض
+                        راجعتُ نتائج التحليل بخبرتي وأعتمدها للمريض
                       </span>
                     </label>
                     {vitalsSendError && (

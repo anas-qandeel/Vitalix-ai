@@ -71,6 +71,15 @@ type PharmacistSummary = {
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('ar-EG', { numberingSystem: 'latn' });
 }
+function translateUnit(u: string | null): string {
+  if (!u) return '';
+  const map: Record<string, string> = {
+    pill: 'حبة', tablet: 'حبة', capsule: 'كبسولة',
+    ml: 'مل', mg: 'مغ', drop: 'قطرة', sachet: 'كيس',
+    patch: 'لصقة', injection: 'حقنة', puff: 'بخة',
+  };
+  return map[u.toLowerCase()] ?? u;
+}
 function formatTime(dateStr: string) {
   return new Date(dateStr).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', hour12: true, numberingSystem: 'latn' });
 }
@@ -443,6 +452,8 @@ export default function VitalsPage() {
   const [latestMedicationsAlert, setLatestMedicationsAlert] = useState<string | null>(null);
   const [isFallbackReport, setIsFallbackReport] = useState(false);
   const [latestVisitId, setLatestVisitId] = useState<string | null>(null);
+  const [patientMedications, setPatientMedications] = useState<{ id: string; medication_name: string; daily_dosage: number | null; dosage_unit: string | null }[]>([]);
+  const [reportExpanded, setReportExpanded] = useState(false);
   const [reportLanguage, setReportLanguage] = useState<'ar' | 'en'>('ar');
   // اسم الصيدلية للمخرجات الإنجليزية — الاسم الإنجليزي إن وُجد وإلا العربي كما هو الآن
   const pharmacyNameForOutput = reportLanguage === 'en' ? (pharmacyNameEn || pharmacyName) : pharmacyName;
@@ -665,8 +676,16 @@ ${planUrl}
     setLatestPharmacistSummary(null); setLatestMedicationsAlert(null);
     setWeightPlanId(null); setWeightSummary(null); setExcludedProducts(new Set()); setExcludedLabs(new Set()); setWeightPlanUrl(null); setWeightStatus('idle'); setBmiLive(null); setWeightDataSuspect(false); setWeightReviewed(false); setWeightWaMsg(''); setWeightApproveError(''); setWeightSaving(false); setSavedExclusions(''); setWeightSaveError('');
     setReportLanguage('ar');
+    setPatientMedications([]);
     setSearchingPatient(true);
-    try { await loadHistory(p); } catch { }
+    try {
+      await loadHistory(p);
+      const pid = await getPharmacyId();
+      if (pid) {
+        const { data: meds } = await supabase.from('chronic_medications').select('id, medication_name, daily_dosage, dosage_unit').eq('pharmacy_id', pid).eq('patient_id', p.id).eq('status', 'active');
+        setPatientMedications(meds || []);
+      }
+    } catch { }
     finally { setSearchingPatient(false); }
   };
 
@@ -1334,9 +1353,33 @@ ${planUrl}
                 </div>
               </div>
             )}
-
+            {currentPatient && patientMedications.length > 0 && (
+              <div className="bg-white border border-amber-200 rounded-2xl shadow-sm overflow-hidden">
+                <div className="px-5 py-3.5 bg-amber-50/40 border-b border-amber-100 flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" />
+                    </svg>
+                    <p className="text-sm font-bold text-slate-900">الأدوية المزمنة</p>
+                    <span className="text-[11px] font-bold text-amber-700">{patientMedications.length} دواء</span>
+                  </div>
+                  <span className="text-[10px] font-bold text-amber-600 bg-amber-100 border border-amber-200 px-2 py-0.5 rounded-md">للاطلاع فقط</span>
+                </div>
+                <div className="p-4 space-y-2">
+                  {patientMedications.map(med => (
+                    <div key={med.id} className="flex items-center justify-between gap-2 bg-slate-50 border border-slate-100 rounded-xl px-3 py-2.5">
+                      <span className="text-xs font-bold text-slate-800">{med.medication_name}</span>
+                      {med.daily_dosage && med.dosage_unit && (
+                        <span className="text-[10px] font-bold text-slate-500 bg-white border border-slate-200 px-2 py-0.5 rounded-md shrink-0">
+                          {med.daily_dosage} {translateUnit(med.dosage_unit)}/يوم
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-
           {/* ══ العمود الأيسر: الفحوصات ══ */}
           <div className="space-y-4">
 
@@ -1891,15 +1934,6 @@ ${planUrl}
                       </div>
                     </div>
                   </div>
-                  <div className="p-5">
-                    <p
-                      className="text-sm text-slate-700 leading-relaxed font-medium bg-slate-50 border border-slate-100 rounded-xl p-4"
-                      dir={detectTextDir(latestGeneratedReport)}
-                      style={{ textAlign: detectTextDir(latestGeneratedReport) === 'ltr' ? 'left' : 'right' }}
-                    >
-                      {latestGeneratedReport}
-                    </p>
-                  </div>
                   {(latestPharmacistSummary || latestMedicationsAlert || selectedSymptoms.length > 0 || bpFactors.length > 0 || sugarFactors.length > 0) && (
                     <div className="px-5 pb-2">
                       <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 space-y-3">
@@ -2012,6 +2046,23 @@ ${planUrl}
                         )}
                       </div>
                     </div>
+                  )}
+                  <div className="px-5 py-2">
+                    <button onClick={() => setReportExpanded(p => !p)}
+                      className="w-full flex items-center justify-center gap-2 text-xs font-bold text-slate-600 hover:text-slate-800 py-2.5 rounded-xl hover:bg-slate-50 border border-slate-200 transition">
+                      {reportExpanded ? '▲ طيّ نص المريض' : '▼ عرض نص المريض للمراجعة قبل الإرسال'}
+                    </button>
+                  </div>
+                  {reportExpanded && (
+                  <div className="px-5 pb-3">
+                    <p
+                      className="text-sm text-slate-700 leading-relaxed font-medium bg-slate-50 border border-slate-100 rounded-xl p-4"
+                      dir={detectTextDir(latestGeneratedReport)}
+                      style={{ textAlign: detectTextDir(latestGeneratedReport) === 'ltr' ? 'left' : 'right' }}
+                    >
+                      {latestGeneratedReport}
+                    </p>
+                  </div>
                   )}
                   <div className="px-5 pb-5 space-y-3">
                     {/* زر عرض صفحة المريض */}

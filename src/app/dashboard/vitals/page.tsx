@@ -13,6 +13,8 @@ import { detectTextDir } from '@/lib/text-direction';
 import { normalizePhone, displayPhone, validatePhone } from '@/lib/phone';
 import { SUPPLEMENT_CATEGORIES } from '@/lib/supplement-categories';
 import WeightHistoryChart from '@/components/WeightHistoryChart';
+import BpHistoryChart from '@/components/BpHistoryChart';
+import SugarHistoryChart from '@/components/SugarHistoryChart';
 import WeightThinkingOverlay from '@/components/WeightThinkingOverlay';
 import VitalsThinkingOverlay from '@/components/VitalsThinkingOverlay';
 
@@ -975,6 +977,8 @@ ${planUrl}
       if (visitError) throw new Error('تعذر حفظ بيانات الفحص');
       if (inserted) {
         setLatestVisitId(inserted.id);
+        if (pharmacistSummaryLocal) setLatestPharmacistSummary(pharmacistSummaryLocal);
+        if (medicationsAlertLocal) setLatestMedicationsAlert(medicationsAlertLocal);
         setPatientHistory([inserted as VisitationRecord, ...patientHistory]);
         // تمرير تلقائي إلى التقرير بعد لحظة قصيرة للسماح بالrender
         setTimeout(() => {
@@ -2094,6 +2098,8 @@ ${planUrl}
                       </div>
                     </div>
                   )}
+                  {activeTests.bp && <BpHistoryChart bpHistory={patientHistory.filter((v): v is VisitationRecord & { bp_systolic: number; bp_diastolic: number } => v.bp_systolic != null && v.bp_diastolic != null).slice().reverse()} formatDate={formatDate} />}
+                  {activeTests.sugar && <SugarHistoryChart sugarHistory={patientHistory.filter((v): v is VisitationRecord & { sugar_value: number } => v.sugar_value != null).slice().reverse()} formatDate={formatDate} />}
                   <div className="px-5 py-2">
                     <button onClick={() => setReportExpanded(p => !p)}
                       className="w-full flex items-center justify-center gap-2 text-xs font-bold text-slate-600 hover:text-slate-800 py-2.5 rounded-xl hover:bg-slate-50 border border-slate-200 transition">

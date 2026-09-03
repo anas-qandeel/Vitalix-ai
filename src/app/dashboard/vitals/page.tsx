@@ -612,7 +612,7 @@ ${planUrl}
         // استعادة طريقة البحث الأصلية (رقم هاتف أو اسم)
         setSearchQuery(savedQuery || patient.name || '');
         if (savedWeightPlanId) restoreWeightPlan(savedWeightPlanId, patient, savedWeightValue);
-        const { activeTests: savedActiveTests, bpSys1: sBpSys1, bpDia1: sBpDia1, bpSys2: sBpSys2, bpDia2: sBpDia2, heartRate: sHr1, heartRate2: sHr2, sugarValue: sSugar, sugarType: sSugarType } = JSON.parse(saved);
+        const { activeTests: savedActiveTests, bpSys1: sBpSys1, bpDia1: sBpDia1, bpSys2: sBpSys2, bpDia2: sBpDia2, heartRate: sHr1, heartRate2: sHr2, sugarValue: sSugar, sugarType: sSugarType, isDualBp: sIsDualBp, selectedSymptoms: sSymptoms, bpFactors: sBpFactors, sugarFactors: sSugarFactors, tookBpMed: sTookBpMed, tookSugarMed: sTookSugarMed } = JSON.parse(saved);
         if (savedActiveTests) setActiveTests(savedActiveTests);
         if (sBpSys1) setBpSys1(sBpSys1);
         if (sBpDia1) setBpDia1(sBpDia1);
@@ -622,6 +622,15 @@ ${planUrl}
         if (sHr2) setHeartRate2(sHr2);
         if (sSugar) setSugarValue(sSugar);
         if (sSugarType) setSugarType(sSugarType);
+        if (sIsDualBp !== undefined) setIsDualBp(sIsDualBp);
+        if (sSymptoms) setSelectedSymptoms(sSymptoms);
+        if (sBpFactors) setBpFactors(sBpFactors);
+        if (sSugarFactors) setSugarFactors(sSugarFactors);
+        if (sTookBpMed !== undefined) setTookBpMed(sTookBpMed);
+        if (sTookSugarMed !== undefined) setTookSugarMed(sTookSugarMed);
+        const { latestPharmacistSummary: sPharmacistSummary, latestMedicationsAlert: sMedicationsAlert } = JSON.parse(saved);
+        if (sPharmacistSummary) setLatestPharmacistSummary(sPharmacistSummary);
+        if (sMedicationsAlert) setLatestMedicationsAlert(sMedicationsAlert);
       } catch (e) { console.error("[vitals] restore failed:", e); }
     }
   }, []);
@@ -630,8 +639,8 @@ ${planUrl}
   // يجب أن يبقى بعد useEffect الاستعادي أعلاه: على أول تحميل يحذف المخزون قبل أن تُملأ الحالة، فلا بد أن يكون الاستعادي قد قرأه أولاً.
   useEffect(() => {
     if (!currentPatient) { sessionStorage.removeItem('vitalix_current_patient'); return; }
-    sessionStorage.setItem('vitalix_current_patient', JSON.stringify({ patient: currentPatient, history: patientHistory, searchQuery, weightPlanId, weightValue, latestVisitId, activeTests, bpSys1, bpDia1, bpSys2, bpDia2, heartRate, heartRate2, sugarValue, sugarType }));
-  }, [currentPatient, patientHistory, searchQuery, weightPlanId, weightValue, latestVisitId, activeTests, bpSys1, bpDia1, bpSys2, bpDia2, heartRate, heartRate2, sugarValue, sugarType]);
+    sessionStorage.setItem('vitalix_current_patient', JSON.stringify({ patient: currentPatient, history: patientHistory, searchQuery, weightPlanId, weightValue, latestVisitId, activeTests, bpSys1, bpDia1, bpSys2, bpDia2, heartRate, heartRate2, sugarValue, sugarType, isDualBp, selectedSymptoms, bpFactors, sugarFactors, tookBpMed, tookSugarMed, latestPharmacistSummary, latestMedicationsAlert }));
+  }, [currentPatient, patientHistory, searchQuery, weightPlanId, weightValue, latestVisitId, activeTests, bpSys1, bpDia1, bpSys2, bpDia2, heartRate, heartRate2, sugarValue, sugarType, isDualBp, selectedSymptoms, bpFactors, sugarFactors, tookBpMed, tookSugarMed, latestPharmacistSummary, latestMedicationsAlert]);
 
   // ── تحميل تاريخ مريض ──
   const loadHistory = async (p: Patient) => {
@@ -1647,14 +1656,25 @@ ${planUrl}
                         <div className="flex flex-wrap gap-1.5">
                           {sugarFactorsList.map(f => {
                             const sel = sugarFactors.includes(f.key);
+                            const disabledByFasting = f.key === 'recent_heavy_meal' && sugarType === 'fasting';
                             return (
-                              <button key={f.key} onClick={() => setSugarFactors(prev => sel ? prev.filter(x => x !== f.key) : [...prev, f.key])}
-                                className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition ${sel ? 'bg-slate-900 text-white border-slate-900' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-white'}`}>
-                                {sel ? '✓ ' : ''}{f.label}
+                              <button key={f.key}
+                                disabled={disabledByFasting}
+                                title={disabledByFasting ? 'المريض صائم — لا يمكن اختيار وجبة دسمة' : ''}
+                                onClick={() => !disabledByFasting && setSugarFactors(prev => sel ? prev.filter(x => x !== f.key) : [...prev, f.key])}
+                                className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition ${
+                                  disabledByFasting ? 'bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed line-through' :
+                                  sel ? 'bg-slate-900 text-white border-slate-900' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-white'
+                                }`}>
+                                {sel && !disabledByFasting ? '✓ ' : ''}{f.label}
+                                {disabledByFasting && <span className="text-[9px] mr-1 no-underline">(صائم)</span>}
                               </button>
                             );
                           })}
                         </div>
+                        {sugarType === 'fasting' && sugarFactors.includes('recent_heavy_meal') && (
+                          <>{setSugarFactors(prev => prev.filter(x => x !== 'recent_heavy_meal'))}</>
+                        )}
                         {sugarFactors.length > 0 && (
                           <p className="text-[10px] text-slate-400 mt-2">
                             سيذكر التقرير الذكي هذه العوامل عند تحليل القراءة

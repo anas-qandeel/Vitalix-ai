@@ -1914,27 +1914,29 @@ ${planUrl}
                       </div>
                     )}
                     <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-                  <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50 flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-xl bg-slate-900 flex items-center justify-center shrink-0">
-                        <svg className="w-5 h-5" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M6 8L14.5 25C14.8 25.6 15.6 25.6 15.9 25L20 17" stroke="white" strokeWidth="3.5" strokeLinecap="round" />
-                          <path d="M24 6C24 9.3 26.7 12 30 12C26.7 12 24 14.7 24 18C24 14.7 21.3 12 18 12C21.3 12 24 9.3 24 6Z" fill="#2563EB" />
+                  <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50 flex flex-col items-start gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
+                        <svg className="w-5 h-5 text-slate-400" viewBox="0 0 24 24" fill="currentColor">
+                          <circle cx="12" cy="8" r="3.5" />
+                          <path d="M5 21c0-4.42 3.13-8 7-8s7 3.58 7 8" />
                         </svg>
                       </div>
                       <div>
-                        <h3 className="text-sm font-bold text-slate-900">التقرير الطبي الذكي</h3>
-                        <p className="text-[10px] text-slate-400 mt-0.5">Vitalix AI · {currentPatient?.name}</p>
+                        <p className="text-base font-black text-slate-900">{currentPatient?.name}</p>
+                        <p className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1.5">
+                          <span>{[activeTests.bp && 'ضغط', activeTests.sugar && 'سكري'].filter(Boolean).join(' · ')} · {formatDate(new Date().toISOString())}</span>
+                          <span className="flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                            <span className="text-emerald-600 font-bold">تم الحفظ</span>
+                          </span>
+                        </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-1.5">
                       <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border ${status.border} ${status.bg}`}>
                         <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${status.dot}`} />
                         <span className={`text-[10px] font-bold ${status.color}`}>{status.label}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                        <span className="text-[10px] font-bold text-emerald-600">تم الحفظ</span>
                       </div>
                     </div>
                   </div>

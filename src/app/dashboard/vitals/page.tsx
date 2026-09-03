@@ -46,6 +46,12 @@ interface VisitationRecord {
   recent_heavy_meal: boolean;
   is_stressed: boolean;
   took_medication: boolean;
+  bp_sys1: number | null;
+  bp_dia1: number | null;
+  hr1: number | null;
+  bp_sys2: number | null;
+  bp_dia2: number | null;
+  hr2: number | null;
   ai_report_output: string | null;
   heart_rate: number | null;
   performed_by: string | null;
@@ -854,6 +860,12 @@ ${planUrl}
         bp_diastolic: activeTests.bp ? finalDia : null,
         heart_rate: activeTests.bp && finalHeartRate ? finalHeartRate : null,
         is_dual_bp: activeTests.bp ? isDualBp : false,
+        bp_sys1: activeTests.bp ? (Number(bpSys1) || null) : null,
+        bp_dia1: activeTests.bp ? (Number(bpDia1) || null) : null,
+        hr1: activeTests.bp ? (Number(heartRate) || null) : null,
+        bp_sys2: activeTests.bp && isDualBp ? (Number(bpSys2) || null) : null,
+        bp_dia2: activeTests.bp && isDualBp ? (Number(bpDia2) || null) : null,
+        hr2: activeTests.bp && isDualBp ? (Number(heartRate2) || null) : null,
         sugar_value: activeTests.sugar ? Number(sugarValue) : null,
         sugar_test_type: activeTests.sugar ? sugarType : null,
         weight: activeTests.weight ? Number(weightValue) : null,
@@ -1877,6 +1889,27 @@ ${planUrl}
                         {activeTests.bp && (
                           <div className="space-y-2">
                             <p className="text-[10px] font-bold text-slate-500 border-b border-slate-200 pb-1">ضغط الدم</p>
+                            {isDualBp ? (
+                              <div className="text-[10px] text-slate-500 space-y-0.5">
+                                <div className="flex gap-3">
+                                  <span className="text-slate-400 font-bold">ق١:</span>
+                                  <span>{bpSys1}/{bpDia1} مم{heartRate ? ` · نبض ${heartRate}` : ''}</span>
+                                </div>
+                                <div className="flex gap-3">
+                                  <span className="text-slate-400 font-bold">ق٢:</span>
+                                  <span>{bpSys2}/{bpDia2} مم{heartRate2 ? ` · نبض ${heartRate2}` : ''}</span>
+                                </div>
+                                <div className="flex gap-3 font-bold text-slate-700">
+                                  <span className="text-slate-400">معدّل:</span>
+                                  <span>{finalSys}/{finalDia} مم{finalHeartRate ? ` · نبض ${finalHeartRate}` : ''}</span>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="text-[10px] text-slate-500">
+                                <span className="text-slate-400 font-bold ml-2">قراءة مفردة:</span>
+                                <span>{bpSys1}/{bpDia1} مم{heartRate ? ` · نبض ${heartRate}` : ''}</span>
+                              </div>
+                            )}
                             <div className="flex items-center gap-2">
                               <span className="text-[9px] font-bold text-slate-400">دواء الضغط:</span>
                               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${tookBpMed ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-500'}`}>

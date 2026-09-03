@@ -32,7 +32,7 @@ export async function GET(
     const { data: visit, error: visitError } = await supabaseAdmin
       .from('visitations')
       .select(
-        'id, pharmacy_id, patient_id, bp_systolic, bp_diastolic, sugar_value, sugar_test_type, weight, symptoms, ai_report_output, created_at, patient:patients(name, phone_number, height)'
+        'id, pharmacy_id, patient_id, bp_systolic, bp_diastolic, sugar_value, sugar_test_type, weight, symptoms, ai_report_output, created_at, excluded_recommendation_ids, patient:patients(name, phone_number, height)'
       )
       .eq('id', id)
       .single();
@@ -109,7 +109,10 @@ export async function GET(
         .eq('is_active', true)
         .in('category', activeCategories);
 
-      if (recData) recommendations = recData;
+      if (recData) {
+        const excludedIds = new Set(visit.excluded_recommendation_ids || []);
+        recommendations = recData.filter((r: any) => !excludedIds.has(r.id));
+      }
     }
 
     return NextResponse.json({
@@ -135,6 +138,31 @@ export async function GET(
     }, {
       headers: { 'Cache-Control': 'no-store, max-age=0' },
     });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message || 'حدث خطأ في الخادم' }, { status: 500 });
+  }
+}
+
+// PUT — يحفظ قائمة معرّفات التوصيات التي استبعدها الصيدلاني من عرضها على المريض.
+// لا يمسّ pharmacy_catalog ولا الزيارة نفسها؛ فقط قائمة استبعاد تُطبَّق وقت GET.
+export async function PUT(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const { excluded_ids } = await req.json();
+    if (!Array.isArray(excluded_ids)) {
+      return NextResponse.json({ error: 'excluded_ids يجب أن تكون مصفوفة' }, { status: 400 });
+    }
+    const { error: updErr } = await supabaseAdmin
+      .from('visitations')
+      .update({ excluded_recommendation_ids: excluded_ids })
+      .eq('id', id);
+    if (updErr) {
+      return NextResponse.json({ error: 'تعذر حفظ الاستثناءات' }, { status: 500 });
+    }
+    return NextResponse.json({ success: true });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'حدث خطأ في الخادم' }, { status: 500 });
   }

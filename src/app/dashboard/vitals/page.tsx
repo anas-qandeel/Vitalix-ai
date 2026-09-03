@@ -457,6 +457,9 @@ export default function VitalsPage() {
   const [patientMedications, setPatientMedications] = useState<{ id: string; medication_name: string; daily_dosage: number | null; dosage_unit: string | null }[]>([]);
   const [vitalsRecommendations, setVitalsRecommendations] = useState<{ id: string; category: string; brand_name: string; price: number | null; image_url: string | null; ai_pitch_prompt: string | null }[]>([]);
   const [excludedVitalsProducts, setExcludedVitalsProducts] = useState<Set<string>>(new Set());
+  const [savedVitalsExclusions, setSavedVitalsExclusions] = useState<string>('');
+  const [vitalsExclusionSaving, setVitalsExclusionSaving] = useState(false);
+  const [vitalsExclusionError, setVitalsExclusionError] = useState('');
   const [reportExpanded, setReportExpanded] = useState(false);
   const [reportLanguage, setReportLanguage] = useState<'ar' | 'en'>('ar');
   // اسم الصيدلية للمخرجات الإنجليزية — الاسم الإنجليزي إن وُجد وإلا العربي كما هو الآن
@@ -646,6 +649,10 @@ ${planUrl}
         const { latestPharmacistSummary: sPharmacistSummary, latestMedicationsAlert: sMedicationsAlert } = JSON.parse(saved);
         if (sPharmacistSummary) setLatestPharmacistSummary(sPharmacistSummary);
         if (sMedicationsAlert) setLatestMedicationsAlert(sMedicationsAlert);
+        const { vitalsRecommendations: sRecs, excludedVitalsProducts: sExcluded, savedVitalsExclusions: sSaved } = JSON.parse(saved);
+        if (sRecs) setVitalsRecommendations(sRecs);
+        if (sExcluded) setExcludedVitalsProducts(new Set(sExcluded));
+        if (sSaved) setSavedVitalsExclusions(sSaved);
       } catch (e) { console.error("[vitals] restore failed:", e); }
     }
   }, []);
@@ -654,8 +661,8 @@ ${planUrl}
   // يجب أن يبقى بعد useEffect الاستعادي أعلاه: على أول تحميل يحذف المخزون قبل أن تُملأ الحالة، فلا بد أن يكون الاستعادي قد قرأه أولاً.
   useEffect(() => {
     if (!currentPatient) { sessionStorage.removeItem('vitalix_current_patient'); return; }
-    sessionStorage.setItem('vitalix_current_patient', JSON.stringify({ patient: currentPatient, history: patientHistory, searchQuery, weightPlanId, weightValue, latestVisitId, activeTests, bpSys1, bpDia1, bpSys2, bpDia2, heartRate, heartRate2, sugarValue, sugarType, isDualBp, selectedSymptoms, bpFactors, sugarFactors, tookBpMed, tookSugarMed, latestPharmacistSummary, latestMedicationsAlert }));
-  }, [currentPatient, patientHistory, searchQuery, weightPlanId, weightValue, latestVisitId, activeTests, bpSys1, bpDia1, bpSys2, bpDia2, heartRate, heartRate2, sugarValue, sugarType, isDualBp, selectedSymptoms, bpFactors, sugarFactors, tookBpMed, tookSugarMed, latestPharmacistSummary, latestMedicationsAlert]);
+    sessionStorage.setItem('vitalix_current_patient', JSON.stringify({ patient: currentPatient, history: patientHistory, searchQuery, weightPlanId, weightValue, latestVisitId, activeTests, bpSys1, bpDia1, bpSys2, bpDia2, heartRate, heartRate2, sugarValue, sugarType, isDualBp, selectedSymptoms, bpFactors, sugarFactors, tookBpMed, tookSugarMed, latestPharmacistSummary, latestMedicationsAlert, vitalsRecommendations, excludedVitalsProducts: [...excludedVitalsProducts], savedVitalsExclusions }));
+  }, [currentPatient, patientHistory, searchQuery, weightPlanId, weightValue, latestVisitId, activeTests, bpSys1, bpDia1, bpSys2, bpDia2, heartRate, heartRate2, sugarValue, sugarType, isDualBp, selectedSymptoms, bpFactors, sugarFactors, tookBpMed, tookSugarMed, latestPharmacistSummary, latestMedicationsAlert, vitalsRecommendations, excludedVitalsProducts, savedVitalsExclusions]);
 
   // ── تحميل تاريخ مريض ──
   const loadHistory = async (p: Patient) => {
@@ -2104,6 +2111,57 @@ ${planUrl}
                           <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                             <p className="text-[9px] font-bold text-amber-700 mb-0.5">تنبيه الأدوية</p>
                             <p className="text-xs text-amber-800 leading-relaxed">{latestMedicationsAlert}</p>
+                          </div>
+                        )}
+                        {vitalsRecommendations.length > 0 && (
+                          <div>
+                            <p className="text-[9px] font-bold text-slate-400 mb-1.5">منتجات مقترحة — أزل ما لا تريد وصوله للمريض</p>
+                            <div className="space-y-1">
+                              {vitalsRecommendations.map((p) => (
+                                <label key={p.id} className="flex items-start gap-2 cursor-pointer">
+                                  <input type="checkbox" className="mt-0.5 accent-teal-600 shrink-0"
+                                    checked={!excludedVitalsProducts.has(p.id)}
+                                    onChange={() => setExcludedVitalsProducts(prev => { const n = new Set(prev); n.has(p.id) ? n.delete(p.id) : n.add(p.id); return n; })} />
+                                  <span className={`text-xs leading-relaxed ${excludedVitalsProducts.has(p.id) ? 'text-slate-400 line-through' : 'text-slate-700'}`}>
+                                    <span className="font-bold">{p.brand_name}</span>
+                                    {p.price != null && <span className="text-slate-400"> · {p.price} د.أ</span>}
+                                    {p.ai_pitch_prompt && <span className="text-slate-500"> — {p.ai_pitch_prompt.slice(0, 60)}{p.ai_pitch_prompt.length > 60 ? '…' : ''}</span>}
+                                  </span>
+                                </label>
+                              ))}
+                            </div>
+                            {(() => {
+                              const exclusionKey = JSON.stringify([...excludedVitalsProducts].sort());
+                              const hasUnsavedVitalsExclusions = exclusionKey !== savedVitalsExclusions;
+                              if (!hasUnsavedVitalsExclusions) return null;
+                              return (
+                                <div className="mt-2">
+                                  <button
+                                    onClick={async () => {
+                                      if (!latestVisitId) return;
+                                      setVitalsExclusionSaving(true); setVitalsExclusionError('');
+                                      try {
+                                        const r = await fetch(`/api/visit/${latestVisitId}`, {
+                                          method: 'PUT',
+                                          headers: { 'Content-Type': 'application/json' },
+                                          body: JSON.stringify({ excluded_ids: [...excludedVitalsProducts] }),
+                                        }).then(x => x.json());
+                                        if (!r?.success) { setVitalsExclusionError('تعذّر حفظ الاستثناءات — تحقّق من الاتصال وأعد المحاولة.'); return; }
+                                        setSavedVitalsExclusions(exclusionKey);
+                                      } catch {
+                                        setVitalsExclusionError('تعذّر حفظ الاستثناءات — تحقّق من الاتصال وأعد المحاولة.');
+                                      } finally {
+                                        setVitalsExclusionSaving(false);
+                                      }
+                                    }}
+                                    disabled={vitalsExclusionSaving}
+                                    className="w-full text-center text-xs font-bold text-teal-700 bg-teal-50 border border-teal-200 rounded-lg py-2 hover:bg-teal-100 transition disabled:opacity-60">
+                                    {vitalsExclusionSaving ? 'جارٍ الحفظ...' : 'حفظ الاستثناءات'}
+                                  </button>
+                                  {vitalsExclusionError && <p className="text-[10px] text-rose-600 mt-1">{vitalsExclusionError}</p>}
+                                </div>
+                              );
+                            })()}
                           </div>
                         )}
                       </div>

@@ -1868,31 +1868,79 @@ ${planUrl}
                       {latestGeneratedReport}
                     </p>
                   </div>
-                  {(latestPharmacistSummary || latestMedicationsAlert || selectedSymptoms.length > 0) && (
+                  {(latestPharmacistSummary || latestMedicationsAlert || selectedSymptoms.length > 0 || bpFactors.length > 0 || sugarFactors.length > 0) && (
                     <div className="px-5 pb-2">
                       <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 space-y-3">
                         <p className="text-[10px] font-bold text-slate-400">ملخص للصيدلاني — لا يصل للمريض</p>
-                        {selectedSymptoms.length > 0 && (
-                          <div>
-                            <p className="text-[9px] font-bold text-slate-400 mb-1.5">الأعراض المصاحبة</p>
-                            <div className="flex flex-wrap gap-1.5">
-                              {selectedSymptoms.map(s => (
-                                <span key={s} className="text-[10px] font-bold text-slate-600 bg-white border border-slate-200 px-2.5 py-1 rounded-lg">{s}</span>
-                              ))}
+
+                        {/* قسم ضغط الدم */}
+                        {activeTests.bp && (
+                          <div className="space-y-2">
+                            <p className="text-[10px] font-bold text-slate-500 border-b border-slate-200 pb-1">ضغط الدم</p>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[9px] font-bold text-slate-400">دواء الضغط:</span>
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${tookBpMed ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-500'}`}>
+                                {tookBpMed ? 'أخذه ✓' : 'لم يأخذه'}
+                              </span>
                             </div>
+                            {selectedSymptoms.filter(s => bpSymptomsList.includes(s)).length > 0 && (
+                              <div>
+                                <p className="text-[9px] font-bold text-slate-400 mb-1">أعراض مصاحبة</p>
+                                <div className="flex flex-wrap gap-1">
+                                  {selectedSymptoms.filter(s => bpSymptomsList.includes(s)).map(s => (
+                                    <span key={s} className="text-[10px] font-bold text-slate-600 bg-white border border-slate-200 px-2 py-0.5 rounded-lg">{s}</span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            {bpFactors.length > 0 && (
+                              <div>
+                                <p className="text-[9px] font-bold text-slate-400 mb-1">عوامل مؤثرة</p>
+                                <div className="flex flex-wrap gap-1">
+                                  {bpFactors.map(f => {
+                                    const label = f === 'had_stimulants' ? 'شرب قهوة / شاي / مكيّف' : f === 'recent_exertion' ? 'مجهود بدني مؤخراً' : f === 'recent_heavy_meal' ? 'تناول وجبة دسمة مؤخراً' : f === 'is_stressed' ? 'يشعر بتوتر أو قلق' : f;
+                                    return <span key={f} className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg">{label}</span>;
+                                  })}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         )}
-                        {(bpFactors.length > 0 || sugarFactors.length > 0) && (
-                          <div>
-                            <p className="text-[9px] font-bold text-slate-400 mb-1.5">عوامل مؤثرة على القياس</p>
-                            <div className="flex flex-wrap gap-1.5">
-                              {[...new Set([...bpFactors, ...sugarFactors])].map(f => {
-                                const label = f === 'had_stimulants' ? 'شرب قهوة / شاي / مكيّف' : f === 'recent_exertion' ? 'مجهود بدني مؤخراً' : f === 'recent_heavy_meal' ? 'تناول وجبة دسمة مؤخراً' : f === 'is_stressed' ? 'يشعر بتوتر أو قلق' : f;
-                                return <span key={f} className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg">{label}</span>;
-                              })}
+
+                        {/* قسم السكري */}
+                        {activeTests.sugar && (
+                          <div className="space-y-2">
+                            <p className="text-[10px] font-bold text-slate-500 border-b border-slate-200 pb-1">السكري</p>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[9px] font-bold text-slate-400">دواء السكري:</span>
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${tookSugarMed ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-500'}`}>
+                                {tookSugarMed ? 'أخذه ✓' : 'لم يأخذه'}
+                              </span>
                             </div>
+                            {selectedSymptoms.filter(s => sugarSymptomsList.includes(s)).length > 0 && (
+                              <div>
+                                <p className="text-[9px] font-bold text-slate-400 mb-1">أعراض مصاحبة</p>
+                                <div className="flex flex-wrap gap-1">
+                                  {selectedSymptoms.filter(s => sugarSymptomsList.includes(s)).map(s => (
+                                    <span key={s} className="text-[10px] font-bold text-slate-600 bg-white border border-slate-200 px-2 py-0.5 rounded-lg">{s}</span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            {sugarFactors.length > 0 && (
+                              <div>
+                                <p className="text-[9px] font-bold text-slate-400 mb-1">عوامل مؤثرة</p>
+                                <div className="flex flex-wrap gap-1">
+                                  {sugarFactors.map(f => {
+                                    const label = f === 'had_stimulants' ? 'شرب قهوة / شاي / مكيّف' : f === 'recent_exertion' ? 'مجهود بدني مؤخراً' : f === 'recent_heavy_meal' ? 'تناول وجبة دسمة مؤخراً' : f === 'is_stressed' ? 'يشعر بتوتر أو قلق' : f;
+                                    return <span key={f} className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg">{label}</span>;
+                                  })}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         )}
+
                         {latestPharmacistSummary && (
                           <p className="text-sm text-slate-700 leading-relaxed font-medium">{latestPharmacistSummary}</p>
                         )}

@@ -1934,6 +1934,53 @@ ${planUrl}
                       </div>
                     </div>
                   </div>
+                  <div className="px-5 pt-4">
+                    <div className={activeTests.bp && activeTests.sugar ? 'grid grid-cols-2 gap-4' : ''}>
+                      {activeTests.bp && (
+                        <div>
+                          <div className="flex items-baseline gap-1.5">
+                            <span className="text-[34px] font-black text-slate-900 leading-none">{finalSys}/{finalDia}</span>
+                            <span className="text-sm text-slate-400">مم زئبق</span>
+                          </div>
+                          <div className="h-px bg-slate-200 my-3.5" />
+                          <div className="flex text-center">
+                            <div className="flex-1">
+                              <p className="text-xl font-black text-slate-900">{finalHeartRate ?? '—'}</p>
+                              <p className="text-[11px] text-slate-400 mt-0.5">نبض/دقيقة</p>
+                            </div>
+                            {activeTests.bp && (
+                              <>
+                                <div className="w-px bg-slate-200" />
+                                <div className="flex-1">
+                                  <p className={`text-xl font-black ${finalSys >= 140 || finalDia >= 90 ? 'text-amber-600' : 'text-teal-700'}`}>
+                                    {finalSys >= 140 || finalDia >= 90 ? 'مرتفع' : 'طبيعي'}
+                                  </p>
+                                  <p className="text-[11px] text-slate-400 mt-0.5">تصنيف الضغط</p>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      {activeTests.sugar && (
+                        <div className={activeTests.bp ? 'border-r border-slate-200 pr-4' : ''}>
+                          <div className="flex items-baseline gap-1.5">
+                            <span className="text-[34px] font-black text-slate-900 leading-none">{sugarValue}</span>
+                            <span className="text-sm text-slate-400">mg/dL</span>
+                          </div>
+                          <div className="h-px bg-slate-200 my-3.5" />
+                          <div className="flex justify-center text-center">
+                            <div>
+                              <p className="text-base font-black text-slate-700">
+                                {sugarType === 'fasting' ? 'صائم' : sugarType === 'postprandial' ? 'بعد الأكل' : 'عشوائي'}
+                              </p>
+                              <p className="text-[11px] text-slate-400 mt-0.5">نوع القراءة</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                   {(latestPharmacistSummary || latestMedicationsAlert || selectedSymptoms.length > 0 || bpFactors.length > 0 || sugarFactors.length > 0) && (
                     <div className="px-5 pb-2">
                       <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 space-y-3">

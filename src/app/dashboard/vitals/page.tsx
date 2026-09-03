@@ -1079,8 +1079,8 @@ ${planUrl}
     const cleanPhone = normalizePhone(currentPatient.phone_number);
     const visitUrl = `${window.location.origin}/vitals/view/${latestVisitId}`;
     const msg = reportLanguage === 'en'
-      ? `Hello ${currentPatient.name} 👋\nYour vitals have been recorded at ${pharmacyNameForOutput}.\n\nYour medical report:\n${visitUrl}\n\n🔒 A secure link, personal to you\n\nBest regards, the ${pharmacyNameForOutput} team 🌿`
-      : `مرحباً ${currentPatient.name} 👋\nتم توثيق فحوصاتك الحيوية لدى ${pharmacyName}.\n\nرابط تقريرك الطبي:\n${visitUrl}\n\n🔒 رابط آمن ومخصص لك\n\nمع تحيات فريق ${pharmacyName} 🌿`;
+      ? `Hello ${currentPatient.name} 👋\nYour vitals have been recorded at ${pharmacyNameForOutput}.\n\nYour results:\n${visitUrl}\n\nBest regards, the ${pharmacyNameForOutput} team 💚`
+      : `مرحباً ${currentPatient.name} 👋\nتم توثيق فحوصاتك الحيوية لدى ${pharmacyName}.\n\nرابط نتائج تحليلك:\n${visitUrl}\n\nمع تحيات فريق ${pharmacyName} 💚`;
     window.open(`https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(msg)}`, '_blank');
   };
 
@@ -2135,38 +2135,6 @@ ${planUrl}
                                 </label>
                               ))}
                             </div>
-                            {(() => {
-                              const exclusionKey = JSON.stringify([...excludedVitalsProducts].sort());
-                              const hasUnsavedVitalsExclusions = exclusionKey !== savedVitalsExclusions;
-                              if (!hasUnsavedVitalsExclusions) return null;
-                              return (
-                                <div className="mt-2">
-                                  <button
-                                    onClick={async () => {
-                                      if (!latestVisitId) return;
-                                      setVitalsExclusionSaving(true); setVitalsExclusionError('');
-                                      try {
-                                        const r = await fetch(`/api/visit/${latestVisitId}`, {
-                                          method: 'PUT',
-                                          headers: { 'Content-Type': 'application/json' },
-                                          body: JSON.stringify({ excluded_ids: [...excludedVitalsProducts] }),
-                                        }).then(x => x.json());
-                                        if (!r?.success) { setVitalsExclusionError('تعذّر حفظ الاستثناءات — تحقّق من الاتصال وأعد المحاولة.'); return; }
-                                        setSavedVitalsExclusions(exclusionKey);
-                                      } catch {
-                                        setVitalsExclusionError('تعذّر حفظ الاستثناءات — تحقّق من الاتصال وأعد المحاولة.');
-                                      } finally {
-                                        setVitalsExclusionSaving(false);
-                                      }
-                                    }}
-                                    disabled={vitalsExclusionSaving}
-                                    className="w-full text-center text-xs font-bold text-teal-700 bg-teal-50 border border-teal-200 rounded-lg py-2 hover:bg-teal-100 transition disabled:opacity-60">
-                                    {vitalsExclusionSaving ? 'جارٍ الحفظ...' : 'حفظ الاستثناءات'}
-                                  </button>
-                                  {vitalsExclusionError && <p className="text-[10px] text-rose-600 mt-1">{vitalsExclusionError}</p>}
-                                </div>
-                              );
-                            })()}
                           </div>
                         )}
                       </div>
@@ -2191,23 +2159,63 @@ ${planUrl}
                     </p>
                   </div>
                   )}
-                  <div className="px-5 pb-5 space-y-3">
-                    {/* زر عرض صفحة المريض */}
-                    <button onClick={() => window.open(`${window.location.origin}/vitals/view/${latestVisitId}`, '_blank')}
-                      className="w-full flex items-center justify-center gap-2 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-bold transition hover:bg-slate-50 shadow-sm">
+                  <div className="mx-5 my-5 border border-slate-200 rounded-xl divide-y divide-slate-200 overflow-hidden">
+                    {(() => {
+                      const exclusionKey = JSON.stringify([...excludedVitalsProducts].sort());
+                      const hasUnsavedVitalsExclusions = (excludedVitalsProducts.size > 0 || savedVitalsExclusions !== '') && exclusionKey !== savedVitalsExclusions;
+                      if (hasUnsavedVitalsExclusions) {
+                        return (
+                          <div>
+                            <button
+                              onClick={async () => {
+                                if (!latestVisitId) return;
+                                setVitalsExclusionSaving(true); setVitalsExclusionError('');
+                                try {
+                                  const r = await fetch(`/api/visit/${latestVisitId}`, {
+                                    method: 'PUT',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ excluded_ids: [...excludedVitalsProducts] }),
+                                  }).then(x => x.json());
+                                  if (!r?.success) { setVitalsExclusionError('تعذّر حفظ الاستثناءات — تحقّق من الاتصال وأعد المحاولة.'); return; }
+                                  setSavedVitalsExclusions(exclusionKey);
+                                } catch {
+                                  setVitalsExclusionError('تعذّر حفظ الاستثناءات — تحقّق من الاتصال وأعد المحاولة.');
+                                } finally {
+                                  setVitalsExclusionSaving(false);
+                                }
+                              }}
+                              disabled={vitalsExclusionSaving}
+                              className="w-full flex items-center justify-center gap-2 py-3 bg-purple-50 text-purple-700 text-xs font-bold transition hover:bg-purple-100 cursor-pointer disabled:opacity-60">
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
+                              </svg>
+                              {vitalsExclusionSaving ? 'جارٍ الحفظ...' : 'حفظ الاستثناءات'}
+                            </button>
+                            {vitalsExclusionError && (
+                              <p className="px-4 pb-2 text-[10px] font-bold text-rose-600 bg-purple-50">{vitalsExclusionError}</p>
+                            )}
+                          </div>
+                        );
+                      }
+                      if (savedVitalsExclusions !== '' && savedVitalsExclusions !== '[]') {
+                        return (
+                          <div className="w-full flex items-center justify-center gap-2 py-3 bg-emerald-50">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                            <span className="text-xs font-bold text-emerald-700">الاستثناءات محفوظة</span>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
+                    <button
+                      onClick={() => window.open(`${window.location.origin}/vitals/view/${latestVisitId}`, '_blank')}
+                      className="w-full flex items-center justify-center gap-2 py-3 bg-white text-teal-700 text-xs font-bold transition hover:bg-teal-50 cursor-pointer">
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
                       </svg>
                       عرض صفحة المريض
                     </button>
-                    <button onClick={handlePrintPDF}
-                      className="w-full flex items-center justify-center gap-2 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-bold transition hover:bg-slate-50 shadow-sm">
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-1.913-.247M6.34 18H5.25A2.25 2.25 0 013 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 011.913-.247m10.5 0a48.536 48.536 0 00-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5zm-3 0h.008v.008H15V10.5z" />
-                      </svg>
-                      طباعة PDF
-                    </button>
-                    <label className="flex items-start gap-2.5 px-5 pb-3 cursor-pointer">
+                    <label className="flex items-start gap-2.5 px-4 py-3 bg-slate-50 cursor-pointer">
                       <input
                         type="checkbox"
                         checked={vitalsReportReviewed}
@@ -2219,9 +2227,11 @@ ${planUrl}
                       </span>
                     </label>
                     {vitalsSendError && (
-                      <p className="px-5 pb-2 text-[11px] font-bold text-rose-600">{vitalsSendError}</p>
+                      <div className="px-4 py-2.5 bg-rose-50 border-b border-rose-200">
+                        <p className="text-[11px] font-bold text-rose-700">{vitalsSendError}</p>
+                      </div>
                     )}
-                    <div className="px-5 pb-5">
+                    <div className="flex">
                       <button
                         onClick={async () => {
                           if (!vitalsReportReviewed || !latestVisitId) return;
@@ -2233,22 +2243,31 @@ ${planUrl}
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ excluded_ids: [...excludedVitalsProducts] }),
                               }).then(x => x.json());
-                              if (!r?.success) { setVitalsSendError('تعذّر حفظ الاستثناءات — لم يُرسل التقرير. تحقّق من الاتصال وأعد المحاولة.'); return; }
+                              if (!r?.success) { setVitalsSendError('تعذّر حفظ الاستثناءات — لم يُرسل. تحقّق من الاتصال وأعد المحاولة.'); return; }
                               setSavedVitalsExclusions(JSON.stringify([...excludedVitalsProducts].sort()));
                             }
                             sendWhatsApp();
                           } catch {
-                            setVitalsSendError('تعذّر حفظ الاستثناءات — لم يُرسل التقرير. تحقّق من الاتصال وأعد المحاولة.');
+                            setVitalsSendError('تعذّر حفظ الاستثناءات — لم يُرسل. تحقّق من الاتصال وأعد المحاولة.');
                           } finally {
                             setVitalsSendApproving(false);
                           }
                         }}
                         disabled={!vitalsReportReviewed || vitalsSendApproving}
-                        className="w-full flex items-center justify-center gap-2 py-3 bg-[#25D366] hover:bg-[#20BD5A] text-white rounded-xl text-xs font-bold transition shadow-sm disabled:opacity-40 disabled:cursor-not-allowed">
+                        className="flex-[2] flex items-center justify-center gap-2 py-3 border-l border-slate-200 text-xs font-bold transition disabled:opacity-40 disabled:cursor-not-allowed bg-[#25D366] hover:bg-[#20BD5A] text-white cursor-pointer">
                         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                           <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
                         </svg>
-                        {vitalsSendApproving ? 'جارٍ الإرسال...' : 'إرسال WhatsApp'}
+                        {vitalsSendApproving ? 'جارٍ الإرسال...' : 'إرسال للمريض'}
+                      </button>
+                      <button
+                        onClick={handlePrintPDF}
+                        disabled={!vitalsReportReviewed}
+                        className="flex-1 flex items-center justify-center gap-2 py-3 text-slate-700 text-xs font-bold transition disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 cursor-pointer">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-1.913-.247M6.34 18H5.25A2.25 2.25 0 013 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 011.913-.247m10.5 0a48.536 48.536 0 00-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5zm-3 0h.008v.008H15V10.5z" />
+                        </svg>
+                        طباعة
                       </button>
                     </div>
                   </div>
@@ -2575,16 +2594,15 @@ ${planUrl}
                         const visitUrl = `${window.location.origin}/vitals/view/${latestVisitId}`;
                         const msg =
 `مرحباً ${currentPatient.name} 👋
-من فريق ${pharmacyName}
-تم توثيق فحوصاتك وإعداد خطتك الصحية.
+تم توثيق فحوصاتك الحيوية وإعداد خطتك الصحية لدى ${pharmacyName}.
 
-تقرير الضغط/السكري:
+رابط نتائج تحليلك:
 ${visitUrl}
 
-خطة الوزن:
+رابط خطة الوزن:
 ${weightPlanUrl}
 
-مع تحيات ${pharmacyName} 🌿`;
+مع تحيات فريق ${pharmacyName} 💚`;
                         window.open(`https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(msg)}`, '_blank');
                       }}
                       disabled={!vitalsReportReviewed || !weightReviewed}

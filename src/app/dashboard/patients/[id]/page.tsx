@@ -909,11 +909,19 @@ export default function PatientCardPage({ params }: PageProps) {
                                   </button>
                                 )}
                                 {matchedWeightPlan && (
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); window.open(`/weight/${matchedWeightPlan.id}`, '_blank'); }}
-                                    className="text-[10px] font-bold text-purple-700 bg-purple-50 border border-purple-200 px-2.5 py-1 rounded-lg hover:bg-purple-100 transition cursor-pointer">
-                                    خطة إدارة الوزن
-                                  </button>
+                                  <>
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); window.open(`/weight/${matchedWeightPlan.id}`, '_blank'); }}
+                                      className="text-[10px] font-bold text-purple-700 bg-purple-50 border border-purple-200 px-2.5 py-1 rounded-lg hover:bg-purple-100 transition cursor-pointer">
+                                      خطة إدارة الوزن
+                                    </button>
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); window.open(`https://api.whatsapp.com/send?phone=${normalizePhone(patient.phone_number)}&text=${encodeURIComponent(`مرحباً ${patient.name} 😊\nمعكم ${pharmacyName}.\nخطتك الغذائية بتاريخ ${formatDate(matchedWeightPlan.created_at)}:\n${window.location.origin}/weight/${matchedWeightPlan.id}\nنسعد بخدمتكم دائماً 💚`)}`, '_blank'); }}
+                                      className="flex items-center gap-1 text-[10px] font-bold text-purple-700 bg-purple-50 border border-purple-200 px-2.5 py-1 rounded-lg hover:bg-purple-100 transition cursor-pointer">
+                                      <IconWhatsApp className="w-3 h-3" />
+                                      إرسال الخطة
+                                    </button>
+                                  </>
                                 )}
                                 <button
                                   onClick={(e) => { e.stopPropagation(); window.open(`https://api.whatsapp.com/send?phone=${normalizePhone(patient.phone_number)}&text=${encodeURIComponent(`مرحباً ${patient.name} 👋\nرابط نتائج تحليلك لدى ${pharmacyName}:\n${window.location.origin}/vitals/view/${v.id}\nمع تحيات فريق ${pharmacyName} 💚`)}`, '_blank'); }}
@@ -968,104 +976,6 @@ export default function PatientCardPage({ params }: PageProps) {
           )}
         </div>
 
-        {/* ── خطط إدارة الوزن ── */}
-        {weightPlans.length > 0 && (
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden mt-4">
-            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between flex-wrap gap-2">
-              <p className="text-sm font-bold text-slate-900">خطط إدارة الوزن</p>
-              <span className="text-[11px] font-bold text-slate-400">{weightPlans.length} خطة</span>
-            </div>
-            <div className="divide-y divide-slate-100">
-              {weightPlans.map((wp) => {
-                const isOpen = expandedPlanId === wp.id;
-                const nutrition = wp.nutrition_plan;
-                return (
-                  <div key={wp.id}>
-                    {/* رأس الخطة */}
-                    <div
-                      onClick={() => setExpandedPlanId(isOpen ? null : wp.id)}
-                      className="w-full flex items-center justify-between gap-3 px-5 py-4 hover:bg-slate-50/60 transition-colors cursor-pointer">
-                      <div className="flex items-center gap-3 flex-wrap min-w-0">
-                        <span className="text-[11px] font-bold text-slate-400">{formatDate(wp.created_at)}</span>
-                        <span className="flex items-center gap-1 text-xs font-bold text-purple-700 bg-purple-50 border border-purple-100 px-2.5 py-1 rounded-lg">
-                          <IconScale className="w-3 h-3" />
-                          {wp.weight_kg} kg
-                          <span className="text-[9px] text-purple-400 font-normal">BMI {wp.bmi}</span>
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); window.open(`/weight/${wp.id}`, '_blank'); }}
-                          className="text-[10px] font-bold text-teal-700 bg-teal-50 border border-teal-200 px-2.5 py-1 rounded-lg hover:bg-teal-100 transition cursor-pointer">
-                          فتح الخطة
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); window.open(`https://api.whatsapp.com/send?phone=${normalizePhone(patient.phone_number)}&text=${encodeURIComponent(`مرحباً ${patient.name} 😊\nمعكم ${pharmacyName}.\nخطتك الغذائية بتاريخ ${formatDate(wp.created_at)}:\n${window.location.origin}/weight/${wp.id}\nنسعد بخدمتكم دائماً 💚`)}`, '_blank'); }}
-                          className="text-[10px] font-bold text-green-700 bg-green-50 border border-green-200 px-2.5 py-1 rounded-lg hover:bg-green-100 transition cursor-pointer">
-                          إرسال واتساب
-                        </button>
-                        <IconChevron className="w-4 h-4 text-slate-400 shrink-0" open={isOpen} />
-                      </div>
-                    </div>
-
-                    {/* تفاصيل الخطة — للمراجعة الصيدلانية */}
-                    {isOpen && (
-                      <div className="px-5 pb-5 space-y-3 border-t border-slate-100 bg-slate-50/30 pt-4">
-                        {!nutrition ? (
-                          <p className="text-xs text-slate-400 font-medium">لم تُولَّد بعد</p>
-                        ) : !nutrition.clinical_reasoning && !nutrition.drug_matching && !nutrition.progress ? (
-                          <p className="text-xs text-slate-400 font-medium">خطة أُنشئت قبل إضافة التحليل السريري — لا تفاصيل مراجعة لها</p>
-                        ) : (
-                          <>
-                            {nutrition.clinical_reasoning && (
-                              <div>
-                                <p className="text-[10px] font-bold text-slate-400 mb-2">التحليل السريري</p>
-                                <div className="bg-white border border-slate-200 rounded-xl p-4 text-[11px] text-slate-700 leading-relaxed font-medium">
-                                  {nutrition.clinical_reasoning}
-                                </div>
-                              </div>
-                            )}
-
-                            {nutrition.drug_matching && (
-                              <div>
-                                <p className="text-[10px] font-bold text-slate-400 mb-2">مطابقة الأدوية</p>
-                                <div className="flex flex-wrap gap-1.5">
-                                  {nutrition.drug_matching.matched.map((m) => (
-                                    <span key={m} className="text-[11px] font-bold text-slate-700 bg-white border border-slate-200 px-2.5 py-1 rounded-lg">{m}</span>
-                                  ))}
-                                  {nutrition.drug_matching.unknown.map((u) => (
-                                    <span key={u} className="text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg">{u}</span>
-                                  ))}
-                                </div>
-                                {nutrition.drug_matching.unknown.length > 0 && (
-                                  <p className="text-[10px] text-amber-600 font-medium mt-1.5">لم يطابقها النظام — تحذيراتها لم تصل الخطة</p>
-                                )}
-                              </div>
-                            )}
-
-                            {nutrition.progress && (
-                              <div>
-                                <p className="text-[10px] font-bold text-slate-400 mb-2">التقدّم</p>
-                                <div className="flex flex-wrap gap-1.5">
-                                  <span className="text-[11px] font-bold text-slate-700 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-lg">
-                                    منذ آخر زيارة: {nutrition.progress.diffFromPrevious > 0 ? '+' : ''}{nutrition.progress.diffFromPrevious} كغ خلال {nutrition.progress.daysSincePrevious} يوماً
-                                  </span>
-                                  <span className="text-[11px] font-bold text-slate-700 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-lg">
-                                    منذ البداية: {nutrition.progress.diffFromBaseline > 0 ? '+' : ''}{nutrition.progress.diffFromBaseline} كغ خلال {nutrition.progress.daysSinceBaseline} يوماً
-                                  </span>
-                                </div>
-                              </div>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
           </div>
         </div>
 

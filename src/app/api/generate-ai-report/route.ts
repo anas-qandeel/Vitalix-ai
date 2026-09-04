@@ -342,11 +342,12 @@ ${recentVisitsLine}`;
               contents: userPrompt,
               config: {
                 systemInstruction: PHARMACIST_SUMMARY_INSTRUCTION,
-                maxOutputTokens: 1500,
+                maxOutputTokens: 3000,
               },
             });
             const summaryRaw = summaryResponse.text?.trim() || '';
             console.log('[Gemini] pharmacist summaryRaw length:', summaryRaw.length, '| first 100:', summaryRaw.slice(0, 100));
+            console.log('[Gemini] summaryRaw LAST 80:', summaryRaw.slice(-80));
             const jsonMatch = summaryRaw.match(/\{[\s\S]*\}/);
             if (jsonMatch) {
               const parsed = JSON.parse(jsonMatch[0]);
@@ -356,10 +357,22 @@ ${recentVisitsLine}`;
               if (typeof parsed.medications_alert === 'string' && parsed.medications_alert.trim() && parsed.medications_alert !== 'null') {
                 medicationsAlert = parsed.medications_alert.trim();
               }
+            } else {
+              // استجابة مقطوعة (بلا } ختامية): ننقذ نص pharmacist_summary مباشرة من الخام —
+              // نأخذ ما بعد "pharmacist_summary":" حتى آخر جملة مكتملة (نقطة) أو نهاية الخام
+              const rescue = summaryRaw.match(/"pharmacist_summary"\s*:\s*"([\s\S]*?)(?:"\s*,|$)/);
+              if (rescue && rescue[1] && rescue[1].trim().length > 20) {
+                let text = rescue[1].trim();
+                const lastDot = text.lastIndexOf('.');
+                if (lastDot > 20) text = text.slice(0, lastDot + 1);
+                pharmacistSummary = text;
+                console.warn('[Gemini] pharmacist summary rescued from truncated JSON');
+              }
             }
           } catch (summaryErr) {
             console.warn('[Gemini] pharmacist summary failed (non-blocking):', summaryErr);
           }
+          console.log('[Gemini] returning — pharmacistSummary:', pharmacistSummary ? `${pharmacistSummary.length} chars` : 'NULL');
           return NextResponse.json({ report, pharmacistSummary, medicationsAlert });
         }
         throw lastModelErr || new Error('no model returned a response');

@@ -996,11 +996,13 @@ ${planUrl}
         setLatestVisitId(inserted.id);
         if (pharmacistSummaryLocal) setLatestPharmacistSummary(pharmacistSummaryLocal);
         if (medicationsAlertLocal) setLatestMedicationsAlert(medicationsAlertLocal);
-        // جلب التوصيات البيعية من نفس مسار صفحة المريض — يعيد استخدام المنطق القائم
-        fetch(`/api/visit/${inserted.id}`)
-          .then(r => r.json())
-          .then(d => { if (d.recommendations) setVitalsRecommendations(d.recommendations); })
-          .catch(() => {});
+        // جلب التوصيات البيعية مؤجَّلاً دورة — يضمن أن setLatestPharmacistSummary اكتمل قبل أول كتابة لـsessionStorage (منع سباق closure قديمة تكتب null)
+        setTimeout(() => {
+          fetch(`/api/visit/${inserted.id}`)
+            .then(r => r.json())
+            .then(d => { if (d.recommendations) setVitalsRecommendations(d.recommendations); })
+            .catch(() => {});
+        }, 0);
         setPatientHistory([inserted as VisitationRecord, ...patientHistory]);
         // تمرير تلقائي إلى التقرير بعد لحظة قصيرة للسماح بالrender
         setTimeout(() => {
@@ -2013,7 +2015,7 @@ ${planUrl}
                   </div>
                   {activeTests.bp && <BpHistoryChart bpHistory={patientHistory.filter((v): v is VisitationRecord & { bp_systolic: number; bp_diastolic: number } => v.bp_systolic != null && v.bp_diastolic != null).slice().reverse()} formatDate={formatDate} />}
                   {activeTests.sugar && <SugarHistoryChart sugarHistory={patientHistory.filter((v): v is VisitationRecord & { sugar_value: number } => v.sugar_value != null).slice().reverse()} formatDate={formatDate} />}
-                  {(latestPharmacistSummary || latestMedicationsAlert || selectedSymptoms.length > 0 || bpFactors.length > 0 || sugarFactors.length > 0) && (
+                  {(activeTests.bp || activeTests.sugar) && (
                     <div className="px-5 pb-2">
                       <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 space-y-3">
                         <p className="text-xs font-bold text-slate-400">ملخص للصيدلاني — لا يصل للمريض</p>

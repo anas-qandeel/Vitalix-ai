@@ -332,6 +332,7 @@ export default function PatientCardPage({ params }: PageProps) {
   const [pdfGenerating, setPdfGenerating] = useState(false);
   const [chronicMeds, setChronicMeds] = useState<ChronicMed[]>([]);
   const [weightPlans, setWeightPlans] = useState<WeightPlan[]>([]);
+  const [waModalVisit, setWaModalVisit] = useState<{ visitId: string; planId: string | null; planDate: string | null } | null>(null);
   const [expandedPlanId, setExpandedPlanId] = useState<string | null>(null);
   const [heightInput, setHeightInput] = useState('');
   const [savingHeight, setSavingHeight] = useState(false);
@@ -915,19 +916,13 @@ export default function PatientCardPage({ params }: PageProps) {
                                       className="text-[10px] font-bold text-purple-700 bg-purple-50 border border-purple-200 px-2.5 py-1 rounded-lg hover:bg-purple-100 transition cursor-pointer">
                                       خطة إدارة الوزن
                                     </button>
-                                    <button
-                                      onClick={(e) => { e.stopPropagation(); window.open(`https://api.whatsapp.com/send?phone=${normalizePhone(patient.phone_number)}&text=${encodeURIComponent(`مرحباً ${patient.name} 😊\nمعكم ${pharmacyName}.\nخطتك الغذائية بتاريخ ${formatDate(matchedWeightPlan.created_at)}:\n${window.location.origin}/weight/${matchedWeightPlan.id}\nنسعد بخدمتكم دائماً 💚`)}`, '_blank'); }}
-                                      className="flex items-center gap-1 text-[10px] font-bold text-purple-700 bg-purple-50 border border-purple-200 px-2.5 py-1 rounded-lg hover:bg-purple-100 transition cursor-pointer">
-                                      <IconWhatsApp className="w-3 h-3" />
-                                      إرسال الخطة
-                                    </button>
                                   </>
                                 )}
                                 <button
-                                  onClick={(e) => { e.stopPropagation(); window.open(`https://api.whatsapp.com/send?phone=${normalizePhone(patient.phone_number)}&text=${encodeURIComponent(`مرحباً ${patient.name} 👋\nرابط نتائج تحليلك لدى ${pharmacyName}:\n${window.location.origin}/vitals/view/${v.id}\nمع تحيات فريق ${pharmacyName} 💚`)}`, '_blank'); }}
-                                  className="flex items-center gap-1 text-[10px] font-bold text-[#25D366] hover:underline cursor-pointer">
+                                  onClick={(e) => { e.stopPropagation(); setWaModalVisit({ visitId: v.id, planId: matchedWeightPlan?.id ?? null, planDate: matchedWeightPlan?.created_at ?? null }); }}
+                                  className="flex items-center gap-1 text-[10px] font-bold text-white bg-[#25D366] hover:bg-[#20BD5A] px-2.5 py-1 rounded-lg transition cursor-pointer">
                                   <IconWhatsApp className="w-3 h-3" />
-                                  إرسال للمريض
+                                  إرسال واتساب
                                 </button>
                               </div>
                             </div>
@@ -982,6 +977,68 @@ export default function PatientCardPage({ params }: PageProps) {
       </main>
 
       <AppFooter className="max-w-5xl mx-auto px-6 py-8 border-t border-slate-200/60 mt-4" />
+
+      {waModalVisit && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setWaModalVisit(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">إرسال عبر واتساب</h3>
+                <p className="text-[11px] text-slate-400 mt-0.5">اختر ما تريد إرساله لـ{patient.name}</p>
+              </div>
+              <button onClick={() => setWaModalVisit(null)} className="w-8 h-8 bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-full flex items-center justify-center transition shrink-0">✕</button>
+            </div>
+            <div className="p-3 space-y-1.5">
+              <button
+                onClick={() => { window.open(`https://api.whatsapp.com/send?phone=${normalizePhone(patient.phone_number)}&text=${encodeURIComponent(`مرحباً ${patient.name} 👋\nرابط نتائج تحليلك لدى ${pharmacyName}:\n${window.location.origin}/vitals/view/${waModalVisit.visitId}\nمع تحيات فريق ${pharmacyName} 💚`)}`, '_blank'); setWaModalVisit(null); }}
+                className="w-full flex items-center gap-3 p-3 rounded-xl border border-slate-200 hover:border-teal-300 hover:bg-teal-50/50 transition cursor-pointer text-right group">
+                <div className="w-9 h-9 rounded-lg bg-teal-50 border border-teal-100 flex items-center justify-center shrink-0 group-hover:bg-teal-100 transition">
+                  <IconHeart className="w-4 h-4 text-teal-600" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold text-slate-900">نتائج التحليل</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">قراءات الضغط والسكري لهذه الزيارة</p>
+                </div>
+                <svg className="w-4 h-4 text-slate-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+                </svg>
+              </button>
+              {waModalVisit.planId && (
+                <button
+                  onClick={() => { window.open(`https://api.whatsapp.com/send?phone=${normalizePhone(patient.phone_number)}&text=${encodeURIComponent(`مرحباً ${patient.name} 😊\nمعكم ${pharmacyName}.\nخطتك الغذائية بتاريخ ${waModalVisit.planDate ? formatDate(waModalVisit.planDate) : ''}:\n${window.location.origin}/weight/${waModalVisit.planId}\nنسعد بخدمتكم دائماً 💚`)}`, '_blank'); setWaModalVisit(null); }}
+                  className="w-full flex items-center gap-3 p-3 rounded-xl border border-slate-200 hover:border-purple-300 hover:bg-purple-50/50 transition cursor-pointer text-right group">
+                  <div className="w-9 h-9 rounded-lg bg-purple-50 border border-purple-100 flex items-center justify-center shrink-0 group-hover:bg-purple-100 transition">
+                    <IconScale className="w-4 h-4 text-purple-600" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold text-slate-900">خطة الوزن</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">القائمة الغذائية وتحليل الوزن</p>
+                  </div>
+                  <svg className="w-4 h-4 text-slate-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+                  </svg>
+                </button>
+              )}
+              {waModalVisit.planId && (
+                <button
+                  onClick={() => { window.open(`https://api.whatsapp.com/send?phone=${normalizePhone(patient.phone_number)}&text=${encodeURIComponent(`مرحباً ${patient.name} 👋\nتم توثيق فحوصاتك وإعداد خطتك الصحية لدى ${pharmacyName}.\n\nرابط نتائج تحليلك:\n${window.location.origin}/vitals/view/${waModalVisit.visitId}\n\nرابط خطة الوزن:\n${window.location.origin}/weight/${waModalVisit.planId}\n\nمع تحيات فريق ${pharmacyName} 💚`)}`, '_blank'); setWaModalVisit(null); }}
+                  className="w-full flex items-center gap-3 p-3 rounded-xl bg-[#25D366] hover:bg-[#20BD5A] transition cursor-pointer text-right">
+                  <div className="w-9 h-9 rounded-lg bg-white/20 flex items-center justify-center shrink-0">
+                    <IconWhatsApp className="w-4 h-4 text-white" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold text-white">الاثنان معاً</p>
+                    <p className="text-[10px] text-white/80 mt-0.5">رسالة واحدة برابطين</p>
+                  </div>
+                  <svg className="w-4 h-4 text-white/70 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+                  </svg>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

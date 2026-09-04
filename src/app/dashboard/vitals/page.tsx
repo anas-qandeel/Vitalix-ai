@@ -54,6 +54,12 @@ interface VisitationRecord {
   bp_sys2: number | null;
   bp_dia2: number | null;
   hr2: number | null;
+  is_dual_bp: boolean | null;
+  took_bp_medication: boolean | null;
+  took_sugar_medication: boolean | null;
+  pharmacist_summary: string | null;
+  medications_alert: string | null;
+  recommendations_snapshot: { id: string; category: string; brand_name: string; price: number | null; image_url: string | null; ai_pitch_prompt: string | null; excluded: boolean }[] | null;
   ai_report_output: string | null;
   heart_rate: number | null;
   performed_by: string | null;
@@ -927,10 +933,9 @@ ${planUrl}
         took_sugar_medication: tookSugarMed,
       };
 
-      // payload للـ AI فقط — يشمل الحقول الإضافية بدون إرسالها لـ DB
-      const aiPayload = { ...visitPayload, took_bp_medication: tookBpMed, took_sugar_medication: tookSugarMed };
-      // payload لـ DB فقط — بدون الحقول غير الموجودة في الجدول حتى يتم تنفيذ الـ migration
-      const { took_bp_medication: _tbp, took_sugar_medication: _tsg, ...dbPayload } = visitPayload;
+      // الآن بعد تنفيذ الـ migration، الحقلان محفوظان في DB مباشرة — نستخدم نفس payload للاثنين
+      const aiPayload = visitPayload;
+      const dbPayload = visitPayload;
 
       let report = '';
       let pharmacistSummaryLocal: string | null = null;
@@ -2258,6 +2263,9 @@ ${planUrl}
                               if (!r?.success) { setVitalsSendError('تعذّر حفظ الاستثناءات — لم يُرسل. تحقّق من الاتصال وأعد المحاولة.'); return; }
                               setSavedVitalsExclusions(JSON.stringify([...excludedVitalsProducts].sort()));
                             }
+                            // لقطة كاملة للتوصيات وقت الإرسال الفعلي — تُحفظ لإعادة بناء شاشة الفحص لاحقاً بدقة تاريخية
+                            const snapshot = vitalsRecommendations.map(p => ({ ...p, excluded: excludedVitalsProducts.has(p.id) }));
+                            await supabase.from('visitations').update({ recommendations_snapshot: snapshot }).eq('id', latestVisitId);
                             sendWhatsApp();
                           } catch {
                             setVitalsSendError('تعذّر حفظ الاستثناءات — لم يُرسل. تحقّق من الاتصال وأعد المحاولة.');

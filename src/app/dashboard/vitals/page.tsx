@@ -419,6 +419,7 @@ export default function VitalsPage() {
   const searchRef = useRef<HTMLDivElement>(null);
   const reportRef = useRef<HTMLDivElement>(null);
   const thinkingRef = useRef<HTMLDivElement>(null);
+  const hasRestoredRef = useRef(false);
 
   // ── حالة البحث ──
   const [searchQuery, setSearchQuery] = useState('');
@@ -658,11 +659,13 @@ ${planUrl}
         if (sSaved) setSavedVitalsExclusions(sSaved);
       } catch (e) { console.error("[vitals] restore failed:", e); }
     }
+    hasRestoredRef.current = true;
   }, []);
 
   // مزامنة الشاشة مع sessionStorage: يُكتب عند كل تغيّر، ويُحذف حين لا يكون هناك مريض.
   // يجب أن يبقى بعد useEffect الاستعادي أعلاه: على أول تحميل يحذف المخزون قبل أن تُملأ الحالة، فلا بد أن يكون الاستعادي قد قرأه أولاً.
   useEffect(() => {
+    if (!hasRestoredRef.current) return;
     if (!currentPatient) { sessionStorage.removeItem('vitalix_current_patient'); return; }
     sessionStorage.setItem('vitalix_current_patient', JSON.stringify({ patient: currentPatient, history: patientHistory, searchQuery, weightPlanId, weightValue, latestVisitId, activeTests, bpSys1, bpDia1, bpSys2, bpDia2, heartRate, heartRate2, sugarValue, sugarType, isDualBp, selectedSymptoms, bpFactors, sugarFactors, tookBpMed, tookSugarMed, latestPharmacistSummary, latestMedicationsAlert, vitalsRecommendations, excludedVitalsProducts: [...excludedVitalsProducts], savedVitalsExclusions }));
   }, [currentPatient, patientHistory, searchQuery, weightPlanId, weightValue, latestVisitId, activeTests, bpSys1, bpDia1, bpSys2, bpDia2, heartRate, heartRate2, sugarValue, sugarType, isDualBp, selectedSymptoms, bpFactors, sugarFactors, tookBpMed, tookSugarMed, latestPharmacistSummary, latestMedicationsAlert, vitalsRecommendations, excludedVitalsProducts, savedVitalsExclusions]);
@@ -2008,6 +2011,8 @@ ${planUrl}
                       )}
                     </div>
                   </div>
+                  {activeTests.bp && <BpHistoryChart bpHistory={patientHistory.filter((v): v is VisitationRecord & { bp_systolic: number; bp_diastolic: number } => v.bp_systolic != null && v.bp_diastolic != null).slice().reverse()} formatDate={formatDate} />}
+                  {activeTests.sugar && <SugarHistoryChart sugarHistory={patientHistory.filter((v): v is VisitationRecord & { sugar_value: number } => v.sugar_value != null).slice().reverse()} formatDate={formatDate} />}
                   {(latestPharmacistSummary || latestMedicationsAlert || selectedSymptoms.length > 0 || bpFactors.length > 0 || sugarFactors.length > 0) && (
                     <div className="px-5 pb-2">
                       <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 space-y-3">
@@ -2140,8 +2145,6 @@ ${planUrl}
                       </div>
                     </div>
                   )}
-                  {activeTests.bp && <BpHistoryChart bpHistory={patientHistory.filter((v): v is VisitationRecord & { bp_systolic: number; bp_diastolic: number } => v.bp_systolic != null && v.bp_diastolic != null).slice().reverse()} formatDate={formatDate} />}
-                  {activeTests.sugar && <SugarHistoryChart sugarHistory={patientHistory.filter((v): v is VisitationRecord & { sugar_value: number } => v.sugar_value != null).slice().reverse()} formatDate={formatDate} />}
                   <div className="px-5 py-2">
                     <button onClick={() => setReportExpanded(p => !p)}
                       className="w-full flex items-center justify-center gap-2 text-xs font-bold text-slate-600 hover:text-slate-800 py-2.5 rounded-xl hover:bg-slate-50 border border-slate-200 transition">

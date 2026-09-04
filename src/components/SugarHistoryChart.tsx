@@ -39,17 +39,32 @@ export default function SugarHistoryChart({
   return (
     <div className="px-5 pt-3 pb-4 border-t border-slate-100">
       <div className="flex items-center justify-between mb-2 flex-wrap gap-y-1">
-        <p className="text-xs font-bold text-slate-700">سجل السكري (آخر {points.length} زيارات)</p>
-        <div className="flex items-center gap-2">
-          {usedTypes.map(t => (
-            <span key={t} className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full" style={{ background: TYPE_COLOR[t] }} />
-              <span className="text-[9px] text-slate-400">{TYPE_LABEL[t]}</span>
-            </span>
-          ))}
+        <div className="flex items-center gap-3">
+          <p className="text-xs font-bold text-slate-700">سجل السكري (آخر {points.length} زيارات)</p>
+          <div className="flex items-center gap-2">
+            {usedTypes.map(t => (
+              <span key={t} className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full" style={{ background: TYPE_COLOR[t] }} />
+                <span className="text-[9px] text-slate-400">{TYPE_LABEL[t]}</span>
+              </span>
+            ))}
+          </div>
         </div>
+        {(() => {
+          const prev = points[points.length - 2];
+          const sameType = (last.sugar_test_type || 'random') === (prev.sugar_test_type || 'random');
+          if (!sameType) return <span className="text-[9px] text-slate-400">قراءتان مختلفتا النوع</span>;
+          const diff = Number(last.sugar_value) - Number(prev.sugar_value);
+          const improved = diff < 0;
+          const trendColor = diff === 0 ? '#64748B' : improved ? '#1D9E75' : '#E9A63A';
+          return (
+            <span className="text-xs font-black tabular-nums" style={{ color: trendColor }}>
+              {diff === 0 ? 'مستقر' : <><span>{improved ? '▼' : '▲'}</span> <span dir="ltr" className="inline-block">{diff > 0 ? '+' : '-'}{Math.abs(diff)} mg/dL</span></>}
+            </span>
+          );
+        })()}
       </div>
-      <p className="text-[9px] text-slate-400 mb-2">النقاط بألوان مختلفة لأن أنواع القراءة (صائم/بعد الأكل/عشوائي) لها نطاقات طبيعية مختلفة ولا تُقارن مباشرة</p>
+      <p className="text-[10px] text-slate-500 mb-2">النقاط بألوان مختلفة لأن أنواع القراءة (صائم/بعد الأكل/عشوائي) لها نطاقات طبيعية مختلفة ولا تُقارن مباشرة</p>
       <div className="relative">
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-[70px] overflow-visible" preserveAspectRatio="none" onClick={() => setActiveIndex(null)} onMouseLeave={() => setActiveIndex(null)}>
         <line x1={PADX} y1={PADY + plotH / 2} x2={W - PADX} y2={PADY + plotH / 2} stroke="#e2e8f0" strokeWidth="1" strokeDasharray="3,3" />

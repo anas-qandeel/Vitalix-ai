@@ -1977,8 +1977,8 @@ ${planUrl}
                           <div className="h-px bg-slate-200 my-3.5" />
                           <div className="flex text-center">
                             <div className="flex-1">
-                              <p className="text-xl font-black text-slate-900">{finalHeartRate ?? '—'}</p>
-                              <p className="text-[11px] text-slate-400 mt-0.5">نبض/دقيقة</p>
+                              <p className={`text-xl font-black ${finalHeartRate == null ? 'text-slate-900' : finalHeartRate > 100 || finalHeartRate < 60 ? 'text-amber-600' : 'text-slate-900'}`}>{finalHeartRate ?? '—'}</p>
+                              <p className="text-[11px] text-slate-400 mt-0.5">{finalHeartRate == null ? 'نبض/دقيقة' : finalHeartRate > 100 ? 'متسارع · نبض/دقيقة' : finalHeartRate < 60 ? 'بطيء · نبض/دقيقة' : 'طبيعي · نبض/دقيقة'}</p>
                             </div>
                             {activeTests.bp && (
                               <>
@@ -2001,12 +2001,19 @@ ${planUrl}
                             <span className="text-sm text-slate-400">mg/dL</span>
                           </div>
                           <div className="h-px bg-slate-200 my-3.5" />
-                          <div className="flex justify-center text-center">
-                            <div>
+                          <div className="flex text-center">
+                            <div className="flex-1">
                               <p className="text-base font-black text-slate-700">
                                 {sugarType === 'fasting' ? 'صائم' : sugarType === 'postprandial' ? 'بعد الأكل' : 'عشوائي'}
                               </p>
                               <p className="text-[11px] text-slate-400 mt-0.5">نوع القراءة</p>
+                            </div>
+                            <div className="w-px bg-slate-200" />
+                            <div className="flex-1">
+                              <p className={`text-base font-black ${Number(sugarValue) >= 300 || Number(sugarValue) < 70 ? 'text-rose-600' : Number(sugarValue) >= 180 ? 'text-amber-600' : 'text-teal-700'}`}>
+                                {Number(sugarValue) >= 300 ? 'مرتفع جداً' : Number(sugarValue) < 70 ? 'منخفض' : Number(sugarValue) >= 180 ? 'مرتفع' : 'طبيعي'}
+                              </p>
+                              <p className="text-[11px] text-slate-400 mt-0.5">تصنيف السكري</p>
                             </div>
                           </div>
                         </div>
@@ -2024,9 +2031,9 @@ ${planUrl}
                         {/* قسم ضغط الدم */}
                         {activeTests.bp && (
                           <div className="space-y-2">
-                            <p className="text-xs font-bold text-slate-500 border-b border-slate-200 pb-1">ضغط الدم</p>
+                            <p className="text-sm font-bold text-slate-700 border-b border-slate-200 pb-1">ضغط الدم</p>
                             {isDualBp ? (
-                              <div className="text-xs text-slate-500 space-y-0.5">
+                              <div className="text-sm text-slate-700 space-y-0.5">
                                 <div className="flex gap-3">
                                   <span className="text-slate-400 font-bold">ق١:</span>
                                   <span>{bpSys1}/{bpDia1} مم{heartRate ? ` · نبض ${heartRate}` : ''}</span>
@@ -2041,34 +2048,34 @@ ${planUrl}
                                 </div>
                               </div>
                             ) : (
-                              <div className="text-xs text-slate-500">
-                                <span className="text-slate-400 font-bold ml-2">قراءة مفردة:</span>
+                              <div className="text-sm text-slate-700">
+                                <span className="text-slate-500 font-bold ml-2">قراءة مفردة:</span>
                                 <span>{bpSys1}/{bpDia1} مم{heartRate ? ` · نبض ${heartRate}` : ''}</span>
                               </div>
                             )}
                             <div className="flex items-center gap-2">
-                              <span className="text-[9px] font-bold text-slate-400">دواء الضغط:</span>
-                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${tookBpMed ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-500'}`}>
+                              <span className="text-[11px] font-bold text-slate-500">دواء الضغط:</span>
+                              <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${tookBpMed ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-500'}`}>
                                 {tookBpMed ? 'أخذه ✓' : 'لم يأخذه'}
                               </span>
                             </div>
                             {selectedSymptoms.filter(s => bpSymptomsList.includes(s)).length > 0 && (
                               <div>
-                                <p className="text-[9px] font-bold text-slate-400 mb-1">أعراض مصاحبة</p>
+                                <p className="text-[11px] font-bold text-slate-500 mb-1">أعراض مصاحبة</p>
                                 <div className="flex flex-wrap gap-1">
                                   {selectedSymptoms.filter(s => bpSymptomsList.includes(s)).map(s => (
-                                    <span key={s} className="text-[10px] font-bold text-slate-600 bg-white border border-slate-200 px-2 py-0.5 rounded-lg">{s}</span>
+                                    <span key={s} className="text-xs font-bold text-slate-600 bg-white border border-slate-200 px-2 py-0.5 rounded-lg">{s}</span>
                                   ))}
                                 </div>
                               </div>
                             )}
                             {bpFactors.length > 0 && (
                               <div>
-                                <p className="text-[9px] font-bold text-slate-400 mb-1">عوامل مؤثرة</p>
+                                <p className="text-[11px] font-bold text-slate-500 mb-1">عوامل مؤثرة</p>
                                 <div className="flex flex-wrap gap-1">
                                   {bpFactors.map(f => {
                                     const label = f === 'had_stimulants' ? 'شرب قهوة / شاي / مكيّف' : f === 'recent_exertion' ? 'مجهود بدني مؤخراً' : f === 'recent_heavy_meal' ? 'تناول وجبة دسمة مؤخراً' : f === 'is_stressed' ? 'يشعر بتوتر أو قلق' : f;
-                                    return <span key={f} className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg">{label}</span>;
+                                    return <span key={f} className="text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg">{label}</span>;
                                   })}
                                 </div>
                               </div>
@@ -2079,35 +2086,35 @@ ${planUrl}
                         {/* قسم السكري */}
                         {activeTests.sugar && (
                           <div className={`space-y-2 ${activeTests.bp ? 'border-r border-slate-200 pr-3' : ''}`}>
-                            <p className="text-xs font-bold text-slate-500 border-b border-slate-200 pb-1">السكري</p>
-                            <div className="text-xs text-slate-500">
-                              <span className="font-bold text-slate-700">{sugarValue}</span>
+                            <p className="text-sm font-bold text-slate-700 border-b border-slate-200 pb-1">السكري</p>
+                            <div className="text-sm text-slate-700">
+                              <span className="font-bold text-slate-900">{sugarValue}</span>
                               <span className="text-slate-400 mr-1"> mg/dL</span>
                               {sugarType && <span className="mr-2"> · {sugarType === 'fasting' ? 'صائم' : sugarType === 'postprandial' ? 'بعد الأكل' : 'عشوائي'}</span>}
                             </div>
                             <div className="flex items-center gap-2">
-                              <span className="text-[9px] font-bold text-slate-400">دواء السكري:</span>
-                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${tookSugarMed ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-500'}`}>
+                              <span className="text-[11px] font-bold text-slate-500">دواء السكري:</span>
+                              <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${tookSugarMed ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-500'}`}>
                                 {tookSugarMed ? 'أخذه ✓' : 'لم يأخذه'}
                               </span>
                             </div>
                             {selectedSymptoms.filter(s => sugarSymptomsList.includes(s)).length > 0 && (
                               <div>
-                                <p className="text-[9px] font-bold text-slate-400 mb-1">أعراض مصاحبة</p>
+                                <p className="text-[11px] font-bold text-slate-500 mb-1">أعراض مصاحبة</p>
                                 <div className="flex flex-wrap gap-1">
                                   {selectedSymptoms.filter(s => sugarSymptomsList.includes(s)).map(s => (
-                                    <span key={s} className="text-[10px] font-bold text-slate-600 bg-white border border-slate-200 px-2 py-0.5 rounded-lg">{s}</span>
+                                    <span key={s} className="text-xs font-bold text-slate-600 bg-white border border-slate-200 px-2 py-0.5 rounded-lg">{s}</span>
                                   ))}
                                 </div>
                               </div>
                             )}
                             {sugarFactors.length > 0 && (
                               <div>
-                                <p className="text-[9px] font-bold text-slate-400 mb-1">عوامل مؤثرة</p>
+                                <p className="text-[11px] font-bold text-slate-500 mb-1">عوامل مؤثرة</p>
                                 <div className="flex flex-wrap gap-1">
                                   {sugarFactors.map(f => {
                                     const label = f === 'had_stimulants' ? 'شرب قهوة / شاي / مكيّف' : f === 'recent_exertion' ? 'مجهود بدني مؤخراً' : f === 'recent_heavy_meal' ? 'تناول وجبة دسمة مؤخراً' : f === 'is_stressed' ? 'يشعر بتوتر أو قلق' : f;
-                                    return <span key={f} className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg">{label}</span>;
+                                    return <span key={f} className="text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg">{label}</span>;
                                   })}
                                 </div>
                               </div>
@@ -2117,12 +2124,12 @@ ${planUrl}
 
                         </div>
                         {latestPharmacistSummary && (
-                          <p className="text-sm text-slate-700 leading-relaxed font-medium">{latestPharmacistSummary}</p>
+                          <p className="text-[15px] text-slate-800 leading-relaxed font-medium">{latestPharmacistSummary}</p>
                         )}
                         {latestMedicationsAlert && (
                           <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                            <p className="text-[9px] font-bold text-amber-700 mb-0.5">تنبيه الأدوية</p>
-                            <p className="text-xs text-amber-800 leading-relaxed">{latestMedicationsAlert}</p>
+                            <p className="text-[11px] font-bold text-amber-700 mb-0.5">تنبيه الأدوية</p>
+                            <p className="text-[13px] text-amber-800 leading-relaxed">{latestMedicationsAlert}</p>
                           </div>
                         )}
                         {vitalsRecommendations.length > 0 && (
@@ -2190,14 +2197,14 @@ ${planUrl}
                                 }
                               }}
                               disabled={vitalsExclusionSaving}
-                              className="w-full flex items-center justify-center gap-2 py-3 bg-purple-50 text-purple-700 text-xs font-bold transition hover:bg-purple-100 cursor-pointer disabled:opacity-60">
+                              className="w-full flex items-center justify-center gap-2 py-3 bg-teal-50 text-teal-700 text-xs font-bold transition hover:bg-teal-100 cursor-pointer disabled:opacity-60">
                               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
                               </svg>
                               {vitalsExclusionSaving ? 'جارٍ الحفظ...' : 'حفظ الاستثناءات'}
                             </button>
                             {vitalsExclusionError && (
-                              <p className="px-4 pb-2 text-[10px] font-bold text-rose-600 bg-purple-50">{vitalsExclusionError}</p>
+                              <p className="px-4 pb-2 text-[10px] font-bold text-rose-600 bg-teal-50">{vitalsExclusionError}</p>
                             )}
                           </div>
                         );

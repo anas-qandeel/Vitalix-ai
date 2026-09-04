@@ -915,12 +915,12 @@ export default function PatientCardPage({ params }: PageProps) {
                                     خطة إدارة الوزن
                                   </button>
                                 )}
-                                <a href={`https://wa.me/${normalizePhone(patient.phone_number)}?text=${encodeURIComponent(v.ai_report_output)}`}
-                                  target="_blank" rel="noreferrer"
-                                  className="flex items-center gap-1 text-[10px] font-bold text-[#25D366] hover:underline">
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); window.open(`https://api.whatsapp.com/send?phone=${normalizePhone(patient.phone_number)}&text=${encodeURIComponent(`مرحباً ${patient.name} 👋\nرابط نتائج تحليلك لدى ${pharmacyName}:\n${window.location.origin}/vitals/view/${v.id}\nمع تحيات فريق ${pharmacyName} 💚`)}`, '_blank'); }}
+                                  className="flex items-center gap-1 text-[10px] font-bold text-[#25D366] hover:underline cursor-pointer">
                                   <IconWhatsApp className="w-3 h-3" />
                                   إرسال للمريض
-                                </a>
+                                </button>
                               </div>
                             </div>
                             <div

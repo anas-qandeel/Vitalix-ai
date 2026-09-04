@@ -903,11 +903,18 @@ export default function PatientCardPage({ params }: PageProps) {
                               <p className="text-[10px] font-bold text-slate-400">التقرير الذكي</p>
                               <div className="flex items-center gap-2 flex-wrap">
                                 {(v.bp_systolic || v.sugar_value) && (
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); window.open(`/vitals/view/${v.id}`, '_blank'); }}
-                                    className="text-[10px] font-bold text-teal-700 bg-teal-50 border border-teal-200 px-2.5 py-1 rounded-lg hover:bg-teal-100 transition cursor-pointer">
-                                    عرض القراءات
-                                  </button>
+                                  <>
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); window.open(`/vitals/view/${v.id}`, '_blank'); }}
+                                      className="text-[10px] font-bold text-teal-700 bg-teal-50 border border-teal-200 px-2.5 py-1 rounded-lg hover:bg-teal-100 transition cursor-pointer">
+                                      عرض القراءات
+                                    </button>
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); window.open(`/dashboard/vitals/summary/${v.id}`, '_blank'); }}
+                                      className="text-[10px] font-bold text-slate-600 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-lg hover:bg-slate-200 transition cursor-pointer">
+                                      شاشة التحليل الأصلية
+                                    </button>
+                                  </>
                                 )}
                                 {matchedWeightPlan && (
                                   <>

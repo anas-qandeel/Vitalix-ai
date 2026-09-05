@@ -332,21 +332,29 @@ export default function PatientCardPage({ params }: PageProps) {
   const [shouldScrollToExpanded, setShouldScrollToExpanded] = useState(false);
   useEffect(() => {
     const saved = sessionStorage.getItem(`vitalix_expanded_visit_${patientId}`);
-    if (saved) { setExpandedVisitId(saved); setShouldScrollToExpanded(true); setShowAllVisits(true); }
+    if (saved) {
+      sessionStorage.removeItem(`vitalix_expanded_visit_${patientId}`);
+      setExpandedVisitId(saved); setShouldScrollToExpanded(true); setShowAllVisits(true);
+    }
   }, [patientId]);
   useEffect(() => {
-    if (shouldScrollToExpanded && expandedVisitId) {
-      const timer = setTimeout(() => {
-        expandedVisitRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (!shouldScrollToExpanded || !expandedVisitId) return;
+    let attempts = 0;
+    const tryScroll = () => {
+      if (expandedVisitRef.current) {
+        expandedVisitRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
         setShouldScrollToExpanded(false);
-      }, 300);
-      return () => clearTimeout(timer);
-    }
+      } else if (attempts < 20) {
+        attempts++;
+        setTimeout(tryScroll, 250);
+      } else {
+        setShouldScrollToExpanded(false);
+      }
+    };
+    const timer = setTimeout(tryScroll, 250);
+    return () => clearTimeout(timer);
   }, [shouldScrollToExpanded, expandedVisitId]);
-  useEffect(() => {
-    if (expandedVisitId) sessionStorage.setItem(`vitalix_expanded_visit_${patientId}`, expandedVisitId);
-    else sessionStorage.removeItem(`vitalix_expanded_visit_${patientId}`);
-  }, [expandedVisitId, patientId]);
+  // الحفظ يحدث فقط عند الضغط على «شاشة التحليل الأصلية» — لا حفظ مستمر
   const [visitFilter, setVisitFilter] = useState<'all' | 'bp' | 'sugar' | 'weight'>('all');
   const [showAllVisits, setShowAllVisits] = useState(false);
   const [pdfGenerating, setPdfGenerating] = useState(false);
@@ -931,7 +939,7 @@ export default function PatientCardPage({ params }: PageProps) {
                                     </button>
                                     <Link
                                       href={`/dashboard/vitals/summary/${v.id}`}
-                                      onClick={(e) => e.stopPropagation()}
+                                      onClick={(e) => { e.stopPropagation(); sessionStorage.setItem(`vitalix_expanded_visit_${patientId}`, v.id); }}
                                       className="text-[10px] font-bold text-slate-600 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-lg hover:bg-slate-200 transition cursor-pointer inline-block">
                                       شاشة التحليل الأصلية
                                     </Link>

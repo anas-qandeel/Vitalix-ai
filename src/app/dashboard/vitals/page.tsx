@@ -17,6 +17,7 @@ import BpHistoryChart from '@/components/BpHistoryChart';
 import SugarHistoryChart from '@/components/SugarHistoryChart';
 import WeightThinkingOverlay from '@/components/WeightThinkingOverlay';
 import VitalsThinkingOverlay from '@/components/VitalsThinkingOverlay';
+import { classifyBp, classifySugar, classifyHeartRate } from '@/lib/vitals-classify';
 
 const CATEGORY_LABELS: Record<string, string> = Object.fromEntries(SUPPLEMENT_CATEGORIES.map(c => [c.code, c.labelAr]));
 
@@ -937,6 +938,35 @@ ${planUrl}
       const aiPayload = visitPayload;
       const dbPayload = visitPayload;
 
+      // ── التصنيف المعتمد: يُحسب مرة واحدة هنا من المرجع الموحد
+      // (src/lib/vitals-classify.ts) ويُحفظ مع الزيارة كسجل ثابت —
+      // صفحة المريض وكل الشاشات تستدعي المحفوظ ولا تعيد الحساب ──
+      const clfAge = currentPatient?.birth_date
+        ? new Date().getFullYear() - new Date(currentPatient.birth_date).getFullYear()
+        : null;
+      const clfHasHtn = currentPatient?.diagnosed_conditions?.includes('hypertension') ?? false;
+      const clfHasDm  = currentPatient?.diagnosed_conditions?.includes('diabetes') ?? false;
+      const clfBp = (activeTests.bp && finalSys && finalDia)
+        ? classifyBp(finalSys, finalDia, clfAge, clfHasHtn)
+        : null;
+      const clfSugar = (activeTests.sugar && sugarValue)
+        ? classifySugar(Number(sugarValue), sugarType, clfAge, clfHasDm)
+        : null;
+      const clfHr = (activeTests.bp && finalHeartRate)
+        ? classifyHeartRate(finalHeartRate)
+        : null;
+      const clfSpecial = [clfBp?.specialCriteria, clfSugar?.specialCriteria]
+        .filter(Boolean).join(' — ') || null;
+      const approvedClassifications = {
+        bp_classification:               clfBp?.label ?? null,
+        bp_classification_level:         clfBp?.level ?? null,
+        sugar_classification:            clfSugar?.label ?? null,
+        sugar_classification_level:      clfSugar?.level ?? null,
+        heart_rate_classification:       clfHr?.label ?? null,
+        heart_rate_classification_level: clfHr?.level ?? null,
+        classification_special_criteria: clfSpecial,
+      };
+
       let report = '';
       let pharmacistSummaryLocal: string | null = null;
       let medicationsAlertLocal: string | null = null;
@@ -991,6 +1021,7 @@ ${planUrl}
         pharmacy_id: pid,
         patient_id: currentPatient.id,
         ...dbPayload,
+        ...approvedClassifications,
         ai_report_output: report,
         pharmacist_summary: pharmacistSummaryLocal,
         medications_alert: medicationsAlertLocal,

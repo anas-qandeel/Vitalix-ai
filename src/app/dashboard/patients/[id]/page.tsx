@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, use } from 'react';
+import React, { useEffect, useState, useRef, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import DashboardHeader, { usePharmacyInfo } from '../../components/DashboardHeader';
@@ -9,6 +9,7 @@ import Disclaimer from '@/components/Disclaimer';
 import { getPharmacyId } from '@/lib/tenant';
 import { detectTextDir } from '@/lib/text-direction';
 import { normalizePhone, displayPhone, validatePhone } from '@/lib/phone';
+import Link from 'next/link';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -327,6 +328,25 @@ export default function PatientCardPage({ params }: PageProps) {
   const [patient, setPatient] = useState<PatientDetail | null>(null);
   const [visits, setVisits] = useState<Visit[]>([]);
   const [expandedVisitId, setExpandedVisitId] = useState<string | null>(null);
+  const expandedVisitRef = useRef<HTMLDivElement>(null);
+  const [shouldScrollToExpanded, setShouldScrollToExpanded] = useState(false);
+  useEffect(() => {
+    const saved = sessionStorage.getItem(`vitalix_expanded_visit_${patientId}`);
+    if (saved) { setExpandedVisitId(saved); setShouldScrollToExpanded(true); setShowAllVisits(true); }
+  }, [patientId]);
+  useEffect(() => {
+    if (shouldScrollToExpanded && expandedVisitId) {
+      const timer = setTimeout(() => {
+        expandedVisitRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setShouldScrollToExpanded(false);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [shouldScrollToExpanded, expandedVisitId]);
+  useEffect(() => {
+    if (expandedVisitId) sessionStorage.setItem(`vitalix_expanded_visit_${patientId}`, expandedVisitId);
+    else sessionStorage.removeItem(`vitalix_expanded_visit_${patientId}`);
+  }, [expandedVisitId, patientId]);
   const [visitFilter, setVisitFilter] = useState<'all' | 'bp' | 'sugar' | 'weight'>('all');
   const [showAllVisits, setShowAllVisits] = useState(false);
   const [pdfGenerating, setPdfGenerating] = useState(false);
@@ -801,7 +821,7 @@ export default function PatientCardPage({ params }: PageProps) {
                 ].filter(Boolean) as string[];
 
                 return (
-                  <div key={v.id}>
+                  <div key={v.id} ref={isOpen ? expandedVisitRef : undefined}>
                     {/* رأس الزيارة */}
                     <button
                       onClick={() => setExpandedVisitId(isOpen ? null : v.id)}
@@ -909,11 +929,12 @@ export default function PatientCardPage({ params }: PageProps) {
                                       className="text-[10px] font-bold text-teal-700 bg-teal-50 border border-teal-200 px-2.5 py-1 rounded-lg hover:bg-teal-100 transition cursor-pointer">
                                       عرض القراءات
                                     </button>
-                                    <button
-                                      onClick={(e) => { e.stopPropagation(); window.open(`/dashboard/vitals/summary/${v.id}`, '_blank'); }}
-                                      className="text-[10px] font-bold text-slate-600 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-lg hover:bg-slate-200 transition cursor-pointer">
+                                    <Link
+                                      href={`/dashboard/vitals/summary/${v.id}`}
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="text-[10px] font-bold text-slate-600 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-lg hover:bg-slate-200 transition cursor-pointer inline-block">
                                       شاشة التحليل الأصلية
-                                    </button>
+                                    </Link>
                                   </>
                                 )}
                                 {matchedWeightPlan && (

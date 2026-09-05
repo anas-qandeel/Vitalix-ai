@@ -6,6 +6,7 @@ import BpHistoryChart from '@/components/BpHistoryChart';
 import SugarHistoryChart from '@/components/SugarHistoryChart';
 import WeightHistoryChart from '@/components/WeightHistoryChart';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 interface VisitationRecord {
   id: string;
@@ -65,6 +66,7 @@ function formatDate(dateStr: string) {
 
 export default function VitalsSummaryPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const router = useRouter();
   const [visit, setVisit] = useState<VisitationRecord | null>(null);
   const [patient, setPatient] = useState<Patient | null>(null);
   const [history, setHistory] = useState<VisitationRecord[]>([]);
@@ -105,7 +107,7 @@ export default function VitalsSummaryPage({ params }: { params: Promise<{ id: st
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-3 px-6 text-center">
         <p className="text-sm font-bold text-slate-600">{error || 'تعذّر تحميل الزيارة.'}</p>
-        <Link href="/dashboard/vitals" className="text-xs font-bold text-teal-600 hover:underline">العودة لشاشة الفحوصات</Link>
+        <button onClick={() => router.back()} className="text-xs font-bold text-teal-600 hover:underline cursor-pointer">العودة</button>
       </div>
     );
   }
@@ -120,9 +122,13 @@ export default function VitalsSummaryPage({ params }: { params: Promise<{ id: st
     <div className="min-h-screen bg-slate-50/50" dir="rtl">
       <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
         <div className="flex items-center justify-between">
-          <Link href="/dashboard/vitals" className="text-xs font-bold text-slate-500 hover:text-slate-700 flex items-center gap-1">
-            ← العودة
-          </Link>
+          <button onClick={() => router.back()}
+            className="flex items-center gap-1.5 text-xs font-bold text-slate-600 bg-white border border-slate-200 rounded-lg px-3 py-1.5 hover:bg-slate-50 transition cursor-pointer">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+            </svg>
+            العودة
+          </button>
           <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg">
             عرض أرشيفي — قراءة فقط
           </span>

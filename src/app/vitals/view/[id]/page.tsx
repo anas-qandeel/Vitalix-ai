@@ -22,6 +22,22 @@ interface VisitationRecord {
   bp_systolic: number | null;
   bp_diastolic: number | null;
   heart_rate: number | null;
+  is_dual_bp?: boolean | null;
+  bp_sys1?: number | null;
+  bp_dia1?: number | null;
+  hr1?: number | null;
+  bp_sys2?: number | null;
+  bp_dia2?: number | null;
+  hr2?: number | null;
+  took_bp_medication?: boolean | null;
+  took_sugar_medication?: boolean | null;
+  bp_classification?: string | null;
+  bp_classification_level?: string | null;
+  sugar_classification?: string | null;
+  sugar_classification_level?: string | null;
+  heart_rate_classification?: string | null;
+  heart_rate_classification_level?: string | null;
+  classification_special_criteria?: string | null;
   sugar_value: number | null;
   sugar_test_type: string | null;
   weight: number | null;
@@ -75,37 +91,27 @@ function bmiCalc(weight: number | null, height?: number | null) {
   return (weight / (height / 100) ** 2).toFixed(1);
 }
 
-function getVisitStatus(v: { bp_systolic: number | null; bp_diastolic: number | null; sugar_value: number | null }) {
-  let level: 'normal' | 'medium' | 'high' = 'normal';
-  if (v.bp_systolic) {
-    if (v.bp_systolic >= 180 || (v.bp_diastolic ?? 0) >= 120) level = 'high';
-    else if (v.bp_systolic >= 140 || (v.bp_diastolic ?? 0) >= 90) level = 'medium';
-  }
-  if (v.sugar_value) {
-    if (v.sugar_value >= 300) level = 'high';
-    else if (v.sugar_value >= 180 && level === 'normal') level = 'medium';
-  }
-  if (level === 'high') return { label: 'يستدعي انتباهاً', chipBg: '#fee2e2', chipColor: '#991b1b' };
-  if (level === 'medium') return { label: 'يحتاج متابعة', chipBg: '#fef3c7', chipColor: '#92400e' };
+// ── التصنيف المعتمد: يُقرأ محفوظاً من الزيارة كما اعتمده الصيدلاني لحظة الفحص —
+// لا حساب محلي إطلاقاً. المرجع الوحيد: src/lib/vitals-classify.ts عبر ما حُفظ في DB.
+// زيارة بلا تصنيف محفوظ (قبل تفعيل النظام) → بطاقة محايدة بلا شارة.
+const LEVEL_STYLES: Record<string, { topColor: string; badgeBg: string; badgeColor: string }> = {
+  green:  { topColor: '#0d9488', badgeBg: '#ccfbf1', badgeColor: '#0f766e' },
+  yellow: { topColor: '#f59e0b', badgeBg: '#fef3c7', badgeColor: '#92400e' },
+  red:    { topColor: '#ef4444', badgeBg: '#fee2e2', badgeColor: '#991b1b' },
+};
+const NEUTRAL_STYLE = { topColor: '#e2e8f0', badgeBg: '#f1f5f9', badgeColor: '#64748b' };
+
+function storedCardStyle(label: string | null | undefined, level: string | null | undefined) {
+  if (!label || !level || !LEVEL_STYLES[level]) return { ...NEUTRAL_STYLE, label: '' };
+  return { ...LEVEL_STYLES[level], label };
+}
+
+function storedVisitStatus(v: { bp_classification_level?: string | null; sugar_classification_level?: string | null }) {
+  const levels = [v.bp_classification_level, v.sugar_classification_level].filter(Boolean);
+  if (levels.length === 0) return null;
+  if (levels.includes('red'))    return { label: 'يستدعي انتباهاً', chipBg: '#fee2e2', chipColor: '#991b1b' };
+  if (levels.includes('yellow')) return { label: 'يحتاج متابعة',   chipBg: '#fef3c7', chipColor: '#92400e' };
   return { label: 'ضمن الطبيعي', chipBg: '#d1fae5', chipColor: '#065f46' };
-}
-
-function getBpCardStyle(systolic: number | null, diastolic: number | null) {
-  if (!systolic) return { topColor: '#e2e8f0', badgeBg: '#f1f5f9', badgeColor: '#64748b', label: '—' };
-  if (systolic >= 180 || (diastolic ?? 0) >= 120)
-    return { topColor: '#ef4444', badgeBg: '#fee2e2', badgeColor: '#991b1b', label: 'مرتفع جداً' };
-  if (systolic >= 140 || (diastolic ?? 0) >= 90)
-    return { topColor: '#f59e0b', badgeBg: '#fef3c7', badgeColor: '#92400e', label: 'يحتاج متابعة' };
-  return { topColor: '#0d9488', badgeBg: '#ccfbf1', badgeColor: '#0f766e', label: 'طبيعي' };
-}
-
-function getSugarCardStyle(value: number | null) {
-  if (!value) return { topColor: '#e2e8f0', badgeBg: '#f1f5f9', badgeColor: '#64748b', label: '—' };
-  if (value >= 300)
-    return { topColor: '#ef4444', badgeBg: '#fee2e2', badgeColor: '#991b1b', label: 'مرتفع جداً' };
-  if (value >= 180)
-    return { topColor: '#f59e0b', badgeBg: '#fef3c7', badgeColor: '#92400e', label: 'مرتفع' };
-  return { topColor: '#0d9488', badgeBg: '#ccfbf1', badgeColor: '#0f766e', label: 'طبيعي' };
 }
 
 function IconHeart({ className = 'w-4 h-4' }: { className?: string }) {
@@ -202,13 +208,13 @@ export default function SingleVitalViewPage({ params }: PageProps) {
     return true;
   });
   const visitsToShow = showAllVisits ? filteredVisits : filteredVisits.slice(0, VISITS_PREVIEW);
-  const currentStatus = currentVisit ? getVisitStatus(currentVisit) : null;
+  const currentStatus = currentVisit ? storedVisitStatus(currentVisit) : null;
   const currentBmi = currentVisit ? bmiCalc(currentVisit.weight, currentVisit.patient?.height) : null;
   const patientAge = currentVisit?.patient?.birth_date
     ? new Date().getFullYear() - new Date(currentVisit.patient.birth_date).getFullYear()
     : null;
-  const bpStyle = currentVisit ? getBpCardStyle(currentVisit.bp_systolic, currentVisit.bp_diastolic) : null;
-  const sgStyle = currentVisit ? getSugarCardStyle(currentVisit.sugar_value) : null;
+  const bpStyle = currentVisit ? storedCardStyle(currentVisit.bp_classification, currentVisit.bp_classification_level) : null;
+  const sgStyle = currentVisit ? storedCardStyle(currentVisit.sugar_classification, currentVisit.sugar_classification_level) : null;
 
   // اسم الصيدلية المعروض: إذا جاء بدون "صيدلية" نضيفها، وإذا كان فارغاً نضع fallback
   const displayPharmacyName = pharmacyName

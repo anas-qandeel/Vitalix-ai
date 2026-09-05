@@ -32,7 +32,7 @@ export async function GET(
     const { data: visit, error: visitError } = await supabaseAdmin
       .from('visitations')
       .select(
-        'id, pharmacy_id, patient_id, bp_systolic, bp_diastolic, heart_rate, sugar_value, sugar_test_type, weight, symptoms, ai_report_output, created_at, excluded_recommendation_ids, patient:patients(name, phone_number, height, gender, birth_date)'
+        'id, pharmacy_id, patient_id, bp_systolic, bp_diastolic, heart_rate, is_dual_bp, bp_sys1, bp_dia1, hr1, bp_sys2, bp_dia2, hr2, sugar_value, sugar_test_type, weight, symptoms, ai_report_output, created_at, excluded_recommendation_ids, took_bp_medication, took_sugar_medication, bp_classification, bp_classification_level, sugar_classification, sugar_classification_level, heart_rate_classification, heart_rate_classification_level, classification_special_criteria, patient:patients(name, phone_number, height, gender, birth_date)'
       )
       .eq('id', id)
       .single();
@@ -78,7 +78,7 @@ export async function GET(
     if (visit.patient_id) {
       const { data: historyData } = await supabaseAdmin
         .from('visitations')
-        .select('id, bp_systolic, bp_diastolic, heart_rate, sugar_value, sugar_test_type, weight, symptoms, created_at')
+        .select('id, bp_systolic, bp_diastolic, heart_rate, sugar_value, sugar_test_type, weight, symptoms, created_at, bp_classification, bp_classification_level, sugar_classification, sugar_classification_level, heart_rate_classification, heart_rate_classification_level')
         .eq('patient_id', visit.patient_id)
         .order('created_at', { ascending: false });
 
@@ -128,6 +128,23 @@ export async function GET(
         symptoms: visit.symptoms,
         ai_report_output: visit.ai_report_output,
         created_at: visit.created_at,
+        heart_rate: visit.heart_rate,
+        is_dual_bp: visit.is_dual_bp,
+        bp_sys1: visit.bp_sys1,
+        bp_dia1: visit.bp_dia1,
+        hr1: visit.hr1,
+        bp_sys2: visit.bp_sys2,
+        bp_dia2: visit.bp_dia2,
+        hr2: visit.hr2,
+        took_bp_medication: visit.took_bp_medication,
+        took_sugar_medication: visit.took_sugar_medication,
+        bp_classification: visit.bp_classification,
+        bp_classification_level: visit.bp_classification_level,
+        sugar_classification: visit.sugar_classification,
+        sugar_classification_level: visit.sugar_classification_level,
+        heart_rate_classification: visit.heart_rate_classification,
+        heart_rate_classification_level: visit.heart_rate_classification_level,
+        classification_special_criteria: visit.classification_special_criteria,
         patient: patient || undefined,
       },
       pharmacyName,

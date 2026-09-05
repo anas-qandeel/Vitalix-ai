@@ -32,7 +32,7 @@ export async function GET(
     const { data: visit, error: visitError } = await supabaseAdmin
       .from('visitations')
       .select(
-        'id, pharmacy_id, patient_id, bp_systolic, bp_diastolic, sugar_value, sugar_test_type, weight, symptoms, ai_report_output, created_at, excluded_recommendation_ids, patient:patients(name, phone_number, height)'
+        'id, pharmacy_id, patient_id, bp_systolic, bp_diastolic, heart_rate, sugar_value, sugar_test_type, weight, symptoms, ai_report_output, created_at, excluded_recommendation_ids, patient:patients(name, phone_number, height, gender, birth_date)'
       )
       .eq('id', id)
       .single();
@@ -78,7 +78,7 @@ export async function GET(
     if (visit.patient_id) {
       const { data: historyData } = await supabaseAdmin
         .from('visitations')
-        .select('id, bp_systolic, bp_diastolic, sugar_value, sugar_test_type, weight, symptoms, created_at')
+        .select('id, bp_systolic, bp_diastolic, heart_rate, sugar_value, sugar_test_type, weight, symptoms, created_at')
         .eq('patient_id', visit.patient_id)
         .order('created_at', { ascending: false });
 

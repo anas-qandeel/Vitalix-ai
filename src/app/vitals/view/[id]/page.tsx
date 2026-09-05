@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, use } from 'react';
+import { Storefront, HeartStraight, Drop, Barbell, UserCircle, WhatsappLogo } from '@phosphor-icons/react';
 import AppFooter from '../../../components/AppFooter';
 import Disclaimer from '@/components/Disclaimer';
 import { detectTextDir } from '@/lib/text-direction';
@@ -20,6 +21,7 @@ interface VisitationRecord {
   patient_id: string;
   bp_systolic: number | null;
   bp_diastolic: number | null;
+  heart_rate: number | null;
   sugar_value: number | null;
   sugar_test_type: string | null;
   weight: number | null;
@@ -46,6 +48,11 @@ interface PageProps {
 
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('ar-EG', { numberingSystem: 'latn' });
+}
+
+function formatDateManual(dateStr: string) {
+  const d = new Date(dateStr);
+  return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
 }
 
 function formatTime(dateStr: string) {
@@ -83,6 +90,24 @@ function getVisitStatus(v: { bp_systolic: number | null; bp_diastolic: number | 
   return { label: 'ضمن الطبيعي', chipBg: '#d1fae5', chipColor: '#065f46' };
 }
 
+function getBpCardStyle(systolic: number | null, diastolic: number | null) {
+  if (!systolic) return { topColor: '#e2e8f0', badgeBg: '#f1f5f9', badgeColor: '#64748b', label: '—' };
+  if (systolic >= 180 || (diastolic ?? 0) >= 120)
+    return { topColor: '#ef4444', badgeBg: '#fee2e2', badgeColor: '#991b1b', label: 'مرتفع جداً' };
+  if (systolic >= 140 || (diastolic ?? 0) >= 90)
+    return { topColor: '#f59e0b', badgeBg: '#fef3c7', badgeColor: '#92400e', label: 'يحتاج متابعة' };
+  return { topColor: '#0d9488', badgeBg: '#ccfbf1', badgeColor: '#0f766e', label: 'طبيعي' };
+}
+
+function getSugarCardStyle(value: number | null) {
+  if (!value) return { topColor: '#e2e8f0', badgeBg: '#f1f5f9', badgeColor: '#64748b', label: '—' };
+  if (value >= 300)
+    return { topColor: '#ef4444', badgeBg: '#fee2e2', badgeColor: '#991b1b', label: 'مرتفع جداً' };
+  if (value >= 180)
+    return { topColor: '#f59e0b', badgeBg: '#fef3c7', badgeColor: '#92400e', label: 'مرتفع' };
+  return { topColor: '#0d9488', badgeBg: '#ccfbf1', badgeColor: '#0f766e', label: 'طبيعي' };
+}
+
 function IconHeart({ className = 'w-4 h-4' }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -107,14 +132,6 @@ function IconScale({ className = 'w-4 h-4' }: { className?: string }) {
   );
 }
 
-function IconDownload({ className = 'w-4 h-4' }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
-    </svg>
-  );
-}
-
 function IconWhatsapp({ className = 'w-4 h-4' }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="currentColor">
@@ -123,139 +140,11 @@ function IconWhatsapp({ className = 'w-4 h-4' }: { className?: string }) {
   );
 }
 
-/**
- * يحوّل عنصر DOM إلى ملف PDF ويُنزّله، مع دعم صفحات متعددة إن كان المحتوى أطول من صفحة A4 واحدة.
- */
-async function renderElementToPdf(container: HTMLElement, filename: string) {
-  await new Promise((resolve) => setTimeout(resolve, 150));
-
-  const html2canvasModule: any = await import('html2canvas-pro');
-  const html2canvas = html2canvasModule.default || html2canvasModule;
-  const jspdfModule: any = await import('jspdf');
-  const JsPDF = jspdfModule.jsPDF || jspdfModule.default;
-
-  const canvas = await html2canvas(container, {
-    scale: 2,
-    windowWidth: 700,
-    useCORS: true,
-    backgroundColor: '#ffffff',
-  });
-
-  const imgData = canvas.toDataURL('image/jpeg', 0.98);
-  const pdf = new JsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
-
-  const pageWidth = pdf.internal.pageSize.getWidth();
-  const pageHeight = pdf.internal.pageSize.getHeight();
-  const imgWidth = pageWidth;
-  const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-  let heightLeft = imgHeight;
-  let position = 0;
-
-  pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
-  heightLeft -= pageHeight;
-
-  while (heightLeft > 0) {
-    position -= pageHeight;
-    pdf.addPage();
-    pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
-    heightLeft -= pageHeight;
-  }
-
-  pdf.save(filename);
-}
-
-/**
- * توليد PDF لجدول طويل مع تكرار الهيدر في كل صفحة.
- */
-async function renderHistoryTableToPdf(
-  headerHtml: string,
-  theadHtml: string,
-  rowsHtml: string[],
-  footerHtml: string,
-  filename: string
-) {
-  const containerWidthPx = 700;
-  const baseStyle = `position: fixed; top: -99999px; left: 0; width: ${containerWidthPx}px; background: #fff; font-family: system-ui, -apple-system, sans-serif; padding: 35px; color: #0F172A;`;
-
-  const html2canvasModule: any = await import('html2canvas-pro');
-  const html2canvas = html2canvasModule.default || html2canvasModule;
-  const jspdfModule: any = await import('jspdf');
-  const JsPDF = jspdfModule.jsPDF || jspdfModule.default;
-
-  const pdf = new JsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
-  const pageWidthMM = pdf.internal.pageSize.getWidth();
-  const pageHeightMM = pdf.internal.pageSize.getHeight();
-  const mmPerPx = pageWidthMM / containerWidthPx;
-  const maxContentHeightPx = pageHeightMM / mmPerPx;
-
-  const tableOpenHtml = `<table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; text-align: right;"><thead>${theadHtml}</thead><tbody>`;
-  const tableCloseHtml = `</tbody></table>`;
-
-  const pageContainer = document.createElement('div');
-  pageContainer.setAttribute('dir', 'rtl');
-  pageContainer.style.cssText = baseStyle;
-  document.body.appendChild(pageContainer);
-
-  let rowIndex = 0;
-  let pageNum = 0;
-
-  while (rowIndex < rowsHtml.length || pageNum === 0) {
-    const includedRows: number[] = [];
-    let testIndex = rowIndex;
-
-    while (testIndex < rowsHtml.length) {
-      const candidateRows = [...includedRows, testIndex];
-      pageContainer.innerHTML = `${headerHtml}${tableOpenHtml}${candidateRows.map((i) => rowsHtml[i]).join('')}${tableCloseHtml}`;
-      const heightPx = pageContainer.offsetHeight;
-
-      if (heightPx > maxContentHeightPx && includedRows.length > 0) {
-        break;
-      }
-      includedRows.push(testIndex);
-      testIndex++;
-    }
-
-    if (includedRows.length === 0 && testIndex < rowsHtml.length) {
-      includedRows.push(testIndex);
-      testIndex++;
-    }
-
-    const isLastPage = rowIndex + includedRows.length >= rowsHtml.length;
-    pageContainer.innerHTML = `
-      ${headerHtml}${tableOpenHtml}${includedRows.map((i) => rowsHtml[i]).join('')}${tableCloseHtml}
-      ${isLastPage ? footerHtml : ''}
-    `;
-
-    await new Promise((resolve) => setTimeout(resolve, 100));
-
-    const canvas = await html2canvas(pageContainer, {
-      scale: 2,
-      windowWidth: containerWidthPx,
-      useCORS: true,
-      backgroundColor: '#ffffff',
-    });
-    const imgData = canvas.toDataURL('image/jpeg', 0.98);
-    const imgWidth = pageWidthMM;
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-    if (pageNum > 0) pdf.addPage();
-    pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
-
-    rowIndex += includedRows.length;
-    pageNum++;
-  }
-
-  document.body.removeChild(pageContainer);
-  pdf.save(filename);
-}
-
 export default function SingleVitalViewPage({ params }: PageProps) {
   const resolvedParams = use(params);
   const visitId = resolvedParams.id;
 
   const [loading, setLoading] = useState(true);
-  const [pdfGenerating, setPdfGenerating] = useState<'report' | 'history' | null>(null);
   const [currentVisit, setCurrentVisit] = useState<VisitationRecord | null>(null);
   const [patientHistory, setPatientHistory] = useState<VisitationRecord[]>([]);
   const [pharmacyName, setPharmacyName] = useState<string>('');
@@ -315,126 +204,16 @@ export default function SingleVitalViewPage({ params }: PageProps) {
   const visitsToShow = showAllVisits ? filteredVisits : filteredVisits.slice(0, VISITS_PREVIEW);
   const currentStatus = currentVisit ? getVisitStatus(currentVisit) : null;
   const currentBmi = currentVisit ? bmiCalc(currentVisit.weight, currentVisit.patient?.height) : null;
+  const patientAge = currentVisit?.patient?.birth_date
+    ? new Date().getFullYear() - new Date(currentVisit.patient.birth_date).getFullYear()
+    : null;
+  const bpStyle = currentVisit ? getBpCardStyle(currentVisit.bp_systolic, currentVisit.bp_diastolic) : null;
+  const sgStyle = currentVisit ? getSugarCardStyle(currentVisit.sugar_value) : null;
 
   // اسم الصيدلية المعروض: إذا جاء بدون "صيدلية" نضيفها، وإذا كان فارغاً نضع fallback
   const displayPharmacyName = pharmacyName
     ? (pharmacyName.startsWith('صيدلية') ? pharmacyName : `صيدلية ${pharmacyName}`)
     : 'صيدليتك المعتمدة';
-
-  const handlePrintCurrentVisit = async () => {
-    if (!currentVisit) return;
-    setPdfGenerating('report');
-    const patientName = currentVisit.patient?.name || 'المريض';
-    const visitDate = formatDate(currentVisit.created_at);
-    const visitTime = formatTime(currentVisit.created_at);
-
-    const container = document.createElement('div');
-    container.setAttribute('dir', 'rtl');
-    container.style.cssText =
-      'position: fixed; top: -99999px; left: 0; width: 700px; background: #fff; font-family: system-ui, -apple-system, sans-serif; padding: 35px; color: #0F172A; line-height: 1.6;';
-    container.innerHTML = `
-      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0D9488; padding-bottom: 12px; margin-bottom: 20px;">
-        <div style="font-size: 22px; font-weight: 900; color: #0F172A;">Vitalix<span style="color: #0D9488;">.ai</span></div>
-        <div style="background: #F0FDFA; border: 1px solid #CCFBF1; color: #0F766E; padding: 6px 14px; border-radius: 10px; font-size: 12px; font-weight: bold;">🏥 ${displayPharmacyName}</div>
-      </div>
-      <div style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 12px 18px; border-radius: 12px; margin-bottom: 20px; font-size: 12px; display: flex; justify-content: space-between; font-weight: bold;">
-        <div>المريض: ${patientName}</div>
-        <div>تاريخ الفحص: ${visitDate} (${visitTime})</div>
-      </div>
-      <div style="background: #FFFFFF; border: 1px solid #CBD5E1; padding: 22px; border-radius: 12px; font-family: monospace; white-space: pre-line; font-size: 13px; line-height: 1.8;">${currentVisit.ai_report_output}</div>
-      <div style="margin-top: 35px; border-top: 1px solid #E2E8F0; padding-top: 12px; text-align: center; font-size: 11px; color: #64748B;">تم توثيق وصدور هذا التقرير آلياً عبر منصة Vitalix.ai لصالح (${displayPharmacyName})</div>
-    `;
-    document.body.appendChild(container);
-
-    try {
-      await renderElementToPdf(container, `تقرير-${patientName}.pdf`);
-    } catch (err: any) {
-      console.error('[PDF] خطأ فعلي أثناء التوليد:', err);
-      alert('حدث خطأ أثناء توليد ملف PDF:\n' + (err?.message || String(err)));
-    } finally {
-      document.body.removeChild(container);
-      setPdfGenerating(null);
-    }
-  };
-
-  const handlePrintDoctorHistory = async () => {
-    if (!currentVisit) return;
-    setPdfGenerating('history');
-    const patientName = currentVisit.patient?.name || 'المريض';
-
-    const headerHtml = `
-      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #059669; padding-bottom: 12px; margin-bottom: 20px;">
-        <div style="font-size: 22px; font-weight: 900; color: #0F172A;">Vitalix<span style="color: #0D9488;">.ai</span></div>
-        <div style="background: #ECFDF5; border: 1px solid #A7F3D0; color: #065F46; padding: 6px 14px; border-radius: 10px; font-size: 12px; font-weight: bold;">👨‍⚕️ سجل القراءات الكاملة للطبيب المعالج</div>
-      </div>
-      <div style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 12px 18px; border-radius: 12px; margin-bottom: 20px; font-size: 12px; display: flex; justify-content: space-between; font-weight: bold;">
-        <div>اسم المريض: ${patientName}</div>
-        <div>جهة التوثيق: ${displayPharmacyName}</div>
-      </div>
-    `;
-
-    const theadHtml = `
-      <tr>
-        <th style="background-color: #F1F5F9; border: 1px solid #CBD5E1; padding: 10px; font-weight: bold;">التاريخ والوقت</th>
-        <th style="background-color: #F1F5F9; border: 1px solid #CBD5E1; padding: 10px; font-weight: bold;">ضغط الدم (SYS/DIA)</th>
-        <th style="background-color: #F1F5F9; border: 1px solid #CBD5E1; padding: 10px; font-weight: bold;">السكري (mg/dL)</th>
-        <th style="background-color: #F1F5F9; border: 1px solid #CBD5E1; padding: 10px; font-weight: bold;">الوزن (kg)</th>
-        <th style="background-color: #F1F5F9; border: 1px solid #CBD5E1; padding: 10px; font-weight: bold;">الأعراض الملاحظة</th>
-      </tr>
-    `;
-
-    const footerHtml = `<div style="margin-top: 35px; border-top: 1px solid #E2E8F0; padding-top: 12px; text-align: center; font-size: 11px; color: #64748B;">تم توثيق سجل القراءات السابقة آلياً عبر منصة Vitalix.ai لصالح (${displayPharmacyName})</div>`;
-
-    try {
-      const pdfVisits = filteredVisits;
-      if (pdfVisits.length === 0) {
-        const container = document.createElement('div');
-        container.setAttribute('dir', 'rtl');
-        container.style.cssText =
-          'position: fixed; top: -99999px; left: 0; width: 700px; background: #fff; font-family: system-ui, -apple-system, sans-serif; padding: 35px; color: #0F172A;';
-        container.innerHTML = `
-          ${headerHtml}
-          <div style="padding: 30px; text-align: center; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; color: #64748B; font-size: 12px;">
-            لا توجد قراءات موثقة لهذا المريض.
-          </div>
-          ${footerHtml}
-        `;
-        document.body.appendChild(container);
-        try {
-          await renderElementToPdf(container, `سجل-قراءات-${patientName}.pdf`);
-        } finally {
-          document.body.removeChild(container);
-        }
-      } else {
-        const rowsHtml = pdfVisits.map((visit: VisitationRecord) => `
-          <tr style="${visit.id === currentVisit.id ? 'background-color: #F0FDFA;' : ''}">
-            <td style="padding: 10px; border: 1px solid #E2E8F0; font-family: monospace;">
-              ${formatDate(visit.created_at)} (${formatTime(visit.created_at)})${visit.id === currentVisit.id ? ' — الحالية' : ''}
-            </td>
-            <td style="padding: 10px; border: 1px solid #E2E8F0; font-family: monospace; font-weight: bold; color: ${visit.bp_systolic && visit.bp_systolic >= 140 ? '#DC2626' : '#1D4ED8'};">
-              ${visit.bp_systolic && visit.bp_diastolic ? `${visit.bp_systolic} / ${visit.bp_diastolic} mmHg` : '-'}
-            </td>
-            <td style="padding: 10px; border: 1px solid #E2E8F0; font-family: monospace; font-weight: bold; color: ${visit.sugar_value && visit.sugar_value >= 180 ? '#D97706' : '#059669'};">
-              ${visit.sugar_value ? `${visit.sugar_value} (${sugarTypeLabel(visit.sugar_test_type)})` : '-'}
-            </td>
-            <td style="padding: 10px; border: 1px solid #E2E8F0; font-family: monospace; font-weight: bold; color: #7E22CE;">
-              ${visit.weight ? `${visit.weight} kg` : '-'}
-            </td>
-            <td style="padding: 10px; border: 1px solid #E2E8F0; font-size: 11px;">
-              ${visit.symptoms && visit.symptoms.length > 0 ? visit.symptoms.join(' ، ') : 'لا يوجد أعراض'}
-            </td>
-          </tr>
-        `);
-
-        await renderHistoryTableToPdf(headerHtml, theadHtml, rowsHtml, footerHtml, `سجل-قراءات-${patientName}.pdf`);
-      }
-    } catch (err: any) {
-      console.error('[PDF] خطأ فعلي أثناء التوليد:', err);
-      alert('حدث خطأ أثناء توليد ملف PDF:\n' + (err?.message || String(err)));
-    } finally {
-      setPdfGenerating(null);
-    }
-  };
 
   const handleOrderRecommendation = (item: RecommendationItem) => {
     const rawPhone = pharmacyPhone || currentVisit?.patient?.phone_number || '';
@@ -517,37 +296,7 @@ export default function SingleVitalViewPage({ params }: PageProps) {
           from { opacity: 0; transform: translateY(16px); }
           to   { opacity: 1; transform: translateY(0); }
         }
-        @keyframes pulseDot {
-          0%, 100% { opacity: 1; transform: scale(1); }
-          50%       { opacity: 0.5; transform: scale(1.4); }
-        }
         .slide-up { animation: saasSlideUp 0.25s ease both; }
-        .pulse-dot { animation: pulseDot 2s ease-in-out infinite; }
-
-        /* ─── هيدر جرادييت ─── */
-        .page-header {
-          background: linear-gradient(135deg, #0f172a 0%, #115e59 100%);
-          position: relative;
-          overflow: hidden;
-        }
-        .page-header::before {
-          content: '';
-          position: absolute;
-          width: 280px; height: 280px;
-          border-radius: 50%;
-          background: rgba(255,255,255,0.04);
-          top: -80px; right: -80px;
-          pointer-events: none;
-        }
-        .page-header::after {
-          content: '';
-          position: absolute;
-          width: 180px; height: 180px;
-          border-radius: 50%;
-          background: rgba(255,255,255,0.03);
-          bottom: -60px; left: -40px;
-          pointer-events: none;
-        }
 
         /* ─── section title ─── */
         .section-title {
@@ -614,52 +363,6 @@ export default function SingleVitalViewPage({ params }: PageProps) {
           }
         }
 
-        /* ─── pdf overlay ─── */
-        .pdf-overlay {
-          position: fixed; inset: 0;
-          background: rgba(255,255,255,0.92);
-          backdrop-filter: blur(6px);
-          z-index: 9999;
-          display: flex; flex-direction: column;
-          align-items: center; justify-content: center;
-          gap: 16px;
-        }
-
-        /* ─── btn primary ─── */
-        .btn-primary {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          padding: 10px 20px;
-          background: #0f172a;
-          color: #fff;
-          border: none;
-          border-radius: 12px;
-          font-size: 13px;
-          font-weight: 600;
-          cursor: pointer;
-          transition: background 0.15s, transform 0.1s;
-          font-family: inherit;
-          white-space: nowrap;
-        }
-        .btn-primary:hover { background: #1e293b; }
-        .btn-primary:active { transform: scale(0.97); }
-        .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
-
-        /* على الشاشات الضيقة جداً (~320px) padding الأفقي الأصلي (20px) + النص nowrap
-           يجعل الزر أعرض من مساحة البطاقة المتاحة (main padding 16px + section padding 24px
-           من كل جهة = 80px، فتبقى ~240px فقط على شاشة 320px) — نقلّص الـ padding الأفقي
-           والخط لضمان عدم تجاوز الزر لحدود البطاقة، ونزيد الـ padding العمودي قليلاً
-           لتقريب ارتفاع منطقة اللمس من 40px بدل ~35px الحالية */
-        @media (max-width: 400px) {
-          .btn-primary {
-            padding: 12px 14px;
-            font-size: 12px;
-            gap: 6px;
-          }
-        }
-
         .btn-whatsapp {
           display: inline-flex;
           align-items: center;
@@ -682,168 +385,26 @@ export default function SingleVitalViewPage({ params }: PageProps) {
         .btn-whatsapp:active { transform: scale(0.97); }
       `}</style>
 
-      {/* ─── PDF overlay ─── */}
-      {pdfGenerating && (
-        <div className="pdf-overlay">
-          <div
-            className="w-12 h-12 rounded-full border-4 animate-spin"
-            style={{ borderColor: '#e2e8f0', borderTopColor: '#0d9488' }}
-          />
-          <p style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>جاري تحضير ملف PDF...</p>
-        </div>
-      )}
-
       {/* ══════════════════════════════════════════════
           HEADER — gradient مع هيكل واضح الأولويات
       ══════════════════════════════════════════════ */}
-      <header className="page-header">
-        <div style={{ maxWidth: 860, margin: '0 auto', padding: '0 16px', position: 'relative', zIndex: 1 }}>
-
-          {/* ── شريط علوي: لوجو صغير فقط ── */}
+      <header style={{ maxWidth: 860, margin: '0 auto', padding: '20px 16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            padding: '16px 0 12px',
-            borderBottom: '1px solid rgba(255,255,255,0.08)',
+            width: 40, height: 40, background: '#0f172a', borderRadius: 11,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <svg width="18" height="18" viewBox="0 0 32 32" fill="none">
-                <path d="M6 8L14.5 25C14.8 25.6 15.6 25.6 15.9 25L20 17" stroke="white" strokeWidth="3.5" strokeLinecap="round" />
-                <path d="M24 6C24 9.3 26.7 12 30 12C26.7 12 24 14.7 24 18C24 14.7 21.3 12 18 12C21.3 12 24 9.3 24 6Z" fill="#2dd4bf" />
-              </svg>
-              <span style={{ fontWeight: 700, fontSize: 15, color: 'rgba(255,255,255,0.7)', letterSpacing: '0.2px' }}>
-                Vitalix<span style={{ color: '#2dd4bf' }}>.ai</span>
-              </span>
-              <span
-                className="pulse-dot"
-                style={{ width: 6, height: 6, borderRadius: '50%', background: '#2dd4bf', display: 'inline-block' }}
-              />
-            </div>
+            <Storefront size={20} weight="duotone" color="#fff" />
           </div>
-
-          {/* ── اسم الصيدلية — بارز في المنتصف ── */}
-          <div style={{ padding: '20px 0 8px', textAlign: 'center' }}>
-            {/* أيقونة الصيدلية */}
-            <div style={{
-              width: 48, height: 48, borderRadius: 14,
-              background: 'rgba(45,212,191,0.15)',
-              border: '1px solid rgba(45,212,191,0.3)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              margin: '0 auto 12px',
-            }}>
-              <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="#2dd4bf" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 21v-7.5A.75.75 0 0114.25 12h3a.75.75 0 01.75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349m-16.5 11.65V9.35m0 0a3.001 3.001 0 003.75-.615A2.993 2.993 0 009.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 002.25 1.016c.896 0 1.7-.393 2.25-1.016a3.001 3.001 0 003.75.614m-16.5 0a3.004 3.004 0 01-.621-4.72L4.318 3.44A1.5 1.5 0 015.378 3h13.243a1.5 1.5 0 011.06.44l1.19 1.189a3 3 0 01-.621 4.72m-13.5 8.65h3.75a.75.75 0 00.75-.75V13.5a.75.75 0 00-.75-.75H6.75a.75.75 0 00-.75.75v3.75c0 .415.336.75.75.75z" />
-              </svg>
-            </div>
-            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginBottom: 4, fontWeight: 500 }}>
-              تقريرك الطبي من
-            </p>
-            <h2 style={{ fontSize: 22, fontWeight: 800, color: '#fff', margin: 0, letterSpacing: '-0.3px' }}>
+          <div style={{ minWidth: 0 }}>
+            <p style={{ margin: 0, fontSize: 22, fontWeight: 700, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {displayPharmacyName}
-            </h2>
-          </div>
-
-          {/* ── بيانات المريض — كارد أبيض شفاف ── */}
-          <div style={{
-            background: 'rgba(255,255,255,0.07)',
-            border: '1px solid rgba(255,255,255,0.12)',
-            borderRadius: 16,
-            padding: '16px 18px',
-            margin: '16px 0 24px',
-          }}>
-            {/* اسم المريض + status */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{
-                  width: 40, height: 40, borderRadius: 10,
-                  background: 'rgba(255,255,255,0.12)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 17, fontWeight: 800, color: '#fff', flexShrink: 0,
-                }}>
-                  {(currentVisit.patient?.name || 'م').trim().charAt(0)}
-                </div>
-                <div>
-                  <p style={{ fontSize: 17, fontWeight: 700, color: '#fff', margin: 0 }}>
-                    {currentVisit.patient?.name || 'المريض'}
-                  </p>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
-                    {/* أيقونة تقويم SVG */}
-                    <svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="rgba(255,255,255,0.5)" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
-                    </svg>
-                    <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>
-                      {formatDate(currentVisit.created_at)}
-                    </span>
-                    {/* أيقونة ساعة SVG */}
-                    <svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="rgba(255,255,255,0.5)" strokeWidth={2} style={{ marginRight: 4 }}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>
-                      {formatTime(currentVisit.created_at)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-              {currentStatus && (
-                <span className="chip" style={{ background: currentStatus.chipBg, color: currentStatus.chipColor, flexShrink: 0 }}>
-                  {currentStatus.label}
-                </span>
-              )}
+            </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 5, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 12.5, color: '#64748b' }}>مستشارك الصحي الموثوق</span>
+              <span style={{ fontSize: 11.5, color: '#475569', background: '#f1f5f9', padding: '3px 11px', borderRadius: 20 }}>نتائج الفحص</span>
             </div>
-
-            {/* قراءات — pills بأيقونات SVG */}
-            {(currentVisit.bp_systolic != null || currentVisit.sugar_value != null || currentVisit.weight != null) && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 14, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-                {currentVisit.bp_systolic != null && currentVisit.bp_diastolic != null && (
-                  <span style={{
-                    display: 'flex', alignItems: 'center', gap: 6,
-                    background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)',
-                    borderRadius: 20, padding: '5px 12px', fontSize: 12, fontWeight: 600, color: '#fff',
-                  }}>
-                    <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="#f87171" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
-                    </svg>
-                    {currentVisit.bp_systolic}/{currentVisit.bp_diastolic}
-                    <span style={{ fontSize: 10, opacity: 0.6 }}>mmHg</span>
-                  </span>
-                )}
-                {currentVisit.sugar_value != null && (
-                  <span style={{
-                    display: 'flex', alignItems: 'center', gap: 6,
-                    background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)',
-                    borderRadius: 20, padding: '5px 12px', fontSize: 12, fontWeight: 600, color: '#fff',
-                  }}>
-                    <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="#34d399" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 3.75S6 10.5 6 14.25a6 6 0 0012 0C18 10.5 12 3.75 12 3.75z" />
-                    </svg>
-                    {currentVisit.sugar_value}
-                    <span style={{ fontSize: 10, opacity: 0.6 }}>({sugarTypeLabel(currentVisit.sugar_test_type)})</span>
-                  </span>
-                )}
-                {currentVisit.weight != null && (
-                  <span style={{
-                    display: 'flex', alignItems: 'center', gap: 6,
-                    background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)',
-                    borderRadius: 20, padding: '5px 12px', fontSize: 12, fontWeight: 600, color: '#fff',
-                  }}>
-                    <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="#c084fc" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v17.25m0 0c-1.472 0-2.882.265-4.185.75M12 20.25c1.472 0 2.882.265 4.185.75M18.75 4.97A48.416 48.416 0 0012 4.5c-2.291 0-4.545.16-6.75.47m13.5 0c1.01.143 2.01.317 3 .52m-3-.52l2.62 10.726c.122.499-.106 1.028-.589 1.202a5.988 5.988 0 01-2.031.352 5.988 5.988 0 01-2.031-.352c-.483-.174-.711-.703-.59-1.202L18.75 4.971zm-16.5.52c.99-.203 1.99-.377 3-.52m0 0l2.62 10.726c.122.499-.106 1.028-.589 1.202a5.989 5.989 0 01-2.031.352 5.989 5.989 0 01-2.031-.352c-.483-.174-.711-.703-.59-1.202L5.25 4.971z" />
-                    </svg>
-                    {currentVisit.weight} kg
-                    {currentBmi && <span style={{ fontSize: 10, opacity: 0.6 }}>— BMI {currentBmi}</span>}
-                  </span>
-                )}
-                {currentVisit.symptoms && currentVisit.symptoms.map((s, i) => (
-                  <span key={i} style={{
-                    background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)',
-                    borderRadius: 20, padding: '5px 12px', fontSize: 12, color: 'rgba(255,255,255,0.7)',
-                  }}>
-                    {s}
-                  </span>
-                ))}
-              </div>
-            )}
           </div>
-
         </div>
       </header>
 
@@ -852,44 +413,164 @@ export default function SingleVitalViewPage({ params }: PageProps) {
       ══════════════════════════════════════════════ */}
       <main
         className="slide-up"
-        style={{ maxWidth: 860, margin: '0 auto', padding: '28px 16px', display: 'flex', flexDirection: 'column', gap: 20 }}
+        style={{ maxWidth: 860, margin: '0 auto', padding: '0 16px 28px', display: 'flex', flexDirection: 'column', gap: 20 }}
       >
 
-        {/* ─── 1. التقرير الطبي ─── */}
-        <section className="vcard" style={{ padding: '24px 24px 28px' }}>
-          {/* section title */}
-          <div style={{ marginBottom: 20 }}>
-            <p className="section-title">📋 سجل قراءات الفحص الحالي</p>
+        {/* ─── بطاقة المريض ─── */}
+        <div className="vcard" style={{ overflow: 'hidden', padding: 0 }}>
+          <div style={{
+            background: '#f8fafc', padding: '16px 20px', borderBottom: '1px solid #f1f5f9',
+            display: 'flex', alignItems: 'center', gap: 12,
+          }}>
+            <div style={{
+              width: 48, height: 48, borderRadius: 14, background: '#e2e8f0',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            }}>
+              <UserCircle size={26} weight="duotone" color="#475569" />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#0f172a' }}>
+                {currentVisit.patient?.name || 'المريض'}
+              </p>
+              <p style={{ margin: '3px 0 0', fontSize: 12, color: '#64748b' }}>
+                {currentVisit.patient?.gender === 'female' ? 'أنثى' : currentVisit.patient?.gender === 'male' ? 'ذكر' : ''}
+                {patientAge ? ` · ${patientAge} سنة` : ''}
+                {' · '}
+                <span dir="ltr" style={{ unicodeBidi: 'isolate' }}>{formatDateManual(currentVisit.created_at)}</span>
+              </p>
+            </div>
+            {currentStatus && (
+              <span style={{ background: currentStatus.chipBg, color: currentStatus.chipColor, fontSize: 11, fontWeight: 600, padding: '4px 11px', borderRadius: 20, flexShrink: 0 }}>
+                {currentStatus.label}
+              </span>
+            )}
           </div>
+        </div>
 
-          {/* زر التنزيل */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-            <button
-              className="btn-primary"
-              onClick={handlePrintCurrentVisit}
-              disabled={pdfGenerating !== null}
-            >
-              <IconDownload className="w-4 h-4" />
-              {pdfGenerating === 'report' ? 'جاري التحضير...' : 'تنزيل سجل القراءات (PDF)'}
-            </button>
-          </div>
-
-          {/* نص التقرير */}
+        {/* ─── بطاقتا الضغط والسكر ─── */}
+        {(currentVisit.bp_systolic != null || currentVisit.sugar_value != null) && (
           <div
-            dir={detectTextDir(currentVisit.ai_report_output)}
             style={{
-              background: '#f8fafc',
-              border: '1px solid #e2e8f0',
-              borderRadius: 14,
-              padding: '20px 22px',
-              fontSize: 14,
-              color: '#334155',
-              lineHeight: 1.9,
-              whiteSpace: 'pre-line',
-              textAlign: detectTextDir(currentVisit.ai_report_output) === 'ltr' ? 'left' : 'right',
+              display: 'grid',
+              gridTemplateColumns: (currentVisit.bp_systolic != null && currentVisit.sugar_value != null)
+                ? 'repeat(2, minmax(0, 1fr))'
+                : '1fr',
+              gap: 12,
             }}
           >
-            {currentVisit.ai_report_output}
+            {currentVisit.bp_systolic != null && bpStyle && (
+              <div className="vcard" style={{ overflow: 'hidden', padding: 0 }}>
+                <div style={{ height: 4, background: bpStyle.topColor }} />
+                <div style={{ padding: 16 }}>
+                  <p style={{ fontSize: 11, color: '#94a3b8', margin: '0 0 6px', display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <HeartStraight size={13} weight="duotone" color="#94a3b8" />
+                    ضغط الدم
+                  </p>
+                  <p style={{ margin: 0, lineHeight: 1.1 }}>
+                    <span dir="ltr" style={{ fontSize: 26, fontWeight: 700, color: '#0f172a' }}>
+                      {currentVisit.bp_systolic}
+                      <span style={{ fontSize: 16, color: '#64748b' }}>/{currentVisit.bp_diastolic}</span>
+                    </span>
+                  </p>
+                  {currentVisit.heart_rate != null && (
+                    <p style={{ margin: '4px 0 0', fontSize: 11.5, color: '#94a3b8' }}>
+                      النبض: <span dir="ltr" style={{ fontWeight: 600, color: '#64748b' }}>{currentVisit.heart_rate}</span> ن/د
+                    </p>
+                  )}
+                  <span style={{
+                    display: 'inline-block', marginTop: 8,
+                    background: bpStyle.badgeBg, color: bpStyle.badgeColor,
+                    fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20,
+                  }}>
+                    {bpStyle.label}
+                  </span>
+                </div>
+              </div>
+            )}
+            {currentVisit.sugar_value != null && sgStyle && (
+              <div className="vcard" style={{ overflow: 'hidden', padding: 0 }}>
+                <div style={{ height: 4, background: sgStyle.topColor }} />
+                <div style={{ padding: 16 }}>
+                  <p style={{ fontSize: 11, color: '#94a3b8', margin: '0 0 6px', display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <Drop size={13} weight="duotone" color="#94a3b8" />
+                    سكر الدم
+                  </p>
+                  <p style={{ margin: 0, lineHeight: 1.1 }}>
+                    <span dir="ltr" style={{ fontSize: 26, fontWeight: 700, color: '#0f172a' }}>
+                      {currentVisit.sugar_value}
+                      <span style={{ fontSize: 12, color: '#94a3b8' }}> mg</span>
+                    </span>
+                  </p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
+                    <span style={{
+                      background: sgStyle.badgeBg, color: sgStyle.badgeColor,
+                      fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20,
+                    }}>
+                      {sgStyle.label}
+                    </span>
+                    <span style={{ fontSize: 11, color: '#94a3b8' }}>
+                      ({sugarTypeLabel(currentVisit.sugar_test_type)})
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ─── رسالة الصيدلاني ─── */}
+        <section className="vcard" style={{ padding: 0, overflow: 'hidden' }}>
+          {/* رأس أخضر */}
+          <div style={{
+            background: '#f0fdf4', padding: '14px 20px',
+            display: 'flex', alignItems: 'center', gap: 10,
+            borderBottom: '1px solid #dcfce7',
+          }}>
+            <div style={{
+              width: 32, height: 32, background: '#085041', borderRadius: '50%',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            }}>
+              <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+              </svg>
+            </div>
+            <div>
+              <p style={{ fontSize: 13, fontWeight: 700, color: '#14532d', margin: 0 }}>رسالة من {displayPharmacyName}</p>
+              <p style={{ fontSize: 11, color: '#64748b', margin: 0 }}>موجّهة لك شخصياً</p>
+            </div>
+          </div>
+          {/* نص الرسالة */}
+          <div style={{ padding: '18px 20px 20px' }}>
+            <div
+              dir={detectTextDir(currentVisit.ai_report_output)}
+              style={{
+                fontSize: 14,
+                color: '#334155',
+                lineHeight: 1.9,
+                whiteSpace: 'pre-line',
+                textAlign: detectTextDir(currentVisit.ai_report_output) === 'ltr' ? 'left' : 'right',
+              }}
+            >
+              {currentVisit.ai_report_output}
+            </div>
+            {currentVisit.symptoms && currentVisit.symptoms.length > 0 && (
+              <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid #f1f5f9' }}>
+                <p style={{ fontSize: 11, color: '#94a3b8', margin: '0 0 6px' }}>الأعراض التي ذكرتها:</p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {currentVisit.symptoms.map((s, i) => (
+                    <span
+                      key={i}
+                      style={{
+                        background: '#f1f5f9', border: '1px solid #e2e8f0', color: '#475569',
+                        borderRadius: 20, padding: '3px 11px', fontSize: 12,
+                      }}
+                    >
+                      {s}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </section>
 
@@ -1016,28 +697,9 @@ export default function SingleVitalViewPage({ params }: PageProps) {
             <p className="section-title">📈 سجل القراءات الكاملة للطبيب المعالج</p>
           </div>
 
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              flexWrap: 'wrap',
-              gap: 12,
-              marginBottom: 20,
-            }}
-          >
-            <p style={{ fontSize: 12, color: '#64748b', margin: 0 }}>
-              مرتب تسلسلياً حسب الخط الزمني، ويشمل الزيارة الحالية
-            </p>
-            <button
-              className="btn-primary"
-              onClick={handlePrintDoctorHistory}
-              disabled={pdfGenerating !== null}
-            >
-              <IconDownload className="w-4 h-4" />
-              {pdfGenerating === 'history' ? 'جاري التحضير...' : 'تنزيل تقرير الطبيب (PDF)'}
-            </button>
-          </div>
+          <p style={{ fontSize: 12, color: '#64748b', margin: '0 0 20px' }}>
+            مرتب تسلسلياً حسب الخط الزمني، ويشمل الزيارة الحالية
+          </p>
 
           {/* ── أزرار الفلترة ── */}
           {(() => {

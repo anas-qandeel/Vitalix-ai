@@ -60,6 +60,13 @@ const FACTOR_LABEL: Record<string, string> = {
   recent_heavy_meal: 'تناول وجبة دسمة مؤخراً',
   is_stressed: 'يشعر بتوتر أو قلق',
 };
+const BMI_CATEGORY_LABEL: Record<string, string> = {
+  underweight: 'نحافة',
+  normal: 'طبيعي',
+  overweight: 'زيادة وزن',
+  obese_1: 'سمنة درجة أولى',
+  obese_2: 'سمنة درجة ثانية أو أعلى',
+};
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('ar-EG', { numberingSystem: 'latn' });
 }
@@ -308,13 +315,19 @@ export default function VitalsSummaryPage({ params }: { params: Promise<{ id: st
           </div>
 
           {visit.ai_report_output && (
-            <div className="px-5 pb-5 pt-2">
+            <div className="px-5 pb-2 pt-2">
               <p className="text-[11px] font-bold text-slate-400 mb-2">النص المُرسَل للمريض</p>
               <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 text-sm text-slate-700 leading-relaxed font-medium">
                 {visit.ai_report_output}
               </div>
             </div>
           )}
+          <div className="px-5 pb-5 pt-2">
+            <button onClick={() => window.open(`/vitals/view/${visit.id}`, '_blank')}
+              className="w-full flex items-center justify-center gap-2 py-3 bg-white border border-slate-200 text-teal-700 rounded-xl text-xs font-bold transition hover:bg-teal-50">
+              عرض صفحة المريض الكاملة
+            </button>
+          </div>
         </div>
 
         {weightPlan && (
@@ -327,7 +340,7 @@ export default function VitalsSummaryPage({ params }: { params: Promise<{ id: st
               <div className="flex items-baseline gap-1.5">
                 <span className="text-[34px] font-black text-slate-900 leading-none">{weightPlan.weight_kg}</span>
                 <span className="text-sm text-slate-400">كغ حالياً</span>
-                <span className="mr-auto text-[13px] font-bold text-purple-700">BMI {weightPlan.bmi} · {weightPlan.bmi_category}</span>
+                <span className="mr-auto text-[13px] font-bold text-purple-700">BMI {weightPlan.bmi} · {BMI_CATEGORY_LABEL[weightPlan.bmi_category] ?? weightPlan.bmi_category}</span>
               </div>
               <div className="h-px bg-slate-200 my-3.5" />
               <div className="flex text-center mb-4">

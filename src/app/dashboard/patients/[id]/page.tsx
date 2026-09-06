@@ -97,8 +97,15 @@ interface PageProps {
 function formatDate(d: string) {
   return new Date(d).toLocaleDateString('ar-EG', { numberingSystem: 'latn' });
 }
+function formatDateManual(dateStr: string) {
+  const d = new Date(dateStr);
+  return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
+}
 function formatTime(d: string) {
   return new Date(d).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', hour12: true, numberingSystem: 'latn' });
+}
+function formatTime24(d: string) {
+  return new Date(d).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', hour12: false, numberingSystem: 'latn' });
 }
 function calculateAge(birthDate: string) {
   const today = new Date(), birth = new Date(birthDate);
@@ -235,84 +242,94 @@ async function renderElementToPdf(container: HTMLElement, filename: string) {
 }
 
 async function renderHistoryTableToPdf(
-  headerHtml: string,
-  theadHtml: string,
-  rowsHtml: string[],
-  footerHtml: string,
+  pharmacyName: string,
+  patientName: string,
+  issueDateStr: string,
+  visits: Visit[],
   filename: string
 ) {
-  const containerWidthPx = 700;
-  const baseStyle = `position: fixed; top: -99999px; left: 0; width: ${containerWidthPx}px; background: #fff; font-family: system-ui, -apple-system, sans-serif; padding: 35px; color: #0F172A;`;
-
-  const html2canvasModule: any = await import('html2canvas-pro');
-  const html2canvas = html2canvasModule.default || html2canvasModule;
   const jspdfModule: any = await import('jspdf');
   const JsPDF = jspdfModule.jsPDF || jspdfModule.default;
+  const autoTableModule: any = await import('jspdf-autotable');
+  const autoTable = autoTableModule.default || autoTableModule.autoTable;
+  const { PLEX_ARABIC_REGULAR_B64 } = await import('@/lib/pdf-arabic-font');
 
   const pdf = new JsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
-  const pageWidthMM = pdf.internal.pageSize.getWidth();
-  const pageHeightMM = pdf.internal.pageSize.getHeight();
-  const mmPerPx = pageWidthMM / containerWidthPx;
-  const maxContentHeightPx = pageHeightMM / mmPerPx;
 
-  const tableOpenHtml = `<table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; text-align: right;"><thead>${theadHtml}</thead><tbody>`;
-  const tableCloseHtml = `</tbody></table>`;
+  // تسجيل خط IBM Plex Sans Arabic — الخطوط القياسية في jsPDF (helvetica...)
+  // لا تحتوي حروفاً عربية إطلاقاً، ومحرك processArabic/R2L المدمج يعالج
+  // التشكيل والاتجاه فقط، لا الرسم — لذا الخط المضمّن شرط إلزامي للعربية.
+  pdf.addFileToVFS('PlexArabic-Regular.ttf', PLEX_ARABIC_REGULAR_B64);
+  pdf.addFont('PlexArabic-Regular.ttf', 'PlexArabic', 'normal');
+  pdf.setFont('PlexArabic');
 
-  const pageContainer = document.createElement('div');
-  pageContainer.setAttribute('dir', 'rtl');
-  pageContainer.style.cssText = baseStyle;
-  document.body.appendChild(pageContainer);
+  const bodyRows = visits.map((v) => [
+    v.symptoms && v.symptoms.length > 0 ? v.symptoms.join(' ، ') : 'لا يوجد أعراض',
+    v.weight ? `${v.weight} kg` : '-',
+    v.sugar_value ? `${v.sugar_value} (${sugarTypeLabel(v.sugar_test_type)})` : '-',
+    v.bp_systolic && v.bp_diastolic ? `${v.bp_systolic} / ${v.bp_diastolic} mmHg` : '-',
+    `${formatDateManual(v.created_at)}\n${formatTime24(v.created_at)}`,
+  ]);
+  const bpLevels = visits.map((v) => v.bp_classification_level);
+  const sugarLevels = visits.map((v) => v.sugar_classification_level);
 
-  let rowIndex = 0;
-  let pageNum = 0;
+  const disclaimerText = '"هذا السجل توثيق آلي للقراءات لغرض المتابعة فقط، ولا يُعد تشخيصاً طبياً — التفسير والقرار العلاجي بيد الطبيب المعالج"';
 
-  while (rowIndex < rowsHtml.length || pageNum === 0) {
-    const includedRows: number[] = [];
-    let testIndex = rowIndex;
-
-    while (testIndex < rowsHtml.length) {
-      const candidateRows = [...includedRows, testIndex];
-      pageContainer.innerHTML = `${headerHtml}${tableOpenHtml}${candidateRows.map((i) => rowsHtml[i]).join('')}${tableCloseHtml}`;
-      const heightPx = pageContainer.offsetHeight;
-
-      if (heightPx > maxContentHeightPx && includedRows.length > 0) {
-        break;
+  autoTable(pdf, {
+    head: [['الأعراض الملاحظة', 'الوزن (kg)', 'السكري (mg/dL)', 'ضغط الدم (SYS/DIA)', 'التاريخ والوقت']],
+    body: bodyRows,
+    startY: 40,
+    margin: { top: 40, bottom: 34, left: 12, right: 12 },
+    styles: { font: 'PlexArabic', fontStyle: 'normal', fontSize: 8.5, halign: 'right', cellPadding: 2.2, textColor: [71, 85, 105] },
+    headStyles: { fillColor: [248, 250, 252], textColor: [51, 65, 85], fontSize: 8.5, lineWidth: 0.1, lineColor: [203, 213, 225] },
+    alternateRowStyles: { fillColor: [248, 250, 252] },
+    columnStyles: { 4: { cellWidth: 38 }, 3: { cellWidth: 34 }, 2: { cellWidth: 32 }, 1: { cellWidth: 20 } },
+    didParseCell: (data: any) => {
+      if (data.section !== 'body') return;
+      const rowIdx = data.row.index;
+      if (data.column.index === 3) {
+        const lv = bpLevels[rowIdx];
+        data.cell.styles.textColor = lv === 'red' ? [220, 38, 38] : lv === 'yellow' ? [217, 119, 6] : lv === 'green' ? [5, 150, 105] : [29, 78, 216];
       }
-      includedRows.push(testIndex);
-      testIndex++;
-    }
+      if (data.column.index === 2) {
+        const lv = sugarLevels[rowIdx];
+        data.cell.styles.textColor = lv === 'red' ? [220, 38, 38] : lv === 'yellow' ? [217, 119, 6] : [5, 150, 105];
+      }
+    },
+    didDrawPage: () => {
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      // الهيدر
+      pdf.setFont('PlexArabic');
+      pdf.setFontSize(16); pdf.setTextColor(15, 23, 42);
+      pdf.text(pharmacyName, pageWidth - 12, 15, { align: 'right' });
+      pdf.setFontSize(8); pdf.setTextColor(100, 116, 139);
+      pdf.text('سجل المتابعة الصحية', pageWidth - 12, 20, { align: 'right' });
+      pdf.setDrawColor(13, 148, 136); pdf.setLineWidth(0.4);
+      pdf.line(12, 24, pageWidth - 12, 24);
+      pdf.setFontSize(8.5); pdf.setTextColor(51, 65, 85);
+      pdf.text(`اسم المريض: ${patientName}`, pageWidth - 12, 31, { align: 'right' });
+      pdf.text(`تاريخ الإصدار: ${issueDateStr}`, 12, 31);
+      // الفوتر
+      pdf.setDrawColor(226, 232, 240); pdf.setLineWidth(0.2);
+      pdf.line(12, pageHeight - 30, pageWidth - 12, pageHeight - 30);
+      pdf.setFontSize(6.8); pdf.setTextColor(100, 116, 139);
+      pdf.text(disclaimerText, pageWidth / 2, pageHeight - 22, { align: 'center' });
+      pdf.setFontSize(6.2); pdf.setTextColor(148, 163, 184);
+      // فصل المقطع العربي عن اسم المنصة اللاتيني لتفادي انقلاب ترتيبهما في السطر المختلط
+      const sigArabic = `وثِّق عبر ${pharmacyName} — مصدر عبر منصة `;
+      const sigLatin = 'Vitalix-ai';
+      const sigGap = 1.2; // مسافة صريحة بالمليمتر بين المقطع العربي واسم المنصة
+      const sigArabicW = pdf.getTextWidth(sigArabic);
+      const sigLatinW = pdf.getTextWidth(sigLatin);
+      const sigTotalW = sigArabicW + sigGap + sigLatinW;
+      const sigStartX = (pageWidth - sigTotalW) / 2;
+      // العربي يُرسم أولاً من يمين مساحته، ثم اللاتيني يليه يساراً
+      pdf.text(sigArabic, sigStartX + sigTotalW, pageHeight - 6, { align: 'right' });
+      pdf.text(sigLatin, sigStartX, pageHeight - 6, { align: 'left' });
+    },
+  });
 
-    if (includedRows.length === 0 && testIndex < rowsHtml.length) {
-      includedRows.push(testIndex);
-      testIndex++;
-    }
-
-    const isLastPage = rowIndex + includedRows.length >= rowsHtml.length;
-    pageContainer.innerHTML = `
-      ${headerHtml}${tableOpenHtml}${includedRows.map((i) => rowsHtml[i]).join('')}${tableCloseHtml}
-      ${isLastPage ? footerHtml : ''}
-    `;
-
-    await new Promise((resolve) => setTimeout(resolve, 100));
-
-    const canvas = await html2canvas(pageContainer, {
-      scale: 2,
-      windowWidth: containerWidthPx,
-      useCORS: true,
-      backgroundColor: '#ffffff',
-    });
-    const imgData = canvas.toDataURL('image/jpeg', 0.98);
-    const imgWidth = pageWidthMM;
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-    if (pageNum > 0) pdf.addPage();
-    pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
-
-    rowIndex += includedRows.length;
-    pageNum++;
-  }
-
-  document.body.removeChild(pageContainer);
   pdf.save(filename);
 }
 
@@ -476,27 +493,25 @@ export default function PatientCardPage({ params }: PageProps) {
     setPdfGenerating(true);
 
     const headerHtml = `
-      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #059669; padding-bottom: 12px; margin-bottom: 20px;">
-        <div style="font-size: 22px; font-weight: 900; color: #0F172A;">Vitalix<span style="color: #0D9488;">.ai</span></div>
-        <div style="background: #ECFDF5; border: 1px solid #A7F3D0; color: #065F46; padding: 6px 14px; border-radius: 10px; font-size: 12px; font-weight: bold;">👨‍⚕️ سجل القراءات الكاملة للطبيب المعالج</div>
+      <div style="border-bottom: 1px solid #0D9488; padding-bottom: 16px; margin-bottom: 22px;">
+        <div style="font-size: 24px; font-weight: 800; color: #0F172A;">${pharmacyName}</div>
+        <div style="font-size: 12px; color: #64748B; margin-top: 4px;">سجل المتابعة الصحية</div>
       </div>
-      <div style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 12px 18px; border-radius: 12px; margin-bottom: 20px; font-size: 12px; display: flex; justify-content: space-between; font-weight: bold;">
-        <div>اسم المريض: ${patient.name}</div>
-        <div>جهة التوثيق: ${pharmacyName}</div>
+      <div style="display: flex; justify-content: space-between; margin-bottom: 18px; font-size: 12.5px; color: #334155;">
+        <div><span style="color: #94A3B8;">اسم المريض</span> &nbsp; <span style="font-weight: 700;">${patient.name}</span></div>
+        <div><span style="color: #94A3B8;">تاريخ الإصدار</span> &nbsp; <span style="font-weight: 700; font-family: monospace;">${formatDate(new Date().toISOString())}</span></div>
       </div>
     `;
 
-    const theadHtml = `
-      <tr>
-        <th style="background-color: #F1F5F9; border: 1px solid #CBD5E1; padding: 10px; font-weight: bold;">التاريخ والوقت</th>
-        <th style="background-color: #F1F5F9; border: 1px solid #CBD5E1; padding: 10px; font-weight: bold;">ضغط الدم (SYS/DIA)</th>
-        <th style="background-color: #F1F5F9; border: 1px solid #CBD5E1; padding: 10px; font-weight: bold;">السكري (mg/dL)</th>
-        <th style="background-color: #F1F5F9; border: 1px solid #CBD5E1; padding: 10px; font-weight: bold;">الوزن (kg)</th>
-        <th style="background-color: #F1F5F9; border: 1px solid #CBD5E1; padding: 10px; font-weight: bold;">الأعراض الملاحظة</th>
-      </tr>
+    const footerHtml = `
+      <div style="border-top: 1px solid #E2E8F0; padding-top: 14px;">
+        <div style="font-size: 11px; font-weight: 700; color: #0F172A; margin-bottom: 5px;">إخلاء المسؤولية</div>
+        <div style="font-size: 10px; color: #64748B; line-height: 1.65;">
+          هذا السجل توثيق آلي للقراءات الحيوية كما أُدخلت في نقطة الرعاية، ويُقدَّم لغرض المتابعة والاطلاع فقط. لا يشكّل هذا المستند تشخيصاً طبياً، ولا يغني عن الفحص السريري أو استشارة الطبيب المختص. تظل مسؤولية التفسير الطبي والقرار العلاجي بالكامل بيد الطبيب المعالج.
+        </div>
+        <div style="font-size: 9.5px; color: #94A3B8; margin-top: 8px;">وثِّق عبر ${pharmacyName} — مصدر عبر منصة Vitalix-ai</div>
+      </div>
     `;
-
-    const footerHtml = `<div style="margin-top: 35px; border-top: 1px solid #E2E8F0; padding-top: 12px; text-align: center; font-size: 11px; color: #64748B;">تم توثيق سجل القراءات آلياً عبر منصة Vitalix.ai لصالح (${pharmacyName})</div>`;
 
     try {
       if (filteredVisits.length === 0) {
@@ -513,32 +528,12 @@ export default function PatientCardPage({ params }: PageProps) {
         `;
         document.body.appendChild(container);
         try {
-          await renderElementToPdf(container, `سجل-قراءات-${patient.name}.pdf`);
+          await renderElementToPdf(container, `سجل-المتابعة-الصحية-${patient.name}.pdf`);
         } finally {
           document.body.removeChild(container);
         }
       } else {
-        const rowsHtml = filteredVisits.map((visit) => `
-          <tr>
-            <td style="padding: 10px; border: 1px solid #E2E8F0; font-family: monospace;">
-              ${formatDate(visit.created_at)} (${formatTime(visit.created_at)})
-            </td>
-            <td style="padding: 10px; border: 1px solid #E2E8F0; font-family: monospace; font-weight: bold; color: ${visit.bp_classification_level === 'red' ? '#DC2626' : visit.bp_classification_level === 'yellow' ? '#D97706' : visit.bp_classification_level === 'green' ? '#059669' : '#1D4ED8'};">
-              ${visit.bp_systolic && visit.bp_diastolic ? `${visit.bp_systolic} / ${visit.bp_diastolic} mmHg` : '-'}
-            </td>
-            <td style="padding: 10px; border: 1px solid #E2E8F0; font-family: monospace; font-weight: bold; color: ${visit.sugar_classification_level === 'red' ? '#DC2626' : visit.sugar_classification_level === 'yellow' ? '#D97706' : visit.sugar_classification_level === 'green' ? '#059669' : '#059669'};">
-              ${visit.sugar_value ? `${visit.sugar_value} (${sugarTypeLabel(visit.sugar_test_type)})` : '-'}
-            </td>
-            <td style="padding: 10px; border: 1px solid #E2E8F0; font-family: monospace; font-weight: bold; color: #7E22CE;">
-              ${visit.weight ? `${visit.weight} kg` : '-'}
-            </td>
-            <td style="padding: 10px; border: 1px solid #E2E8F0; font-size: 11px;">
-              ${visit.symptoms && visit.symptoms.length > 0 ? visit.symptoms.join(' ، ') : 'لا يوجد أعراض'}
-            </td>
-          </tr>
-        `);
-
-        await renderHistoryTableToPdf(headerHtml, theadHtml, rowsHtml, footerHtml, `سجل-قراءات-${patient.name}.pdf`);
+        await renderHistoryTableToPdf(pharmacyName, patient.name, formatDateManual(new Date().toISOString()), filteredVisits, `سجل-المتابعة-الصحية-${patient.name}.pdf`);
       }
     } catch (err: any) {
       console.error('[PDF] خطأ فعلي أثناء التوليد:', err);

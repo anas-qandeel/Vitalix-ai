@@ -805,26 +805,17 @@ ${planUrl}
   const getStatus = () => {
     let level: 'normal' | 'medium' | 'high' = 'normal';
 
-    // حساب عمر المريض لتطبيق استثناء فوق 60 سنة
-    const patientAge = currentPatient?.birth_date
-      ? new Date().getFullYear() - new Date(currentPatient.birth_date).getFullYear()
-      : null;
-    const isOver60 = patientAge !== null && patientAge > 60;
-    const hasHypertension = currentPatient?.diagnosed_conditions?.includes('hypertension') ?? false;
-    // استثناء: 150/90 مقبول لفوق 60 سنة أو المشخّص بارتفاع الضغط
-    const bpHighThresholdSys = (isOver60 || hasHypertension) ? 150 : 140;
-    const bpHighThresholdDia = (isOver60 || hasHypertension) ? 90 : 90;
-
-    if (activeTests.bp && bpSys1) {
-      if (finalSys >= 180 || finalDia >= 120 || finalSys < 90 || finalDia < 60) level = 'high';
-      else if (finalSys > bpHighThresholdSys || finalDia > bpHighThresholdDia) level = 'medium';
+    // ── الضغط والسكري: يُقرأ المستوى من المرجع الموحد (liveBpClf/liveSugarClf)
+    // بدل حساب عتبات منفصل هنا — نفس المصدر المستخدم في بطاقتي التصنيف أعلاه.
+    if (activeTests.bp && bpSys1 && liveBpClf) {
+      if (liveBpClf.level === 'red') level = 'high';
+      else if (liveBpClf.level === 'yellow') level = 'medium';
     }
-    if (activeTests.sugar && sugarValue) {
-      const s = Number(sugarValue);
-      if (s >= 300 || s < 70) level = 'high';
-      else if (s >= 180 && level !== 'high') level = 'medium';
+    if (activeTests.sugar && sugarValue && liveSugarClf) {
+      if (liveSugarClf.level === 'red') level = 'high';
+      else if (liveSugarClf.level === 'yellow' && level !== 'high') level = 'medium';
     }
-    // الوزن / BMI — أي خروج عن النطاق الطبيعي يرفع المستوى
+    // الوزن / BMI — أي خروج عن النطاق الطبيعي يرفع المستوى (بلا تغيير)
     if (activeTests.weight && weightValue && currentPatient?.height) {
       const h = Number(currentPatient.height) / 100;
       const bmiVal = Number(weightValue) / (h * h);

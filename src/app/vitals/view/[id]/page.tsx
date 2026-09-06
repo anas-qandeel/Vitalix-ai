@@ -483,6 +483,11 @@ export default function SingleVitalViewPage({ params }: PageProps) {
                       النبض: <span dir="ltr" style={{ fontWeight: 600, color: '#64748b' }}>{currentVisit.heart_rate}</span> ن/د
                     </p>
                   )}
+                  {currentVisit.is_dual_bp && currentVisit.bp_sys1 != null && currentVisit.bp_sys2 != null && (
+                    <p style={{ margin: '4px 0 0', fontSize: 11, color: '#94a3b8' }} dir="ltr">
+                      {currentVisit.bp_sys1}/{currentVisit.bp_dia1} ← {currentVisit.bp_sys2}/{currentVisit.bp_dia2}
+                    </p>
+                  )}
                   <span style={{
                     display: 'inline-block', marginTop: 8,
                     background: bpStyle.badgeBg, color: bpStyle.badgeColor,
@@ -490,6 +495,13 @@ export default function SingleVitalViewPage({ params }: PageProps) {
                   }}>
                     {bpStyle.label}
                   </span>
+                  {currentVisit.took_bp_medication != null && (
+                    <p style={{ margin: '6px 0 0', fontSize: 11, color: '#94a3b8' }}>
+                      دواء الضغط اليوم: <span style={{ fontWeight: 600, color: currentVisit.took_bp_medication ? '#0f766e' : '#94a3b8' }}>
+                        {currentVisit.took_bp_medication ? 'أُخذ' : 'لم يُؤخذ'}
+                      </span>
+                    </p>
+                  )}
                 </div>
               </div>
             )}
@@ -518,9 +530,21 @@ export default function SingleVitalViewPage({ params }: PageProps) {
                       ({sugarTypeLabel(currentVisit.sugar_test_type)})
                     </span>
                   </div>
+                  {currentVisit.took_sugar_medication != null && (
+                    <p style={{ margin: '6px 0 0', fontSize: 11, color: '#94a3b8' }}>
+                      دواء السكري اليوم: <span style={{ fontWeight: 600, color: currentVisit.took_sugar_medication ? '#0f766e' : '#94a3b8' }}>
+                        {currentVisit.took_sugar_medication ? 'أُخذ' : 'لم يُؤخذ'}
+                      </span>
+                    </p>
+                  )}
                 </div>
               </div>
             )}
+          </div>
+        )}
+        {currentVisit.classification_special_criteria && (
+          <div style={{ padding: '10px 14px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, fontSize: 11.5, color: '#64748b', lineHeight: 1.6 }}>
+            ℹ️ {currentVisit.classification_special_criteria}
           </div>
         )}
 

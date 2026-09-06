@@ -1002,17 +1002,22 @@ ${planUrl}
         if (!report) {
           setIsFallbackReport(true);
           const parts: string[] = [];
+          // ── نفس المرجع الموحد المستخدم للحفظ والعرض في كل الشاشات — لا عتبات
+          // خاصة هنا حتى في حالة فشل جيميناي، لضمان اتساق الحكم في كل السيناريوهات.
+          const fbAge = currentPatient?.birth_date
+            ? new Date().getFullYear() - new Date(currentPatient.birth_date).getFullYear()
+            : null;
+          const fbHasHtn = currentPatient?.diagnosed_conditions?.includes('hypertension') ?? false;
+          const fbHasDm  = currentPatient?.diagnosed_conditions?.includes('diabetes') ?? false;
           if (visitPayload.bp_systolic && visitPayload.bp_diastolic) {
             const s = visitPayload.bp_systolic, d = visitPayload.bp_diastolic;
-            if (s >= 180 || d >= 120) parts.push(`ضغط الدم (${s}/${d}) مرتفع جداً، يُنصح بمراجعة الطبيب فوراً.`);
-            else if (s >= 140 || d >= 90) parts.push(`ضغط الدم (${s}/${d}) أعلى من الطبيعي، يُنصح بالمتابعة.`);
-            else parts.push(`ضغط الدم (${s}/${d}) ضمن الطبيعي.`);
+            const fbBpClf = classifyBp(s, d, fbAge, fbHasHtn);
+            parts.push(`ضغط الدم (${s}/${d}): ${fbBpClf.label}.`);
           }
           if (visitPayload.sugar_value) {
             const sv = visitPayload.sugar_value;
-            if (sv < 70 || sv >= 300) parts.push(`سكري الدم (${sv}) خارج النطاق الطبيعي.`);
-            else if (sv >= 180) parts.push(`سكري الدم (${sv}) أعلى قليلاً من الطبيعي.`);
-            else parts.push(`سكري الدم (${sv}) ضمن الطبيعي.`);
+            const fbSugarClf = classifySugar(sv, visitPayload.sugar_test_type, fbAge, fbHasDm);
+            parts.push(`سكري الدم (${sv}): ${fbSugarClf.label}.`);
           }
           if (parts.length === 0) parts.push('تم توثيق الزيارة بنجاح ولا توجد قراءات خارج الطبيعي.');
           report = `مرحباً ${currentPatient.name}، من فريق ${pharmacyName || 'صيدليتك'} 👋 ${parts.join(' ')}`;

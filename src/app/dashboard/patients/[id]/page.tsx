@@ -31,6 +31,13 @@ interface Visit {
   bp_diastolic: number | null;
   heart_rate: number | null;
   is_dual_bp: boolean;
+  bp_classification: string | null;
+  bp_classification_level: string | null;
+  sugar_classification: string | null;
+  sugar_classification_level: string | null;
+  heart_rate_classification: string | null;
+  heart_rate_classification_level: string | null;
+  classification_special_criteria: string | null;
   sugar_value: number | null;
   sugar_test_type: string | null;
   weight: number | null;
@@ -110,19 +117,14 @@ function sugarTypeLabel(t: string | null) {
   if (t === 'random') return 'عشوائي';
   return '';
 }
-function getVisitStatus(v: { bp_systolic: number | null; bp_diastolic: number | null; sugar_value: number | null }) {
-  let level: 'normal' | 'medium' | 'high' = 'normal';
-  if (v.bp_systolic) {
-    if (v.bp_systolic >= 180 || (v.bp_diastolic ?? 0) >= 120 || v.bp_systolic < 90 || (v.bp_diastolic ?? 0) < 60) level = 'high';
-    else if (v.bp_systolic >= 140 || (v.bp_diastolic ?? 0) >= 90) level = 'medium';
-  }
-  if (v.sugar_value) {
-    const s = v.sugar_value;
-    if (s >= 300 || s < 70) { if (level !== 'high') level = 'high'; }
-    else if (s >= 180 && level === 'normal') level = 'medium';
-  }
-  if (level === 'high') return { dot: 'bg-rose-500', color: 'text-rose-600', label: 'يستدعي انتباهاً' };
-  if (level === 'medium') return { dot: 'bg-amber-500', color: 'text-amber-600', label: 'يحتاج متابعة' };
+// ── التصنيف المعتمد: يُقرأ محفوظاً من الزيارة (bp_classification_level/
+// sugar_classification_level) بدل حساب عتبات محلية — نفس المرجع الموحد
+// المستخدم في كل شاشات النظام. زيارة بلا تصنيف محفوظ → لا شارة (null).
+function getVisitStatus(v: { bp_classification_level: string | null; sugar_classification_level: string | null }) {
+  const levels = [v.bp_classification_level, v.sugar_classification_level].filter(Boolean);
+  if (levels.length === 0) return null;
+  if (levels.includes('red')) return { dot: 'bg-rose-500', color: 'text-rose-600', label: 'يستدعي انتباهاً' };
+  if (levels.includes('yellow')) return { dot: 'bg-amber-500', color: 'text-amber-600', label: 'يحتاج متابعة' };
   return { dot: 'bg-teal-500', color: 'text-teal-600', label: 'ضمن الطبيعي' };
 }
 
@@ -521,10 +523,10 @@ export default function PatientCardPage({ params }: PageProps) {
             <td style="padding: 10px; border: 1px solid #E2E8F0; font-family: monospace;">
               ${formatDate(visit.created_at)} (${formatTime(visit.created_at)})
             </td>
-            <td style="padding: 10px; border: 1px solid #E2E8F0; font-family: monospace; font-weight: bold; color: ${visit.bp_systolic && visit.bp_systolic >= 140 ? '#DC2626' : '#1D4ED8'};">
+            <td style="padding: 10px; border: 1px solid #E2E8F0; font-family: monospace; font-weight: bold; color: ${visit.bp_classification_level === 'red' ? '#DC2626' : visit.bp_classification_level === 'yellow' ? '#D97706' : visit.bp_classification_level === 'green' ? '#059669' : '#1D4ED8'};">
               ${visit.bp_systolic && visit.bp_diastolic ? `${visit.bp_systolic} / ${visit.bp_diastolic} mmHg` : '-'}
             </td>
-            <td style="padding: 10px; border: 1px solid #E2E8F0; font-family: monospace; font-weight: bold; color: ${visit.sugar_value && visit.sugar_value >= 180 ? '#D97706' : '#059669'};">
+            <td style="padding: 10px; border: 1px solid #E2E8F0; font-family: monospace; font-weight: bold; color: ${visit.sugar_classification_level === 'red' ? '#DC2626' : visit.sugar_classification_level === 'yellow' ? '#D97706' : visit.sugar_classification_level === 'green' ? '#059669' : '#059669'};">
               ${visit.sugar_value ? `${visit.sugar_value} (${sugarTypeLabel(visit.sugar_test_type)})` : '-'}
             </td>
             <td style="padding: 10px; border: 1px solid #E2E8F0; font-family: monospace; font-weight: bold; color: #7E22CE;">
@@ -881,7 +883,7 @@ export default function PatientCardPage({ params }: PageProps) {
                         </div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        {(v.bp_systolic || v.sugar_value) && (
+                        {(v.bp_systolic || v.sugar_value) && vstatus && (
                           <div className="flex items-center gap-1.5">
                             <span className={`w-2 h-2 rounded-full shrink-0 ${vstatus.dot}`} />
                             <span className={`text-[10px] font-bold hidden sm:block ${vstatus.color}`}>{vstatus.label}</span>

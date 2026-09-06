@@ -21,6 +21,13 @@ interface VisitationRecord {
   bp_sys2: number | null;
   bp_dia2: number | null;
   hr2: number | null;
+  bp_classification: string | null;
+  bp_classification_level: string | null;
+  sugar_classification: string | null;
+  sugar_classification_level: string | null;
+  heart_rate_classification: string | null;
+  heart_rate_classification_level: string | null;
+  classification_special_criteria: string | null;
   sugar_value: number | null;
   sugar_test_type: string | null;
   weight: number | null;
@@ -168,6 +175,16 @@ export default function VitalsSummaryPage({ params }: { params: Promise<{ id: st
                     <span className="text-[34px] font-black text-slate-900 leading-none">{visit.bp_systolic}/{visit.bp_diastolic}</span>
                     <span className="text-sm text-slate-400">مم زئبق</span>
                   </div>
+                  {visit.bp_classification && (
+                    <span style={{
+                      display: 'inline-block', marginTop: 6,
+                      background: visit.bp_classification_level === 'red' ? '#fee2e2' : visit.bp_classification_level === 'yellow' ? '#fef3c7' : '#ccfbf1',
+                      color: visit.bp_classification_level === 'red' ? '#991b1b' : visit.bp_classification_level === 'yellow' ? '#92400e' : '#0f766e',
+                      fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20,
+                    }}>
+                      {visit.bp_classification}
+                    </span>
+                  )}
                   <div className="h-px bg-slate-200 my-3.5" />
                   <div className="flex text-center">
                     <div className="flex-1">
@@ -183,6 +200,16 @@ export default function VitalsSummaryPage({ params }: { params: Promise<{ id: st
                     <span className="text-[34px] font-black text-slate-900 leading-none">{visit.sugar_value}</span>
                     <span className="text-sm text-slate-400">mg/dL</span>
                   </div>
+                  {visit.sugar_classification && (
+                    <span style={{
+                      display: 'inline-block', marginTop: 6,
+                      background: visit.sugar_classification_level === 'red' ? '#fee2e2' : visit.sugar_classification_level === 'yellow' ? '#fef3c7' : '#ccfbf1',
+                      color: visit.sugar_classification_level === 'red' ? '#991b1b' : visit.sugar_classification_level === 'yellow' ? '#92400e' : '#0f766e',
+                      fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20,
+                    }}>
+                      {visit.sugar_classification}
+                    </span>
+                  )}
                   <div className="h-px bg-slate-200 my-3.5" />
                   <div className="flex justify-center text-center">
                     <div>

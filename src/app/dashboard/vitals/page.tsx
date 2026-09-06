@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { upsertPipeline } from '@/lib/pipeline';
 import { useRouter } from 'next/navigation';
@@ -532,6 +532,23 @@ export default function VitalsPage() {
   const finalDia = isDualBp && bpDia1 && bpDia2
     ? Math.round((Number(bpDia1) + Number(bpDia2)) / 2)
     : Number(bpDia1);
+
+  // ── التصنيف الحي المعروض أثناء الإدخال: نفس دوال المرجع الموحد المستخدمة
+  // لحظة الحفظ (انظر approvedClassifications أدناه) — مصدر واحد، فلا يمكن أن
+  // يختلف ما يراه الصيدلاني هنا عما يُحفظ ويصل لاحقاً للمريض.
+  const liveAge = currentPatient?.birth_date
+    ? new Date().getFullYear() - new Date(currentPatient.birth_date).getFullYear()
+    : null;
+  const liveHasHtn = currentPatient?.diagnosed_conditions?.includes('hypertension') ?? false;
+  const liveHasDm  = currentPatient?.diagnosed_conditions?.includes('diabetes') ?? false;
+  const liveBpClf = useMemo(
+    () => (finalSys && finalDia) ? classifyBp(finalSys, finalDia, liveAge, liveHasHtn) : null,
+    [finalSys, finalDia, liveAge, liveHasHtn]
+  );
+  const liveSugarClf = useMemo(
+    () => (activeTests.sugar && sugarValue) ? classifySugar(Number(sugarValue), sugarType, liveAge, liveHasDm) : null,
+    [activeTests.sugar, sugarValue, sugarType, liveAge, liveHasDm]
+  );
 
   const hasAnyReading = (activeTests.bp && bpSys1) || (activeTests.sugar && sugarValue) || (activeTests.weight && weightValue);
 
@@ -2020,8 +2037,8 @@ ${planUrl}
                               <>
                                 <div className="w-px bg-slate-200" />
                                 <div className="flex-1">
-                                  <p className={`text-xl font-black ${finalSys >= 140 || finalDia >= 90 ? 'text-amber-600' : 'text-teal-700'}`}>
-                                    {finalSys >= 140 || finalDia >= 90 ? 'مرتفع' : 'طبيعي'}
+                                  <p className={`text-xl font-black ${liveBpClf?.level === 'red' ? 'text-rose-600' : liveBpClf?.level === 'yellow' ? 'text-amber-600' : 'text-teal-700'}`}>
+                                    {liveBpClf?.label ?? '—'}
                                   </p>
                                   <p className="text-[11px] text-slate-400 mt-0.5">تصنيف الضغط</p>
                                 </div>
@@ -2046,8 +2063,8 @@ ${planUrl}
                             </div>
                             <div className="w-px bg-slate-200" />
                             <div className="flex-1">
-                              <p className={`text-base font-black ${Number(sugarValue) >= 300 || Number(sugarValue) < 70 ? 'text-rose-600' : Number(sugarValue) >= 180 ? 'text-amber-600' : 'text-teal-700'}`}>
-                                {Number(sugarValue) >= 300 ? 'مرتفع جداً' : Number(sugarValue) < 70 ? 'منخفض' : Number(sugarValue) >= 180 ? 'مرتفع' : 'طبيعي'}
+                              <p className={`text-base font-black ${liveSugarClf?.level === 'red' ? 'text-rose-600' : liveSugarClf?.level === 'yellow' ? 'text-amber-600' : 'text-teal-700'}`}>
+                                {liveSugarClf?.label ?? '—'}
                               </p>
                               <p className="text-[11px] text-slate-400 mt-0.5">تصنيف السكري</p>
                             </div>

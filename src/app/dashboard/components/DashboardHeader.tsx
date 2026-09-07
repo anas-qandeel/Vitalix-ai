@@ -5,13 +5,14 @@ import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { getPharmacyId, getStaffName, getUserRole } from '@/lib/tenant';
+import { formatPharmacistName } from '@/lib/name-format';
 
 const ROLE_LABELS: Record<string, string> = { owner: 'مالك', pharmacist: 'صيدلاني', assistant: 'مساعد', staff: 'موظف' };
 
 const VitalixLogo = () => (
   <svg className="w-5 h-5" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path d="M6 8L14.5 25C14.8 25.6 15.6 25.6 15.9 25L20 17" stroke="white" strokeWidth="3.5" strokeLinecap="round" />
-    <path d="M24 6C24 9.3 26.7 12 30 12C26.7 12 24 14.7 24 18C24 14.7 21.3 12 18 12C21.3 12 24 9.3 24 6Z" fill="#2563EB" />
+    <path d="M24 6C24 9.3 26.7 12 30 12C26.7 12 24 14.7 24 18C24 14.7 21.3 12 18 12C21.3 12 24 9.3 24 6Z" fill="#0D9488" />
   </svg>
 );
 
@@ -180,8 +181,8 @@ export default function DashboardHeader({ breadcrumb, onBack }: DashboardHeaderP
       <header className="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-1 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-[64px] flex items-center justify-between">
 
-          {/* يمين: اللوجو + التنقل */}
-          <div className="flex items-center gap-2 sm:gap-6 shrink-0">
+          {/* يمين: اللوجو + اسم الصيدلية / Breadcrumb */}
+          <div className="flex items-center gap-3 shrink-0">
             {/* زر قائمة التنقل — يظهر فقط على الموبايل/التابلت الصغير حيث تُخفى nav الديسكتوب */}
             {!breadcrumb && (
               <button onClick={() => setMobileNavOpen(v => !v)}
@@ -206,7 +207,7 @@ export default function DashboardHeader({ breadcrumb, onBack }: DashboardHeaderP
               </div>
               <div className="hidden sm:flex flex-col text-right leading-none">
                 <span className="text-[15px] font-black tracking-tight font-brand text-slate-900">
-                  Vitalix<span className="text-[#2563EB]">.ai</span>
+                  Vitalix<span className="text-teal-600">-ai</span>
                 </span>
                 <span className="text-[10px] text-slate-500 font-semibold mt-1 group-hover:text-slate-700 transition-colors">
                   تابع مرضاك بذكاء
@@ -214,22 +215,20 @@ export default function DashboardHeader({ breadcrumb, onBack }: DashboardHeaderP
               </div>
             </button>
 
-            {!breadcrumb && <div className="hidden md:block w-px h-6 bg-slate-200 ml-2" />}
-
             {!breadcrumb && (
-              <nav className="hidden md:flex items-center gap-1">
-                {NAV_LINKS.map((link) => {
-                  const isActive = link.exact ? pathname === link.href : pathname.startsWith(link.href);
-                  return (
-                    <button key={link.href} onClick={() => router.push(link.href)}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                        isActive ? 'bg-slate-100 text-slate-900 font-bold shadow-sm' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
-                      }`}>
-                      {link.label}
-                    </button>
-                  );
-                })}
-              </nav>
+              <>
+                <div className="hidden sm:block w-px h-8 bg-slate-200" />
+                <div className="hidden sm:flex items-center gap-2">
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${
+                    pharmacyStatus === 'active' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-amber-500 animate-pulse'
+                  }`} />
+                  {loading ? (
+                    <span className="inline-block w-28 h-5 bg-teal-100 rounded animate-pulse" />
+                  ) : (
+                    <span className="text-lg font-black text-teal-900 truncate max-w-[220px]">{pharmacyName}</span>
+                  )}
+                </div>
+              </>
             )}
 
             {breadcrumb && (
@@ -246,33 +245,49 @@ export default function DashboardHeader({ breadcrumb, onBack }: DashboardHeaderP
             )}
           </div>
 
+          {/* وسط: روابط التنقل الرئيسية — تظهر فقط في حالة عدم وجود breadcrumb */}
+          <div className="flex-1 flex items-center justify-center">
+            {!breadcrumb && (
+              <nav className="hidden md:flex items-center gap-1">
+                {NAV_LINKS.map((link) => {
+                  const isActive = link.exact ? pathname === link.href : pathname.startsWith(link.href);
+                  return (
+                    <button key={link.href} onClick={() => router.push(link.href)}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                        isActive ? 'bg-slate-100 text-slate-900 font-bold shadow-sm' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
+                      }`}>
+                      {link.label}
+                    </button>
+                  );
+                })}
+              </nav>
+            )}
+          </div>
+
           {/* يسار: اسم الصيدلية + اختيار الصيدلاني + Avatar */}
           <div className="flex items-center gap-3 shrink-0">
 
-            {/* بادج اسم الصيدلية — في وضع breadcrumb تُخفى على الجوال لضيق المساحة وتظهر من md فأعلى فقط */}
-            <div className={`${breadcrumb ? 'hidden md:flex' : 'hidden sm:flex'} items-center gap-2.5 bg-gradient-to-r from-teal-50/50 to-emerald-50/50 border border-teal-100/60 px-4 py-1.5 rounded-full shadow-[0_2px_10px_-3px_rgba(20,184,166,0.15)]`}>
-              <span className={`w-2 h-2 rounded-full shrink-0 ${
-                pharmacyStatus === 'active' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-amber-500 animate-pulse'
-              }`} />
-              {loading ? (
-                <span className="inline-block w-24 h-4 bg-teal-100 rounded animate-pulse" />
-              ) : (
-                <span className="text-sm font-bold text-teal-900 truncate max-w-[200px]">{pharmacyName}</span>
-              )}
-            </div>
+            {/* بادج اسم الصيدلية — يظهر هنا فقط في وضع breadcrumb (في الوضع العادي انتقل بجانب اللوجو يميناً)، ويُخفى على الجوال لضيق المساحة */}
+            {breadcrumb && (
+              <div className="hidden md:flex items-center gap-2.5 bg-gradient-to-r from-teal-50/50 to-emerald-50/50 border border-teal-100/60 px-4 py-2 rounded-full shadow-[0_2px_10px_-3px_rgba(20,184,166,0.15)]">
+                <span className={`w-2 h-2 rounded-full shrink-0 ${
+                  pharmacyStatus === 'active' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-amber-500 animate-pulse'
+                }`} />
+                {loading ? (
+                  <span className="inline-block w-28 h-5 bg-teal-100 rounded animate-pulse" />
+                ) : (
+                  <span className="text-base font-black text-teal-900 truncate max-w-[220px]">{pharmacyName}</span>
+                )}
+              </div>
+            )}
 
             {/* ── هوية المستخدم الحالي (غير قابلة للنقر) ── */}
             {staffName && (
-              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700">
-                <div className="w-5 h-5 rounded-md bg-slate-200 flex items-center justify-center text-[10px] font-black text-slate-600 shrink-0">
-                  {displayName.charAt(0)}
-                </div>
-                <span className="max-w-[100px] truncate">{displayName}</span>
-                {roleLabel && (
-                  <span className="text-[10px] font-bold text-teal-700 bg-teal-50 border border-teal-200 px-1.5 py-0.5 rounded-md shrink-0">
-                    {roleLabel}
-                  </span>
-                )}
+              <div className="hidden sm:flex items-baseline gap-1.5">
+                <span className="text-sm font-bold text-teal-700 shrink-0">مرحباً بعودتك</span>
+                <span className="text-sm font-black text-teal-700 truncate max-w-[160px]">
+                  {formatPharmacistName(displayName, userRole === 'owner' || userRole === 'pharmacist' || userRole === 'assistant')}
+                </span>
               </div>
             )}
 
@@ -282,16 +297,24 @@ export default function DashboardHeader({ breadcrumb, onBack }: DashboardHeaderP
             <div ref={dropdownRef} className="relative">
               <button
                 onClick={() => setDropdownOpen(!dropdownOpen)}
-                className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-sm font-bold text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-2">
-                {loading ? <span className="w-2 h-2 rounded-full bg-slate-300 animate-pulse" /> : initials}
+                className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-2">
+                {loading ? (
+                  <span className="w-2 h-2 rounded-full bg-slate-300 animate-pulse" />
+                ) : (
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                  </svg>
+                )}
               </button>
 
               {dropdownOpen && (
                 <div className="absolute top-[calc(100%+10px)] left-0 w-64 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden z-50 animate-dropdown">
                   <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/80">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-sm font-bold text-slate-700 shrink-0 shadow-sm">
-                        {initials}
+                      <div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0">
+                        <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                        </svg>
                       </div>
                       <div className="min-w-0">
                         <p className="text-sm font-bold text-slate-900 truncate">{displayName}</p>
@@ -306,6 +329,9 @@ export default function DashboardHeader({ breadcrumb, onBack }: DashboardHeaderP
                           <span className={`w-1.5 h-1.5 rounded-full ${isExpiringSoon ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}`} />
                           اشتراك {pharmacyStatus === 'active' ? 'نشط' : 'تجريبي'} ({pluralizeDays(daysLeft)})
                         </span>
+                        {isExpiringSoon && (
+                          <p className="text-[10px] text-amber-600 font-medium mt-1.5">تنبيه: ينتهي اشتراكك خلال {pluralizeDays(daysLeft)}</p>
+                        )}
                       </div>
                     )}
                   </div>

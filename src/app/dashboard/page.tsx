@@ -483,27 +483,6 @@ export default function PharmacistDashboard() {
           <div className="absolute right-0 top-0 bottom-0 w-1.5 bg-teal-500 rounded-r-2xl z-10 hidden lg:block" />
           <div className="absolute right-0 left-0 top-0 h-1.5 bg-teal-500 rounded-t-2xl z-10 lg:hidden" />
           
-          {/* الجانب الأيمن (الترحيب والهوية) */}
-          <div className="p-6 md:p-8 flex flex-col justify-center min-w-[280px] lg:w-[320px] shrink-0 relative z-20">
-            <p className="text-teal-600 text-[11px] font-bold mb-1.5 uppercase tracking-widest">مرحباً بعودتك</p>
-            <h1 className="text-2xl font-black text-slate-900 truncate tracking-tight">{formattedDisplayName}</h1>
-            <p className="text-slate-500 text-xs mt-2 font-medium">
-              {new Date().toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', numberingSystem: 'latn' })}
-            </p>
-
-            {isExpiringSoon && userRole === 'owner' && (
-              <div className="mt-5 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center gap-3 w-fit shadow-sm">
-                <span className="flex items-center justify-center w-8 h-8 rounded-full bg-amber-100 text-amber-600 shrink-0">
-                  <IconBell className="w-4 h-4" />
-                </span>
-                <div>
-                  <p className="text-amber-900 text-xs font-bold">تنبيه الاشتراك</p>
-                  <p className="text-amber-700 text-[10px] mt-0.5 font-medium">ينتهي خلال {pluralizeDays(daysLeft)}</p>
-                </div>
-              </div>
-            )}
-          </div>
-
           {/* الجانب الأيسر (شبكة الإحصائيات المدمجة) */}
           <div className="flex-1 bg-slate-50/50 border-t lg:border-t-0 lg:border-r border-slate-200 grid grid-cols-2 lg:grid-cols-4 relative z-10">
             

@@ -244,7 +244,10 @@ async function renderElementToPdf(container: HTMLElement, filename: string) {
 async function renderHistoryTableToPdf(
   pharmacyName: string,
   patientName: string,
+  patientGender: string,
   issueDateStr: string,
+  patientBirthDate: string | null,
+  patientAge: number | null,
   visits: Visit[],
   filename: string
 ) {
@@ -278,8 +281,8 @@ async function renderHistoryTableToPdf(
   autoTable(pdf, {
     head: [['الأعراض الملاحظة', 'الوزن (kg)', 'السكري (mg/dL)', 'ضغط الدم (SYS/DIA)', 'التاريخ والوقت']],
     body: bodyRows,
-    startY: 40,
-    margin: { top: 40, bottom: 34, left: 12, right: 12 },
+    startY: 42,
+    margin: { top: 42, bottom: 34, left: 12, right: 12 },
     styles: { font: 'PlexArabic', fontStyle: 'normal', fontSize: 8.5, halign: 'right', cellPadding: 2.2, textColor: [71, 85, 105] },
     headStyles: { fillColor: [248, 250, 252], textColor: [51, 65, 85], fontSize: 8.5, lineWidth: 0.1, lineColor: [203, 213, 225] },
     alternateRowStyles: { fillColor: [248, 250, 252] },
@@ -302,14 +305,31 @@ async function renderHistoryTableToPdf(
       // الهيدر
       pdf.setFont('PlexArabic');
       pdf.setFontSize(16); pdf.setTextColor(15, 23, 42);
-      pdf.text(pharmacyName, pageWidth - 12, 15, { align: 'right' });
+      // اسم الصيدلية وسط الصفحة — البطل البصري للمستند، مع جملة تموضع تعزز مصداقيتها
+      pdf.setFontSize(17); pdf.setTextColor(15, 23, 42);
+      pdf.text(pharmacyName, pageWidth / 2, 15, { align: 'center' });
       pdf.setFontSize(8); pdf.setTextColor(100, 116, 139);
-      pdf.text('سجل المتابعة الصحية', pageWidth - 12, 20, { align: 'right' });
+      pdf.text('شريكك الصحي الموثوق', pageWidth / 2, 20, { align: 'center' });
       pdf.setDrawColor(13, 148, 136); pdf.setLineWidth(0.4);
-      pdf.line(12, 24, pageWidth - 12, 24);
-      pdf.setFontSize(8.5); pdf.setTextColor(51, 65, 85);
-      pdf.text(`اسم المريض: ${patientName}`, pageWidth - 12, 31, { align: 'right' });
-      pdf.text(`تاريخ الإصدار: ${issueDateStr}`, 12, 31);
+      pdf.line(12, 25, pageWidth - 12, 25);
+      // يمين: عنوان السجل باسم المريض/ة حسب الجنس، وتحته تاريخ الميلاد والعمر
+      // تُرسم الجملة كمقطعين متجاورين: البادئة بوزن عادي، واسم المريض بخط أعرض وأغمق ليبرز فوراً
+      const patientLabel = patientGender === 'female' ? 'المريضة' : 'المريض';
+      const prefixText = `سجل المتابعة الصحية الخاص بـ${patientLabel}`;
+      const nameGap = 1.3; // مسافة صريحة بالمليمتر بين البادئة واسم المريض
+      pdf.setFontSize(9); pdf.setTextColor(51, 65, 85);
+      const prefixWidth = pdf.getTextWidth(prefixText);
+      pdf.text(prefixText, pageWidth - 12, 32, { align: 'right' });
+      pdf.setFontSize(10.5); pdf.setTextColor(15, 23, 42);
+      pdf.text(patientName, pageWidth - 12 - prefixWidth - nameGap, 32, { align: 'right' });
+      if (patientBirthDate && patientAge !== null) {
+        const dobFormatted = formatDateManual(patientBirthDate);
+        pdf.setFontSize(8); pdf.setTextColor(100, 116, 139);
+        pdf.text(`تاريخ الميلاد: ${dobFormatted} (${patientAge} سنة)`, pageWidth - 12, 37, { align: 'right' });
+      }
+      // يسار: تاريخ الإصدار وحده
+      pdf.setFontSize(8); pdf.setTextColor(100, 116, 139);
+      pdf.text(`تاريخ الإصدار: ${issueDateStr}`, 12, 32);
       // الفوتر
       pdf.setDrawColor(226, 232, 240); pdf.setLineWidth(0.2);
       pdf.line(12, pageHeight - 30, pageWidth - 12, pageHeight - 30);
@@ -533,7 +553,7 @@ export default function PatientCardPage({ params }: PageProps) {
           document.body.removeChild(container);
         }
       } else {
-        await renderHistoryTableToPdf(pharmacyName, patient.name, formatDateManual(new Date().toISOString()), filteredVisits, `سجل-المتابعة-الصحية-${patient.name}.pdf`);
+        await renderHistoryTableToPdf(pharmacyName, patient.name, patient.gender, formatDateManual(new Date().toISOString()), patient.birth_date, calculateAge(patient.birth_date), filteredVisits, `سجل-المتابعة-الصحية-${patient.name}.pdf`);
       }
     } catch (err: any) {
       console.error('[PDF] خطأ فعلي أثناء التوليد:', err);

@@ -443,6 +443,9 @@ export default function SingleVitalViewPage({ params }: PageProps) {
               <p style={{ margin: '3px 0 0', fontSize: 12, color: '#64748b' }}>
                 {currentVisit.patient?.gender === 'female' ? 'أنثى' : currentVisit.patient?.gender === 'male' ? 'ذكر' : ''}
                 {patientAge ? ` · ${patientAge} سنة` : ''}
+                {[currentVisit.bp_systolic != null && 'ضغط', currentVisit.sugar_value != null && 'سكري'].filter(Boolean).length > 0
+                  ? ` · ${[currentVisit.bp_systolic != null && 'ضغط', currentVisit.sugar_value != null && 'سكري'].filter(Boolean).join(' · ')}`
+                  : ''}
                 {' · '}
                 <span dir="ltr" style={{ unicodeBidi: 'isolate' }}>{formatDateManual(currentVisit.created_at)}</span>
               </p>

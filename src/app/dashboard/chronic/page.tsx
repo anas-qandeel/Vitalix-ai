@@ -13,6 +13,7 @@ import { normalizeAr } from '@/lib/arabic';
 import { checkInteractions } from '@/lib/interaction-check';
 import { logActivity } from '@/lib/activity';
 import { normalizePhone, displayPhone, validatePhone } from '@/lib/phone';
+import { ChartBar, Package } from '@phosphor-icons/react';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -2029,21 +2030,21 @@ export default function ChronicPage() {
               وتجعل الزر أطول من إخوته (min-height:auto التلقائي لعناصر flex/grid) — التمرير الأفقي
               يضمن عدم اللف أو التداخل مهما ضاق العرض */}
           <div className="flex items-center gap-2 sm:gap-3 overflow-x-auto pb-1 -mb-1">
-            <button onClick={() => { setShowStats(v => !v); setShowInventory(false); }}
-              className={`h-10 shrink-0 whitespace-nowrap px-3 sm:px-4 flex items-center justify-center gap-2 rounded-lg text-xs sm:text-sm font-medium transition-all shadow-sm border ${
-                showStats ? 'bg-slate-900 text-white border-slate-900' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-              }`}>
-              📊 نتائجك
+            <button onClick={() => setAddModal(true)}
+              className="h-10 shrink-0 whitespace-nowrap px-3 sm:px-4 flex items-center justify-center gap-2 rounded-lg bg-teal-600 text-white text-xs sm:text-sm font-medium hover:bg-teal-700 transition-all shadow-sm">
+              متابعة مريض
             </button>
             <button onClick={() => { setShowInventory(v => !v); setShowStats(false); }}
               className={`h-10 shrink-0 whitespace-nowrap px-3 sm:px-4 flex items-center justify-center gap-2 rounded-lg text-xs sm:text-sm font-medium transition-all shadow-sm border ${
                 showInventory ? 'bg-slate-900 text-white border-slate-900' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
               }`}>
-              📦 جهّز مخزونك
+              <Package size={16} weight="bold" /> جهّز مخزونك
             </button>
-            <button onClick={() => setAddModal(true)}
-              className="h-10 shrink-0 whitespace-nowrap px-3 sm:px-4 flex items-center justify-center gap-2 rounded-lg bg-teal-600 text-white text-xs sm:text-sm font-medium hover:bg-teal-700 transition-all shadow-sm">
-              متابعة مريض
+            <button onClick={() => { setShowStats(v => !v); setShowInventory(false); }}
+              className={`h-10 shrink-0 whitespace-nowrap px-3 sm:px-4 flex items-center justify-center gap-2 rounded-lg text-xs sm:text-sm font-medium transition-all shadow-sm border ${
+                showStats ? 'bg-slate-900 text-white border-slate-900' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+              }`}>
+              <ChartBar size={16} weight="bold" /> نتائجك
             </button>
           </div>
         </div>

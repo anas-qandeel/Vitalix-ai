@@ -5,6 +5,8 @@ import { Storefront, HeartStraight, Drop, Barbell, UserCircle, WhatsappLogo } fr
 import AppFooter from '../../../components/AppFooter';
 import Disclaimer from '@/components/Disclaimer';
 import { detectTextDir } from '@/lib/text-direction';
+import BpHistoryChart from '@/components/BpHistoryChart';
+import SugarHistoryChart from '@/components/SugarHistoryChart';
 
 interface Patient {
   id: string;
@@ -540,6 +542,22 @@ export default function SingleVitalViewPage({ params }: PageProps) {
                 </div>
               </div>
             )}
+          </div>
+        )}
+        {patientHistory.filter(v => v.bp_systolic != null && v.bp_diastolic != null).length >= 2 && (
+          <div className="vcard" style={{ padding: 16 }}>
+            <BpHistoryChart
+              bpHistory={patientHistory.filter((v): v is typeof v & { bp_systolic: number; bp_diastolic: number } => v.bp_systolic != null && v.bp_diastolic != null).slice().reverse()}
+              formatDate={formatDate}
+            />
+          </div>
+        )}
+        {patientHistory.filter(v => v.sugar_value != null).length >= 2 && (
+          <div className="vcard" style={{ padding: 16 }}>
+            <SugarHistoryChart
+              sugarHistory={patientHistory.filter((v): v is typeof v & { sugar_value: number } => v.sugar_value != null).slice().reverse()}
+              formatDate={formatDate}
+            />
           </div>
         )}
         {currentVisit.classification_special_criteria && (

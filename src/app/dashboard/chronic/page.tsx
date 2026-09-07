@@ -13,7 +13,7 @@ import { normalizeAr } from '@/lib/arabic';
 import { checkInteractions } from '@/lib/interaction-check';
 import { logActivity } from '@/lib/activity';
 import { normalizePhone, displayPhone, validatePhone } from '@/lib/phone';
-import { ChartBar, Package } from '@phosphor-icons/react';
+import { ChartBar, Package, Lightning, User, LightbulbFilament, CheckCircle, Check, FilePdf } from '@phosphor-icons/react';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -1364,12 +1364,136 @@ function PatientMedsModal({ patient, cards, onClose }: {
   );
 }
 
-function InventoryTab({ cards, onClose }: {
+function InventoryTab({ cards, onClose, pharmacyName }: {
   cards: CareCard[];
   onClose?: () => void;
+  pharmacyName: string;
 }) {
+  const exportInventoryPDF = async (rows: InventoryItem[]) => {
+    const jspdfModule: any = await import('jspdf');
+    const JsPDF = jspdfModule.jsPDF || jspdfModule.default;
+    const autoTableModule: any = await import('jspdf-autotable');
+    const autoTable = autoTableModule.default || autoTableModule.autoTable;
+    const { PLEX_ARABIC_REGULAR_B64 } = await import('@/lib/pdf-arabic-font');
+
+    const pdf = new JsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+    pdf.addFileToVFS('PlexArabic-Regular.ttf', PLEX_ARABIC_REGULAR_B64);
+    pdf.addFont('PlexArabic-Regular.ttf', 'PlexArabic', 'normal');
+    pdf.setFont('PlexArabic');
+
+    const issueDateStr = new Date().toLocaleDateString('ar-EG', { day: 'numeric', month: 'short', year: 'numeric', numberingSystem: 'latn' });
+
+    // الكمية وأقرب نفاذ تُرسمان يدوياً في didDrawCell (فصل الرقم عن الكلمة العربية
+    // يمنع محرك bidi في jsPDF من عكس ترتيبهما) — الخليتان تبقيان نصاً فارغاً هنا
+    const qtyData = rows.map(item =>
+      item.confirmed_at
+        ? { word: 'مؤكَّد', num: `${item.boxes_remaining}/${item.boxes_confirmed}`, unit: 'علبة' }
+        : { word: '', num: `${item.boxes_needed_monthly}`, unit: 'علبة' }
+    );
+    const refillData = rows.map(item => {
+      const d = item.nearest_refill_days;
+      if (d <= 0) return { word: 'نفد اليوم', num: '', unit: '' };
+      if (d === 1) return { word: 'يوم واحد', num: '', unit: '' };
+      if (d === 2) return { word: 'يومان', num: '', unit: '' };
+      if (d <= 10) return { word: 'أيام', num: `${d}`, unit: '' };
+      return { word: 'يوماً', num: `${d}`, unit: '' };
+    });
+    const urgentFlags = rows.map(item => item.is_urgent && !item.confirmed_at);
+
+    const bodyRows = rows.map((item, i) => [
+      '', // عمود الكمية — يُرسم يدوياً
+      item.patient_names.join(' ، '),
+      '', // عمود أقرب نفاذ — يُرسم يدوياً
+      item.medication_name,
+    ]);
+
+    autoTable(pdf, {
+      head: [['الكمية', 'المرضى', 'أقرب نفاذ', 'الدواء']],
+      body: bodyRows,
+      startY: 36,
+      margin: { top: 36, bottom: 20, left: 12, right: 12 },
+      styles: { font: 'PlexArabic', fontStyle: 'normal', fontSize: 8.5, halign: 'right', cellPadding: 2.2, textColor: [71, 85, 105] },
+      headStyles: { fillColor: [248, 250, 252], textColor: [51, 65, 85], fontSize: 8.5, lineWidth: 0.1, lineColor: [203, 213, 225] },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+      didParseCell: (data: any) => {
+        if (data.section !== 'body') return;
+        if (data.column.index === 2) return;
+        if (urgentFlags[data.row.index]) {
+          data.cell.styles.textColor = [220, 38, 38];
+        }
+      },
+      didDrawCell: (data: any) => {
+        if (data.section !== 'body') return;
+        const rowIdx = data.row.index;
+        const cellPadding = 3;
+        const cellRight = data.cell.x + data.cell.width - cellPadding;
+        const cellY = data.cell.y + data.cell.height / 2 + 1.2;
+
+        if (data.column.index === 0) {
+          // عمود الكمية: من اليمين لليسار — word (إن وُجد) ثم num ثم unit
+          const { word, num, unit } = qtyData[rowIdx];
+          pdf.setFont('PlexArabic'); pdf.setFontSize(8.5);
+          pdf.setTextColor(...(urgentFlags[rowIdx] ? [220, 38, 38] : [71, 85, 105]) as [number, number, number]);
+          let x = cellRight;
+          if (word) { pdf.text(word, x, cellY, { align: 'right' }); x -= pdf.getTextWidth(word) + 1; }
+          if (num)  { pdf.text(num, x, cellY, { align: 'right' }); x -= pdf.getTextWidth(num) + 1; }
+          if (unit) { pdf.text(unit, x, cellY, { align: 'right' }); }
+        }
+
+        if (data.column.index === 2) {
+          // عمود أقرب نفاذ: [num] [word] من اليمين لليسار
+          const { word, num } = refillData[rowIdx];
+          const d = rows[rowIdx].nearest_refill_days;
+          const isConfirmedRow = Boolean(rows[rowIdx].confirmed_at);
+          pdf.setFont('PlexArabic'); pdf.setFontSize(8.5);
+          const color: [number, number, number] = isConfirmedRow ? [148, 163, 184]
+            : d <= 0 ? [185, 28, 28]
+            : d <= 3 ? [220, 38, 38]
+            : d <= 7 ? [217, 119, 6]
+            : [71, 85, 105];
+          pdf.setTextColor(...color);
+          let x = cellRight;
+          if (num)  { pdf.text(num, x, cellY, { align: 'right' }); x -= pdf.getTextWidth(num) + 1; }
+          if (word) { pdf.text(word, x, cellY, { align: 'right' }); }
+        }
+      },
+      didDrawPage: () => {
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = pdf.internal.pageSize.getHeight();
+        pdf.setFont('PlexArabic');
+        pdf.setFontSize(17); pdf.setTextColor(15, 23, 42);
+        pdf.text(pharmacyName, pageWidth / 2, 15, { align: 'center' });
+        pdf.setFontSize(8); pdf.setTextColor(100, 116, 139);
+        pdf.text('قائمة الأدوية المطلوب تأمينها', pageWidth / 2, 20, { align: 'center' });
+        pdf.setDrawColor(13, 148, 136); pdf.setLineWidth(0.4);
+        pdf.line(12, 25, pageWidth - 12, 25);
+        pdf.setFontSize(8); pdf.setTextColor(100, 116, 139);
+        pdf.text(`تاريخ الإصدار: ${issueDateStr}`, pageWidth - 12, 30, { align: 'right' });
+        pdf.setDrawColor(226, 232, 240); pdf.setLineWidth(0.2);
+        pdf.line(12, pageHeight - 15, pageWidth - 12, pageHeight - 15);
+        pdf.setFontSize(6.5); pdf.setTextColor(100, 116, 139);
+        pdf.text(pharmacyName, pageWidth / 2, pageHeight - 11, { align: 'center' });
+        pdf.setFontSize(5.8); pdf.setTextColor(148, 163, 184);
+        // فصل المقطع العربي عن اسم المنصة اللاتيني لتفادي انقلاب ترتيبهما في السطر المختلط
+        const sigArabic2 = 'عبر منصة ';
+        const sigLatin2 = 'Vitalix.ai';
+        const sigGap2 = 1;
+        const sigArabicW2 = pdf.getTextWidth(sigArabic2);
+        const sigLatinW2 = pdf.getTextWidth(sigLatin2);
+        const sigTotalW2 = sigArabicW2 + sigGap2 + sigLatinW2;
+        const sigStartX2 = (pageWidth - sigTotalW2) / 2;
+        pdf.text(sigArabic2, sigStartX2 + sigTotalW2, pageHeight - 7, { align: 'right' });
+        pdf.text(sigLatin2, sigStartX2, pageHeight - 7, { align: 'left' });
+      },
+    });
+
+    pdf.save(`جهز-مخزونك-${issueDateStr}.pdf`);
+  };
+
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [activePatient, setActivePatient] = useState<{ id: string; name: string } | null>(null);
+  const [filter, setFilter] = useState<'all' | 'urgent' | 'confirmed'>('all');
+  const [search, setSearch] = useState('');
   const recompute = useCallback(() => setItems(calcInventory(cards)), [cards]);
   useEffect(() => { recompute(); }, [recompute]);
 
@@ -1397,174 +1521,182 @@ function InventoryTab({ cards, onClose }: {
   };
 
   // لا توجد أدوية تنفد في الـ 14 يوم القادمة
+  const filtered = (() => {
+    const base = filter === 'confirmed' ? confirmedNow : filter === 'urgent' ? pending.filter(i => i.is_urgent) : [...pending, ...confirmedNow];
+    if (!search.trim()) return base;
+    return base.filter(i => i.medication_name.toLowerCase().includes(search.trim().toLowerCase()));
+  })();
+
   if (items.length === 0) return (
-    <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-      <div className="px-5 py-4 bg-slate-50 border-b border-slate-200">
-        <h3 className="text-sm font-semibold text-slate-900">جهّز مخزونك</h3>
-      </div>
-      <div className="px-5 py-12 text-center space-y-2">
-        <p className="text-2xl">✅</p>
-        <p className="text-sm font-semibold text-slate-900">لا يوجد أدوية تنفد خلال 14 يوم</p>
-        <p className="text-xs text-slate-400">ستظهر هنا الأدوية التي تقترب من النفاذ عند مرضاك</p>
-      </div>
+    <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-12 text-center space-y-3">
+      <CheckCircle size={36} weight="fill" className="text-teal-500 mx-auto" />
+      <p className="text-sm font-semibold text-slate-900">لا يوجد أدوية تنفد خلال 14 يوم</p>
+      <p className="text-xs text-slate-400">ستظهر هنا الأدوية التي تقترب من النفاذ عند مرضاك</p>
     </div>
   );
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
 
-      {/* ── Header ── */}
-      <div className="bg-white border border-slate-200 rounded-xl px-5 py-4 shadow-sm flex items-center justify-between gap-3">
-        <h3 className="text-sm font-semibold text-slate-900">
-          {pending.length > 0
-            ? `${pending.length} ${pending.length === 1 ? 'دواء يحتاج' : 'أدوية تحتاج'} تأميناً خلال 14 يوم`
-            : 'كل الأدوية مؤكَّدة التوفر ✓'}
-        </h3>
-        {items.some(i => i.is_urgent && !i.confirmed_at) && (
-          <span className="shrink-0 text-[10px] font-semibold px-2.5 py-1.5 rounded-lg bg-rose-50 text-rose-700 border border-rose-200">
-            ⚡ عاجل
-          </span>
+      {/* ── Header + فلاتر ── */}
+      <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-semibold text-slate-900">
+              {pending.length > 0
+                ? `${pending.length} ${pending.length === 1 ? 'دواء يحتاج' : 'أدوية تحتاج'} تأميناً`
+                : 'كل الأدوية مؤكَّدة التوفر'}
+            </h3>
+            {items.some(i => i.is_urgent && !i.confirmed_at) && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-lg bg-rose-50 text-rose-700 border border-rose-200">
+                <Lightning size={10} weight="fill" /> عاجل
+              </span>
+            )}
+          </div>
+          <button onClick={() => exportInventoryPDF(filtered)}
+            className="h-8 px-3 rounded-lg bg-white border border-slate-200 hover:border-teal-300 hover:text-teal-700 text-slate-600 text-xs font-medium transition-all shadow-sm inline-flex items-center gap-1.5 shrink-0">
+            <FilePdf size={13} weight="bold" /> تصدير PDF
+          </button>
+          {/* فلاتر */}
+          <div className="flex items-center gap-1.5">
+            {(['all', 'urgent', 'confirmed'] as const).map(f => (
+              <button key={f} onClick={() => setFilter(f)}
+                className={`h-7 px-3 rounded-lg text-xs font-medium transition-all border ${
+                  filter === f
+                    ? 'bg-slate-900 text-white border-slate-900'
+                    : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'
+                }`}>
+                {f === 'all' ? `الكل (${items.length})` : f === 'urgent' ? `عاجل (${pending.filter(i => i.is_urgent).length})` : `مؤكَّد (${confirmedNow.length})`}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* بحث */}
+        <div className="px-4 py-2.5 border-b border-slate-100 bg-slate-50/50">
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="ابحث عن دواء..."
+            className="w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-all text-slate-900 shadow-sm"
+          />
+        </div>
+
+        {/* ── الجدول ── */}
+        {filtered.length === 0 ? (
+          <div className="px-5 py-10 text-center">
+            <p className="text-sm text-slate-400">لا توجد نتائج</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm" dir="rtl">
+              <thead>
+                <tr className="border-b border-slate-100 bg-slate-50">
+                  <th className="text-right px-5 py-2.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wide">الدواء</th>
+                  <th className="text-right px-4 py-2.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wide">أقرب نفاذ</th>
+                  <th className="text-right px-4 py-2.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wide">المرضى</th>
+                  <th className="text-center px-4 py-2.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wide">الكمية</th>
+                  <th className="text-center px-4 py-2.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wide">الحالة</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filtered.map(item => {
+                  const isConfirmed = Boolean(item.confirmed_at);
+                  const d = item.nearest_refill_days;
+                  const urgentRow = item.is_urgent && !isConfirmed;
+                  return (
+                    <tr key={item.key}
+                      className={`transition-colors ${urgentRow ? 'bg-rose-50/40 hover:bg-rose-50/60' : 'hover:bg-slate-50/60'}`}>
+
+                      {/* الدواء */}
+                      <td className="px-5 py-3.5">
+                        <div className="flex items-center gap-2">
+                          {urgentRow && <Lightning size={13} weight="fill" className="text-rose-500 shrink-0" />}
+                          {isConfirmed && <div className="w-4 h-4 rounded-full bg-teal-100 flex items-center justify-center shrink-0"><Check size={9} weight="bold" className="text-teal-600" /></div>}
+                          <span className={`font-semibold ${isConfirmed ? 'text-slate-500' : 'text-slate-900'}`}>
+                            {item.medication_name}
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* أقرب نفاذ */}
+                      <td className="px-4 py-3.5">
+                        <span className={`text-xs font-medium ${
+                          isConfirmed ? 'text-slate-400' :
+                          d <= 0 ? 'text-rose-700 font-bold' :
+                          d <= 3 ? 'text-rose-600 font-semibold' :
+                          d <= 7 ? 'text-amber-600 font-medium' :
+                          'text-slate-500'
+                        }`}>
+                          {d <= 0 ? 'نفد اليوم!' : `${pluralizeDays(d)}`}
+                        </span>
+                      </td>
+
+                      {/* المرضى */}
+                      <td className="px-4 py-3.5">
+                        <div className="flex flex-wrap gap-1">
+                          {item.patient_info.map(p => (
+                            <button key={p.id} onClick={() => setActivePatient(p)}
+                              className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200 hover:bg-teal-50 hover:text-teal-700 hover:border-teal-200 transition-colors">
+                              <User size={9} weight="fill" /> {p.name}
+                            </button>
+                          ))}
+                        </div>
+                      </td>
+
+                      {/* الكمية */}
+                      <td className="px-4 py-3.5 text-center">
+                        {isConfirmed ? (
+                          <div className="flex flex-col items-center gap-1">
+                            <div className="w-20 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                              <div className="h-full bg-teal-400 rounded-full transition-all"
+                                style={{ width: `${Math.min(100, (item.boxes_remaining / Math.max(item.boxes_confirmed, 1)) * 100)}%` }} />
+                            </div>
+                            <span className="text-[10px] text-slate-400 tabular-nums">{item.boxes_remaining}/{item.boxes_confirmed} علبة</span>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-center">
+                            <span className="text-lg font-bold text-slate-900 tabular-nums leading-none">{item.boxes_needed_monthly}</span>
+                            <span className="text-[10px] text-slate-400 mt-0.5">{item.boxes_needed_monthly === 1 ? 'علبة' : 'علب'}</span>
+                          </div>
+                        )}
+                      </td>
+
+                      {/* الحالة */}
+                      <td className="px-4 py-3.5 text-center">
+                        {isConfirmed ? (
+                          <button onClick={() => handleUnconfirm(item.key)}
+                            className="text-[10px] text-slate-400 hover:text-rose-500 transition-colors font-medium px-2 py-1 rounded-lg hover:bg-rose-50 border border-transparent hover:border-rose-200">
+                            تراجع
+                          </button>
+                        ) : (
+                          <button onClick={() => handleConfirm(item)}
+                            className="h-8 px-3 rounded-lg bg-white border border-slate-200 hover:bg-teal-50 hover:border-teal-300 hover:text-teal-700 text-slate-600 text-xs font-semibold transition-all shadow-sm whitespace-nowrap inline-flex items-center gap-1.5">
+                            <Check size={12} weight="bold" /> موجود
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
-      {/* ── الأدوية التي تحتاج تأمين ── */}
-      {pending.length > 0 && (
-        <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-          <div className="px-5 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-            <p className="text-xs font-semibold text-slate-700 uppercase tracking-wide">تحتاج تأمين</p>
-            <p className="text-[10px] text-slate-400">الكمية الشهرية</p>
-          </div>
-          <div className="divide-y divide-slate-100">
-            {pending.map(item => {
-              const unitLabel = UNITS[item.dosage_unit]?.one || item.dosage_unit;
-              const d = item.nearest_refill_days;
-              return (
-                <div key={item.key} className={`px-5 py-4 space-y-3 ${item.is_urgent ? 'bg-rose-50/40' : ''}`}>
-                  <div className="flex items-start gap-3">
-                    <div className="flex-1 min-w-0 space-y-1.5">
-                      {/* اسم الدواء + بادج عاجل */}
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-sm font-semibold text-slate-900">{item.medication_name}</p>
-                        {item.is_urgent && (
-                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-rose-100 text-rose-700">⚡ عاجل</span>
-                        )}
-                      </div>
-                      {/* تفاصيل */}
-                      <p className="text-xs text-slate-500">
-                        {item.total_daily_dose} {unitLabel}/يوم ·{' '}
-                        <span className={d <= 0 ? 'text-rose-700 font-bold' : d <= 3 ? 'text-rose-600 font-semibold' : d <= 7 ? 'text-amber-600 font-medium' : ''}>
-                          {d <= 0 ? 'نفد اليوم!' : `أقرب نفاذ بعد ${pluralizeDays(d)}`}
-                        </span>
-                      </p>
-                      {/* المرضى — يفتح modal أدوية المريض المزمنة */}
-                      <div className="flex flex-wrap gap-1.5">
-                        {(item.patient_info || []).map(p => (
-                          <button key={p.id}
-                            onClick={() => setActivePatient(p)}
-                            className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-1.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-colors cursor-pointer">
-                            👤 {p.name}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    {/* الكمية + زر التأكيد */}
-                    <div className="flex items-center gap-3 shrink-0 pt-0.5">
-                      <div className="text-center min-w-[2rem]">
-                        <p className="text-xl font-bold text-slate-900 tabular">{item.boxes_needed_monthly}</p>
-                        <p className="text-[9px] text-slate-400 mt-0.5">علبة</p>
-                      </div>
-                      <button onClick={() => handleConfirm(item)}
-                        className="h-9 px-3.5 rounded-lg bg-white border border-slate-200 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700 text-slate-600 text-xs font-semibold transition-all shadow-sm whitespace-nowrap">
-                        موجود ✓
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* ── الأدوية المؤكَّدة التوفر ── */}
-      {confirmedNow.length > 0 && (
-        <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-          <div className="px-5 py-3 bg-emerald-50 border-b border-emerald-100 flex items-center justify-between">
-            <p className="text-xs font-semibold text-emerald-700">تم التأكيد — موجود في المخزن</p>
-            <p className="text-[10px] text-emerald-500">يعود للقائمة تلقائياً عند اقتراب النفاذ</p>
-          </div>
-          <div className="divide-y divide-slate-100">
-            {confirmedNow.map(item => {
-              const d = item.nearest_refill_days;
-              const confirmedDate = item.confirmed_at
-                ? new Date(item.confirmed_at).toLocaleDateString('ar-EG', { day: 'numeric', month: 'short', numberingSystem: 'latn' })
-                : '';
-              return (
-                <div key={item.key} className="px-5 py-3.5 space-y-2">
-                  <div className="flex items-center gap-3">
-                    <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
-                      <span className="text-emerald-600 text-xs font-bold">✓</span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-700 truncate">{item.medication_name}</p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <p className="text-[10px] text-slate-400">
-                          تأكيد {confirmedDate} ·{' '}
-                          <span className={d <= 3 ? 'text-rose-500 font-semibold' : ''}>
-                            ينفد بعد {pluralizeDays(d)}
-                          </span>
-                        </p>
-                      </div>
-                      {/* شريط تقدم الكمية المتبقية */}
-                      <div className="flex items-center gap-2 mt-1.5">
-                        <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                          <div className="h-full bg-emerald-400 rounded-full transition-all"
-                            style={{ width: `${Math.min(100, (item.boxes_remaining / Math.max(item.boxes_confirmed, 1)) * 100)}%` }} />
-                        </div>
-                        <span className="text-[10px] text-slate-500 shrink-0 tabular-nums">
-                          {item.boxes_remaining}/{item.boxes_confirmed} علبة
-                        </span>
-                      </div>
-                    </div>
-                    <button onClick={() => handleUnconfirm(item.key)}
-                      className="text-[10px] text-slate-400 hover:text-rose-500 transition-colors font-medium shrink-0 cursor-pointer px-2 py-1.5">
-                      تراجع
-                    </button>
-                  </div>
-                  {/* أسماء المرضى في قسم المؤكَّد — يفتح modal */}
-                  <div className="flex flex-wrap gap-1.5 pr-9">
-                    {(item.patient_info || []).map(p => (
-                      <button key={p.id}
-                        onClick={() => setActivePatient(p)}
-                        className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-1.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200 transition-colors cursor-pointer">
-                        👤 {p.name}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* ── تلميح ── */}
+      {/* تلميح */}
       <div className="flex items-start gap-2.5 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl">
-        <span className="text-sm shrink-0">💡</span>
+        <LightbulbFilament size={15} className="text-slate-400 shrink-0 mt-0.5" weight="fill" />
         <p className="text-xs text-slate-500 leading-relaxed">
-          "موجود ✓" يعني أن الدواء جاهز على رف الصيدلية — اضغط "تراجع" إذا بيع الدواء قبل أن يحضر المريض.
+          "موجود" يعني أن الدواء جاهز على رف الصيدلية — اضغط "تراجع" إذا بيع الدواء قبل أن يحضر المريض.
         </p>
       </div>
 
-      {/* ── Modal أدوية المريض المزمنة ── */}
       {activePatient && (
-        <PatientMedsModal
-          patient={activePatient}
-          cards={cards}
-          onClose={() => setActivePatient(null)}
-        />
+        <PatientMedsModal patient={activePatient} cards={cards} onClose={() => setActivePatient(null)} />
       )}
-
     </div>
   );
 }
@@ -2317,7 +2449,7 @@ export default function ChronicPage() {
           );
         })()}
 
-        {showInventory && <InventoryTab cards={cards} onClose={() => setShowInventory(false)} />}
+        {showInventory && <InventoryTab cards={cards} onClose={() => setShowInventory(false)} pharmacyName={pharmacyName} />}
 
         {/* Patients List */}
         {!showInventory && !showStats && total > 0 && (

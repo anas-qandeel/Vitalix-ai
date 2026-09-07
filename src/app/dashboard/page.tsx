@@ -441,7 +441,7 @@ export default function PharmacistDashboard() {
               </div>
 
               <div className="divide-y divide-slate-100">
-                {todayAlerts.map(item => {
+                {todayAlerts.slice(0, 3).map(item => {
                   return (
                     <div key={item.patient_id} className="px-4 py-3 flex items-center justify-between gap-4 hover:bg-slate-50 transition-colors">
                       <div className="flex items-center gap-4 min-w-0">
@@ -473,6 +473,12 @@ export default function PharmacistDashboard() {
                     </div>
                   );
                 })}
+                {todayAlerts.length > 3 && (
+                  <button onClick={() => router.push('/dashboard/chronic')}
+                    className="w-full px-6 py-3 text-xs font-semibold text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors text-center border-t border-slate-100">
+                    و{todayAlerts.length - 3} مريضاً آخر — عرض الكل في إدارة المزمنين
+                  </button>
+                )}
               </div>
             </>
           ) : (
@@ -542,73 +548,44 @@ export default function PharmacistDashboard() {
         )}
         </div>
 
-        {/* ═══ 1. الترويسة الترحيبية + لوحة الإحصائيات (Hero Command Center) ═══ */}
-        <div className="fu2 bg-white border border-slate-200 rounded-2xl relative overflow-hidden shadow-sm flex flex-col lg:flex-row">
-          
-          {/* الخط اللوني الجانبي للـ Branding */}
-          <div className="absolute right-0 top-0 bottom-0 w-1.5 bg-teal-500 rounded-r-2xl z-10 hidden lg:block" />
-          <div className="absolute right-0 left-0 top-0 h-1.5 bg-teal-500 rounded-t-2xl z-10 lg:hidden" />
-          
-          {/* الجانب الأيسر (شبكة الإحصائيات المدمجة) */}
-          <div className="flex-1 bg-slate-50/50 border-t lg:border-t-0 lg:border-r border-slate-200 grid grid-cols-2 lg:grid-cols-4 relative z-10">
-            
-            {/* إجمالي المرضى */}
-            <div className="p-5 sm:p-6 flex flex-col justify-center border-b lg:border-b-0 border-l border-slate-200 hover:bg-slate-100/50 transition-colors">
-              <div className="flex items-center gap-2.5 mb-3">
-                <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center shadow-sm">
-                  <IconUsers className="w-3.5 h-3.5 text-slate-600" />
-                </div>
-                <span className="text-slate-600 text-xs font-bold">إجمالي المرضى</span>
-              </div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-black text-slate-900 tabular-nums tracking-tight">{stats.totalPatients}</span>
-              </div>
-              <span className="text-[10px] font-medium text-slate-400 mt-1">مريض مسجّل</span>
-            </div>
+        {/* ═══ 1. لوحة الإحصائيات ═══ */}
+        <div className="fu2 grid grid-cols-2 lg:grid-cols-4 gap-px bg-slate-200 border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
 
-            {/* مرضى لهم فحوصات */}
-            <div className="p-5 sm:p-6 flex flex-col justify-center border-b lg:border-b-0 lg:border-l border-slate-200 hover:bg-slate-100/50 transition-colors">
-              <div className="flex items-center gap-2.5 mb-3">
-                <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center shadow-sm">
-                  <IconClipboard className="w-3.5 h-3.5 text-slate-600" />
-                </div>
-                <span className="text-slate-600 text-xs font-bold">لهم فحوصات</span>
-              </div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-black text-slate-900 tabular-nums tracking-tight">{stats.patientsWithVisits}</span>
-              </div>
-              <span className="text-[10px] font-medium text-slate-400 mt-1">يمتلكون سجل قياسات</span>
+          <div className="bg-white p-4 sm:p-5">
+            <div className="flex items-center gap-2 mb-3.5">
+              <IconUsers className="w-3.5 h-3.5 text-slate-400" />
+              <span className="text-slate-600 text-[11.5px]">إجمالي المرضى</span>
             </div>
-
-            {/* فحوصات الشهر */}
-            <div className="p-5 sm:p-6 flex flex-col justify-center border-l border-slate-200 hover:bg-slate-100/50 transition-colors">
-              <div className="flex items-center gap-2.5 mb-3">
-                <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center shadow-sm">
-                  <IconVitals className="w-3.5 h-3.5 text-slate-600" />
-                </div>
-                <span className="text-slate-600 text-xs font-bold">فحوصات الشهر</span>
-              </div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-black text-slate-900 tabular-nums tracking-tight">{stats.visitsThisMonth}</span>
-              </div>
-              <span className="text-[10px] font-medium text-slate-400 mt-1">تمت خلال هذا الشهر</span>
-            </div>
-
-            {/* إجمالي الفحوصات */}
-            <div className="p-5 sm:p-6 flex flex-col justify-center hover:bg-slate-100/50 transition-colors">
-              <div className="flex items-center gap-2.5 mb-3">
-                <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center shadow-sm">
-                  <IconChronic className="w-3.5 h-3.5 text-slate-600" />
-                </div>
-                <span className="text-slate-600 text-xs font-bold">إجمالي الفحوصات</span>
-              </div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-black text-slate-900 tabular-nums tracking-tight">{stats.totalVisits}</span>
-              </div>
-              <span className="text-[10px] font-medium text-slate-400 mt-1">منذ بداية الاشتراك</span>
-            </div>
-
+            <p className="text-[28px] font-medium text-slate-900 leading-none tabular-nums">{stats.totalPatients}</p>
           </div>
+
+          <div className="bg-white p-4 sm:p-5">
+            <div className="flex items-center gap-2 mb-3.5">
+              <IconClipboard className="w-3.5 h-3.5 text-slate-400" />
+              <span className="text-slate-600 text-[11.5px]">لهم فحوصات</span>
+            </div>
+            <div className="flex items-baseline gap-1.5">
+              <p className="text-[28px] font-medium text-slate-900 leading-none tabular-nums">{stats.patientsWithVisits}</p>
+              <span className="text-[11px] text-slate-400">من {stats.totalPatients}</span>
+            </div>
+          </div>
+
+          <div className="bg-white p-4 sm:p-5">
+            <div className="flex items-center gap-2 mb-3.5">
+              <IconVitals className="w-3.5 h-3.5 text-slate-400" />
+              <span className="text-slate-600 text-[11.5px]">فحوصات الشهر</span>
+            </div>
+            <p className="text-[28px] font-medium text-slate-900 leading-none tabular-nums">{stats.visitsThisMonth}</p>
+          </div>
+
+          <div className="bg-white p-4 sm:p-5">
+            <div className="flex items-center gap-2 mb-3.5">
+              <IconChronic className="w-3.5 h-3.5 text-slate-400" />
+              <span className="text-slate-600 text-[11.5px]">إجمالي الفحوصات</span>
+            </div>
+            <p className="text-[28px] font-medium text-slate-900 leading-none tabular-nums">{stats.totalVisits}</p>
+          </div>
+
         </div>
 
         {/* ═══ 3. بطاقات التنقل ═══ */}

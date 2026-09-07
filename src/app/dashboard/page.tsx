@@ -96,6 +96,13 @@ function IconCalendar({ className = 'w-4 h-4' }: { className?: string }) {
     </svg>
   );
 }
+function IconCake({ className = 'w-4 h-4' }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 8.25v-1.5m0 1.5c-1.355 0-2.697.056-4.024.166C6.845 8.51 6 9.473 6 10.608v2.513m6-4.871c1.355 0 2.697.056 4.024.166C17.155 8.51 18 9.473 18 10.608v2.513M15 8.25v-1.5m-6 1.5v-1.5m12 9.75-1.5.75a3.354 3.354 0 0 1-3 0 3.354 3.354 0 0 0-3 0 3.354 3.354 0 0 1-3 0 3.354 3.354 0 0 0-3 0 3.354 3.354 0 0 1-3 0L3 16.5m15-3.379a48.474 48.474 0 0 0-6-.371c-2.032 0-4.034.126-6 .371m12 0c.39.049.777.102 1.163.16 1.07.16 1.837 1.094 1.837 2.175v5.169c0 .621-.504 1.125-1.125 1.125H4.125A1.125 1.125 0 0 1 3 20.625v-5.17c0-1.08.768-2.014 1.837-2.174A47.78 47.78 0 0 1 6 13.12M12.265 3.11a.375.375 0 1 1-.53 0L12 2.845l.265.265Zm-3 0a.375.375 0 1 1-.53 0L9 2.845l.265.265Zm6 0a.375.375 0 1 1-.53 0L15 2.845l.265.265Z" />
+    </svg>
+  );
+}
 function IconClipboard({ className = 'w-4 h-4' }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -405,7 +412,10 @@ export default function PharmacistDashboard() {
         {/* ═══ 4. تذكيرات الأدوية المزمنة + أعياد الميلاد (صف أفقي واحد) ═══ */}
         <div className="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-4">
         <div className="fu1 bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-          <div className={`h-1 ${todayAlerts.length > 0 ? 'bg-amber-500' : 'bg-teal-500'}`} />
+          <div className={`h-1 ${
+            todayAlerts.some(a => a.days_left <= 1) ? 'bg-rose-500' :
+            todayAlerts.length > 0 ? 'bg-amber-500' : 'bg-teal-500'
+          }`} />
           {todayAlerts.length > 0 ? (
             <>
               <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -448,8 +458,8 @@ export default function PharmacistDashboard() {
 
                       <div className="flex items-center gap-3 shrink-0">
                         <span className={`text-[11px] font-semibold px-3 py-1.5 rounded-md border tabular-nums ${
-                          item.days_left <= 0  ? 'text-rose-700 bg-rose-50 border-rose-200' :
-                          item.days_left <= 2  ? 'text-amber-700 bg-amber-50 border-amber-200' :
+                          item.days_left <= 1  ? 'text-rose-700 bg-rose-50 border-rose-200 animate-pulse' :
+                          item.days_left <= 3  ? 'text-amber-700 bg-amber-50 border-amber-200' :
                           'text-slate-700 bg-slate-100 border-slate-200'
                         }`}>
                           {pluralizeDaysLeft(item.days_left)}
@@ -483,7 +493,7 @@ export default function PharmacistDashboard() {
             <div className="flex flex-wrap items-center justify-between gap-2 mb-5">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center">
-                  <IconCalendar className="w-5 h-5 text-rose-500" />
+                  <IconCake className="w-5 h-5 text-rose-500" />
                 </div>
                 <div>
                   <h3 className="text-base font-semibold text-slate-900">أعياد ميلاد اليوم</h3>

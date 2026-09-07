@@ -421,7 +421,7 @@ export default function PharmacistDashboard() {
       <main className="max-w-6xl mx-auto px-4 sm:px-6 pt-8 pb-12 space-y-8">
 
         {/* ═══ 4. تذكيرات الأدوية المزمنة + أعياد الميلاد (صف أفقي واحد) ═══ */}
-        <div className="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-4">
+        <div className={`grid grid-cols-1 gap-4 ${birthdayPatients.length > 0 ? 'lg:grid-cols-[1.3fr_1fr]' : ''}`}>
         <div className="fu1 bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
           <div className={`h-1 ${
             todayAlerts.some(a => a.days_left <= 1) ? 'bg-rose-500' :

@@ -298,23 +298,21 @@ export default function StaffLoginPage() {
                 </button>
               </div>
 
-              <div className="space-y-2.5">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                 {staffList.length === 0 ? (
-                  <p className="text-xs text-slate-400 text-center font-medium py-4">لا يوجد موظفون مفعّلون حالياً</p>
+                  <p className="text-xs text-slate-400 text-center font-medium py-4 col-span-full">لا يوجد موظفون مفعّلون حالياً</p>
                 ) : (
                   staffList.map((member) => (
                     <button
                       key={member.login_slug}
                       type="button"
                       onClick={() => handleSelectStaff(member)}
-                      className="w-full flex items-center gap-3 px-4 py-3.5 bg-white border border-slate-200 rounded-2xl hover:border-teal-300 hover:shadow-md active:scale-[0.98] transition-all cursor-pointer text-right"
+                      className="flex flex-col items-center gap-2 px-3 py-4 bg-white border border-slate-200 rounded-2xl hover:border-teal-300 hover:shadow-md active:scale-[0.98] transition-all cursor-pointer text-center"
                     >
-                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-900 to-teal-800 text-white flex items-center justify-center text-sm font-black shrink-0">
+                      <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-slate-900 to-teal-800 text-white flex items-center justify-center text-sm font-black shrink-0">
                         {member.name.charAt(0)}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-slate-900 truncate">{member.name}</p>
-                      </div>
+                      <p className="text-sm font-bold text-slate-900 truncate w-full">{member.name}</p>
                       <span className="text-[10px] font-bold text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md shrink-0">
                         {ROLE_LABELS[member.role] || member.role}
                       </span>

@@ -10,6 +10,7 @@ import { getPharmacyId } from '@/lib/tenant';
 import { detectTextDir } from '@/lib/text-direction';
 import { normalizePhone, displayPhone, validatePhone } from '@/lib/phone';
 import Link from 'next/link';
+import { FilePdf } from '@phosphor-icons/react';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -187,14 +188,6 @@ function IconScale({ className = 'w-4 h-4' }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v17.25m0 0c-1.472 0-2.882.265-4.185.75M12 20.25c1.472 0 2.882.265 4.185.75M18.75 4.97A48.416 48.416 0 0012 4.5c-2.291 0-4.545.16-6.75.47m13.5 0c1.01.143 2.01.317 3 .52m-3-.52l2.62 10.726c.122.499-.106 1.028-.589 1.202a5.988 5.988 0 01-2.031.352 5.988 5.988 0 01-2.031-.352c-.483-.174-.711-.703-.59-1.202L18.75 4.971zm-16.5.52c.99-.203 1.99-.377 3-.52m0 0l2.62 10.726c.122.499-.106 1.028-.589 1.202a5.989 5.989 0 01-2.031.352 5.989 5.989 0 01-2.031-.352c-.483-.174-.711-.703-.59-1.202L5.25 4.971z" />
-    </svg>
-  );
-}
-
-function IconDownload({ className = 'w-4 h-4' }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
     </svg>
   );
 }
@@ -788,8 +781,8 @@ export default function PatientCardPage({ params }: PageProps) {
                 <button
                   onClick={handleDownloadHistoryPdf}
                   disabled={pdfGenerating}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-l from-slate-900 to-teal-800 hover:from-slate-800 hover:to-teal-700 text-white rounded-lg text-[11px] font-bold transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer">
-                  <IconDownload className="w-3.5 h-3.5" />
+                  className="h-8 px-3 rounded-lg bg-white border border-slate-200 hover:border-teal-300 hover:text-teal-700 text-slate-600 text-xs font-medium transition-all shadow-sm inline-flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer">
+                  <FilePdf size={13} weight="bold" />
                   {pdfGenerating ? 'جاري التحضير...' : 'تنزيل PDF'}
                 </button>
               )}

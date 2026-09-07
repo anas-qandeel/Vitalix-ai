@@ -206,19 +206,19 @@ export default function PatientsListPage() {
           </div>
         ) : (
           <>
-            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm divide-y divide-slate-100 overflow-hidden">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {patients.map(p => {
                 const age = calculateAge(p.birth_date);
                 return (
                   <div key={p.id} onClick={() => router.push(`/dashboard/patients/${p.id}`)}
-                    className="px-6 py-4 flex items-center justify-between gap-4 hover:bg-slate-50 transition-colors cursor-pointer">
-                    <div className="flex items-center gap-4 min-w-0">
-                      <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center shrink-0 border border-slate-200 text-slate-500 font-semibold text-sm">
+                    className="bg-white border border-slate-200 rounded-2xl shadow-sm hover:shadow-md hover:border-teal-300 transition-all cursor-pointer p-5">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-full bg-teal-50 flex items-center justify-center shrink-0 border border-teal-100 text-teal-700 font-bold text-base">
                         {p.name.trim().charAt(0)}
                       </div>
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <p className="text-sm font-semibold text-slate-900 truncate">{p.name}</p>
-                        <div className="flex items-center gap-2 mt-0.5">
+                        <div className="flex items-center gap-2 mt-1">
                           <span className="text-xs text-slate-500 font-mono" dir="ltr">{displayPhone(p.phone_number)}</span>
                           {age !== null && (
                             <>
@@ -228,8 +228,8 @@ export default function PatientsListPage() {
                           )}
                         </div>
                       </div>
+                      <IconArrow className="w-4 h-4 text-slate-300 shrink-0 rotate-180" />
                     </div>
-                    <IconArrow className="w-4 h-4 text-slate-300 shrink-0 rotate-180" />
                   </div>
                 );
               })}

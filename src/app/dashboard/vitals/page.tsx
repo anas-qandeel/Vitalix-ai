@@ -182,7 +182,7 @@ function NewPatientModal({ phone, onClose, onCreated }: {
 }) {
   const [name, setName] = useState('');
   const [gender, setGender] = useState('male');
-  const [dob, setDob] = useState('1975-01-01');
+  const [dob, setDob] = useState('');
   const [conditions, setConditions] = useState<string[]>([]);
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
@@ -196,6 +196,7 @@ function NewPatientModal({ phone, onClose, onCreated }: {
     if (!name.trim()) { setErr('يرجى إدخال اسم المريض'); return; }
     const phoneCheck = validatePhone(phone);
     if (!phoneCheck.valid) { setErr(phoneCheck.message || 'رقم الهاتف غير صحيح'); return; }
+    if (!dob) { setErr('يرجى إدخال تاريخ الميلاد'); return; }
     setSaving(true); setErr('');
     try {
       const { data: { session } } = await supabase.auth.getSession();

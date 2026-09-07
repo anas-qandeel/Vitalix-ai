@@ -61,7 +61,7 @@ export default function AddPatientForm({
   const [name, setName] = useState(prefill?.name || '');
   const [phone, setPhone] = useState(prefill?.phone_number || '');
   const [gender, setGender] = useState(prefill?.gender || 'male');
-  const [dob, setDob] = useState(prefill?.birth_date || '1975-01-01');
+  const [dob, setDob] = useState(prefill?.birth_date || '');
   const [conditions, setConditions] = useState<string[]>([]);
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
@@ -75,6 +75,7 @@ export default function AddPatientForm({
     if (!name.trim()) { setErr('يرجى إدخال اسم المريض'); return; }
     const phoneCheck = validatePhone(phone);
     if (!phoneCheck.valid) { setErr(phoneCheck.message || 'رقم الهاتف غير صحيح'); return; }
+    if (!dob) { setErr('يرجى إدخال تاريخ الميلاد'); return; }
     setSaving(true); setErr('');
     try {
       let pid = pharmacyId;

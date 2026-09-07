@@ -311,7 +311,7 @@ function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill }: {
   const [query, setQuery]   = useState(prefill?.patient.phone_number || prefill?.patient.name || '');
   const [name, setName]     = useState(prefill?.patient.name || '');
   const [gender, setGender] = useState('male');
-  const [dob, setDob]       = useState('1975-01-01');
+  const [dob, setDob]       = useState('');
   const [conditions, setConditions] = useState<string[]>([]);
   const [searching, setSearching] = useState(false);
   const [found, setFound]   = useState<Patient | null>(prefill?.patient || null);
@@ -452,6 +452,7 @@ function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill }: {
     if (!name.trim()) { setErr('يجب إدخال اسم المريض قبل المتابعة'); return; }
     const phoneCheck = validatePhone(query);
     if (!phoneCheck.valid) { setErr(phoneCheck.message || 'رقم الهاتف غير صحيح'); return; }
+    if (!dob) { setErr('يرجى إدخال تاريخ الميلاد'); return; }
     setSaving(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();

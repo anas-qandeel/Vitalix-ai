@@ -27,6 +27,7 @@ interface RealStats {
   totalVisits: number;
   visitsThisMonth: number;
   patientsWithVisits: number;
+  chronicPatientsActive: number;
 }
 interface BirthdayPatient {
   id: string;
@@ -56,6 +57,13 @@ function IconChronic({ className = 'w-5 h-5' }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
       <path d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" />
+    </svg>
+  );
+}
+function IconBeaker({ className = 'w-5 h-5' }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 0 1-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 0 1 4.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0 1 12 15a9.065 9.065 0 0 0-6.23-.693L5 14.5m14.8.8 1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0 1 12 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" />
     </svg>
   );
 }
@@ -192,7 +200,7 @@ function BirthdayModal({ patients, pharmacyName, onClose, greetedToday, onGreet 
 export default function PharmacistDashboard() {
   const [pharmacy, setPharmacy]       = useState<PharmacyDetails | null>(null);
   const [loading, setLoading]         = useState(true);
-  const [stats, setStats]             = useState<RealStats>({ totalPatients: 0, totalVisits: 0, visitsThisMonth: 0, patientsWithVisits: 0 });
+  const [stats, setStats]             = useState<RealStats>({ totalPatients: 0, totalVisits: 0, visitsThisMonth: 0, patientsWithVisits: 0, chronicPatientsActive: 0 });
   const [todayAlerts, setTodayAlerts] = useState<QuickAlert[]>([]);
   const [pharmacyId, setPharmacyId]   = useState('');
   const [confirmSent, setConfirmSent] = useState<{ patientId: string; patientName: string } | null>(null);
@@ -224,7 +232,7 @@ export default function PharmacistDashboard() {
       const todayMM  = today.getMonth() + 1;
       const todayDD  = today.getDate();
 
-      const [pharmRes, patientsRes, allPatientsRes, visitsRes, monthVisitsRes, alertsRes] = await Promise.all([
+      const [pharmRes, patientsRes, allPatientsRes, visitsRes, monthVisitsRes, alertsRes, chronicMedsRes] = await Promise.all([
         supabase.from('pharmacies').select('id, pharmacist_name, expiry_date, status').eq('id', uid).single(),
         supabase.from('patients').select('id', { count: 'exact', head: true }).eq('pharmacy_id', uid),
         supabase.from('patients').select('id, name, phone_number, birth_date').eq('pharmacy_id', uid),
@@ -237,16 +245,19 @@ export default function PharmacistDashboard() {
           .lte('next_refill_date', new Date(today.getTime() + 3 * 86400000).toISOString().split('T')[0])
           .gte('next_refill_date', new Date(today.getTime() - 3 * 86400000).toISOString().split('T')[0])
           .order('next_refill_date', { ascending: true }),
+        supabase.from('chronic_medications').select('patient_id').eq('pharmacy_id', uid).eq('status', 'active'),
       ]);
 
       if (pharmRes.data) setPharmacy(pharmRes.data as PharmacyDetails);
 
       const uniquePatients = new Set((visitsRes.data || []).map((v: any) => v.patient_id));
+      const uniqueChronicPatients = new Set((chronicMedsRes.data || []).map((c: any) => c.patient_id));
       setStats({
         totalPatients:      patientsRes.count    || 0,
         totalVisits:        visitsRes.count      || 0,
         visitsThisMonth:    monthVisitsRes.count || 0,
         patientsWithVisits: uniquePatients.size,
+        chronicPatientsActive: uniqueChronicPatients.size,
       });
 
       const allPatients = (allPatientsRes.data as BirthdayPatient[]) || [];
@@ -440,8 +451,8 @@ export default function PharmacistDashboard() {
                 </button>
               </div>
 
-              <div className="divide-y divide-slate-100">
-                {todayAlerts.slice(0, 3).map(item => {
+              <div className="divide-y divide-slate-100 lg:max-h-[220px] lg:overflow-y-auto">
+                {todayAlerts.map(item => {
                   return (
                     <div key={item.patient_id} className="px-4 py-3 flex items-center justify-between gap-4 hover:bg-slate-50 transition-colors">
                       <div className="flex items-center gap-4 min-w-0">
@@ -473,12 +484,6 @@ export default function PharmacistDashboard() {
                     </div>
                   );
                 })}
-                {todayAlerts.length > 3 && (
-                  <button onClick={() => router.push('/dashboard/chronic')}
-                    className="w-full px-6 py-3 text-xs font-semibold text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors text-center border-t border-slate-100">
-                    و{todayAlerts.length - 3} مريضاً آخر — عرض الكل في إدارة المزمنين
-                  </button>
-                )}
               </div>
             </>
           ) : (
@@ -506,19 +511,14 @@ export default function PharmacistDashboard() {
                   <p className="text-xs text-slate-500 mt-0.5">{birthdayPatients.length} {birthdayPatients.length === 1 ? 'مريض' : 'مرضى'}</p>
                 </div>
               </div>
-              {birthdayPatients.length > 3 && (
-                <button onClick={() => setBirthdayModalOpen(true)} className="text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-lg transition-colors">
-                  عرض الكل ({birthdayPatients.length})
-                </button>
-              )}
             </div>
             {greetError && (
               <div className="mb-4 text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-100 px-4 py-2.5 rounded-lg">
                 {greetError}
               </div>
             )}
-            <div className="flex flex-col gap-2.5">
-              {sortedBirthdayPatients.slice(0, 3).map(p => {
+            <div className="flex flex-col gap-2.5 lg:max-h-[220px] lg:overflow-y-auto">
+              {sortedBirthdayPatients.map(p => {
                 const age = new Date().getFullYear() - new Date(p.birth_date).getFullYear();
                 const msg = `🎉 كل عام وأنتم بخير ${p.name}!\nبمناسبة عيد ميلادك الكريم، يتقدم فريق ${pharmacyName} بأحر التهاني وأطيب الأمنيات بدوام الصحة والعافية. 💐`;
                 return (
@@ -549,7 +549,7 @@ export default function PharmacistDashboard() {
         </div>
 
         {/* ═══ 1. لوحة الإحصائيات ═══ */}
-        <div className="fu2 grid grid-cols-2 lg:grid-cols-4 gap-px bg-slate-200 border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+        <div className="fu2 grid grid-cols-2 lg:grid-cols-5 gap-px bg-slate-200 border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
 
           <div className="bg-white p-4 sm:p-5">
             <div className="flex items-center gap-2 mb-3.5">
@@ -584,6 +584,14 @@ export default function PharmacistDashboard() {
               <span className="text-slate-600 text-[11.5px]">إجمالي الفحوصات</span>
             </div>
             <p className="text-[28px] font-medium text-slate-900 leading-none tabular-nums">{stats.totalVisits}</p>
+          </div>
+
+          <div className="bg-white p-4 sm:p-5">
+            <div className="flex items-center gap-2 mb-3.5">
+              <IconBeaker className="w-3.5 h-3.5 text-slate-400" />
+              <span className="text-slate-600 text-[11.5px]">مزمنون متابَعون</span>
+            </div>
+            <p className="text-[28px] font-medium text-slate-900 leading-none tabular-nums">{stats.chronicPatientsActive}</p>
           </div>
 
         </div>

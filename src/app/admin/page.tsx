@@ -753,14 +753,14 @@ export default function SuperAdminPage() {
             <div className="w-10 h-10 rounded-xl bg-[#0F172A] flex items-center justify-center shadow-md border border-slate-700/80">
               <svg className="w-5 h-5 text-white" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M6 8L14.5 25C14.8 25.6 15.6 25.6 15.9 25L20 17" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" />
-                <path d="M24 6C24 9.3 26.7 12 30 12C26.7 12 24 14.7 24 18C24 14.7 21.3 12 18 12C21.3 12 24 9.3 24 6Z" fill="#2563EB" />
+                <path d="M24 6C24 9.3 26.7 12 30 12C26.7 12 24 14.7 24 18C24 14.7 21.3 12 18 12C21.3 12 24 9.3 24 6Z" fill="#0D9488" />
               </svg>
             </div>
 
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-base font-black tracking-tight text-white">
-                  Vitalix<span className="text-[#2563EB]">.ai</span>
+                  Vitalix<span className="text-teal-600">-ai</span>
                 </span>
                 <span className={`text-[10px] px-2.5 py-0.5 rounded-md font-bold border ${
                   userRole === 'super_admin' 

@@ -123,16 +123,16 @@ function LoginContent() {
                   strokeWidth="3.5" 
                   strokeLinecap="round" 
                 />
-                <path 
-                  d="M24 6C24 9.3 26.7 12 30 12C26.7 12 24 14.7 24 18C24 14.7 21.3 12 18 12C21.3 12 24 9.3 24 6Z" 
-                  fill="#2563EB" 
+                <path
+                  d="M24 6C24 9.3 26.7 12 30 12C26.7 12 24 14.7 24 18C24 14.7 21.3 12 18 12C21.3 12 24 9.3 24 6Z"
+                  fill="#0D9488"
                 />
               </svg>
             </div>
 
             <div className="space-y-2">
               <h1 className="text-2xl sm:text-[26px] font-black tracking-tight text-[#0F172A] font-brand">
-                Vitalix<span className="text-[#2563EB]">.ai</span>
+                Vitalix<span className="text-teal-600">-ai</span>
               </h1>
               <p className="text-xs sm:text-sm font-semibold text-slate-500 tracking-wide leading-relaxed">
                 تابع مرضاك بذكاء

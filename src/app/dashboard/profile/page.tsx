@@ -8,6 +8,7 @@ import AppFooter from '../../components/AppFooter';
 import { getPharmacyId } from '@/lib/tenant';
 import { formatPharmacistName } from '@/lib/name-format';
 import { authedFetch } from '@/lib/authed-fetch';
+import { Storefront } from '@phosphor-icons/react';
 
 interface PharmacyProfile {
   id: string;
@@ -571,17 +572,14 @@ export default function ProfilePage() {
       <main className="max-w-2xl mx-auto px-4 py-6 space-y-4">
 
         {/* ── رأس الصفحة ── */}
-        <div className="bg-[#0F172A] text-white p-5 rounded-2xl shadow-lg relative overflow-hidden">
-          <div className="absolute inset-0 opacity-[0.03] pointer-events-none"
-            style={{ backgroundImage: 'repeating-linear-gradient(135deg, #fff 0, #fff 1px, transparent 0, transparent 50%)', backgroundSize: '24px 24px' }} />
-          <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-teal-400 to-teal-700 rounded-r-full" />
+        <div className="bg-white border-2 border-teal-500 p-5 rounded-2xl shadow-sm relative overflow-hidden">
           <div className="relative flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-teal-500 to-teal-800 flex items-center justify-center text-xl font-black text-white shadow-lg shrink-0">
-              {profile?.pharmacist_name?.trim().split(' ').map(w => w[0]).slice(0, 2).join('') || '؟'}
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-teal-500 to-teal-800 flex items-center justify-center shadow-lg shrink-0">
+              <Storefront size={26} weight="fill" className="text-white" />
             </div>
             <div className="min-w-0">
-              <h1 className="text-base font-black truncate">{formatPharmacistName(profile?.pharmacist_name) || 'الصيدلي المسؤول'}</h1>
-              <p className="text-sm text-teal-300 font-semibold truncate mt-0.5">{getPharmacyDisplayName()}</p>
+              <h1 className="text-lg font-black text-slate-900 truncate">{getPharmacyDisplayName()}</h1>
+              <p className="text-sm text-teal-700 font-semibold truncate mt-0.5">{formatPharmacistName(profile?.pharmacist_name) || 'الصيدلي المسؤول'}</p>
               <p className="text-[11px] text-slate-400 mt-1">{email}</p>
             </div>
           </div>

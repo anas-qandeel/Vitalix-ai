@@ -170,7 +170,7 @@ export default function PatientsListPage() {
             )}
           </div>
           <button onClick={() => setShowAddModal(true)}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-l from-slate-900 to-teal-800 hover:from-slate-800 hover:to-teal-700 text-white rounded-xl text-sm font-bold shadow-sm transition active:scale-[0.98] cursor-pointer">
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-bold shadow-sm transition active:scale-[0.98] cursor-pointer">
             <IconPlus className="w-4 h-4" />
             مريض جديد
           </button>

@@ -309,7 +309,7 @@ export default function StaffLoginPage() {
                       onClick={() => handleSelectStaff(member)}
                       className="flex flex-col items-center gap-2 px-3 py-4 bg-white border border-slate-200 rounded-2xl hover:border-teal-300 hover:shadow-md active:scale-[0.98] transition-all cursor-pointer text-center"
                     >
-                      <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-slate-900 to-teal-800 text-white flex items-center justify-center text-sm font-black shrink-0">
+                      <div className="w-11 h-11 rounded-xl bg-teal-600 text-white flex items-center justify-center text-sm font-black shrink-0">
                         {member.name.charAt(0)}
                       </div>
                       <p className="text-sm font-bold text-slate-900 truncate w-full">{member.name}</p>

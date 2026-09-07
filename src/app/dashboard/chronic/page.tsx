@@ -1166,6 +1166,7 @@ interface InventoryItem {
   confirmed_at: string | null;
   boxes_confirmed: number;   // الكمية المؤكدة أصلاً
   boxes_remaining: number;   // المتبقي بعد التجديدات
+  partial_available: number; // كمية جزئية أكّدها الصيدلاني كموجودة على الرف (0 = لا يوجد تأكيد جزئي)
 }
 
 const LS_KEY = 'vitalix_inventory_confirmed';
@@ -1175,6 +1176,16 @@ type ConfirmedEntry = {
   boxes_confirmed: number;  // الكمية التي أكد الصيدلاني وجودها
   boxes_remaining: number;  // ما تبقى بعد طرح المجدَّدين والمؤرشفين
 };
+
+// تخزين منفصل تماماً عن ConfirmedEntry — لا يُغيّر حالة "مؤكَّد الكامل" ولا يتفاعل مع deductFromInventory
+const PARTIAL_LS_KEY = 'vitalix_inventory_partial';
+type PartialEntry = { amount: number; updated_at: string };
+function getPartialMap(): Record<string, PartialEntry> {
+  try { return JSON.parse(localStorage.getItem(PARTIAL_LS_KEY) || '{}'); } catch { return {}; }
+}
+function setPartialMap(map: Record<string, PartialEntry>) {
+  try { localStorage.setItem(PARTIAL_LS_KEY, JSON.stringify(map)); } catch {}
+}
 
 function getConfirmedMap(): Record<string, ConfirmedEntry> {
   try {
@@ -1259,6 +1270,8 @@ function calcInventory(cards: CareCard[]): InventoryItem[] {
     const boxes_confirmed = entry?.boxes_confirmed || 0;
     const boxes_remaining = entry?.boxes_remaining || 0;
     const stillConfirmed = Boolean(confirmedAt) && boxes_remaining > 0;
+    const partialMap = getPartialMap();
+    const partial_available = partialMap[key]?.amount || 0;
 
     items.push({
       key, medication_name: displayName,
@@ -1272,6 +1285,7 @@ function calcInventory(cards: CareCard[]): InventoryItem[] {
       confirmed_at: stillConfirmed ? confirmedAt : null,
       boxes_confirmed,
       boxes_remaining,
+      partial_available,
     });
   });
 
@@ -1388,6 +1402,8 @@ function InventoryTab({ cards, onClose, pharmacyName }: {
     const qtyData = rows.map(item =>
       item.confirmed_at
         ? { word: 'مؤكَّد', num: `${item.boxes_remaining}/${item.boxes_confirmed}`, unit: 'علبة' }
+        : item.partial_available > 0
+        ? { word: 'موجود', num: `${item.partial_available}/${item.boxes_needed_monthly}`, unit: 'علبة' }
         : { word: '', num: `${item.boxes_needed_monthly}`, unit: 'علبة' }
     );
     const refillData = rows.map(item => {
@@ -1494,6 +1510,8 @@ function InventoryTab({ cards, onClose, pharmacyName }: {
   const [activePatient, setActivePatient] = useState<{ id: string; name: string } | null>(null);
   const [filter, setFilter] = useState<'all' | 'urgent' | 'confirmed'>('all');
   const [search, setSearch] = useState('');
+  const [partialEditKey, setPartialEditKey] = useState<string | null>(null);
+  const [partialInput, setPartialInput] = useState('');
   const recompute = useCallback(() => setItems(calcInventory(cards)), [cards]);
   useEffect(() => { recompute(); }, [recompute]);
 
@@ -1517,6 +1535,20 @@ function InventoryTab({ cards, onClose, pharmacyName }: {
     const map = getConfirmedMap();
     delete map[key];
     setConfirmedMap(map);
+    recompute();
+  };
+
+  const handleSavePartial = (key: string) => {
+    const amount = Math.max(0, parseInt(partialInput, 10) || 0);
+    const map = getPartialMap();
+    if (amount <= 0) {
+      delete map[key];
+    } else {
+      map[key] = { amount, updated_at: new Date().toISOString() };
+    }
+    setPartialMap(map);
+    setPartialEditKey(null);
+    setPartialInput('');
     recompute();
   };
 
@@ -1655,6 +1687,13 @@ function InventoryTab({ cards, onClose, pharmacyName }: {
                             </div>
                             <span className="text-[10px] text-slate-400 tabular-nums">{item.boxes_remaining}/{item.boxes_confirmed} علبة</span>
                           </div>
+                        ) : item.partial_available > 0 ? (
+                          <div className="flex flex-col items-center">
+                            <span className="text-lg font-bold text-amber-600 tabular-nums leading-none">
+                              {item.partial_available}/{item.boxes_needed_monthly}
+                            </span>
+                            <span className="text-[10px] text-amber-500 mt-0.5">علبة موجودة</span>
+                          </div>
                         ) : (
                           <div className="flex flex-col items-center">
                             <span className="text-lg font-bold text-slate-900 tabular-nums leading-none">{item.boxes_needed_monthly}</span>
@@ -1670,11 +1709,38 @@ function InventoryTab({ cards, onClose, pharmacyName }: {
                             className="text-[10px] text-slate-400 hover:text-rose-500 transition-colors font-medium px-2 py-1 rounded-lg hover:bg-rose-50 border border-transparent hover:border-rose-200">
                             تراجع
                           </button>
+                        ) : partialEditKey === item.key ? (
+                          <div className="flex items-center gap-1 justify-center">
+                            <input
+                              type="number"
+                              min={0}
+                              max={item.boxes_needed_monthly}
+                              value={partialInput}
+                              onChange={e => setPartialInput(e.target.value)}
+                              placeholder="الكمية"
+                              autoFocus
+                              className="w-14 h-8 px-1.5 text-xs text-center border border-slate-200 rounded-lg focus:outline-none focus:border-teal-400"
+                            />
+                            <button onClick={() => handleSavePartial(item.key)}
+                              className="h-8 px-2 rounded-lg bg-teal-600 text-white text-xs font-semibold hover:bg-teal-700 transition-all">
+                              حفظ
+                            </button>
+                            <button onClick={() => { setPartialEditKey(null); setPartialInput(''); }}
+                              className="h-8 px-2 rounded-lg text-slate-400 hover:text-slate-600 text-xs">
+                              إلغاء
+                            </button>
+                          </div>
                         ) : (
-                          <button onClick={() => handleConfirm(item)}
-                            className="h-8 px-3 rounded-lg bg-white border border-slate-200 hover:bg-teal-50 hover:border-teal-300 hover:text-teal-700 text-slate-600 text-xs font-semibold transition-all shadow-sm whitespace-nowrap inline-flex items-center gap-1.5">
-                            <Check size={12} weight="bold" /> موجود
-                          </button>
+                          <div className="flex flex-col items-center gap-1">
+                            <button onClick={() => handleConfirm(item)}
+                              className="h-8 px-3 rounded-lg bg-white border border-slate-200 hover:bg-teal-50 hover:border-teal-300 hover:text-teal-700 text-slate-600 text-xs font-semibold transition-all shadow-sm whitespace-nowrap inline-flex items-center gap-1.5">
+                              <Check size={12} weight="bold" /> موجود
+                            </button>
+                            <button onClick={() => { setPartialEditKey(item.key); setPartialInput(item.partial_available > 0 ? String(item.partial_available) : ''); }}
+                              className="text-[9px] text-slate-400 hover:text-amber-600 transition-colors">
+                              كمية جزئية
+                            </button>
+                          </div>
                         )}
                       </td>
                     </tr>

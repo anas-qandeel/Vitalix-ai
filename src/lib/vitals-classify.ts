@@ -16,6 +16,8 @@
 // أي سلوك قائم. الربط (حفظ التصنيف ثم استدعاؤه) خطوات لاحقة.
 // ═══════════════════════════════════════════════════════════════════
 
+import { getBMICategory } from './weight-math';
+
 export type VitalLevel = 'green' | 'yellow' | 'red';
 
 export interface Classification {
@@ -170,9 +172,9 @@ export function overallVisitStatus(
   else if (sugarLevel === 'yellow') { if (level !== 'high') level = 'medium'; reasons.push('سكر الدم'); }
 
   if (bmi !== null) {
-    if (bmi >= 30) { if (level !== 'high') level = 'high'; reasons.push('الوزن (سمنة)'); }
-    else if (bmi >= 25) { if (level === 'normal') level = 'medium'; reasons.push('الوزن (زيادة)'); }
-    else if (bmi < 18.5) { if (level === 'normal') level = 'medium'; reasons.push('الوزن (نحافة)'); }
+    if (bmi >= 30) { if (level !== 'high') level = 'high'; reasons.push(`الوزن (${getBMICategory(bmi).labelShort})`); }
+    else if (bmi >= 25) { if (level === 'normal') level = 'medium'; reasons.push(`الوزن (${getBMICategory(bmi).labelShort})`); }
+    else if (bmi < 18.5) { if (level === 'normal') level = 'medium'; reasons.push(`الوزن (${getBMICategory(bmi).labelShort})`); }
     else if (bmi < 16) { if (level !== 'high') level = 'high'; reasons.push('الوزن (نحافة شديدة)'); }
   }
 

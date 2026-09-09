@@ -140,3 +140,40 @@ export function classifyHeartRate(hr: number): Classification {
   if (hr < 60)  return { label: 'منخفض', level: 'yellow', specialCriteria: null };
   return { label: 'طبيعي', level: 'green', specialCriteria: null };
 }
+
+// ── الحالة الإجمالية للزيارة ─────────────────────────────────────
+// القانون المعتمد (مستخرج من getStatus في صفحة الفحوصات):
+// الضغط والسكري يرفعان المستوى من تصنيفيهما، والـ BMI يرفعه بقواعده،
+// والترقية تصاعدية فقط — لا شيء يخفض مستوى رفعه غيره.
+export type OverallLevel = 'normal' | 'medium' | 'high';
+
+export interface OverallStatus {
+  level: OverallLevel;
+  /** النص الحرفي المعتمد للشارة */
+  label: string;
+}
+
+export function overallVisitStatus(
+  bpLevel: VitalLevel | null,
+  sugarLevel: VitalLevel | null,
+  bmi: number | null
+): OverallStatus {
+  let level: OverallLevel = 'normal';
+
+  if (bpLevel === 'red') level = 'high';
+  else if (bpLevel === 'yellow') level = 'medium';
+
+  if (sugarLevel === 'red') level = 'high';
+  else if (sugarLevel === 'yellow' && level !== 'high') level = 'medium';
+
+  if (bmi !== null) {
+    if (bmi >= 30 && level !== 'high')            level = 'high';   // سمنة → يستدعي انتباهاً
+    else if (bmi >= 25 && level === 'normal')     level = 'medium'; // زيادة وزن → يحتاج متابعة
+    else if (bmi < 18.5 && level === 'normal')    level = 'medium'; // نحافة → يحتاج متابعة
+    else if (bmi < 16 && level !== 'high')        level = 'high';   // نحافة شديدة → يستدعي انتباهاً
+  }
+
+  if (level === 'high')   return { level, label: 'يستدعي انتباهاً' };
+  if (level === 'medium') return { level, label: 'يحتاج متابعة' };
+  return { level, label: 'ضمن الطبيعي' };
+}

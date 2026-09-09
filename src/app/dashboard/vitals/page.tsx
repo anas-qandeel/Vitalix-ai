@@ -17,7 +17,7 @@ import BpHistoryChart from '@/components/BpHistoryChart';
 import SugarHistoryChart from '@/components/SugarHistoryChart';
 import WeightThinkingOverlay from '@/components/WeightThinkingOverlay';
 import VitalsThinkingOverlay from '@/components/VitalsThinkingOverlay';
-import { classifyBp, classifySugar, classifyHeartRate } from '@/lib/vitals-classify';
+import { classifyBp, classifySugar, classifyHeartRate, overallVisitStatus } from '@/lib/vitals-classify';
 
 const CATEGORY_LABELS: Record<string, string> = Object.fromEntries(SUPPLEMENT_CATEGORIES.map(c => [c.code, c.labelAr]));
 
@@ -804,30 +804,17 @@ ${planUrl}
 
   // ── حساب الحالة الكلية ──
   const getStatus = () => {
-    let level: 'normal' | 'medium' | 'high' = 'normal';
-
-    // ── الضغط والسكري: يُقرأ المستوى من المرجع الموحد (liveBpClf/liveSugarClf)
-    // بدل حساب عتبات منفصل هنا — نفس المصدر المستخدم في بطاقتي التصنيف أعلاه.
-    if (activeTests.bp && bpSys1 && liveBpClf) {
-      if (liveBpClf.level === 'red') level = 'high';
-      else if (liveBpClf.level === 'yellow') level = 'medium';
-    }
-    if (activeTests.sugar && sugarValue && liveSugarClf) {
-      if (liveSugarClf.level === 'red') level = 'high';
-      else if (liveSugarClf.level === 'yellow' && level !== 'high') level = 'medium';
-    }
-    // الوزن / BMI — أي خروج عن النطاق الطبيعي يرفع المستوى (بلا تغيير)
-    if (activeTests.weight && weightValue && currentPatient?.height) {
-      const h = Number(currentPatient.height) / 100;
-      const bmiVal = Number(weightValue) / (h * h);
-      if (bmiVal >= 30 && level !== 'high')                        level = 'high';   // سمنة → يستدعي انتباهاً
-      else if (bmiVal >= 25 && level === 'normal')                 level = 'medium'; // زيادة وزن → يحتاج متابعة
-      else if (bmiVal < 18.5 && level === 'normal')                level = 'medium'; // نحافة → يحتاج متابعة
-      else if (bmiVal < 16 && level !== 'high')                    level = 'high';   // نحافة شديدة → يستدعي انتباهاً
-    }
-    if (level === 'high') return { label: 'يستدعي انتباهاً', color: 'text-rose-600', dot: 'bg-rose-500', border: 'border-rose-200', bg: 'bg-rose-50' };
-    if (level === 'medium') return { label: 'يحتاج متابعة', color: 'text-amber-600', dot: 'bg-amber-500', border: 'border-amber-200', bg: 'bg-amber-50' };
-    return { label: 'ضمن الطبيعي', color: 'text-teal-600', dot: 'bg-teal-500', border: 'border-teal-200', bg: 'bg-teal-50' };
+    const bmiVal = (activeTests.weight && weightValue && currentPatient?.height)
+      ? Number(weightValue) / ((Number(currentPatient.height) / 100) ** 2)
+      : null;
+    const s = overallVisitStatus(
+      (activeTests.bp && bpSys1 && liveBpClf) ? liveBpClf.level : null,
+      (activeTests.sugar && sugarValue && liveSugarClf) ? liveSugarClf.level : null,
+      bmiVal
+    );
+    if (s.level === 'high') return { label: s.label, color: 'text-rose-600', dot: 'bg-rose-500', border: 'border-rose-200', bg: 'bg-rose-50' };
+    if (s.level === 'medium') return { label: s.label, color: 'text-amber-600', dot: 'bg-amber-500', border: 'border-amber-200', bg: 'bg-amber-50' };
+    return { label: s.label, color: 'text-teal-600', dot: 'bg-teal-500', border: 'border-teal-200', bg: 'bg-teal-50' };
   };
 
   // ═══════════════════════════════════════════════════════════════

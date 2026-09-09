@@ -7,6 +7,7 @@ import Disclaimer from '@/components/Disclaimer';
 import { detectTextDir } from '@/lib/text-direction';
 import BpHistoryChart from '@/components/BpHistoryChart';
 import SugarHistoryChart from '@/components/SugarHistoryChart';
+import { overallVisitStatus, type VitalLevel } from '@/lib/vitals-classify';
 
 interface Patient {
   id: string;
@@ -108,12 +109,22 @@ function storedCardStyle(label: string | null | undefined, level: string | null 
   return { ...LEVEL_STYLES[level], label };
 }
 
-function storedVisitStatus(v: { bp_classification_level?: string | null; sugar_classification_level?: string | null }) {
-  const levels = [v.bp_classification_level, v.sugar_classification_level].filter(Boolean);
-  if (levels.length === 0) return null;
-  if (levels.includes('red'))    return { label: 'يستدعي انتباهاً', chipBg: '#fee2e2', chipColor: '#991b1b' };
-  if (levels.includes('yellow')) return { label: 'يحتاج متابعة',   chipBg: '#fef3c7', chipColor: '#92400e' };
-  return { label: 'ضمن الطبيعي', chipBg: '#d1fae5', chipColor: '#065f46' };
+function storedVisitStatus(v: { bp_classification_level?: string | null; sugar_classification_level?: string | null; weight?: number | null; patient?: { height?: number | null } | null }) {
+  const bmiRaw = (v.weight && v.patient?.height)
+    ? v.weight / ((v.patient.height / 100) ** 2)
+    : null;
+  if (!v.bp_classification_level && !v.sugar_classification_level && bmiRaw === null) return null;
+  const s = overallVisitStatus(
+    (v.bp_classification_level as VitalLevel) ?? null,
+    (v.sugar_classification_level as VitalLevel) ?? null,
+    bmiRaw
+  );
+  const reasonsText = (s.reasons.length > 0 && s.label !== 'ضمن الطبيعي')
+    ? ` — بسبب: ${s.reasons.join('، ')}`
+    : '';
+  if (s.level === 'high')   return { label: s.label + reasonsText, chipBg: '#fee2e2', chipColor: '#991b1b' };
+  if (s.level === 'medium') return { label: s.label + reasonsText, chipBg: '#fef3c7', chipColor: '#92400e' };
+  return { label: s.label, chipBg: '#d1fae5', chipColor: '#065f46' };
 }
 
 function IconHeart({ className = 'w-4 h-4' }: { className?: string }) {

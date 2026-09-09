@@ -104,11 +104,6 @@ const LEVEL_STYLES: Record<string, { topColor: string; badgeBg: string; badgeCol
 };
 const NEUTRAL_STYLE = { topColor: '#e2e8f0', badgeBg: '#f1f5f9', badgeColor: '#64748b' };
 
-function storedCardStyle(label: string | null | undefined, level: string | null | undefined) {
-  if (!label || !level || !LEVEL_STYLES[level]) return { ...NEUTRAL_STYLE, label: '' };
-  return { ...LEVEL_STYLES[level], label };
-}
-
 function storedVisitStatus(v: { bp_classification_level?: string | null; sugar_classification_level?: string | null; weight?: number | null; patient?: { height?: number | null } | null }) {
   const bmiRaw = (v.weight && v.patient?.height)
     ? v.weight / ((v.patient.height / 100) ** 2)
@@ -119,12 +114,10 @@ function storedVisitStatus(v: { bp_classification_level?: string | null; sugar_c
     (v.sugar_classification_level as VitalLevel) ?? null,
     bmiRaw
   );
-  const reasonsText = (s.reasons.length > 0 && s.label !== 'ضمن الطبيعي')
-    ? ` — بسبب: ${s.reasons.join('، ')}`
-    : '';
-  if (s.level === 'high')   return { label: s.label + reasonsText, chipBg: '#fee2e2', chipColor: '#991b1b' };
-  if (s.level === 'medium') return { label: s.label + reasonsText, chipBg: '#fef3c7', chipColor: '#92400e' };
-  return { label: s.label, chipBg: '#d1fae5', chipColor: '#065f46' };
+  const showReasons = s.reasons.length > 0 && s.label !== 'ضمن الطبيعي';
+  if (s.level === 'high')   return { label: s.label, reasons: showReasons ? s.reasons : [], border: '#fecdd3', bg: '#fff1f2', dot: '#f43f5e', color: '#e11d48' };
+  if (s.level === 'medium') return { label: s.label, reasons: showReasons ? s.reasons : [], border: '#fde68a', bg: '#fffbeb', dot: '#f59e0b', color: '#d97706' };
+  return { label: s.label, reasons: [], border: '#99f6e4', bg: '#f0fdfa', dot: '#14b8a6', color: '#0d9488' };
 }
 
 function IconHeart({ className = 'w-4 h-4' }: { className?: string }) {
@@ -226,8 +219,6 @@ export default function SingleVitalViewPage({ params }: PageProps) {
   const patientAge = currentVisit?.patient?.birth_date
     ? new Date().getFullYear() - new Date(currentVisit.patient.birth_date).getFullYear()
     : null;
-  const bpStyle = currentVisit ? storedCardStyle(currentVisit.bp_classification, currentVisit.bp_classification_level) : null;
-  const sgStyle = currentVisit ? storedCardStyle(currentVisit.sugar_classification, currentVisit.sugar_classification_level) : null;
 
   // اسم الصيدلية المعروض: إذا جاء بدون "صيدلية" نضيفها، وإذا كان فارغاً نضع fallback
   const displayPharmacyName = pharmacyName
@@ -439,123 +430,128 @@ export default function SingleVitalViewPage({ params }: PageProps) {
         <div className="vcard" style={{ overflow: 'hidden', padding: 0 }}>
           <div style={{
             background: '#f8fafc', padding: '16px 20px', borderBottom: '1px solid #f1f5f9',
-            display: 'flex', alignItems: 'center', gap: 12,
+            display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 12,
           }}>
-            <div style={{
-              width: 48, height: 48, borderRadius: 14, background: '#e2e8f0',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-            }}>
-              <UserCircle size={26} weight="duotone" color="#475569" />
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#0f172a' }}>
-                {currentVisit.patient?.name || 'المريض'}
-              </p>
-              <p style={{ margin: '3px 0 0', fontSize: 12, color: '#64748b' }}>
-                {currentVisit.patient?.gender === 'female' ? 'أنثى' : currentVisit.patient?.gender === 'male' ? 'ذكر' : ''}
-                {patientAge ? ` · ${patientAge} سنة` : ''}
-                {[currentVisit.bp_systolic != null && 'ضغط', currentVisit.sugar_value != null && 'سكري'].filter(Boolean).length > 0
-                  ? ` · ${[currentVisit.bp_systolic != null && 'ضغط', currentVisit.sugar_value != null && 'سكري'].filter(Boolean).join(' · ')}`
-                  : ''}
-                {' · '}
-                <span dir="ltr" style={{ unicodeBidi: 'isolate' }}>{formatDateManual(currentVisit.created_at)}</span>
-              </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{
+                width: 40, height: 40, borderRadius: '50%', background: '#f1f5f9',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+              }}>
+                <UserCircle size={20} weight="duotone" color="#94a3b8" />
+              </div>
+              <div>
+                <p style={{ margin: 0, fontSize: 15, fontWeight: 900, color: '#0f172a' }}>
+                  {currentVisit.patient?.name || 'المريض'}
+                </p>
+                <p style={{ margin: '2px 0 0', fontSize: 11, color: '#94a3b8' }}>
+                  {currentVisit.patient?.gender === 'female' ? 'أنثى' : currentVisit.patient?.gender === 'male' ? 'ذكر' : ''}
+                  {patientAge ? ` · ${patientAge} سنة` : ''}
+                  {[currentVisit.bp_systolic != null && 'ضغط', currentVisit.sugar_value != null && 'سكري'].filter(Boolean).length > 0
+                    ? ` · ${[currentVisit.bp_systolic != null && 'ضغط', currentVisit.sugar_value != null && 'سكري'].filter(Boolean).join(' · ')}`
+                    : ''}
+                  {' · '}
+                  <span dir="ltr" style={{ unicodeBidi: 'isolate' }}>{formatDateManual(currentVisit.created_at)}</span>
+                </p>
+              </div>
             </div>
             {currentStatus && (
-              <span style={{ background: currentStatus.chipBg, color: currentStatus.chipColor, fontSize: 11, fontWeight: 600, padding: '4px 11px', borderRadius: 20, flexShrink: 0 }}>
-                {currentStatus.label}
-              </span>
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px',
+                  borderRadius: 8, border: `1px solid ${currentStatus.border}`, background: currentStatus.bg,
+                }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: currentStatus.dot, flexShrink: 0 }} />
+                  <span style={{ fontSize: 10, fontWeight: 700, color: currentStatus.color }}>{currentStatus.label}</span>
+                </div>
+                {currentStatus.reasons.length > 0 && (
+                  <span style={{ fontSize: 10, color: '#64748b' }}>
+                    بسبب: {currentStatus.reasons.join('، ')}
+                  </span>
+                )}
+              </div>
             )}
           </div>
         </div>
 
-        {/* ─── بطاقتا الضغط والسكر ─── */}
+        {/* ─── صف القراءات الموحد ─── */}
         {(currentVisit.bp_systolic != null || currentVisit.sugar_value != null) && (
-          <div
-            style={{
+          <div className="vcard" style={{ padding: '20px 20px 16px' }}>
+            <div style={{
               display: 'grid',
               gridTemplateColumns: (currentVisit.bp_systolic != null && currentVisit.sugar_value != null)
-                ? 'repeat(2, minmax(0, 1fr))'
-                : '1fr',
-              gap: 12,
-            }}
-          >
-            {currentVisit.bp_systolic != null && bpStyle && (
-              <div className="vcard" style={{ overflow: 'hidden', padding: 0 }}>
-                <div style={{ height: 4, background: bpStyle.topColor }} />
-                <div style={{ padding: 16 }}>
-                  <p style={{ fontSize: 11, color: '#94a3b8', margin: '0 0 6px', display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <HeartStraight size={13} weight="duotone" color="#94a3b8" />
-                    ضغط الدم
+                ? 'repeat(2, minmax(0, 1fr))' : '1fr',
+              gap: 16,
+            }}>
+              {currentVisit.bp_systolic != null && (
+                <div>
+                  <p style={{ margin: 0, lineHeight: 1 }}>
+                    <span dir="ltr" style={{ fontSize: 34, fontWeight: 900, color: '#0f172a' }}>{currentVisit.bp_systolic}/{currentVisit.bp_diastolic}</span>
+                    <span style={{ fontSize: 13, color: '#94a3b8', marginRight: 6 }}>مم زئبق</span>
                   </p>
-                  <p style={{ margin: 0, lineHeight: 1.1 }}>
-                    <span dir="ltr" style={{ fontSize: 26, fontWeight: 700, color: '#0f172a' }}>
-                      {currentVisit.bp_systolic}
-                      <span style={{ fontSize: 16, color: '#64748b' }}>/{currentVisit.bp_diastolic}</span>
-                    </span>
-                  </p>
-                  {currentVisit.heart_rate != null && (
-                    <p style={{ margin: '4px 0 0', fontSize: 11.5, color: '#94a3b8' }}>
-                      النبض: <span dir="ltr" style={{ fontWeight: 600, color: '#64748b' }}>{currentVisit.heart_rate}</span> ن/د
-                    </p>
-                  )}
                   {currentVisit.is_dual_bp && currentVisit.bp_sys1 != null && currentVisit.bp_sys2 != null && (
-                    <p style={{ margin: '4px 0 0', fontSize: 11, color: '#94a3b8' }} dir="ltr">
+                    <p style={{ margin: '6px 0 0', fontSize: 11, color: '#94a3b8' }} dir="ltr">
                       {currentVisit.bp_sys1}/{currentVisit.bp_dia1} ← {currentVisit.bp_sys2}/{currentVisit.bp_dia2}
                     </p>
                   )}
-                  <span style={{
-                    display: 'inline-block', marginTop: 8,
-                    background: bpStyle.badgeBg, color: bpStyle.badgeColor,
-                    fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20,
-                  }}>
-                    {bpStyle.label}
-                  </span>
+                  <div style={{ height: 1, background: '#e2e8f0', margin: '14px 0' }} />
+                  <div style={{ display: 'flex', textAlign: 'center' }}>
+                    <div style={{ flex: 1 }}>
+                      <p style={{ margin: 0, fontSize: 20, fontWeight: 900, color: (currentVisit.heart_rate_classification_level === 'yellow' || currentVisit.heart_rate_classification_level === 'red') ? '#d97706' : '#0f172a' }}>
+                        {currentVisit.heart_rate ?? '—'}
+                      </p>
+                      <p style={{ margin: '2px 0 0', fontSize: 11, color: '#94a3b8' }}>
+                        {currentVisit.heart_rate != null && currentVisit.heart_rate_classification ? `${currentVisit.heart_rate_classification} · نبض/دقيقة` : 'نبض/دقيقة'}
+                      </p>
+                    </div>
+                    <div style={{ width: 1, background: '#e2e8f0' }} />
+                    <div style={{ flex: 1 }}>
+                      <p style={{ margin: 0, fontSize: 20, fontWeight: 900, color: currentVisit.bp_classification_level === 'red' ? '#e11d48' : currentVisit.bp_classification_level === 'yellow' ? '#d97706' : '#0f766e' }}>
+                        {currentVisit.bp_classification ?? '—'}
+                      </p>
+                      <p style={{ margin: '2px 0 0', fontSize: 11, color: '#94a3b8' }}>تصنيف الضغط</p>
+                    </div>
+                  </div>
                   {currentVisit.took_bp_medication != null && (
-                    <p style={{ margin: '6px 0 0', fontSize: 11, color: '#94a3b8' }}>
+                    <p style={{ margin: '12px 0 0', fontSize: 11, color: '#94a3b8' }}>
                       دواء الضغط اليوم: <span style={{ fontWeight: 600, color: currentVisit.took_bp_medication ? '#0f766e' : '#94a3b8' }}>
                         {currentVisit.took_bp_medication ? 'أُخذ' : 'لم يُؤخذ'}
                       </span>
                     </p>
                   )}
                 </div>
-              </div>
-            )}
-            {currentVisit.sugar_value != null && sgStyle && (
-              <div className="vcard" style={{ overflow: 'hidden', padding: 0 }}>
-                <div style={{ height: 4, background: sgStyle.topColor }} />
-                <div style={{ padding: 16 }}>
-                  <p style={{ fontSize: 11, color: '#94a3b8', margin: '0 0 6px', display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <Drop size={13} weight="duotone" color="#94a3b8" />
-                    سكر الدم
+              )}
+              {currentVisit.sugar_value != null && (
+                <div style={(currentVisit.bp_systolic != null) ? { borderRight: '1px solid #e2e8f0', paddingRight: 16 } : undefined}>
+                  <p style={{ margin: 0, lineHeight: 1 }}>
+                    <span dir="ltr" style={{ fontSize: 34, fontWeight: 900, color: '#0f172a' }}>{currentVisit.sugar_value}</span>
+                    <span style={{ fontSize: 13, color: '#94a3b8', marginRight: 6 }}>mg/dL</span>
                   </p>
-                  <p style={{ margin: 0, lineHeight: 1.1 }}>
-                    <span dir="ltr" style={{ fontSize: 26, fontWeight: 700, color: '#0f172a' }}>
-                      {currentVisit.sugar_value}
-                      <span style={{ fontSize: 12, color: '#94a3b8' }}> mg</span>
-                    </span>
-                  </p>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
-                    <span style={{
-                      background: sgStyle.badgeBg, color: sgStyle.badgeColor,
-                      fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20,
-                    }}>
-                      {sgStyle.label}
-                    </span>
-                    <span style={{ fontSize: 11, color: '#94a3b8' }}>
-                      ({sugarTypeLabel(currentVisit.sugar_test_type)})
-                    </span>
+                  <div style={{ height: 1, background: '#e2e8f0', margin: '14px 0' }} />
+                  <div style={{ display: 'flex', textAlign: 'center' }}>
+                    <div style={{ flex: 1 }}>
+                      <p style={{ margin: 0, fontSize: 16, fontWeight: 900, color: '#334155' }}>
+                        {sugarTypeLabel(currentVisit.sugar_test_type)}
+                      </p>
+                      <p style={{ margin: '2px 0 0', fontSize: 11, color: '#94a3b8' }}>نوع القراءة</p>
+                    </div>
+                    <div style={{ width: 1, background: '#e2e8f0' }} />
+                    <div style={{ flex: 1 }}>
+                      <p style={{ margin: 0, fontSize: 16, fontWeight: 900, color: currentVisit.sugar_classification_level === 'red' ? '#e11d48' : currentVisit.sugar_classification_level === 'yellow' ? '#d97706' : '#0f766e' }}>
+                        {currentVisit.sugar_classification ?? '—'}
+                      </p>
+                      <p style={{ margin: '2px 0 0', fontSize: 11, color: '#94a3b8' }}>تصنيف السكري</p>
+                    </div>
                   </div>
                   {currentVisit.took_sugar_medication != null && (
-                    <p style={{ margin: '6px 0 0', fontSize: 11, color: '#94a3b8' }}>
+                    <p style={{ margin: '12px 0 0', fontSize: 11, color: '#94a3b8' }}>
                       دواء السكري اليوم: <span style={{ fontWeight: 600, color: currentVisit.took_sugar_medication ? '#0f766e' : '#94a3b8' }}>
                         {currentVisit.took_sugar_medication ? 'أُخذ' : 'لم يُؤخذ'}
                       </span>
                     </p>
                   )}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         )}
         {patientHistory.filter(v => v.bp_systolic != null && v.bp_diastolic != null).length >= 2 && (

@@ -32,7 +32,7 @@ export async function GET(
     const { data: visit, error: visitError } = await supabaseAdmin
       .from('visitations')
       .select(
-        'id, pharmacy_id, patient_id, bp_systolic, bp_diastolic, heart_rate, is_dual_bp, bp_sys1, bp_dia1, hr1, bp_sys2, bp_dia2, hr2, sugar_value, sugar_test_type, weight, symptoms, ai_report_output, created_at, excluded_recommendation_ids, took_bp_medication, took_sugar_medication, bp_classification, bp_classification_level, sugar_classification, sugar_classification_level, heart_rate_classification, heart_rate_classification_level, classification_special_criteria, patient:patients(name, phone_number, height, gender, birth_date)'
+        'id, pharmacy_id, patient_id, bp_systolic, bp_diastolic, heart_rate, is_dual_bp, bp_sys1, bp_dia1, hr1, bp_sys2, bp_dia2, hr2, sugar_value, sugar_test_type, weight, symptoms, ai_report_output, created_at, excluded_recommendation_ids, took_bp_medication, took_sugar_medication, bp_classification, bp_classification_level, sugar_classification, sugar_classification_level, heart_rate_classification, heart_rate_classification_level, classification_special_criteria, performed_by, patient:patients(name, phone_number, height, gender, birth_date)'
       )
       .eq('id', id)
       .single();
@@ -149,6 +149,7 @@ export async function GET(
       },
       pharmacyName,
       pharmacyPhone,
+      performedBy: visit.performed_by || null,
       history,
       recommendations,
       relatedWeightPlanId: relatedWeightPlan?.id || null,

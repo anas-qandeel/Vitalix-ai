@@ -309,21 +309,6 @@ export default function WeightPlanPage({ params }: PageProps) {
           </div>
         </div>
 
-        {relatedVisitId && (
-          <a href={`/vitals/view/${relatedVisitId}`}
-            className="flex items-center justify-between bg-blue-50 border border-blue-100 rounded-2xl shadow-sm px-5 py-3.5 hover:bg-blue-100/70 transition saas-slide-up">
-            <div className="flex items-center gap-2.5">
-              <svg className="w-[18px] h-[18px] text-blue-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M11.645 20.91l-.007-.003-.022-.012a15.247 15.247 0 01-.383-.218 25.18 25.18 0 01-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0112 5.052 5.5 5.5 0 0116.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 01-4.244 3.17 15.247 15.247 0 01-.383.219l-.022.012-.007.004-.003.001a.752.752 0 01-.704 0l-.003-.001z" />
-              </svg>
-              <span className="text-sm font-bold text-blue-900">قراءات الضغط والسكري من نفس الزيارة</span>
-            </div>
-            <svg className="w-4 h-4 text-blue-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9m0 0v9m0-9L10.5 15" />
-            </svg>
-          </a>
-        )}
-
         {/* بطاقة تحليل الوزن */}
         <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden saas-slide-up">
           <div className="px-5 pt-5">
@@ -610,12 +595,27 @@ export default function WeightPlanPage({ params }: PageProps) {
           </div>
         )}
 
+        {relatedVisitId && (
+          <a href={`/vitals/view/${relatedVisitId}`}
+            className="flex items-center justify-between bg-blue-50 border border-blue-100 rounded-2xl shadow-sm px-5 py-3.5 hover:bg-blue-100/70 transition saas-slide-up">
+            <div className="flex items-center gap-2.5">
+              <svg className="w-[18px] h-[18px] text-blue-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M11.645 20.91l-.007-.003-.022-.012a15.247 15.247 0 01-.383-.218 25.18 25.18 0 01-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0112 5.052 5.5 5.5 0 0116.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 01-4.244 3.17 15.247 15.247 0 01-.383.219l-.022.012-.007.004-.003.001a.752.752 0 01-.704 0l-.003-.001z" />
+              </svg>
+              <span className="text-sm font-bold text-blue-900">قراءات الضغط والسكري من نفس الزيارة</span>
+            </div>
+            <svg className="w-4 h-4 text-blue-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9m0 0v9m0-9L10.5 15" />
+            </svg>
+          </a>
+        )}
+
         <Disclaimer variant="patient" />
 
         {/* Footer */}
         <div className="text-center pt-2 pb-4">
           <p className="text-xs text-slate-600 mb-3">
-            أُعدّ هذا التقرير بواسطة {pharmacyName}{performedBy ? `، د. ${performedBy}` : ''}
+            أُعدّت نتائج التحليل بواسطة {pharmacyName}{performedBy ? `، د. ${performedBy}` : ''}
           </p>
           <AppFooter />
         </div>

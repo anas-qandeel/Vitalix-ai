@@ -161,6 +161,7 @@ export default function SingleVitalViewPage({ params }: PageProps) {
   const [patientHistory, setPatientHistory] = useState<VisitationRecord[]>([]);
   const [pharmacyName, setPharmacyName] = useState<string>('');
   const [pharmacyPhone, setPharmacyPhone] = useState<string>('');
+  const [performedBy, setPerformedBy] = useState<string | null>(null);
   const [recommendations, setRecommendations] = useState<RecommendationItem[]>([]);
   const [relatedWeightPlanId, setRelatedWeightPlanId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
@@ -178,6 +179,7 @@ export default function SingleVitalViewPage({ params }: PageProps) {
       setCurrentVisit(data.visit);
       setPharmacyName(data.pharmacyName || '');
       setPharmacyPhone(data.pharmacyPhone || '');
+      setPerformedBy(data.performedBy || null);
       setPatientHistory(data.history || []);
       setRecommendations(data.recommendations || []);
       setRelatedWeightPlanId(data.relatedWeightPlanId || null);
@@ -637,26 +639,21 @@ export default function SingleVitalViewPage({ params }: PageProps) {
           </div>
         </section>
 
-        {relatedWeightPlanId && (
-          <section className="vcard" style={{ padding: '20px 24px' }}>
-            <a href={`/weight/${relatedWeightPlanId}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', textDecoration: 'none', color: 'inherit' }}>
-              <span style={{ fontSize: 14, fontWeight: 700, color: '#0F172A' }}>خطة إدارة الوزن من نفس الزيارة</span>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="1.5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9m0 0v9m0-9L10.5 15" />
-              </svg>
-            </a>
-          </section>
-        )}
-
         {/* ─── 2. التوصيات الذكية ─── */}
         {recommendations.length > 0 && (
-          <section className="vcard" style={{ padding: '24px 24px 28px' }}>
-            <div style={{ marginBottom: 6 }}>
-              <p className="section-title">💡 توصية صيدلانية لمتابعة حالتك</p>
+          <section style={{ background: '#fff', border: '2px solid #0f172a', borderRadius: 16, overflow: 'hidden' }}>
+            <div style={{ padding: '18px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 21v-7.5a.75.75 0 01.75-.75h3a.75.75 0 01.75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349m-16.5 11.65V9.35m0 0a3.001 3.001 0 003.75-.615A2.993 2.993 0 009.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 002.25 1.016c.896 0 1.7-.393 2.25-1.016a3.001 3.001 0 003.75.614m-16.5 0a3.004 3.004 0 01-.621-4.72L4.318 3.44A1.5 1.5 0 015.378 3h13.243a1.5 1.5 0 011.06.44l1.19 1.189a3 3 0 01-.621 4.72m-13.5 8.65h3.75a.75.75 0 00.75-.75V13.5a.75.75 0 00-.75-.75H6.75a.75.75 0 00-.75.75v3.75c0 .415.336.75.75.75z" />
+                </svg>
+              </div>
+              <div>
+                <p style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', margin: 0 }}>مقترحات من {displayPharmacyName}</p>
+                <p style={{ fontSize: 10, color: '#94a3b8', margin: '2px 0 0' }}>منتجات مختارة لحالتك تحديداً</p>
+              </div>
             </div>
-            <p style={{ fontSize: 12, color: '#64748b', marginBottom: 20, lineHeight: 1.6 }}>
-              بناءً على قراءاتك الحالية، يوصي فريق ({displayPharmacyName}) بالخيارات التالية:
-            </p>
+            <div style={{ padding: 24 }}>
 
             <div
               style={{
@@ -770,6 +767,7 @@ export default function SingleVitalViewPage({ params }: PageProps) {
                 );
               })}
             </div>
+            </div>
           </section>
         )}
 
@@ -801,14 +799,36 @@ export default function SingleVitalViewPage({ params }: PageProps) {
           </button>
         </section>
 
-        {/* ─── Footer ─── */}
-        <footer style={{ textAlign: 'center', fontSize: 12, color: '#94a3b8', paddingTop: 8, paddingBottom: 8 }}>
-          تم توثيق الفحص وسجل القراءات آلياً عبر منصة{' '}
-          <span style={{ color: '#0d9488', fontWeight: 600 }}>Vitalix.ai</span>{' '}
-          لصالح ({displayPharmacyName})
-        </footer>
+        {relatedWeightPlanId && (
+          <a href={`/weight/${relatedWeightPlanId}`}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              background: '#eff6ff', border: '1px solid #dbeafe', borderRadius: 16,
+              boxShadow: '0 1px 2px rgba(0,0,0,0.04)', padding: '14px 20px',
+              textDecoration: 'none', transition: 'background 0.15s',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1d4ed8" strokeWidth="1.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v17.25m0 0c-1.472 0-2.882.265-4.185.75M12 20.25c1.472 0 2.882.265 4.185.75M18.75 4.97A48.416 48.416 0 0012 4.5c-2.291 0-4.545.16-6.75.47m13.5 0c1.01.143 2.01.317 3 .52m-3-.52 2.62 10.726c.122.499-.106 1.028-.589 1.202a5.988 5.988 0 01-2.031.352 5.988 5.988 0 01-2.031-.352c-.483-.174-.711-.703-.59-1.202L18.75 4.971zm-16.5.52c.99-.203 1.99-.377 3-.52m0 0l2.62 10.726c.122.499-.106 1.028-.589 1.202a5.989 5.989 0 01-2.031.352 5.989 5.989 0 01-2.031-.352c-.483-.174-.711-.703-.59-1.202L5.25 4.971z" />
+              </svg>
+              <span style={{ fontSize: 14, fontWeight: 700, color: '#1e3a8a' }}>خطة إدارة الوزن من نفس الزيارة</span>
+            </div>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1d4ed8" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9m0 0v9m0-9L10.5 15" />
+            </svg>
+          </a>
+        )}
+
         <Disclaimer variant={detectTextDir(currentVisit.ai_report_output) === 'ltr' ? 'patient-en' : 'patient'} />
-        <AppFooter className="pb-8" />
+
+        {/* ─── Footer ─── */}
+        <div style={{ textAlign: 'center', paddingTop: 8, paddingBottom: 16 }}>
+          <p style={{ fontSize: 12, color: '#475569', marginBottom: 12 }}>
+            أُعدّت نتائج التحليل بواسطة {displayPharmacyName}{performedBy ? `، د. ${performedBy}` : ''}
+          </p>
+          <AppFooter />
+        </div>
       </main>
 
       {zoomedImage && (

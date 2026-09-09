@@ -205,6 +205,7 @@ export default function SingleVitalViewPage({ params }: PageProps) {
   const [showAllVisits, setShowAllVisits] = useState(false);
   const [visitFilter, setVisitFilter] = useState<'all' | 'bp' | 'sugar' | 'weight'>('all');
   const [brokenImageIds, setBrokenImageIds] = useState<Set<string>>(new Set());
+  const [zoomedImage, setZoomedImage] = useState<{ url: string; name: string } | null>(null);
   const VISITS_PREVIEW = 3;
 
   // تطبيق الفلتر — زيارة تظهر إذا احتوت على القراءة المطلوبة (وليس بالضرورة أن تكون الزيارة مخصصة لها فقط)
@@ -695,20 +696,36 @@ export default function SingleVitalViewPage({ params }: PageProps) {
                       {isWeightLoss ? (
                         <span style={{ fontSize: 28, flexShrink: 0 }}>⚖️</span>
                       ) : item.image_url && !brokenImageIds.has(item.id) ? (
-                        <img
-                          src={item.image_url}
-                          alt={item.brand_name}
-                          style={{ width: 54, height: 54, objectFit: 'cover', borderRadius: 10, flexShrink: 0, border: '1px solid #e2e8f0' }}
-                          onError={() => {
-                            setBrokenImageIds((prev) => new Set(prev).add(item.id));
-                          }}
-                        />
+                        <div style={{ position: 'relative', flexShrink: 0, cursor: 'zoom-in' }}
+                          onClick={() => setZoomedImage({ url: item.image_url as string, name: item.brand_name })}
+                        >
+                          <img
+                            src={item.image_url}
+                            alt={item.brand_name}
+                            style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 10, border: '1px solid #e2e8f0', display: 'block' }}
+                            onError={() => {
+                              setBrokenImageIds((prev) => new Set(prev).add(item.id));
+                            }}
+                          />
+                          <div style={{
+                            position: 'absolute', bottom: 4, left: 4,
+                            background: 'rgba(0,0,0,0.55)', borderRadius: 6,
+                            width: 20, height: 20, display: 'flex',
+                            alignItems: 'center', justifyContent: 'center',
+                          }}>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2}>
+                              <circle cx="11" cy="11" r="7" />
+                              <path d="M21 21l-4.35-4.35" strokeLinecap="round" />
+                              <path d="M11 8v6M8 11h6" strokeLinecap="round" />
+                            </svg>
+                          </div>
+                        </div>
                       ) : (
                         <div
                           style={{
-                            width: 54, height: 54, background: '#f1f5f9',
+                            width: 80, height: 80, background: '#f1f5f9',
                             borderRadius: 10, display: 'flex', alignItems: 'center',
-                            justifyContent: 'center', fontSize: 22, flexShrink: 0,
+                            justifyContent: 'center', fontSize: 26, flexShrink: 0,
                           }}
                         >
                           🩺
@@ -793,6 +810,50 @@ export default function SingleVitalViewPage({ params }: PageProps) {
         <Disclaimer variant={detectTextDir(currentVisit.ai_report_output) === 'ltr' ? 'patient-en' : 'patient'} />
         <AppFooter className="pb-8" />
       </main>
+
+      {zoomedImage && (
+        <div
+          onClick={() => setZoomedImage(null)}
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 1000, padding: 20,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: '#fff', borderRadius: 16, overflow: 'hidden',
+              maxWidth: 420, width: '100%', maxHeight: '85vh',
+              display: 'flex', flexDirection: 'column',
+            }}
+          >
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '12px 16px', borderBottom: '1px solid #e2e8f0',
+            }}>
+              <span style={{ fontWeight: 700, fontSize: 14, color: '#0f172a' }}>{zoomedImage.name}</span>
+              <button
+                onClick={() => setZoomedImage(null)}
+                style={{
+                  background: '#f1f5f9', border: 'none', borderRadius: 8,
+                  width: 28, height: 28, display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', cursor: 'pointer',
+                }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth={2}>
+                  <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" />
+                </svg>
+              </button>
+            </div>
+            <img
+              src={zoomedImage.url}
+              alt={zoomedImage.name}
+              style={{ width: '100%', height: 'auto', maxHeight: '75vh', objectFit: 'contain', display: 'block' }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

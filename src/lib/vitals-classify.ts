@@ -68,63 +68,69 @@ export function classifyBp(
 // ── سكر الدم ─────────────────────────────────────────────────────
 export function classifySugar(
   value: number,
-  /** 'fasting' يعني صائم — أي قيمة أخرى (postprandial/random/null) تُعامل غير صائم */
+  /** 'fasting' صائم | 'postprandial' بعد الأكل | 'random' عشوائي | null يُعامل كبعد الأكل */
   testType: string | null,
   age: number | null,
   isDiagnosedDiabetes: boolean
 ): Classification {
   const isOver60 = age !== null && age > 60;
 
-  if (testType === 'fasting') {
-    if (value < 55)
-      return { label: 'هبوط طارئ', level: 'red', specialCriteria: null };
+  // هبوط طارئ — موحّد لكل الأنواع (ADA المستوى 2)
+  if (value < 54)
+    return { label: 'هبوط طارئ', level: 'red', specialCriteria: null };
 
+  if (testType === 'fasting') {
     // حدّ الانخفاض العام حسب العمر
     const lowCeiling = isOver60 ? 79 : 69;
     if (value <= lowCeiling)
       return {
         label: 'انخفاض',
         level: 'yellow',
-        specialCriteria: isOver60 ? 'حدّ الانخفاض لفوق 60 سنة: 55–79' : null,
+        specialCriteria: isOver60 ? 'حدّ الانخفاض لفوق 60 سنة: 54–79' : null,
       };
 
     if (isDiagnosedDiabetes) {
-      // هدف المشخّص صائماً 80–130: ما دون 80 أدنى من الهدف
       if (value < 80)
         return { label: 'انخفاض', level: 'yellow', specialCriteria: 'هدف المشخّص بالسكري صائماً: 80–130' };
       if (value <= 130)
         return { label: 'ضمن الهدف', level: 'green', specialCriteria: 'هدف المشخّص بالسكري صائماً: 80–130' };
       if (value <= 180)
         return { label: 'مرتفع نسبياً', level: 'yellow', specialCriteria: 'هدف المشخّص بالسكري صائماً: 80–130' };
-      // فوق 180 صائماً للمشخّص: المرجع لم ينصّ صراحةً — اعتُمد التصنيف الأحمر العام
       return { label: 'ارتفاع ملحوظ', level: 'red', specialCriteria: null };
     }
 
-    if (value <= 100)
+    if (value <= 99)
       return { label: 'طبيعي', level: 'green', specialCriteria: null };
     if (value <= 125)
       return { label: 'ارتفاع طفيف', level: 'yellow', specialCriteria: null };
     return { label: 'ارتفاع ملحوظ', level: 'red', specialCriteria: null };
   }
 
-  // غير صائم / بعد الأكل / عشوائي
-  if (value < 54)
-    return { label: 'هبوط طارئ', level: 'red', specialCriteria: null };
+  // غير الصائم: بعد الأكل / عشوائي / غير محدد
   if (value < 70)
     return { label: 'انخفاض', level: 'yellow', specialCriteria: null };
 
   if (isDiagnosedDiabetes) {
     if (value < 180)
       return { label: 'ضمن الهدف', level: 'green', specialCriteria: 'هدف المشخّص بالسكري بعد الأكل: أقل من 180' };
-    if (value <= 250)
-      return { label: 'مرتفع', level: 'yellow', specialCriteria: 'هدف المشخّص بالسكري بعد الأكل: أقل من 180' };
+    if (value < 250)
+      return { label: 'مرتفع نسبياً', level: 'yellow', specialCriteria: 'هدف المشخّص بالسكري بعد الأكل: أقل من 180' };
     return { label: 'مرتفع جداً', level: 'red', specialCriteria: null };
   }
 
-  if (value <= 140)
+  if (testType === 'random') {
+    if (value <= 139)
+      return { label: 'طبيعي', level: 'green', specialCriteria: null };
+    if (value <= 199)
+      return { label: 'ارتفاع نسبي', level: 'yellow', specialCriteria: 'معيار الفحص العشوائي: الارتفاع الملحوظ من 200' };
+    return { label: 'ارتفاع ملحوظ', level: 'red', specialCriteria: null };
+  }
+
+  // بعد الأكل / غير محدد
+  if (value <= 139)
     return { label: 'طبيعي', level: 'green', specialCriteria: null };
-  if (value <= 180)
-    return { label: 'ارتفاع بعد الأكل', level: 'yellow', specialCriteria: null };
+  if (value <= 179)
+    return { label: 'ارتفاع نسبي', level: 'yellow', specialCriteria: null };
   return { label: 'ارتفاع ملحوظ', level: 'red', specialCriteria: null };
 }
 

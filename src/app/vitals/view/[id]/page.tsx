@@ -752,257 +752,32 @@ export default function SingleVitalViewPage({ params }: PageProps) {
           </section>
         )}
 
-        {/* ─── 3. سجل القراءات الكاملة ─── */}
-        <section className="vcard" style={{ padding: '24px 24px 28px' }}>
-          <div style={{ marginBottom: 6 }}>
-            <p className="section-title">📈 سجل القراءات الكاملة للطبيب المعالج</p>
+        {/* ─── 3. طلب السجل الكامل ─── */}
+        <section className="vcard" style={{ padding: '24px 24px 28px', textAlign: 'center' }}>
+          <div style={{ marginBottom: 16 }}>
+            <p className="section-title">📋 سجل القراءات الكاملة للطبيب المعالج</p>
           </div>
-
-          <p style={{ fontSize: 12, color: '#64748b', margin: '0 0 20px' }}>
-            مرتب تسلسلياً حسب الخط الزمني، ويشمل الزيارة الحالية
+          <p style={{ fontSize: 13, color: '#64748b', margin: '0 0 20px', lineHeight: 1.7 }}>
+            يمكنك طلب سجلك الطبي الكامل من الصيدلية وسيصلك ملف PDF جاهز لتسليمه لطبيبك المعالج.
           </p>
-
-          {/* ── أزرار الفلترة ── */}
-          {(() => {
-            const filters: { key: 'all' | 'bp' | 'sugar' | 'weight'; label: string; count: number }[] = [
-              { key: 'all',    label: 'الكل',      count: allVisits.length },
-              { key: 'bp',     label: 'ضغط الدم',  count: allVisits.filter(v => v.bp_systolic != null).length },
-              { key: 'sugar',  label: 'السكري',    count: allVisits.filter(v => v.sugar_value != null).length },
-              { key: 'weight', label: 'الوزن',     count: allVisits.filter(v => v.weight != null).length },
-            ];
-            return (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
-                {filters.map((f) => {
-                  const active = visitFilter === f.key;
-                  return (
-                    <button
-                      key={f.key}
-                      onClick={() => { setVisitFilter(f.key); setShowAllVisits(false); }}
-                      style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 6,
-                        padding: '6px 14px',
-                        borderRadius: 20,
-                        border: active ? '1.5px solid #0d9488' : '1.5px solid #e2e8f0',
-                        background: active ? '#f0fdfa' : '#fff',
-                        color: active ? '#0f766e' : '#64748b',
-                        fontSize: 12, fontWeight: 600,
-                        cursor: 'pointer', fontFamily: 'inherit',
-                        transition: 'all 0.15s',
-                      }}
-                    >
-                      {f.label}
-                      <span style={{
-                        background: active ? '#0d9488' : '#f1f5f9',
-                        color: active ? '#fff' : '#94a3b8',
-                        borderRadius: 10, padding: '1px 7px', fontSize: 11, fontWeight: 700,
-                      }}>
-                        {f.count}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            );
-          })()}
-
-          {filteredVisits.length > 0 ? (
-            <>
-              {/* ─ جدول عادي على الشاشات الكبيرة ─ */}
-              <div style={{ overflowX: 'auto' }}>
-                <table
-                  className="history-table"
-                  style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, textAlign: 'right' }}
-                >
-                  <thead>
-                    <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-                      {['التاريخ والوقت', 'ضغط الدم', 'السكري', 'الوزن', 'الأعراض'].map((h) => (
-                        <th
-                          key={h}
-                          style={{ padding: '12px 14px', fontWeight: 600, color: '#64748b', fontSize: 12 }}
-                        >
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {visitsToShow.map((visit) => {
-                      const isCurrent = visit.id === currentVisit.id;
-                      return (
-                        <tr
-                          key={visit.id}
-                          style={{
-                            background: isCurrent ? '#f0fdfa' : 'transparent',
-                            borderBottom: '1px solid #f1f5f9',
-                            transition: 'background 0.15s',
-                          }}
-                        >
-                          {/* التاريخ */}
-                          <td
-                            data-label="التاريخ"
-                            style={{ padding: '12px 14px', color: '#334155', verticalAlign: 'middle' }}
-                          >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                              <div>
-                                <span style={{ fontWeight: 600 }}>{formatDate(visit.created_at)}</span>
-                                <span style={{ display: 'block', fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
-                                  {formatTime(visit.created_at)}
-                                </span>
-                              </div>
-                              {isCurrent && (
-                                <span
-                                  className="chip"
-                                  style={{ background: '#ccfbf1', color: '#0f766e', fontSize: 10, padding: '2px 8px' }}
-                                >
-                                  الحالية
-                                </span>
-                              )}
-                            </div>
-                          </td>
-
-                          {/* ضغط الدم */}
-                          <td data-label="ضغط الدم" style={{ padding: '12px 14px', verticalAlign: 'middle' }}>
-                            {visit.bp_systolic && visit.bp_diastolic ? (
-                              <span
-                                className="chip"
-                                style={
-                                  visit.bp_systolic >= 140 || visit.bp_diastolic >= 90
-                                    ? { background: '#fee2e2', color: '#991b1b' }
-                                    : { background: '#eff6ff', color: '#1d4ed8' }
-                                }
-                              >
-                                {visit.bp_systolic}/{visit.bp_diastolic}
-                                <span style={{ fontSize: 9, opacity: 0.7, marginRight: 3 }}>mmHg</span>
-                              </span>
-                            ) : (
-                              <span style={{ color: '#cbd5e1' }}>—</span>
-                            )}
-                          </td>
-
-                          {/* السكري */}
-                          <td data-label="السكري" style={{ padding: '12px 14px', verticalAlign: 'middle' }}>
-                            {visit.sugar_value ? (
-                              <span
-                                className="chip"
-                                style={
-                                  visit.sugar_value >= 180
-                                    ? { background: '#fef3c7', color: '#92400e' }
-                                    : { background: '#d1fae5', color: '#065f46' }
-                                }
-                              >
-                                {visit.sugar_value}
-                                <span style={{ fontSize: 9, opacity: 0.7, marginRight: 3 }}>
-                                  ({sugarTypeLabel(visit.sugar_test_type)})
-                                </span>
-                              </span>
-                            ) : (
-                              <span style={{ color: '#cbd5e1' }}>—</span>
-                            )}
-                          </td>
-
-                          {/* الوزن */}
-                          <td data-label="الوزن" style={{ padding: '12px 14px', verticalAlign: 'middle' }}>
-                            {visit.weight ? (
-                              <span className="chip" style={{ background: '#f3e8ff', color: '#6b21a8' }}>
-                                {visit.weight}
-                                <span style={{ fontSize: 9, opacity: 0.7, marginRight: 3 }}>kg</span>
-                              </span>
-                            ) : (
-                              <span style={{ color: '#cbd5e1' }}>—</span>
-                            )}
-                          </td>
-
-                          {/* الأعراض */}
-                          <td data-label="الأعراض" style={{ padding: '12px 14px', verticalAlign: 'middle' }}>
-                            {visit.symptoms && visit.symptoms.length > 0 ? (
-                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-                                {visit.symptoms.map((s, i) => (
-                                  <span
-                                    key={i}
-                                    style={{
-                                      background: '#f1f5f9',
-                                      border: '1px solid #e2e8f0',
-                                      color: '#475569',
-                                      borderRadius: 8,
-                                      padding: '2px 8px',
-                                      fontSize: 11,
-                                      fontWeight: 500,
-                                    }}
-                                  >
-                                    {s}
-                                  </span>
-                                ))}
-                              </div>
-                            ) : (
-                              <span style={{ fontSize: 12, color: '#94a3b8' }}>لا يوجد أعراض</span>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              {/* زر عرض الكل / إخفاء */}
-              {filteredVisits.length > VISITS_PREVIEW && (
-                <button
-                  onClick={() => setShowAllVisits((v) => !v)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 6,
-                    width: '100%',
-                    marginTop: 12,
-                    padding: '10px 0',
-                    background: '#f8fafc',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: 12,
-                    fontSize: 13,
-                    fontWeight: 600,
-                    color: '#0d9488',
-                    cursor: 'pointer',
-                    fontFamily: 'inherit',
-                    transition: 'background 0.15s',
-                  }}
-                  onMouseOver={(e) => (e.currentTarget.style.background = '#f0fdfa')}
-                  onMouseOut={(e) => (e.currentTarget.style.background = '#f8fafc')}
-                >
-                  {showAllVisits ? (
-                    <>
-                      <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
-                      </svg>
-                      إخفاء الزيارات القديمة
-                    </>
-                  ) : (
-                    <>
-                      <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-                      </svg>
-                      عرض جميع الزيارات ({filteredVisits.length})
-                    </>
-                  )}
-                </button>
-              )}
-            </>
-          ) : (
-            <div
-              style={{
-                padding: '36px 20px',
-                textAlign: 'center',
-                background: '#f8fafc',
-                border: '1px dashed #e2e8f0',
-                borderRadius: 14,
-                color: '#94a3b8',
-                fontSize: 13,
-              }}
-            >
-              {visitFilter === 'all'
-                ? 'لا توجد قراءات موثقة لهذا المريض حتى الآن.'
-                : 'لا توجد زيارات تحتوي على هذا النوع من القراءات.'}
-            </div>
-          )}
+          <button
+            className="btn-whatsapp"
+            onClick={() => {
+              const rawPhone = pharmacyPhone || '';
+              if (!rawPhone) return;
+              const formattedPhone = rawPhone.replace(/[^0-9]/g, '');
+              const cleanPhone = formattedPhone.startsWith('0') ? '962' + formattedPhone.substring(1) : formattedPhone;
+              const text = `مرحباً، أنا ${currentVisit.patient?.name || 'المريض'}، أطلب سجلي الطبي الكامل بصيغة PDF.\nشكراً 🙏`;
+              window.open(`https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(text)}`, '_blank');
+            }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, margin: '0 auto' }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+              <path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.554 4.135 1.535 5.879L.057 23.944l6.204-1.495A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.894a9.889 9.889 0 01-5.031-1.372l-.361-.214-3.741.981.999-3.648-.235-.374A9.861 9.861 0 012.106 12C2.106 6.58 6.58 2.106 12 2.106c5.42 0 9.894 4.474 9.894 9.894 0 5.42-4.474 9.894-9.894 9.894z"/>
+            </svg>
+            اطلب سجلك الطبي عبر واتساب
+          </button>
         </section>
 
         {/* ─── Footer ─── */}

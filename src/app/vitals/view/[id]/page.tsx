@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, use } from 'react';
-import { Storefront, HeartStraight, Drop, Barbell, UserCircle, WhatsappLogo } from '@phosphor-icons/react';
+import { Storefront, HeartStraight, Drop, Barbell, WhatsappLogo } from '@phosphor-icons/react';
 import AppFooter from '../../../components/AppFooter';
 import Disclaimer from '@/components/Disclaimer';
 import { detectTextDir } from '@/lib/text-direction';
@@ -437,7 +437,10 @@ export default function SingleVitalViewPage({ params }: PageProps) {
                 width: 40, height: 40, borderRadius: '50%', background: '#f1f5f9',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
               }}>
-                <UserCircle size={20} weight="duotone" color="#94a3b8" />
+                <svg style={{ width: 20, height: 20, color: '#94a3b8' }} viewBox="0 0 24 24" fill="currentColor">
+                  <circle cx="12" cy="8" r="3.5" />
+                  <path d="M5 21c0-4.42 3.13-8 7-8s7 3.58 7 8" />
+                </svg>
               </div>
               <div>
                 <p style={{ margin: 0, fontSize: 15, fontWeight: 900, color: '#0f172a' }}>
@@ -471,11 +474,10 @@ export default function SingleVitalViewPage({ params }: PageProps) {
               </div>
             )}
           </div>
-        </div>
 
-        {/* ─── صف القراءات الموحد ─── */}
-        {(currentVisit.bp_systolic != null || currentVisit.sugar_value != null) && (
-          <div className="vcard" style={{ padding: '20px 20px 16px' }}>
+          {/* ─── صف القراءات الموحد ─── */}
+          {(currentVisit.bp_systolic != null || currentVisit.sugar_value != null) && (
+          <div style={{ padding: '20px 20px 16px', borderTop: '1px solid #f1f5f9' }}>
             <div style={{
               display: 'grid',
               gridTemplateColumns: (currentVisit.bp_systolic != null && currentVisit.sugar_value != null)
@@ -553,23 +555,24 @@ export default function SingleVitalViewPage({ params }: PageProps) {
               )}
             </div>
           </div>
-        )}
-        {patientHistory.filter(v => v.bp_systolic != null && v.bp_diastolic != null).length >= 2 && (
-          <div className="vcard" style={{ padding: 16 }}>
+          )}
+          {patientHistory.filter(v => v.bp_systolic != null && v.bp_diastolic != null).length >= 2 && (
+          <div style={{ padding: 16, borderTop: '1px solid #f1f5f9' }}>
             <BpHistoryChart
               bpHistory={patientHistory.filter((v): v is typeof v & { bp_systolic: number; bp_diastolic: number } => v.bp_systolic != null && v.bp_diastolic != null).slice().reverse()}
               formatDate={formatDate}
             />
           </div>
-        )}
-        {patientHistory.filter(v => v.sugar_value != null).length >= 2 && (
-          <div className="vcard" style={{ padding: 16 }}>
+          )}
+          {patientHistory.filter(v => v.sugar_value != null).length >= 2 && (
+          <div style={{ padding: 16, borderTop: '1px solid #f1f5f9' }}>
             <SugarHistoryChart
               sugarHistory={patientHistory.filter((v): v is typeof v & { sugar_value: number } => v.sugar_value != null).slice().reverse()}
               formatDate={formatDate}
             />
           </div>
-        )}
+          )}
+        </div>
         {currentVisit.classification_special_criteria && (
           <div style={{ padding: '10px 14px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, fontSize: 11.5, color: '#64748b', lineHeight: 1.6 }}>
             ℹ️ {currentVisit.classification_special_criteria}

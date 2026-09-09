@@ -204,6 +204,7 @@ export default function SingleVitalViewPage({ params }: PageProps) {
   })();
   const [showAllVisits, setShowAllVisits] = useState(false);
   const [visitFilter, setVisitFilter] = useState<'all' | 'bp' | 'sugar' | 'weight'>('all');
+  const [brokenImageIds, setBrokenImageIds] = useState<Set<string>>(new Set());
   const VISITS_PREVIEW = 3;
 
   // تطبيق الفلتر — زيارة تظهر إذا احتوت على القراءة المطلوبة (وليس بالضرورة أن تكون الزيارة مخصصة لها فقط)
@@ -693,11 +694,14 @@ export default function SingleVitalViewPage({ params }: PageProps) {
                     >
                       {isWeightLoss ? (
                         <span style={{ fontSize: 28, flexShrink: 0 }}>⚖️</span>
-                      ) : item.image_url ? (
+                      ) : item.image_url && !brokenImageIds.has(item.id) ? (
                         <img
                           src={item.image_url}
                           alt={item.brand_name}
                           style={{ width: 54, height: 54, objectFit: 'cover', borderRadius: 10, flexShrink: 0, border: '1px solid #e2e8f0' }}
+                          onError={() => {
+                            setBrokenImageIds((prev) => new Set(prev).add(item.id));
+                          }}
                         />
                       ) : (
                         <div

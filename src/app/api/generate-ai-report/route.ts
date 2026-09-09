@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
-import { classifySugar } from '@/lib/vitals-classify';
+import { classifySugar, classifyBp } from '@/lib/vitals-classify';
 
 // قائمة نماذج مرتبة — يُجرَّب الأول فإن أعطى 404 ينتقل للتالي تلقائياً
 // يمكن تجاوز الكل بتعريف GEMINI_MODEL في ملف .env.local
@@ -412,27 +412,43 @@ function buildAdaptiveFallbackReport(
   const hasBpDiagnosis = diagnosedConditions.includes('hypertension');
   const hasDiabetesDiagnosis = diagnosedConditions.includes('diabetes');
 
-  const isBpAbnormal = (s: number, d: number) => s >= 140 || d >= 90 || s < 90 || d < 60;
+  const bpLevelOf = (s: number, d: number) =>
+    classifyBp(s, d, age, hasBpDiagnosis).level;
   const sugarLevelOf = (v: number) =>
     classifySugar(v, visit?.sugar_test_type ?? null, age, hasDiabetesDiagnosis).level;
 
   const parts: string[] = [];
 
   if (sys && dia) {
-    if (sys >= 180 || dia >= 120 || sys < 90 || dia < 60) {
-      parts.push(`ضغط الدم (${sys}/${dia}) خارج النطاق الطبيعي بشكل واضح، يُفضّل مراجعة الطبيب فوراً.`);
-    } else if (sys >= 140 || dia >= 90) {
-      parts.push(hasBpDiagnosis
-        ? `ضغط الدم (${sys}/${dia}) أعلى من المستهدف رغم العلاج، يُنصح بمراجعة الطبيب لتقييم خطة العلاج.`
-        : `ضغط الدم (${sys}/${dia}) أعلى من الطبيعي، يُنصح بالمتابعة مع الطبيب.`);
+    const bpClf = classifyBp(sys, dia, age, hasBpDiagnosis);
+
+    if (bpClf.level === 'red') {
+      if (sys < 90 || dia < 60) {
+        parts.push(`ضغط الدم (${sys}/${dia}) ${bpClf.label} — يُنصح بالراحة وشرب السوائل وإعادة القياس، ومراجعة الطبيب إن تكرر.`);
+      } else {
+        parts.push(hasBpDiagnosis
+          ? `ضغط الدم (${sys}/${dia}) ${bpClf.label} رغم العلاج، يُفضّل مراجعة الطبيب فوراً.`
+          : `ضغط الدم (${sys}/${dia}) ${bpClf.label}، يُفضّل مراجعة الطبيب فوراً.`);
+      }
+    } else if (bpClf.level === 'yellow') {
+      if (sys < 90 || dia < 60) {
+        parts.push(`ضغط الدم (${sys}/${dia}) ${bpClf.label} — قد يكون طبيعياً لدى البعض، يُنصح بالمتابعة وإعادة القياس.`);
+      } else {
+        parts.push(hasBpDiagnosis
+          ? `ضغط الدم (${sys}/${dia}) أعلى من المستهدف رغم العلاج، يُنصح بمراجعة الطبيب لتقييم خطة العلاج.`
+          : `ضغط الدم (${sys}/${dia}) ${bpClf.label}، يُنصح بالمتابعة مع الطبيب.`);
+      }
     } else {
       parts.push(hasBpDiagnosis
         ? `ضغط الدم (${sys}/${dia}) ضمن النطاق المستهدف — استجابة جيدة للعلاج.`
         : `ضغط الدم (${sys}/${dia}) ضمن الطبيعي.`);
     }
+    if (bpClf.specialCriteria) {
+      parts.push(`(${bpClf.specialCriteria})`);
+    }
 
-    const bpRecurring = isBpAbnormal(sys, dia)
-      && recentVisits.some((v) => v.bp_systolic && isBpAbnormal(v.bp_systolic, v.bp_diastolic));
+    const bpRecurring = bpLevelOf(sys, dia) !== 'green'
+      && recentVisits.some((v) => v.bp_systolic && bpLevelOf(v.bp_systolic, v.bp_diastolic) !== 'green');
     if (bpRecurring) {
       parts.push(hasBpDiagnosis
         ? 'النمط متكرر عبر أكثر من زيارة، يُفضّل تقييم الجرعة الحالية.'

@@ -151,6 +151,8 @@ export interface OverallStatus {
   level: OverallLevel;
   /** النص الحرفي المعتمد للشارة */
   label: string;
+  /** العوامل التي ساهمت في رفع التقييم — للعرض التفسيري */
+  reasons: string[];
 }
 
 export function overallVisitStatus(
@@ -159,21 +161,22 @@ export function overallVisitStatus(
   bmi: number | null
 ): OverallStatus {
   let level: OverallLevel = 'normal';
+  const reasons: string[] = [];
 
-  if (bpLevel === 'red') level = 'high';
-  else if (bpLevel === 'yellow') level = 'medium';
+  if (bpLevel === 'red') { level = 'high'; reasons.push('ضغط الدم'); }
+  else if (bpLevel === 'yellow') { level = 'medium'; reasons.push('ضغط الدم'); }
 
-  if (sugarLevel === 'red') level = 'high';
-  else if (sugarLevel === 'yellow' && level !== 'high') level = 'medium';
+  if (sugarLevel === 'red') { level = 'high'; reasons.push('سكر الدم'); }
+  else if (sugarLevel === 'yellow') { if (level !== 'high') level = 'medium'; reasons.push('سكر الدم'); }
 
   if (bmi !== null) {
-    if (bmi >= 30 && level !== 'high')            level = 'high';   // سمنة → يستدعي انتباهاً
-    else if (bmi >= 25 && level === 'normal')     level = 'medium'; // زيادة وزن → يحتاج متابعة
-    else if (bmi < 18.5 && level === 'normal')    level = 'medium'; // نحافة → يحتاج متابعة
-    else if (bmi < 16 && level !== 'high')        level = 'high';   // نحافة شديدة → يستدعي انتباهاً
+    if (bmi >= 30) { if (level !== 'high') level = 'high'; reasons.push('الوزن (سمنة)'); }
+    else if (bmi >= 25) { if (level === 'normal') level = 'medium'; reasons.push('الوزن (زيادة)'); }
+    else if (bmi < 18.5) { if (level === 'normal') level = 'medium'; reasons.push('الوزن (نحافة)'); }
+    else if (bmi < 16) { if (level !== 'high') level = 'high'; reasons.push('الوزن (نحافة شديدة)'); }
   }
 
-  if (level === 'high')   return { level, label: 'يستدعي انتباهاً' };
-  if (level === 'medium') return { level, label: 'يحتاج متابعة' };
-  return { level, label: 'ضمن الطبيعي' };
+  if (level === 'high')   return { level, label: 'يستدعي انتباهاً', reasons };
+  if (level === 'medium') return { level, label: 'يحتاج متابعة', reasons };
+  return { level, label: 'ضمن الطبيعي', reasons };
 }

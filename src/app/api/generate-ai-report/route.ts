@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
+import { classifySugar } from '@/lib/vitals-classify';
 
 // قائمة نماذج مرتبة — يُجرَّب الأول فإن أعطى 404 ينتقل للتالي تلقائياً
 // يمكن تجاوز الكل بتعريف GEMINI_MODEL في ملف .env.local
@@ -385,7 +386,10 @@ ${recentVisitsLine}`;
     // وحتى ذلك الحين تبقى تحيته عربية ليتناسق مع جسمه بدل خليط لغتين
     const fallbackReport = buildAdaptiveFallbackReport(
       currentVisit, bmi, patientName, pharmacyDisplayName,
-      lastVisit, recentVisits, diagnosedConditions, 'ar'
+      lastVisit, recentVisits, diagnosedConditions, 'ar',
+      patient?.birth_date
+        ? new Date().getFullYear() - new Date(patient.birth_date).getFullYear()
+        : null
     );
     return NextResponse.json({ report: fallbackReport, pharmacistSummary: null, medicationsAlert: null });
 
@@ -397,7 +401,8 @@ ${recentVisitsLine}`;
 function buildAdaptiveFallbackReport(
   visit: any, bmi: string | null, patientName: string,
   pharmacyDisplayName: string, lastVisit: any,
-  recentVisits: any[], diagnosedConditions: string[], language: 'ar' | 'en'
+  recentVisits: any[], diagnosedConditions: string[], language: 'ar' | 'en',
+  age: number | null
 ) {
   const sys = visit?.bp_systolic;
   const dia = visit?.bp_diastolic;
@@ -407,7 +412,8 @@ function buildAdaptiveFallbackReport(
   const hasDiabetesDiagnosis = diagnosedConditions.includes('diabetes');
 
   const isBpAbnormal = (s: number, d: number) => s >= 140 || d >= 90 || s < 90 || d < 60;
-  const isSugarAbnormal = (v: number) => v >= 180 || v < 70;
+  const sugarLevelOf = (v: number) =>
+    classifySugar(v, visit?.sugar_test_type ?? null, age, hasDiabetesDiagnosis).level;
 
   const parts: string[] = [];
 
@@ -436,22 +442,37 @@ function buildAdaptiveFallbackReport(
   }
 
   if (sug) {
-    if (sug < 70) {
-      parts.push(`سكري الدم (${sug}) منخفض، يستوجب تناول سكر سريع الامتصاص فوراً.`);
-    } else if (sug >= 300) {
-      parts.push(`سكري الدم (${sug}) مرتفع جداً، يُفضّل مراجعة الطبيب فوراً.`);
-    } else if (sug >= 180) {
-      parts.push(hasDiabetesDiagnosis
-        ? `سكري الدم (${sug}) أعلى من المستهدف، يُنصح بمراجعة الطبيب لتقييم ضبط السكر.`
-        : `سكري الدم (${sug}) أعلى من الطبيعي، يُنصح بالمتابعة.`);
+    const sugClf = classifySugar(sug, visit?.sugar_test_type ?? null, age, hasDiabetesDiagnosis);
+    const typeAr = visit?.sugar_test_type === 'fasting' ? 'صائم'
+      : visit?.sugar_test_type === 'random' ? 'عشوائي' : 'بعد الأكل';
+
+    if (sugClf.level === 'red') {
+      if (sug < 54) {
+        parts.push(`سكري الدم (${sug} — ${typeAr}) منخفض بشدة، يستوجب تناول سكر سريع الامتصاص فوراً ومراجعة عاجلة.`);
+      } else {
+        parts.push(hasDiabetesDiagnosis
+          ? `سكري الدم (${sug} — ${typeAr}) أعلى من المستهدف بوضوح رغم العلاج، يُنصح بمراجعة الطبيب لتقييم ضبط السكر.`
+          : `سكري الدم (${sug} — ${typeAr}) ${sugClf.label}، يُنصح بمراجعة الطبيب.`);
+      }
+    } else if (sugClf.level === 'yellow') {
+      if (sug < 80 && sugClf.label === 'انخفاض') {
+        parts.push(`سكري الدم (${sug} — ${typeAr}) ${sugClf.label}، يُفضّل الانتباه لمواعيد الوجبات وإعادة القياس.`);
+      } else {
+        parts.push(hasDiabetesDiagnosis
+          ? `سكري الدم (${sug} — ${typeAr}) أعلى من المستهدف، يُنصح بالمتابعة الدقيقة.`
+          : `سكري الدم (${sug} — ${typeAr}) ${sugClf.label}، يُنصح بالمتابعة.`);
+      }
     } else {
       parts.push(hasDiabetesDiagnosis
-        ? `سكري الدم (${sug}) ضمن النطاق المستهدف — ضبط جيد.`
-        : `سكري الدم (${sug}) ضمن الطبيعي.`);
+        ? `سكري الدم (${sug} — ${typeAr}) ضمن النطاق المستهدف — ضبط جيد.`
+        : `سكري الدم (${sug} — ${typeAr}) ضمن الطبيعي.`);
+    }
+    if (sugClf.specialCriteria) {
+      parts.push(`(${sugClf.specialCriteria})`);
     }
 
-    const sugarRecurring = isSugarAbnormal(sug)
-      && recentVisits.some((v) => v.sugar_value && isSugarAbnormal(v.sugar_value));
+    const sugarRecurring = sugarLevelOf(sug) !== 'green'
+      && recentVisits.some((v) => v.sugar_value && classifySugar(v.sugar_value, v.sugar_test_type ?? null, age, hasDiabetesDiagnosis).level !== 'green');
     if (sugarRecurring) {
       parts.push(hasDiabetesDiagnosis
         ? 'النمط متكرر، يُفضّل مراجعة الطبيب لتعديل خطة العلاج.'

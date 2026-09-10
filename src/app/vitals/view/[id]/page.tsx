@@ -402,7 +402,8 @@ export default function SingleVitalViewPage({ params }: PageProps) {
       {/* ══════════════════════════════════════════════
           HEADER — gradient مع هيكل واضح الأولويات
       ══════════════════════════════════════════════ */}
-      <header style={{ maxWidth: 860, margin: '0 auto', padding: '20px 16px' }}>
+      <header style={{ position: 'sticky', top: 0, zIndex: 50, background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+        <div style={{ maxWidth: 860, margin: '0 auto', padding: '14px 16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{
             width: 40, height: 40, background: '#0f172a', borderRadius: 11,
@@ -419,6 +420,7 @@ export default function SingleVitalViewPage({ params }: PageProps) {
               <span style={{ fontSize: 11.5, color: '#475569', background: '#f1f5f9', padding: '3px 11px', borderRadius: 20 }}>نتائج الفحص</span>
             </div>
           </div>
+        </div>
         </div>
       </header>
 

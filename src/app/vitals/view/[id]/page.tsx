@@ -47,6 +47,10 @@ interface VisitationRecord {
   symptoms: string[] | null;
   ai_report_output: string | null;
   created_at: string;
+  had_stimulants?: boolean | null;
+  recent_exertion?: boolean | null;
+  recent_heavy_meal?: boolean | null;
+  is_stressed?: boolean | null;
   patient?: Patient;
 }
 
@@ -526,6 +530,39 @@ export default function SingleVitalViewPage({ params }: PageProps) {
                       </span>
                     </p>
                   )}
+                  {(() => {
+                    const bpSymptomsList = ['صداع', 'دوخة', 'زغللة عين', 'طنين أذن', 'ألم بالصدر', 'ضيق تنفس'];
+                    const bpSymptoms = (currentVisit.symptoms || []).filter(s => bpSymptomsList.includes(s));
+                    const bpFactors: string[] = [];
+                    if (currentVisit.had_stimulants) bpFactors.push('شرب قهوة / شاي / مكيّف');
+                    if (currentVisit.recent_exertion) bpFactors.push('مجهود بدني مؤخراً');
+                    if (currentVisit.is_stressed) bpFactors.push('يشعر بتوتر أو قلق');
+                    if (bpSymptoms.length === 0 && bpFactors.length === 0) return null;
+                    return (
+                      <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px dashed #e2e8f0' }}>
+                        {bpSymptoms.length > 0 && (
+                          <div style={{ marginBottom: 6 }}>
+                            <p style={{ fontSize: 10, color: '#94a3b8', margin: '0 0 4px' }}>أعراض مصاحبة</p>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                              {bpSymptoms.map((s, i) => (
+                                <span key={i} style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', color: '#475569', borderRadius: 20, padding: '2px 9px', fontSize: 11 }}>{s}</span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {bpFactors.length > 0 && (
+                          <div>
+                            <p style={{ fontSize: 10, color: '#94a3b8', margin: '0 0 4px' }}>عوامل مؤثرة</p>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                              {bpFactors.map((f, i) => (
+                                <span key={i} style={{ background: '#fffbeb', border: '1px solid #fde68a', color: '#92400e', borderRadius: 20, padding: '2px 9px', fontSize: 11, fontWeight: 600 }}>{f}</span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
               {currentVisit.sugar_value != null && (
@@ -557,6 +594,39 @@ export default function SingleVitalViewPage({ params }: PageProps) {
                       </span>
                     </p>
                   )}
+                  {(() => {
+                    const sugarSymptomsList = ['عطش شديد', 'تبول متكرر', 'جفاف فم', 'خدران أطراف', 'تعرق بارد', 'جوع مفاجئ'];
+                    const sugarSymptoms = (currentVisit.symptoms || []).filter(s => sugarSymptomsList.includes(s));
+                    const sugarFactors: string[] = [];
+                    if (currentVisit.had_stimulants) sugarFactors.push('شرب قهوة / شاي / مكيّف');
+                    if (currentVisit.recent_heavy_meal) sugarFactors.push('تناول وجبة دسمة مؤخراً');
+                    if (currentVisit.is_stressed) sugarFactors.push('يشعر بتوتر أو قلق');
+                    if (sugarSymptoms.length === 0 && sugarFactors.length === 0) return null;
+                    return (
+                      <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px dashed #e2e8f0' }}>
+                        {sugarSymptoms.length > 0 && (
+                          <div style={{ marginBottom: 6 }}>
+                            <p style={{ fontSize: 10, color: '#94a3b8', margin: '0 0 4px' }}>أعراض مصاحبة</p>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                              {sugarSymptoms.map((s, i) => (
+                                <span key={i} style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', color: '#475569', borderRadius: 20, padding: '2px 9px', fontSize: 11 }}>{s}</span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {sugarFactors.length > 0 && (
+                          <div>
+                            <p style={{ fontSize: 10, color: '#94a3b8', margin: '0 0 4px' }}>عوامل مؤثرة</p>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                              {sugarFactors.map((f, i) => (
+                                <span key={i} style={{ background: '#fffbeb', border: '1px solid #fde68a', color: '#92400e', borderRadius: 20, padding: '2px 9px', fontSize: 11, fontWeight: 600 }}>{f}</span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
             </div>
@@ -620,24 +690,6 @@ export default function SingleVitalViewPage({ params }: PageProps) {
             >
               {currentVisit.ai_report_output}
             </div>
-            {currentVisit.symptoms && currentVisit.symptoms.length > 0 && (
-              <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid #f1f5f9' }}>
-                <p style={{ fontSize: 11, color: '#94a3b8', margin: '0 0 6px' }}>الأعراض التي ذكرتها:</p>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                  {currentVisit.symptoms.map((s, i) => (
-                    <span
-                      key={i}
-                      style={{
-                        background: '#f1f5f9', border: '1px solid #e2e8f0', color: '#475569',
-                        borderRadius: 20, padding: '3px 11px', fontSize: 12,
-                      }}
-                    >
-                      {s}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         </section>
 

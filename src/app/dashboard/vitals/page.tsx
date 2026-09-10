@@ -2832,6 +2832,13 @@ ${weightPlanUrl}
                           <p style={{ margin: '2px 0 0', fontSize: 11, color: '#94a3b8' }}>تصنيف الضغط</p>
                         </div>
                       </div>
+                      {latest.took_bp_medication != null && (
+                        <p style={{ margin: '12px 0 0', fontSize: 11, color: '#94a3b8' }}>
+                          دواء الضغط اليوم: <span style={{ fontWeight: 600, color: latest.took_bp_medication ? '#0f766e' : '#94a3b8' }}>
+                            {latest.took_bp_medication ? 'أُخذ' : 'لم يُؤخذ'}
+                          </span>
+                        </p>
+                      )}
                       {(() => {
                         const bpSymptomsList = ['صداع', 'دوخة', 'زغللة عين', 'طنين أذن', 'ألم بالصدر', 'ضيق تنفس'];
                         const bpSymptoms = (latest.symptoms || []).filter(s => bpSymptomsList.includes(s));
@@ -2889,6 +2896,13 @@ ${weightPlanUrl}
                           <p style={{ margin: '2px 0 0', fontSize: 11, color: '#94a3b8' }}>تصنيف السكري</p>
                         </div>
                       </div>
+                      {latest.took_sugar_medication != null && (
+                        <p style={{ margin: '12px 0 0', fontSize: 11, color: '#94a3b8' }}>
+                          دواء السكري اليوم: <span style={{ fontWeight: 600, color: latest.took_sugar_medication ? '#0f766e' : '#94a3b8' }}>
+                            {latest.took_sugar_medication ? 'أُخذ' : 'لم يُؤخذ'}
+                          </span>
+                        </p>
+                      )}
                       {(() => {
                         const sugarSymptomsList = ['عطش شديد', 'تبول متكرر', 'جفاف فم', 'خدران أطراف', 'تعرق بارد', 'جوع مفاجئ'];
                         const sugarSymptoms = (latest.symptoms || []).filter(s => sugarSymptomsList.includes(s));

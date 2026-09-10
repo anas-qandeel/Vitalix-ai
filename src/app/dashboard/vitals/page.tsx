@@ -17,6 +17,7 @@ import WeightHistoryChart from '@/components/WeightHistoryChart';
 import BpHistoryChart from '@/components/BpHistoryChart';
 import SugarHistoryChart from '@/components/SugarHistoryChart';
 import WeightThinkingOverlay from '@/components/WeightThinkingOverlay';
+import WeightPlanReport, { type WeightPlan, parseNutrition } from '@/components/WeightPlanReport';
 import VitalsThinkingOverlay from '@/components/VitalsThinkingOverlay';
 import { classifyBp, classifySugar, classifyHeartRate, overallVisitStatus } from '@/lib/vitals-classify';
 
@@ -494,6 +495,7 @@ export default function VitalsPage() {
   const [excludedProducts, setExcludedProducts] = useState<Set<number>>(new Set());
   const [excludedLabs,     setExcludedLabs]     = useState<Set<number>>(new Set());
   const [weightPlanUrl, setWeightPlanUrl] = useState<string | null>(null);
+  const [weightPdfPlan, setWeightPdfPlan] = useState<WeightPlan | null>(null); // بيانات الخطة الكاملة لقالب PDF الوزن
   const [weightStatus,  setWeightStatus]  = useState<'idle'|'saving'|'generating'|'sent'|'error'>('idle');
   // تأكيد مراجعة الصيدلاني لمحتوى التقرير قبل تسليمه للمريض — يُصفَّر مع كل خطة جديدة
   const [weightReviewed, setWeightReviewed] = useState(false);
@@ -1170,6 +1172,16 @@ ${planUrl}
     const imgWidth = pageWidth;
     const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
+    // إن فاض المحتوى عن صفحة واحدة بمقدار بسيط (حتى 35%)، نصغّره ليدخل في صفحة واحدة
+    // بدل ترك صفحة ثانية شبه فارغة. الفيض الأكبر يُقسَّم على صفحات كما كان.
+    if (imgHeight > pageHeight && imgHeight <= pageHeight * 1.35) {
+      const fitScale = pageHeight / imgHeight;
+      const fitWidth = imgWidth * fitScale;
+      pdf.addImage(imgData, 'JPEG', (pageWidth - fitWidth) / 2, 0, fitWidth, pageHeight);
+      pdf.save(filename);
+      return;
+    }
+
     let heightLeft = imgHeight;
     let position = 0;
     pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
@@ -1189,8 +1201,21 @@ ${planUrl}
   };
 
   const handleDownloadWeightPDF = async () => {
-    if (!currentPatient || !weightPdfRef.current) return;
-    await renderElementToPdf(weightPdfRef.current, `خطة-وزن-${currentPatient.name}.pdf`);
+    const el = weightPdfRef.current;
+    if (!currentPatient || !el) return;
+    if (!weightPlanId) { console.warn('[weight pdf] لا توجد خطة مولّدة بعد'); return; }
+    try {
+      // نفس مصدر بيانات صفحة المريض لضمان تطابق المحتوى
+      const res = await fetch(`/api/weight-plan?id=${weightPlanId}`, { cache: 'no-store' });
+      const data = await res.json();
+      if (!res.ok || !data.plan) throw new Error(data.error || 'تعذّر جلب بيانات الخطة');
+      setWeightPdfPlan(data.plan);
+      // مهلة قصيرة حتى يرسم React القالب المخفي بالبيانات الجديدة قبل الالتقاط
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      await renderElementToPdf(el, `خطة-وزن-${currentPatient.name}.pdf`);
+    } catch (e) {
+      console.error('[weight pdf]', e);
+    }
   };
 
   const handleNewVisit = () => {
@@ -3003,31 +3028,30 @@ ${weightPlanUrl}
         </div>
       </div>
 
-      <div ref={weightPdfRef} dir="rtl" data-pdf-inline-css="1" style={{ position: 'fixed', top: '-99999px', left: 0, width: 700, background: '#fff', fontFamily: 'system-ui, sans-serif', padding: 35, color: '#0F172A' }}>
-        <div style={{ borderBottom: '2px solid #0F172A', paddingBottom: 15, marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ fontSize: 20, fontWeight: 900 }}>{pharmacyName}</div>
-          <div style={{ fontSize: 12, color: '#64748B' }}>{formatDate(new Date().toISOString())}</div>
+      <div ref={weightPdfRef} dir="rtl" data-pdf-inline-css="1" style={{ position: 'fixed', top: '-99999px', left: 0, width: 900, background: '#fff', fontFamily: 'system-ui, sans-serif', padding: 35, color: '#0F172A' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingBottom: 16, marginBottom: 18, borderBottom: '2px solid #0f172a' }}>
+          <div style={{ width: 40, height: 40, background: '#0f172a', borderRadius: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Storefront size={20} weight="duotone" color="#fff" />
+          </div>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <p style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0f172a' }}>{pharmacyName}</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 5, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 12, color: '#64748b' }}>مستشارك الصحي الموثوق</span>
+              <span style={{ fontSize: 11, color: '#475569', background: '#f1f5f9', padding: '2px 10px', borderRadius: 20 }}>خطة إدارة الوزن</span>
+              <span style={{ fontSize: 11, color: '#475569', background: '#f1f5f9', padding: '2px 10px', borderRadius: 20 }}>
+                تاريخ الخطة: {weightPdfPlan ? formatDate(weightPdfPlan.created_at) : formatDate(new Date().toISOString())}
+              </span>
+            </div>
+          </div>
         </div>
         <div style={{ marginBottom: 18, fontSize: 12.5, color: '#334155' }}>
           <span style={{ color: '#94A3B8' }}>اسم المريض</span> &nbsp; <span style={{ fontWeight: 700 }}>{currentPatient?.name}</span>
         </div>
-        {bmiLive && (
-          <div className={bmiLive.bgColor} style={{ border: '1px solid #E2E8F0', borderRadius: 12, padding: 18, marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <span style={{ fontSize: 12, fontWeight: 700, color: '#475569' }}>الوزن الحالي</span>
-              <div style={{ marginTop: 4 }}>
-                <span dir="ltr" style={{ fontSize: 22, fontWeight: 900, color: '#0F172A' }}>{weightValue} كغ</span>
-              </div>
-            </div>
-            <div style={{ textAlign: 'left' }}>
-              <span className={bmiLive.color} style={{ fontSize: 13, fontWeight: 800 }}>BMI {bmiLive.value} · {bmiLive.labelShort}</span>
-              <div style={{ fontSize: 11, color: '#64748B', marginTop: 4 }}>الهدف الأول: <span dir="ltr">{bmiLive.firstGoal} كغ</span></div>
-            </div>
+        {weightPdfPlan && (
+          <div className="space-y-4" style={{ marginBottom: 16 }}>
+            <WeightPlanReport plan={weightPdfPlan} nutrition={parseNutrition(weightPdfPlan.nutrition_plan)} formatDate={formatDate} animate={false} />
           </div>
         )}
-        <div style={{ marginBottom: 16, border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden' }}>
-          <WeightHistoryChart weightHistory={patientHistory.filter((v): v is typeof v & { weight: number } => v.weight != null)} formatDate={formatDate} />
-        </div>
         <div style={{ borderTop: '1px solid #E2E8F0', paddingTop: 14 }}>
           <div style={{ fontSize: 10, color: '#64748B', lineHeight: 1.65, textAlign: 'center' }}>
             «هذه المعلومات للتوعية والمتابعة فقط، وليست تشخيصاً طبياً ولا وصفة علاجية ولا بديلاً عن استشارة طبيبك أو صيدلانيك.»

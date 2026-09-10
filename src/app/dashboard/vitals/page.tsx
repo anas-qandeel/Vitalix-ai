@@ -2468,7 +2468,7 @@ ${planUrl}
                               {['نحافة', 'طبيعي', 'زيادة', 'سمنة 1', 'سمنة 2+'].map((l) => {
                                 const isActive = l === (bmiLive.labelShort === 'سمنة أولى' ? 'سمنة 1' : bmiLive.labelShort === 'سمنة ثانية+' ? 'سمنة 2+' : bmiLive.labelShort);
                                 return isActive ? (
-                                  <span key={l} className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${bmiLive.bgColor} ${bmiLive.color}`}>{bmiLive.labelShort}</span>
+                                  <span key={l} dir="rtl" className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${bmiLive.bgColor} ${bmiLive.color}`}>{bmiLive.labelShort}</span>
                                 ) : (
                                   <span key={l} className="text-[9px] font-medium text-slate-400">{l}</span>
                                 );

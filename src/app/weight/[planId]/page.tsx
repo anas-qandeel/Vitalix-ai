@@ -109,7 +109,7 @@ function BMIBar({ bmi }: { bmi: number }) {
         {['نحافة', 'طبيعي', 'زيادة', 'سمنة 1', 'سمنة 2+'].map((l) => {
           const isActive = l === (cat.labelShort === 'سمنة أولى' ? 'سمنة 1' : cat.labelShort === 'سمنة ثانية+' ? 'سمنة 2+' : cat.labelShort);
           return isActive ? (
-            <span key={l} className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${cat.bgColor} ${cat.color}`}>{cat.labelShort}</span>
+            <span key={l} dir="rtl" className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${cat.bgColor} ${cat.color}`}>{cat.labelShort}</span>
           ) : (
             <span key={l} className="text-[9px] font-medium text-slate-400">{l}</span>
           );

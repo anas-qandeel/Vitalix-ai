@@ -2985,11 +2985,6 @@ ${weightPlanUrl}
                   <SugarHistoryChart sugarHistory={patientHistory.filter((v): v is typeof v & { sugar_value: number } => v.sugar_value != null)} formatDate={formatDate} />
                 </div>
               )}
-              {activeTests.weight && (
-                <div style={{ marginBottom: 16, border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden' }}>
-                  <WeightHistoryChart weightHistory={patientHistory.filter((v): v is typeof v & { weight: number } => v.weight != null)} formatDate={formatDate} />
-                </div>
-              )}
             </>
           );
         })()}
@@ -3001,14 +2996,14 @@ ${weightPlanUrl}
           </div>
         )}
         <div style={{ borderTop: '1px solid #E2E8F0', paddingTop: 14 }}>
-          <div style={{ fontSize: 10, color: '#64748B', lineHeight: 1.65 }}>
-            هذه المعلومات للتوعية والمتابعة فقط، وليست تشخيصاً طبياً ولا وصفة علاجية ولا بديلاً عن استشارة طبيبك أو صيدلانيك.
+          <div style={{ fontSize: 10, color: '#64748B', lineHeight: 1.65, textAlign: 'center' }}>
+            «هذه المعلومات للتوعية والمتابعة فقط، وليست تشخيصاً طبياً ولا وصفة علاجية ولا بديلاً عن استشارة طبيبك أو صيدلانيك.»
           </div>
-          <div style={{ fontSize: 9.5, color: '#94A3B8', marginTop: 8, textAlign: 'center' }}>صدر هذا التقرير عبر منصة Vitalix-ai لصالح ({pharmacyName})</div>
+          <div style={{ fontSize: 10, color: '#475569', marginTop: 8, textAlign: 'center' }}>أُعدّت نتائج التحليل بواسطة {pharmacyName}{patientHistory[0]?.performed_by ? `، د. ${patientHistory[0].performed_by}` : ''}</div>
         </div>
       </div>
 
-      <div ref={weightPdfRef} dir="rtl" style={{ position: 'fixed', top: '-99999px', left: 0, width: 700, background: '#fff', fontFamily: 'system-ui, sans-serif', padding: 35, color: '#0F172A' }}>
+      <div ref={weightPdfRef} dir="rtl" data-pdf-inline-css="1" style={{ position: 'fixed', top: '-99999px', left: 0, width: 700, background: '#fff', fontFamily: 'system-ui, sans-serif', padding: 35, color: '#0F172A' }}>
         <div style={{ borderBottom: '2px solid #0F172A', paddingBottom: 15, marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ fontSize: 20, fontWeight: 900 }}>{pharmacyName}</div>
           <div style={{ fontSize: 12, color: '#64748B' }}>{formatDate(new Date().toISOString())}</div>
@@ -3034,10 +3029,10 @@ ${weightPlanUrl}
           <WeightHistoryChart weightHistory={patientHistory.filter((v): v is typeof v & { weight: number } => v.weight != null)} formatDate={formatDate} />
         </div>
         <div style={{ borderTop: '1px solid #E2E8F0', paddingTop: 14 }}>
-          <div style={{ fontSize: 10, color: '#64748B', lineHeight: 1.65 }}>
-            هذه المعلومات للتوعية والمتابعة فقط، وليست تشخيصاً طبياً ولا وصفة علاجية ولا بديلاً عن استشارة طبيبك أو صيدلانيك.
+          <div style={{ fontSize: 10, color: '#64748B', lineHeight: 1.65, textAlign: 'center' }}>
+            «هذه المعلومات للتوعية والمتابعة فقط، وليست تشخيصاً طبياً ولا وصفة علاجية ولا بديلاً عن استشارة طبيبك أو صيدلانيك.»
           </div>
-          <div style={{ fontSize: 9.5, color: '#94A3B8', marginTop: 8, textAlign: 'center' }}>صدر هذا التقرير عبر منصة Vitalix-ai لصالح ({pharmacyName})</div>
+          <div style={{ fontSize: 10, color: '#475569', marginTop: 8, textAlign: 'center' }}>أُعدّت نتائج التحليل بواسطة {pharmacyName}{patientHistory[0]?.performed_by ? `، د. ${patientHistory[0].performed_by}` : ''}</div>
         </div>
       </div>
     </div>

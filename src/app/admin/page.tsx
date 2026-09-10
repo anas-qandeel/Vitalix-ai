@@ -1157,8 +1157,8 @@ export default function SuperAdminPage() {
                       else if (p.total_amount_due === 25) subTypeText = 'اشتراك 6 أشهر (25 JOD)';
                       if (isTrial) subTypeText = 'فترة تجريبية مرنة';
                       
-                      const trialMsg = `مرحباً ${formatPharmacistName(p.pharmacist_name)}، معك فريق منصة Vitalix.ai. نتمنى أن تجربة النظام نالت إعجابكم! أود التذكير بوجود ${daysLeft < 0 ? 'انتهت' : `متبقي ${pluralizeDays(daysLeft)} على`} الفترة التجريبية لصيدلية ${p.name}. نرحب بأسئلتكم ولترقية اشتراككم الآن.`;
-                      const paidMsg = `مرحباً ${formatPharmacistName(p.pharmacist_name)}، معك إدارة منصة Vitalix.ai. نود تذكيركم بقرب موعد تجديد اشتراك صيدلية ${p.name} (${subTypeText}) بتاريخ ${p.expiry_date}. نسعد بخدمتكم وتجديد اشتراككم بنفس المزايا.`;
+                      const trialMsg = `مرحباً ${formatPharmacistName(p.pharmacist_name)}، معك فريق منصة Vitalix-ai. نتمنى أن تجربة النظام نالت إعجابكم! أود التذكير بوجود ${daysLeft < 0 ? 'انتهت' : `متبقي ${pluralizeDays(daysLeft)} على`} الفترة التجريبية لصيدلية ${p.name}. نرحب بأسئلتكم ولترقية اشتراككم الآن.`;
+                      const paidMsg = `مرحباً ${formatPharmacistName(p.pharmacist_name)}، معك إدارة منصة Vitalix-ai. نود تذكيركم بقرب موعد تجديد اشتراك صيدلية ${p.name} (${subTypeText}) بتاريخ ${p.expiry_date}. نسعد بخدمتكم وتجديد اشتراككم بنفس المزايا.`;
 
                       return (
                         <tr key={p.id} className="hover:bg-amber-50/30 transition">

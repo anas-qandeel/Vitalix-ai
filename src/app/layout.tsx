@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Vitalix.ai — تابع مرضاك بذكاء",
-  description: "منصة Vitalix.ai لإدارة الصيدليات ومتابعة مرضى الأمراض المزمنة",
+  title: "Vitalix-ai — تابع مرضاك بذكاء",
+  description: "منصة Vitalix-ai لإدارة الصيدليات ومتابعة مرضى الأمراض المزمنة",
 };
 
 export default function RootLayout({

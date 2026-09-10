@@ -79,22 +79,41 @@ function parseNutrition(raw: NutritionData | string | null): NutritionData | nul
 // ════════════════════════════════════════════════════════════════════════
 function BMIBar({ bmi }: { bmi: number }) {
   const pos = Math.min(Math.max(((bmi - 10) / 35) * 100, 1), 99);
+  const cat = getBMICategory(bmi);
+  const DOT_COLOR: Record<string, string> = {
+    'bg-blue-500': '#3b82f6',
+    'bg-teal-500': '#14b8a6',
+    'bg-amber-500': '#f59e0b',
+    'bg-orange-500': '#f97316',
+    'bg-rose-500': '#f43f5e',
+  };
+  const dotHex = DOT_COLOR[cat.dot] || '#0b0b0b';
   return (
     <div dir="ltr">
-      <div className="relative h-[14px] flex items-center">
+      <div className="relative h-[22px] flex items-center">
         <div
-          className="w-full h-2 rounded-full"
+          className="w-full h-2.5 rounded-full"
           style={{ background: 'linear-gradient(90deg, #85B7EB, #97C459 33%, #FAC775 66%, #F09595)' }}
         />
         <div
-          className="absolute bg-white"
-          style={{ left: `calc(${pos}% - 3.5px)`, top: 0, width: '3px', height: '14px', border: '2px solid #0b0b0b', borderRadius: '2px', boxSizing: 'content-box' }}
+          className="absolute rounded-full bg-white"
+          style={{
+            left: `calc(${pos}% - 11px)`, top: 0, width: 22, height: 22,
+            border: `3px solid ${dotHex}`, boxShadow: '0 2px 6px rgba(0,0,0,0.25)',
+            animation: 'bmiDrop 0.6s ease-out',
+          }}
         />
       </div>
-      <div className="flex justify-between mt-2">
-        {['نحافة', 'طبيعي', 'زيادة', 'سمنة'].map((l) => (
-          <span key={l} className="text-[9px] font-semibold text-slate-400">{l}</span>
-        ))}
+      <style>{`@keyframes bmiDrop { from { transform: translateY(-8px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }`}</style>
+      <div className="flex justify-between items-center mt-3">
+        {['نحافة', 'طبيعي', 'زيادة', 'سمنة 1', 'سمنة 2+'].map((l) => {
+          const isActive = l === (cat.labelShort === 'سمنة أولى' ? 'سمنة 1' : cat.labelShort === 'سمنة ثانية+' ? 'سمنة 2+' : cat.labelShort);
+          return isActive ? (
+            <span key={l} className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${cat.bgColor} ${cat.color}`}>{cat.labelShort}</span>
+          ) : (
+            <span key={l} className="text-[9px] font-medium text-slate-400">{l}</span>
+          );
+        })}
       </div>
     </div>
   );

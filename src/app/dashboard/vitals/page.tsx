@@ -503,6 +503,8 @@ export default function VitalsPage() {
   const [weightSaveError,  setWeightSaveError]  = useState('');
   const [weightWaMsg, setWeightWaMsg] = useState<string>('');
   const [weightDataSuspect, setWeightDataSuspect] = useState(false);
+  const generalPdfRef = useRef<HTMLDivElement>(null);
+  const weightPdfRef = useRef<HTMLDivElement>(null);
 
   // ── العوامل المؤثرة ──
   const [bpFactors, setBpFactors] = useState<string[]>([]);
@@ -1126,11 +1128,44 @@ ${planUrl}
     window.open(`https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(msg)}`, '_blank');
   };
 
-  const handlePrintPDF = () => {
-    const w = window.open('', '_blank');
-    if (!w || !currentPatient) return;
-    w.document.write(`<html dir="rtl" lang="ar"><head><title>تقرير فحص - ${currentPatient.name}</title><style>body{font-family:system-ui,sans-serif;padding:40px;color:#0F172A}.header{border-bottom:2px solid #0F172A;padding-bottom:15px;margin-bottom:20px;display:flex;justify-content:space-between}.title{font-size:20px;font-weight:900}.box{background:#F8FAFC;border:1px solid #E2E8F0;padding:20px;border-radius:12px;white-space:pre-line;font-size:13px;line-height:1.7}.footer{margin-top:30px;font-size:11px;color:#64748B;text-align:center;border-top:1px solid #E2E8F0;padding-top:10px}</style></head><body><div class="header"><div class="title">Vitalix<span style="color:#0D9488">-ai</span></div><div>🏥 ${pharmacyName}</div></div><div class="box">${latestGeneratedReport}</div><div class="footer">صدر هذا التقرير عبر منصة Vitalix-ai لصالح (${pharmacyName})</div><script>window.onload=function(){window.print();window.close()}</script></body></html>`);
-    w.document.close();
+  async function renderElementToPdf(container: HTMLElement, filename: string) {
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    const html2canvasModule: any = await import('html2canvas-pro');
+    const html2canvas = html2canvasModule.default || html2canvasModule;
+    const jspdfModule: any = await import('jspdf');
+    const JsPDF = jspdfModule.jsPDF || jspdfModule.default;
+
+    const canvas = await html2canvas(container, {
+      scale: 2, windowWidth: 700, useCORS: true, backgroundColor: '#ffffff',
+    });
+    const imgData = canvas.toDataURL('image/jpeg', 0.98);
+    const pdf = new JsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const imgWidth = pageWidth;
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+    let heightLeft = imgHeight;
+    let position = 0;
+    pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+    heightLeft -= pageHeight;
+    while (heightLeft > 0) {
+      position -= pageHeight;
+      pdf.addPage();
+      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+    }
+    pdf.save(filename);
+  }
+
+  const handleDownloadPDF = async () => {
+    if (!currentPatient || !generalPdfRef.current) return;
+    await renderElementToPdf(generalPdfRef.current, `تقرير-فحص-${currentPatient.name}.pdf`);
+  };
+
+  const handleDownloadWeightPDF = async () => {
+    if (!currentPatient || !weightPdfRef.current) return;
+    await renderElementToPdf(weightPdfRef.current, `خطة-وزن-${currentPatient.name}.pdf`);
   };
 
   const handleNewVisit = () => {
@@ -2318,13 +2353,13 @@ ${planUrl}
                         {vitalsSendApproving ? 'جارٍ الإرسال...' : 'إرسال للمريض'}
                       </button>
                       <button
-                        onClick={handlePrintPDF}
+                        onClick={handleDownloadPDF}
                         disabled={!vitalsReportReviewed}
                         className="flex-1 flex items-center justify-center gap-2 py-3 text-slate-700 text-xs font-bold transition disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 cursor-pointer">
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-1.913-.247M6.34 18H5.25A2.25 2.25 0 013 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 011.913-.247m10.5 0a48.536 48.536 0 00-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5zm-3 0h.008v.008H15V10.5z" />
                         </svg>
-                        طباعة
+                        تنزيل PDF
                       </button>
                     </div>
                   </div>
@@ -2652,13 +2687,13 @@ ${planUrl}
                             إرسال للمريض
                           </button>
                           <button
-                            onClick={handlePrintPDF}
+                            onClick={handleDownloadWeightPDF}
                             disabled={!weightReviewed}
                             className="flex-1 flex items-center justify-center gap-2 py-3 text-slate-700 text-xs font-bold transition disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 cursor-pointer">
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-1.913-.247M6.34 18H5.25A2.25 2.25 0 013 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 011.913-.247m10.5 0a48.536 48.536 0 00-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5zm-3 0h.008v.008H15V10.5z" />
                             </svg>
-                            طباعة
+                            تنزيل PDF
                           </button>
                         </div>
                       </div>
@@ -2751,6 +2786,115 @@ ${weightPlanUrl}
       )}
 
       <AppFooter className="max-w-5xl mx-auto px-6 py-8 border-t border-slate-200/60 mt-4" />
+
+      <div ref={generalPdfRef} dir="rtl" style={{ position: 'fixed', top: '-99999px', left: 0, width: 700, background: '#fff', fontFamily: 'system-ui, sans-serif', padding: 35, color: '#0F172A' }}>
+        <div style={{ borderBottom: '2px solid #0F172A', paddingBottom: 15, marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ fontSize: 20, fontWeight: 900 }}>{pharmacyName}</div>
+          <div style={{ fontSize: 12, color: '#64748B' }}>{formatDate(new Date().toISOString())}</div>
+        </div>
+        <div style={{ marginBottom: 18, fontSize: 12.5, color: '#334155' }}>
+          <span style={{ color: '#94A3B8' }}>اسم المريض</span> &nbsp; <span style={{ fontWeight: 700 }}>{currentPatient?.name}</span>
+        </div>
+        {(() => {
+          const latest = patientHistory[0];
+          const LEVEL_COLORS: Record<string, { bg: string; border: string; text: string }> = {
+            green:  { bg: '#F0FDF4', border: '#BBF7D0', text: '#166534' },
+            yellow: { bg: '#FFFBEB', border: '#FDE68A', text: '#92400E' },
+            red:    { bg: '#FEF2F2', border: '#FECACA', text: '#991B1B' },
+          };
+          const bpClf = (activeTests.bp && latest?.bp_systolic != null && latest?.bp_diastolic != null)
+            ? classifyBp(latest.bp_systolic, latest.bp_diastolic, liveAge, liveHasHtn) : null;
+          const sugarClf = (activeTests.sugar && latest?.sugar_value != null)
+            ? classifySugar(latest.sugar_value, latest.sugar_test_type, liveAge, liveHasDm) : null;
+          return (
+            <>
+              {activeTests.bp && (
+                <>
+                  {bpClf && (
+                    <div style={{ background: LEVEL_COLORS[bpClf.level]?.bg, border: `1px solid ${LEVEL_COLORS[bpClf.level]?.border}`, borderRadius: 12, padding: '12px 16px', marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: '#475569' }}>ضغط الدم</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <span dir="ltr" style={{ fontSize: 16, fontWeight: 800, color: '#0F172A' }}>{latest.bp_systolic}/{latest.bp_diastolic}</span>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: LEVEL_COLORS[bpClf.level]?.text }}>{bpClf.label}</span>
+                      </div>
+                    </div>
+                  )}
+                  <div style={{ marginBottom: 16, border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden' }}>
+                    <BpHistoryChart bpHistory={patientHistory.filter((v): v is typeof v & { bp_systolic: number; bp_diastolic: number } => v.bp_systolic != null && v.bp_diastolic != null)} formatDate={formatDate} />
+                  </div>
+                </>
+              )}
+              {activeTests.sugar && (
+                <>
+                  {sugarClf && (
+                    <div style={{ background: LEVEL_COLORS[sugarClf.level]?.bg, border: `1px solid ${LEVEL_COLORS[sugarClf.level]?.border}`, borderRadius: 12, padding: '12px 16px', marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: '#475569' }}>سكر الدم</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <span dir="ltr" style={{ fontSize: 16, fontWeight: 800, color: '#0F172A' }}>{latest.sugar_value} mg/dL</span>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: LEVEL_COLORS[sugarClf.level]?.text }}>{sugarClf.label}</span>
+                      </div>
+                    </div>
+                  )}
+                  <div style={{ marginBottom: 16, border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden' }}>
+                    <SugarHistoryChart sugarHistory={patientHistory.filter((v): v is typeof v & { sugar_value: number } => v.sugar_value != null)} formatDate={formatDate} />
+                  </div>
+                </>
+              )}
+              {activeTests.weight && (
+                <div style={{ marginBottom: 16, border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden' }}>
+                  <WeightHistoryChart weightHistory={patientHistory.filter((v): v is typeof v & { weight: number } => v.weight != null)} formatDate={formatDate} />
+                </div>
+              )}
+            </>
+          );
+        })()}
+        {latestGeneratedReport && (
+          <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', padding: 20, borderRadius: 12, fontSize: 13, lineHeight: 1.9, marginBottom: 20 }}>
+            {latestGeneratedReport.split('\n').filter(Boolean).map((line, i) => (
+              <p key={i} style={{ margin: i === 0 ? 0 : '10px 0 0' }}>{line}</p>
+            ))}
+          </div>
+        )}
+        <div style={{ borderTop: '1px solid #E2E8F0', paddingTop: 14 }}>
+          <div style={{ fontSize: 10, color: '#64748B', lineHeight: 1.65 }}>
+            هذه المعلومات للتوعية والمتابعة فقط، وليست تشخيصاً طبياً ولا وصفة علاجية ولا بديلاً عن استشارة طبيبك أو صيدلانيك.
+          </div>
+          <div style={{ fontSize: 9.5, color: '#94A3B8', marginTop: 8, textAlign: 'center' }}>صدر هذا التقرير عبر منصة Vitalix-ai لصالح ({pharmacyName})</div>
+        </div>
+      </div>
+
+      <div ref={weightPdfRef} dir="rtl" style={{ position: 'fixed', top: '-99999px', left: 0, width: 700, background: '#fff', fontFamily: 'system-ui, sans-serif', padding: 35, color: '#0F172A' }}>
+        <div style={{ borderBottom: '2px solid #0F172A', paddingBottom: 15, marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ fontSize: 20, fontWeight: 900 }}>{pharmacyName}</div>
+          <div style={{ fontSize: 12, color: '#64748B' }}>{formatDate(new Date().toISOString())}</div>
+        </div>
+        <div style={{ marginBottom: 18, fontSize: 12.5, color: '#334155' }}>
+          <span style={{ color: '#94A3B8' }}>اسم المريض</span> &nbsp; <span style={{ fontWeight: 700 }}>{currentPatient?.name}</span>
+        </div>
+        {bmiLive && (
+          <div className={bmiLive.bgColor} style={{ border: '1px solid #E2E8F0', borderRadius: 12, padding: 18, marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#475569' }}>الوزن الحالي</span>
+              <div style={{ marginTop: 4 }}>
+                <span dir="ltr" style={{ fontSize: 22, fontWeight: 900, color: '#0F172A' }}>{weightValue} كغ</span>
+              </div>
+            </div>
+            <div style={{ textAlign: 'left' }}>
+              <span className={bmiLive.color} style={{ fontSize: 13, fontWeight: 800 }}>BMI {bmiLive.value} · {bmiLive.labelShort}</span>
+              <div style={{ fontSize: 11, color: '#64748B', marginTop: 4 }}>الهدف الأول: <span dir="ltr">{bmiLive.firstGoal} كغ</span></div>
+            </div>
+          </div>
+        )}
+        <div style={{ marginBottom: 16, border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden' }}>
+          <WeightHistoryChart weightHistory={patientHistory.filter((v): v is typeof v & { weight: number } => v.weight != null)} formatDate={formatDate} />
+        </div>
+        <div style={{ borderTop: '1px solid #E2E8F0', paddingTop: 14 }}>
+          <div style={{ fontSize: 10, color: '#64748B', lineHeight: 1.65 }}>
+            هذه المعلومات للتوعية والمتابعة فقط، وليست تشخيصاً طبياً ولا وصفة علاجية ولا بديلاً عن استشارة طبيبك أو صيدلانيك.
+          </div>
+          <div style={{ fontSize: 9.5, color: '#94A3B8', marginTop: 8, textAlign: 'center' }}>صدر هذا التقرير عبر منصة Vitalix-ai لصالح ({pharmacyName})</div>
+        </div>
+      </div>
     </div>
   );
 }

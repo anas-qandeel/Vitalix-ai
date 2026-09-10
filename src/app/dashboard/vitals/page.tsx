@@ -2808,37 +2808,133 @@ ${weightPlanUrl}
             ? classifySugar(latest.sugar_value, latest.sugar_test_type, liveAge, liveHasDm) : null;
           return (
             <>
-              {activeTests.bp && (
-                <>
-                  {bpClf && (
-                    <div style={{ background: LEVEL_COLORS[bpClf.level]?.bg, border: `1px solid ${LEVEL_COLORS[bpClf.level]?.border}`, borderRadius: 12, padding: '12px 16px', marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: '#475569' }}>ضغط الدم</span>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <span dir="ltr" style={{ fontSize: 16, fontWeight: 800, color: '#0F172A' }}>{latest.bp_systolic}/{latest.bp_diastolic}</span>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: LEVEL_COLORS[bpClf.level]?.text }}>{bpClf.label}</span>
+              {(latest?.bp_systolic != null || latest?.sugar_value != null) && (
+                <div style={{ display: 'grid', gridTemplateColumns: (activeTests.bp && latest?.bp_systolic != null && activeTests.sugar && latest?.sugar_value != null) ? 'repeat(2, minmax(0, 1fr))' : '1fr', gap: 16, marginBottom: 16 }}>
+                  {activeTests.bp && latest?.bp_systolic != null && (
+                    <div style={{ border: '1px solid #E2E8F0', borderRadius: 12, padding: 20 }}>
+                      <p style={{ margin: 0, lineHeight: 1 }}>
+                        <span dir="ltr" style={{ fontSize: 34, fontWeight: 900, color: '#0f172a' }}>{latest.bp_systolic}/{latest.bp_diastolic}</span>
+                        <span style={{ fontSize: 13, color: '#94a3b8', marginRight: 6 }}>مم زئبق</span>
+                      </p>
+                      <div style={{ height: 1, background: '#e2e8f0', margin: '14px 0' }} />
+                      <div style={{ display: 'flex', textAlign: 'center' }}>
+                        <div style={{ flex: 1 }}>
+                          <p style={{ margin: 0, fontSize: 20, fontWeight: 900, color: '#0f172a' }}>
+                            {latest.heart_rate ?? '—'}
+                          </p>
+                          <p style={{ margin: '2px 0 0', fontSize: 11, color: '#94a3b8' }}>نبض/دقيقة</p>
+                        </div>
+                        <div style={{ width: 1, background: '#e2e8f0' }} />
+                        <div style={{ flex: 1 }}>
+                          <p style={{ margin: 0, fontSize: 20, fontWeight: 900, color: bpClf ? LEVEL_COLORS[bpClf.level]?.text : '#0f766e' }}>
+                            {bpClf?.label ?? '—'}
+                          </p>
+                          <p style={{ margin: '2px 0 0', fontSize: 11, color: '#94a3b8' }}>تصنيف الضغط</p>
+                        </div>
                       </div>
+                      {(() => {
+                        const bpSymptomsList = ['صداع', 'دوخة', 'زغللة عين', 'طنين أذن', 'ألم بالصدر', 'ضيق تنفس'];
+                        const bpSymptoms = (latest.symptoms || []).filter(s => bpSymptomsList.includes(s));
+                        const bpFactors: string[] = [];
+                        if (latest.had_stimulants) bpFactors.push('شرب قهوة / شاي / مكيّف');
+                        if (latest.recent_exertion) bpFactors.push('مجهود بدني مؤخراً');
+                        if (latest.is_stressed) bpFactors.push('يشعر بتوتر أو قلق');
+                        if (bpSymptoms.length === 0 && bpFactors.length === 0) return null;
+                        return (
+                          <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px dashed #e2e8f0' }}>
+                            {bpSymptoms.length > 0 && (
+                              <div style={{ marginBottom: 6 }}>
+                                <p style={{ fontSize: 10, color: '#94a3b8', margin: '0 0 4px' }}>أعراض مصاحبة</p>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                                  {bpSymptoms.map((s, i) => (
+                                    <span key={i} style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', color: '#475569', borderRadius: 20, padding: '2px 9px', fontSize: 11 }}>{s}</span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            {bpFactors.length > 0 && (
+                              <div>
+                                <p style={{ fontSize: 10, color: '#94a3b8', margin: '0 0 4px' }}>عوامل مؤثرة</p>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                                  {bpFactors.map((f, i) => (
+                                    <span key={i} style={{ background: '#fffbeb', border: '1px solid #fde68a', color: '#92400e', borderRadius: 20, padding: '2px 9px', fontSize: 11, fontWeight: 600 }}>{f}</span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   )}
-                  <div style={{ marginBottom: 16, border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden' }}>
-                    <BpHistoryChart bpHistory={patientHistory.filter((v): v is typeof v & { bp_systolic: number; bp_diastolic: number } => v.bp_systolic != null && v.bp_diastolic != null)} formatDate={formatDate} />
-                  </div>
-                </>
+                  {activeTests.sugar && latest?.sugar_value != null && (
+                    <div style={{ border: '1px solid #E2E8F0', borderRadius: 12, padding: 20 }}>
+                      <p style={{ margin: 0, lineHeight: 1 }}>
+                        <span dir="ltr" style={{ fontSize: 34, fontWeight: 900, color: '#0f172a' }}>{latest.sugar_value}</span>
+                        <span style={{ fontSize: 13, color: '#94a3b8', marginRight: 6 }}>mg/dL</span>
+                      </p>
+                      <div style={{ height: 1, background: '#e2e8f0', margin: '14px 0' }} />
+                      <div style={{ display: 'flex', textAlign: 'center' }}>
+                        <div style={{ flex: 1 }}>
+                          <p style={{ margin: 0, fontSize: 16, fontWeight: 900, color: '#334155' }}>
+                            {latest.sugar_test_type === 'fasting' ? 'صائم' : latest.sugar_test_type === 'postprandial' ? 'بعد الأكل' : 'عشوائي'}
+                          </p>
+                          <p style={{ margin: '2px 0 0', fontSize: 11, color: '#94a3b8' }}>نوع القراءة</p>
+                        </div>
+                        <div style={{ width: 1, background: '#e2e8f0' }} />
+                        <div style={{ flex: 1 }}>
+                          <p style={{ margin: 0, fontSize: 16, fontWeight: 900, color: sugarClf ? LEVEL_COLORS[sugarClf.level]?.text : '#0f766e' }}>
+                            {sugarClf?.label ?? '—'}
+                          </p>
+                          <p style={{ margin: '2px 0 0', fontSize: 11, color: '#94a3b8' }}>تصنيف السكري</p>
+                        </div>
+                      </div>
+                      {(() => {
+                        const sugarSymptomsList = ['عطش شديد', 'تبول متكرر', 'جفاف فم', 'خدران أطراف', 'تعرق بارد', 'جوع مفاجئ'];
+                        const sugarSymptoms = (latest.symptoms || []).filter(s => sugarSymptomsList.includes(s));
+                        const sugarFactors: string[] = [];
+                        if (latest.had_stimulants) sugarFactors.push('شرب قهوة / شاي / مكيّف');
+                        if (latest.recent_heavy_meal) sugarFactors.push('تناول وجبة دسمة مؤخراً');
+                        if (latest.is_stressed) sugarFactors.push('يشعر بتوتر أو قلق');
+                        if (sugarSymptoms.length === 0 && sugarFactors.length === 0) return null;
+                        return (
+                          <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px dashed #e2e8f0' }}>
+                            {sugarSymptoms.length > 0 && (
+                              <div style={{ marginBottom: 6 }}>
+                                <p style={{ fontSize: 10, color: '#94a3b8', margin: '0 0 4px' }}>أعراض مصاحبة</p>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                                  {sugarSymptoms.map((s, i) => (
+                                    <span key={i} style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', color: '#475569', borderRadius: 20, padding: '2px 9px', fontSize: 11 }}>{s}</span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            {sugarFactors.length > 0 && (
+                              <div>
+                                <p style={{ fontSize: 10, color: '#94a3b8', margin: '0 0 4px' }}>عوامل مؤثرة</p>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                                  {sugarFactors.map((f, i) => (
+                                    <span key={i} style={{ background: '#fffbeb', border: '1px solid #fde68a', color: '#92400e', borderRadius: 20, padding: '2px 9px', fontSize: 11, fontWeight: 600 }}>{f}</span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
+                </div>
               )}
-              {activeTests.sugar && (
-                <>
-                  {sugarClf && (
-                    <div style={{ background: LEVEL_COLORS[sugarClf.level]?.bg, border: `1px solid ${LEVEL_COLORS[sugarClf.level]?.border}`, borderRadius: 12, padding: '12px 16px', marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: '#475569' }}>سكر الدم</span>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <span dir="ltr" style={{ fontSize: 16, fontWeight: 800, color: '#0F172A' }}>{latest.sugar_value} mg/dL</span>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: LEVEL_COLORS[sugarClf.level]?.text }}>{sugarClf.label}</span>
-                      </div>
-                    </div>
-                  )}
-                  <div style={{ marginBottom: 16, border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden' }}>
-                    <SugarHistoryChart sugarHistory={patientHistory.filter((v): v is typeof v & { sugar_value: number } => v.sugar_value != null)} formatDate={formatDate} />
-                  </div>
-                </>
+              {activeTests.bp && latest?.bp_systolic != null && (
+                <div style={{ marginBottom: 16, border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden' }}>
+                  <BpHistoryChart bpHistory={patientHistory.filter((v): v is typeof v & { bp_systolic: number; bp_diastolic: number } => v.bp_systolic != null && v.bp_diastolic != null)} formatDate={formatDate} />
+                </div>
+              )}
+              {activeTests.sugar && latest?.sugar_value != null && (
+                <div style={{ marginBottom: 16, border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden' }}>
+                  <SugarHistoryChart sugarHistory={patientHistory.filter((v): v is typeof v & { sugar_value: number } => v.sugar_value != null)} formatDate={formatDate} />
+                </div>
               )}
               {activeTests.weight && (
                 <div style={{ marginBottom: 16, border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden' }}>

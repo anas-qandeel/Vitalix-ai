@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef, useMemo } from 'react';
+import { Storefront } from '@phosphor-icons/react';
 import { supabase } from '@/lib/supabase';
 import { upsertPipeline } from '@/lib/pipeline';
 import { useRouter } from 'next/navigation';
@@ -1137,6 +1138,30 @@ ${planUrl}
 
     const canvas = await html2canvas(container, {
       scale: 2, windowWidth: 700, useCORS: true, backgroundColor: '#ffffff',
+      onclone: (_clonedDoc: Document, clonedElement: HTMLElement) => {
+        // حقن أنماط الصفحة الحية في النسخة المخفية — لقالب generalPdfRef فقط (المُعلَّم بـ data-pdf-inline-css).
+        // السبب المُثبت بالقياس: الإطار المخفي الذي ينشئه html2canvas يعيد طلب ملف CSS من الشبكة،
+        // والطلب يفشل أحياناً (MIME type فارغ) فتفقد المكوّنات المشتركة كلاسات Tailwind بالكامل.
+        if (container.dataset.pdfInlineCss === '1') {
+          let cssText = '';
+          const collect = (rules: CSSRuleList) => {
+            Array.from(rules).forEach((rule) => {
+              if (rule instanceof CSSImportRule && rule.styleSheet) {
+                try { collect(rule.styleSheet.cssRules); } catch { /* ورقة خارجية غير قابلة للقراءة */ }
+              } else {
+                cssText += rule.cssText + '\n';
+              }
+            });
+          };
+          Array.from(document.styleSheets).forEach((sheet) => {
+            try { collect(sheet.cssRules); } catch { /* ورقة خارجية غير قابلة للقراءة */ }
+          });
+          const styleEl = _clonedDoc.createElement('style');
+          styleEl.setAttribute('data-pdf-inline-css', '1');
+          styleEl.textContent = cssText;
+          _clonedDoc.head.appendChild(styleEl);
+        }
+      },
     });
     const imgData = canvas.toDataURL('image/jpeg', 0.98);
     const pdf = new JsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
@@ -2787,10 +2812,20 @@ ${weightPlanUrl}
 
       <AppFooter className="max-w-5xl mx-auto px-6 py-8 border-t border-slate-200/60 mt-4" />
 
-      <div ref={generalPdfRef} dir="rtl" style={{ position: 'fixed', top: '-99999px', left: 0, width: 700, background: '#fff', fontFamily: 'system-ui, sans-serif', padding: 35, color: '#0F172A' }}>
-        <div style={{ borderBottom: '2px solid #0F172A', paddingBottom: 15, marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ fontSize: 20, fontWeight: 900 }}>{pharmacyName}</div>
-          <div style={{ fontSize: 12, color: '#64748B' }}>{formatDate(new Date().toISOString())}</div>
+      <div ref={generalPdfRef} dir="rtl" data-pdf-inline-css="1" style={{ position: 'fixed', top: '-99999px', left: 0, width: 900, background: '#fff', fontFamily: 'system-ui, sans-serif', padding: 35, color: '#0F172A' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingBottom: 16, marginBottom: 18, borderBottom: '2px solid #0f172a' }}>
+          <div style={{ width: 40, height: 40, background: '#0f172a', borderRadius: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Storefront size={20} weight="duotone" color="#fff" />
+          </div>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <p style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0f172a' }}>{pharmacyName}</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 5, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 12, color: '#64748b' }}>مستشارك الصحي الموثوق</span>
+              <span style={{ fontSize: 11, color: '#475569', background: '#f1f5f9', padding: '2px 10px', borderRadius: 20 }}>
+                تاريخ الفحص: {patientHistory[0] ? formatDate(patientHistory[0].created_at) : formatDate(new Date().toISOString())}
+              </span>
+            </div>
+          </div>
         </div>
         <div style={{ marginBottom: 18, fontSize: 12.5, color: '#334155' }}>
           <span style={{ color: '#94A3B8' }}>اسم المريض</span> &nbsp; <span style={{ fontWeight: 700 }}>{currentPatient?.name}</span>

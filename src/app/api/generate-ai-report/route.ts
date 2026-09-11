@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
-import { classifySugar, classifyBp } from '@/lib/vitals-classify';
+import { classifySugar, classifyBp, classifyHeartRate } from '@/lib/vitals-classify';
+import { getBMICategory } from '@/lib/weight-math';
 
 // قائمة نماذج مرتبة — يُجرَّب الأول فإن أعطى 404 ينتقل للتالي تلقائياً
 // يمكن تجاوز الكل بتعريف GEMINI_MODEL في ملف .env.local
@@ -428,7 +429,8 @@ ${recentVisitsLine}${sameDayLine ? `\n${sameDayLine}` : ''}`;
       lastVisit, recentVisits, diagnosedConditions, 'ar',
       patient?.birth_date
         ? new Date().getFullYear() - new Date(patient.birth_date).getFullYear()
-        : null
+        : null,
+      tookBpMed, tookSugarMed
     );
     return NextResponse.json({ report: fallbackReport, pharmacistSummary: null, medicationsAlert: null });
 
@@ -441,7 +443,8 @@ function buildAdaptiveFallbackReport(
   visit: any, bmi: string | null, patientName: string,
   pharmacyDisplayName: string, lastVisit: any,
   recentVisits: any[], diagnosedConditions: string[], language: 'ar' | 'en',
-  age: number | null
+  age: number | null,
+  tookBpMed: boolean = false, tookSugarMed: boolean = false
 ) {
   const sys = visit?.bp_systolic;
   const dia = visit?.bp_diastolic;
@@ -465,7 +468,7 @@ function buildAdaptiveFallbackReport(
         parts.push(`ضغط الدم (${sys}/${dia}) ${bpClf.label} — يُنصح بالراحة وشرب السوائل وإعادة القياس، ومراجعة الطبيب إن تكرر.`);
       } else {
         parts.push(hasBpDiagnosis
-          ? `ضغط الدم (${sys}/${dia}) ${bpClf.label} رغم العلاج، يُفضّل مراجعة الطبيب فوراً.`
+          ? `ضغط الدم (${sys}/${dia}) ${bpClf.label}${tookBpMed ? ' رغم أخذ العلاج اليوم' : ''}، يُفضّل مراجعة الطبيب فوراً.`
           : `ضغط الدم (${sys}/${dia}) ${bpClf.label}، يُفضّل مراجعة الطبيب فوراً.`);
       }
     } else if (bpClf.level === 'yellow') {
@@ -473,13 +476,13 @@ function buildAdaptiveFallbackReport(
         parts.push(`ضغط الدم (${sys}/${dia}) ${bpClf.label} — قد يكون طبيعياً لدى البعض، يُنصح بالمتابعة وإعادة القياس.`);
       } else {
         parts.push(hasBpDiagnosis
-          ? `ضغط الدم (${sys}/${dia}) أعلى من المستهدف رغم العلاج، يُنصح بمراجعة الطبيب لتقييم خطة العلاج.`
+          ? `ضغط الدم (${sys}/${dia}) ${bpClf.label} — أعلى من المستهدف${tookBpMed ? ' رغم أخذ العلاج اليوم، يُنصح بمراجعة الطبيب' : '، يُنصح بالمتابعة وإعادة القياس'}.`
           : `ضغط الدم (${sys}/${dia}) ${bpClf.label}، يُنصح بالمتابعة مع الطبيب.`);
       }
     } else {
       parts.push(hasBpDiagnosis
-        ? `ضغط الدم (${sys}/${dia}) ضمن النطاق المستهدف — استجابة جيدة للعلاج.`
-        : `ضغط الدم (${sys}/${dia}) ضمن الطبيعي.`);
+        ? `ضغط الدم (${sys}/${dia}) ${bpClf.label} — ضمن النطاق المستهدف${tookBpMed ? '، استجابة جيدة للعلاج' : ''}.`
+        : `ضغط الدم (${sys}/${dia}) ${bpClf.label}.`);
     }
     if (bpClf.specialCriteria) {
       parts.push(`(${bpClf.specialCriteria})`);
@@ -489,11 +492,17 @@ function buildAdaptiveFallbackReport(
       && recentVisits.some((v) => v.bp_systolic && bpLevelOf(v.bp_systolic, v.bp_diastolic) !== 'green');
     if (bpRecurring) {
       parts.push(hasBpDiagnosis
-        ? 'النمط متكرر عبر أكثر من زيارة، يُفضّل تقييم الجرعة الحالية.'
+        ? 'النمط متكرر عبر أكثر من زيارة، يُنصح بمراجعة الطبيب.'
         : 'النمط متكرر عبر أكثر من زيارة، يُفضّل عدم التأجيل.');
     } else if (lastVisit?.bp_systolic && Math.abs(sys - lastVisit.bp_systolic) >= 5) {
       parts.push(sys > lastVisit.bp_systolic ? 'أعلى من الزيارة السابقة.' : 'أقل من الزيارة السابقة.');
     }
+  }
+
+  const hr = visit?.heart_rate;
+  if (hr) {
+    const hrClf = classifyHeartRate(hr);
+    parts.push(`معدل النبض ${hr} نبضة/دقيقة (${hrClf.label})${hrClf.level !== 'green' ? '، يُنصح بإعادة القياس بعد الراحة' : ''}.`);
   }
 
   if (sug) {
@@ -506,7 +515,7 @@ function buildAdaptiveFallbackReport(
         parts.push(`سكري الدم (${sug} — ${typeAr}) منخفض بشدة، يستوجب تناول سكر سريع الامتصاص فوراً ومراجعة عاجلة.`);
       } else {
         parts.push(hasDiabetesDiagnosis
-          ? `سكري الدم (${sug} — ${typeAr}) أعلى من المستهدف بوضوح رغم العلاج، يُنصح بمراجعة الطبيب لتقييم ضبط السكر.`
+          ? `سكري الدم (${sug} — ${typeAr}) ${sugClf.label} — أعلى من المستهدف بوضوح${tookSugarMed ? ' رغم أخذ العلاج اليوم' : ''}، يُنصح بمراجعة الطبيب.`
           : `سكري الدم (${sug} — ${typeAr}) ${sugClf.label}، يُنصح بمراجعة الطبيب.`);
       }
     } else if (sugClf.level === 'yellow') {
@@ -514,13 +523,13 @@ function buildAdaptiveFallbackReport(
         parts.push(`سكري الدم (${sug} — ${typeAr}) ${sugClf.label}، يُفضّل الانتباه لمواعيد الوجبات وإعادة القياس.`);
       } else {
         parts.push(hasDiabetesDiagnosis
-          ? `سكري الدم (${sug} — ${typeAr}) أعلى من المستهدف، يُنصح بالمتابعة الدقيقة.`
+          ? `سكري الدم (${sug} — ${typeAr}) ${sugClf.label} — أعلى من المستهدف${tookSugarMed ? ' رغم أخذ العلاج اليوم' : ''}، يُنصح بالمتابعة الدقيقة.`
           : `سكري الدم (${sug} — ${typeAr}) ${sugClf.label}، يُنصح بالمتابعة.`);
       }
     } else {
       parts.push(hasDiabetesDiagnosis
-        ? `سكري الدم (${sug} — ${typeAr}) ضمن النطاق المستهدف — ضبط جيد.`
-        : `سكري الدم (${sug} — ${typeAr}) ضمن الطبيعي.`);
+        ? `سكري الدم (${sug} — ${typeAr}) ${sugClf.label}${tookSugarMed ? ' — ضبط جيد' : ''}.`
+        : `سكري الدم (${sug} — ${typeAr}) ${sugClf.label}.`);
     }
     if (sugClf.specialCriteria) {
       parts.push(`(${sugClf.specialCriteria})`);
@@ -530,7 +539,7 @@ function buildAdaptiveFallbackReport(
       && recentVisits.some((v) => v.sugar_value && classifySugar(v.sugar_value, v.sugar_test_type ?? null, age, hasDiabetesDiagnosis).level !== 'green');
     if (sugarRecurring) {
       parts.push(hasDiabetesDiagnosis
-        ? 'النمط متكرر، يُفضّل مراجعة الطبيب لتعديل خطة العلاج.'
+        ? 'النمط متكرر عبر أكثر من زيارة، يُنصح بمراجعة الطبيب.'
         : 'النمط متكرر، يُفضّل عدم التأجيل.');
     } else if (lastVisit?.sugar_value && Math.abs(sug - lastVisit.sugar_value) >= 15) {
       parts.push(sug > lastVisit.sugar_value ? 'أعلى من الزيارة السابقة.' : 'أقل من الزيارة السابقة.');
@@ -542,7 +551,7 @@ function buildAdaptiveFallbackReport(
   }
 
   if (parts.length === 0) parts.push('تم توثيق الزيارة بنجاح ولا توجد قراءات خارج الطبيعي.');
-  if (bmi) parts.push(`BMI: ${bmi}.`);
+  if (bmi) parts.push(`BMI: ${bmi} (${getBMICategory(Number(bmi)).labelShort}).`);
 
   const greeting = buildReportGreeting(patientName, pharmacyDisplayName, language);
   return `${greeting} ${parts.join(' ')}`;

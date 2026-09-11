@@ -980,7 +980,7 @@ ${planUrl}
           const res = await fetch('/api/generate-ai-report', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ patient: currentPatient, currentVisit: aiPayload, history: patientHistory, pharmacyName: pharmacyNameForOutput, language: reportLanguage }),
+            body: JSON.stringify({ patient: currentPatient, currentVisit: aiPayload, history: patientHistory, pharmacyName: pharmacyNameForOutput, language: reportLanguage, approvedClassifications, chronicMedications: patientMedications }),
           });
           if (res.ok) {
             const d = await res.json();

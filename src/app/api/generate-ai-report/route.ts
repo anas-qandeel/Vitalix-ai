@@ -55,16 +55,16 @@ const SYSTEM_INSTRUCTION = `أنت مساعد تحليلي متقدم في من�
 أقل من 18.5 → نحافة | 18.5–24.9 → صحي | 25–29.9 → زيادة وزن | 30 فما فوق → سمنة
 
 ## آلية بناء التقرير
-1. صنّف كل قراءة حسب المعايير أعلاه مع رمزها الدلالي 🔴🟡🟢.
+1. إذا وُرد سطر «التصنيف المعتمد من النظام» فهو الحكم النهائي: استخدم تسميته ورمزه حرفياً لكل قراءة، ولا تُعِد التصنيف، ولا تصف قراءة بما يخالفه (قراءة معتمدة 🟢 لا تُوصف بأنها مرتفعة أو فوق الهدف أو تستوجب مراجعة الطبيب بسببها). المعايير أعلاه تُستخدم فقط عند غياب هذا السطر.
 2. معدل النبض: إذا أُعطي اذكره مع الضغط في نفس الجملة.
 3. إذا فُحص الضغط والسكري معاً: ادمجهما في صورة واحدة متكاملة.
 4. الأعراض: ادمجها في السياق — لا تسردها كقائمة.
 5. العوامل المؤثرة (قهوة/مجهود/وجبة/توتر): اذكرها كتفسير محتمل للارتفاع واقترح إعادة القياس في ظروف أهدأ.
 6. الدواء المزمن:
-   - مشخّص وأكّد أخذ دوائه + قراءة غير طبيعية: اذكر صراحةً أن القراءة جاءت مرتفعة رغم الالتزام بالعلاج، وأن هذا يستوجب مراجعة الطبيب.
+   - مشخّص وأكّد أخذ دوائه + تصنيفها المعتمد 🟡 أو 🔴 (ليس 🟢): اذكر صراحةً أن القراءة جاءت مرتفعة رغم الالتزام بالعلاج، وأن هذا يستوجب مراجعة الطبيب.
    - مشخّص ولم يؤكد أخذ الدواء: اكتفِ بوصف القراءة.
    - غير مشخّص: اكتفِ بوصف القراءة.
-7. آخر الزيارات: إذا تكرر النمط في زيارتين أو أكثر أشر إليه.
+7. آخر الزيارات: إذا تكرر النمط في زيارتين أو أكثر من الزيارات المعروضة فعلاً أشر إليه — لا تدّعِ تكراراً لا تدعمه البيانات المعروضة.
 8. إذا كانت جميع القراءات طبيعية: اكتفِ بجملة تطمين مع 🟢.
 9. إذا فُحص الوزن: احسب BMI واذكر تصنيفه. إذا كان المريض مشخّصاً بالسكري أو الضغط اربط الوزن الزائد بأهمية السيطرة على المرض المزمن — الوزن الزائد يُصعّب التوازن.
 10. اختم بتوصية واضحة: مراجعة الطبيب / إعادة القياس في ظروف أهدأ / طمأنينة — دون اقتراح علاج أو تعديل جرعة.
@@ -95,7 +95,7 @@ function getErrStatus(e: any): number {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { patient, currentVisit, history, pharmacyName, language: languageRaw } = body;
+    const { patient, currentVisit, history, pharmacyName, language: languageRaw, approvedClassifications, chronicMedications } = body;
     const language: 'ar' | 'en' = languageRaw === 'en' ? 'en' : 'ar';
 
     const patientName = patient?.name?.trim() || (language === 'en' ? 'Dear patient' : 'عزيزنا المريض');
@@ -218,6 +218,39 @@ export async function POST(req: Request) {
           ? `عوامل خارجية مؤثرة: ${contextFactors.join(' - ')}`
           : 'عوامل خارجية: لا يوجد';
 
+        // ── التصنيف المعتمد من النظام (src/lib/vitals-classify.ts) — الحكم الملزم للنموذج ──
+        const levelIcon = (lvl: unknown) => lvl === 'red' ? '🔴' : lvl === 'yellow' ? '🟡' : lvl === 'green' ? '🟢' : '';
+        const ac = (approvedClassifications && typeof approvedClassifications === 'object') ? approvedClassifications : {};
+        const approvedParts: string[] = [];
+        if (ac.bp_classification) approvedParts.push(`الضغط: ${ac.bp_classification} ${levelIcon(ac.bp_classification_level)}`.trim());
+        if (ac.heart_rate_classification) approvedParts.push(`النبض: ${ac.heart_rate_classification} ${levelIcon(ac.heart_rate_classification_level)}`.trim());
+        if (ac.sugar_classification) approvedParts.push(`السكري: ${ac.sugar_classification} ${levelIcon(ac.sugar_classification_level)}`.trim());
+        const approvedLine = approvedParts.length > 0
+          ? `التصنيف المعتمد من النظام (ملزم — استخدم نفس التسمية والرمز حرفياً ولا تُعِد التصنيف): ${approvedParts.join(' | ')}${ac.classification_special_criteria ? ` — المعيار المطبَّق: ${ac.classification_special_criteria}` : ''}`
+          : 'التصنيف المعتمد من النظام: غير متوفر — صنّف حسب المعايير في التعليمات';
+
+        // ── الأدوية المزمنة النشطة — تنبيه الأدوية يُبنى عليها حصراً ──
+        const meds: any[] = Array.isArray(chronicMedications) ? chronicMedications : [];
+        const chronicMedsLine = meds.length > 0
+          ? `الأدوية المزمنة النشطة: ${meds.map((m: any) => `${m.medication_name}${m.daily_dosage ? ` ${m.daily_dosage} ${m.dosage_unit || ''}/يوم` : ''}`.trim()).join('، ')}`
+          : 'الأدوية المزمنة النشطة: لا يوجد مسجّل';
+
+        // ── قراءات أخرى مسجّلة خلال آخر 24 ساعة بفحص مختلف عن الحالي (كانت تُستبعد فتطلب قياس ما قيس) ──
+        const dayAgo = Date.now() - 24 * 60 * 60 * 1000;
+        const sameDayOthers = allRecentVisits
+          .filter((v: any) => v.created_at && new Date(v.created_at).getTime() >= dayAgo)
+          .map((v: any) => {
+            const parts: string[] = [];
+            if (!hasBpNow && v.bp_systolic) parts.push(`ضغط ${v.bp_systolic}/${v.bp_diastolic}${v.heart_rate ? ` نبض ${v.heart_rate}` : ''}`);
+            if (!hasSugarNow && v.sugar_value) parts.push(`سكري ${v.sugar_value}${v.sugar_test_type ? ` (${v.sugar_test_type === 'fasting' ? 'صائم' : v.sugar_test_type === 'postprandial' ? 'بعد الأكل' : 'عشوائي'})` : ''}`);
+            if (!hasWeightNow && v.weight) parts.push(`وزن ${v.weight} كغ`);
+            return parts.join(' - ');
+          })
+          .filter(Boolean);
+        const sameDayLine = sameDayOthers.length > 0
+          ? `قراءات أخرى مسجّلة خلال آخر 24 ساعة (جزء من صورة اليوم — لا تطلب قياس ما قيس بالفعل): ${sameDayOthers.join(' | ')}`
+          : '';
+
         const ageNum = patient?.birth_date
           ? new Date().getFullYear() - new Date(patient.birth_date).getFullYear()
           : null;
@@ -227,13 +260,15 @@ export async function POST(req: Request) {
 اسم الصيدلية: ${pharmacyDisplayName}
 الجنس: ${genderLine} - العمر: ${patientAge} (${ageCategory})
 ${clinicalStatusLine}
+${approvedLine}
+${chronicMedsLine}
 ضغط الدم: ${bpLine}
 معدل النبض: ${heartRateLine}
 سكري الدم: ${sugarLine}
 الوزن: ${weightLine}${bmiLine}
 الأعراض: ${symptomsLine}
 ${contextLine}
-${recentVisitsLine}`;
+${recentVisitsLine}${sameDayLine ? `\n${sameDayLine}` : ''}`;
 
         // ═══════════════════════════════════════════════════════
         // الطلب الأول: توليد التقرير الخام بحرية كاملة
@@ -255,6 +290,9 @@ ${recentVisitsLine}`;
 
 - pharmacist_summary: سطران إلى ثلاثة بلغة سريرية مهنية موجهة للصيدلاني (ليس للمريض): التقييم السريري للقراءات، الارتباط بالتشخيصات المزمنة والأدوية، وأي نمط ملحوظ من الزيارات السابقة. مصطلحات طبية مسموحة هنا.
 - medications_alert: جملة واحدة عن تداخل أو تنبيه دوائي مهم متعلق بالقراءات الحالية إن وُجد (مثل دواء يخفي أعراض هبوط السكر). إن لم يوجد تنبيه حقيقي، اجعل قيمته null.
+- سطر «التصنيف المعتمد من النظام» ملزم: لا تناقضه ولا تصف قراءة معتمدة 🟢 بأنها غير مضبوطة أو مرتفعة.
+- medications_alert يُبنى حصراً على «الأدوية المزمنة النشطة» المذكورة في البيانات: لا تفترض دواءً غير مذكور، ولا تذكر آلية دوائية لا تنطبق على الأدوية المذكورة فعلاً. إن لم تُذكر أدوية، اجعل قيمته null.
+- إذا وُردت «قراءات أخرى مسجّلة خلال آخر 24 ساعة» أدمجها في التقييم ولا تطلب قياس ما قيس بالفعل.
 - لا تقترح تعديل جرعات — أشر فقط لما يستحق انتباه الصيدلاني.`;
 
         // اللغة الإنجليزية تُلحق كتعليمة إضافية بنهاية كل تعليمة نظام — لا تُترجم

@@ -133,7 +133,7 @@ function getVisitStatus(v: { bp_classification_level: string | null; sugar_class
   if (levels.length === 0) return null;
   if (levels.includes('red')) return { dot: 'bg-rose-500', color: 'text-rose-600', label: 'يستدعي انتباهاً' };
   if (levels.includes('yellow')) return { dot: 'bg-amber-500', color: 'text-amber-600', label: 'يحتاج متابعة' };
-  return { dot: 'bg-teal-500', color: 'text-teal-600', label: 'ضمن الطبيعي' };
+  return { dot: 'bg-teal-500', color: 'text-teal-600', label: 'ضمن الهدف' };
 }
 
 function translateUnit(u: string | null): string {

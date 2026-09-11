@@ -817,9 +817,9 @@ ${planUrl}
       (activeTests.sugar && sugarValue && liveSugarClf) ? liveSugarClf.level : null,
       bmiVal
     );
-    if (s.level === 'high') return { label: s.label, reasons: s.reasons, color: 'text-rose-600', dot: 'bg-rose-500', border: 'border-rose-200', bg: 'bg-rose-50' };
-    if (s.level === 'medium') return { label: s.label, reasons: s.reasons, color: 'text-amber-600', dot: 'bg-amber-500', border: 'border-amber-200', bg: 'bg-amber-50' };
-    return { label: s.label, reasons: s.reasons, color: 'text-teal-600', dot: 'bg-teal-500', border: 'border-teal-200', bg: 'bg-teal-50' };
+    if (s.level === 'high') return { label: s.label, level: s.level, reasons: s.reasons, color: 'text-rose-600', dot: 'bg-rose-500', border: 'border-rose-200', bg: 'bg-rose-50' };
+    if (s.level === 'medium') return { label: s.label, level: s.level, reasons: s.reasons, color: 'text-amber-600', dot: 'bg-amber-500', border: 'border-amber-200', bg: 'bg-amber-50' };
+    return { label: s.label, level: s.level, reasons: s.reasons, color: 'text-teal-600', dot: 'bg-teal-500', border: 'border-teal-200', bg: 'bg-teal-50' };
   };
 
   // ═══════════════════════════════════════════════════════════════
@@ -2086,7 +2086,7 @@ ${planUrl}
                         <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${status.dot}`} />
                         <span className={`text-[10px] font-bold ${status.color}`}>{status.label}</span>
                       </div>
-                      {status.reasons.length > 0 && status.label !== 'ضمن الطبيعي' && (
+                      {status.reasons.length > 0 && status.level !== 'normal' && (
                         <span className="text-[10px] text-slate-500">
                           بسبب: {status.reasons.join('، ')}
                         </span>

@@ -118,7 +118,7 @@ function storedVisitStatus(v: { bp_classification_level?: string | null; sugar_c
     (v.sugar_classification_level as VitalLevel) ?? null,
     bmiRaw
   );
-  const showReasons = s.reasons.length > 0 && s.label !== 'ضمن الطبيعي';
+  const showReasons = s.reasons.length > 0 && s.level !== 'normal';
   if (s.level === 'high')   return { label: s.label, reasons: showReasons ? s.reasons : [], border: '#fecdd3', bg: '#fff1f2', dot: '#f43f5e', color: '#e11d48' };
   if (s.level === 'medium') return { label: s.label, reasons: showReasons ? s.reasons : [], border: '#fde68a', bg: '#fffbeb', dot: '#f59e0b', color: '#d97706' };
   return { label: s.label, reasons: [], border: '#99f6e4', bg: '#f0fdfa', dot: '#14b8a6', color: '#0d9488' };

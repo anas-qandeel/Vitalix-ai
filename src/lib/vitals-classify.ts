@@ -180,5 +180,5 @@ export function overallVisitStatus(
 
   if (level === 'high')   return { level, label: 'يستدعي انتباهاً', reasons };
   if (level === 'medium') return { level, label: 'يحتاج متابعة', reasons };
-  return { level, label: 'ضمن الطبيعي', reasons };
+  return { level, label: 'ضمن الهدف', reasons };
 }

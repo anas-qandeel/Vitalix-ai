@@ -14,7 +14,7 @@ export default function BpHistoryChart({
 }) {
   const sysGradientId = useId();
   const diaGradientId = useId();
-  const fmtD = (d: string) => { const t = new Date(d); return `${t.getDate()}/${t.getMonth() + 1}/${t.getFullYear()}`; };
+  const fmtD = (d: string) => { const t = new Date(d); return `${t.getFullYear()}/${t.getMonth() + 1}/${t.getDate()}`; }; // سنة/شهر/يوم بصرياً، فيُقرأ من اليمين: يوم ثم شهر ثم سنة
   const points = (bpHistory ?? []).filter(v => v.bp_systolic != null && v.bp_diastolic != null).slice(-8);
   if (points.length < 2) return null;
 

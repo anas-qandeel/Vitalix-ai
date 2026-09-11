@@ -22,7 +22,7 @@ export default function SugarHistoryChart({
   sugarHistory: SugarPoint[] | null | undefined;
   formatDate: (d: string) => string;
 }) {
-  const fmtD = (d: string) => { const t = new Date(d); return `${t.getDate()}/${t.getMonth() + 1}/${t.getFullYear()}`; };
+  const fmtD = (d: string) => { const t = new Date(d); return `${t.getFullYear()}/${t.getMonth() + 1}/${t.getDate()}`; }; // سنة/شهر/يوم بصرياً، فيُقرأ من اليمين: يوم ثم شهر ثم سنة
   const points = (sugarHistory ?? []).filter(v => v.sugar_value != null).slice(-8);
   if (points.length < 2) return null;
 

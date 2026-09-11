@@ -60,6 +60,8 @@ export default function WeightHistoryChart({
     );
   };
 
+  const fmtD = (d: string) => { const t = new Date(d); return `${t.getFullYear()}/${t.getMonth() + 1}/${t.getDate()}`; }; // سنة/شهر/يوم بصرياً، فيُقرأ من اليمين: يوم ثم شهر ثم سنة
+
   return (
     <div className="px-5 pt-3 pb-4 border-t border-slate-100">
       <div className="flex items-center justify-between mb-2">
@@ -100,8 +102,8 @@ export default function WeightHistoryChart({
       </div>
 
       <div className="flex items-center justify-between mt-1">
-        <span className="text-[10px] font-bold text-slate-400" dir="ltr">{first.weight} كغ · {formatDate(first.created_at)}</span>
-        <span className="text-[10px] font-bold text-slate-400" dir="ltr">{last.weight} كغ · {formatDate(last.created_at)}</span>
+        <span dir="rtl" className="text-[10px] font-bold text-slate-400"><span dir="ltr" className="tabular-nums inline-block">{first.weight}</span> كغ<span className="text-slate-300"> · </span><span dir="ltr" className="tabular-nums inline-block">{fmtD(first.created_at)}</span></span>
+        <span dir="rtl" className="text-[10px] font-bold text-slate-400"><span dir="ltr" className="tabular-nums inline-block">{last.weight}</span> كغ<span className="text-slate-300"> · </span><span dir="ltr" className="tabular-nums inline-block">{fmtD(last.created_at)}</span></span>
       </div>
     </div>
   );

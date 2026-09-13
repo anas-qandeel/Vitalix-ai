@@ -811,6 +811,34 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
       return NextResponse.json({ error: 'تعذر حفظ القائمة الغذائية' }, { status: 500 });
     }
 
+    // ── كتابة ملخص الصيدلاني في سجل الزيارة المرتبطة ─────────────────────
+    // سجل الزيارات الكامل في شاشة الفحص يقرأ عمودَي pharmacist_summary
+    // وmedications_alert من visitations؛ بدون هذه الكتابة تظهر زيارات
+    // الوزن فارغة رغم توليد الملخص. فشل هذه الخطوة الثانوية لا يُفشل
+    // الطلب — الخطة نفسها محفوظة بنجاح أعلاه.
+    try {
+      const { data: planRow } = await supabaseAdmin
+        .from('weight_plans')
+        .select('visitation_id, visitation:visitations(bp_systolic, sugar_value)')
+        .eq('id', plan_id)
+        .single();
+      const linkedVisit = Array.isArray(planRow?.visitation) ? planRow?.visitation[0] : planRow?.visitation;
+      // نكتب ملخص الوزن فقط للزيارة التي لا تحمل ضغطاً أو سكراً — الزيارة المشتركة
+      // حُفظت بملخص generate-ai-report الأهم سريرياً ولا يجوز استبداله
+      if (planRow?.visitation_id && !linkedVisit?.bp_systolic && !linkedVisit?.sugar_value) {
+        const { error: visitUpdateErr } = await supabaseAdmin
+          .from('visitations')
+          .update({
+            pharmacist_summary: finalNutritionData.clinical_reasoning || null,
+            medications_alert:  finalNutritionData.medications_alert || null,
+          })
+          .eq('id', planRow.visitation_id);
+        if (visitUpdateErr) console.warn('[weight-plan PATCH] visit summary write failed (non-blocking):', visitUpdateErr);
+      }
+    } catch (visitErr) {
+      console.warn('[weight-plan PATCH] visit summary write failed (non-blocking):', visitErr);
+    }
+
     return NextResponse.json({
       success: true,
       dataSuspect: progressData?.dataSuspect ?? false,

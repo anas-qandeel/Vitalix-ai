@@ -20,6 +20,7 @@ import WeightThinkingOverlay from '@/components/WeightThinkingOverlay';
 import WeightPlanReport, { type WeightPlan, parseNutrition } from '@/components/WeightPlanReport';
 import VitalsThinkingOverlay from '@/components/VitalsThinkingOverlay';
 import { classifyBp, classifySugar, classifyHeartRate, overallVisitStatus } from '@/lib/vitals-classify';
+import PatientSafetyFields, { EMPTY_PATIENT_SAFETY, PatientSafetyValues, safetyForSave } from '@/components/PatientSafetyFields';
 
 const CATEGORY_LABELS: Record<string, string> = Object.fromEntries(SUPPLEMENT_CATEGORIES.map(c => [c.code, c.labelAr]));
 
@@ -34,6 +35,10 @@ interface Patient {
   birth_date: string;
   height?: number | null;
   diagnosed_conditions?: string[] | null;
+  drug_allergies?: string[] | null;
+  food_allergies?: string[] | null;
+  is_pregnant?: boolean | null;
+  is_lactating?: boolean | null;
 }
 
 interface VisitationRecord {
@@ -186,6 +191,7 @@ function NewPatientModal({ phone, onClose, onCreated }: {
   const [gender, setGender] = useState('male');
   const [dob, setDob] = useState('');
   const [conditions, setConditions] = useState<string[]>([]);
+  const [safety, setSafety] = useState<PatientSafetyValues>(EMPTY_PATIENT_SAFETY);
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
@@ -212,6 +218,7 @@ function NewPatientModal({ phone, onClose, onCreated }: {
         gender,
         birth_date: dob,
         diagnosed_conditions: conditions,
+        ...safetyForSave(safety, gender),
       }).select().single();
       if (error || !data) throw new Error('تعذر الحفظ');
       if (note.trim()) {
@@ -225,7 +232,7 @@ function NewPatientModal({ phone, onClose, onCreated }: {
 
   return (
     <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center sm:p-4" onClick={onClose}>
-      <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-sm shadow-2xl border border-slate-200 saas-slide-up" onClick={e => e.stopPropagation()}>
+      <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-sm max-h-[100dvh] sm:max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 saas-slide-up" onClick={e => e.stopPropagation()}>
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
@@ -291,6 +298,8 @@ function NewPatientModal({ phone, onClose, onCreated }: {
               })}
             </div>
           </div>
+
+          <PatientSafetyFields value={safety} onChange={setSafety} gender={gender} />
 
           {/* ملاحظة */}
           <div>
@@ -791,7 +800,7 @@ ${planUrl}
       if (!pid) { setNameResults([]); return; }
       const { data, error } = await supabase
         .from('patients')
-        .select('id, name, phone_number, gender, birth_date, height, diagnosed_conditions')
+        .select('id, name, phone_number, gender, birth_date, height, diagnosed_conditions, drug_allergies, food_allergies, is_pregnant, is_lactating')
         .eq('pharmacy_id', pid)
         .ilike('name_normalized', `%${normalizeAr(value)}%`)
         .limit(20);

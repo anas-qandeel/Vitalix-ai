@@ -5,9 +5,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import DashboardHeader, { usePharmacyInfo } from '../../components/DashboardHeader';
 import AppFooter from '../../../components/AppFooter';
-import Disclaimer from '@/components/Disclaimer';
 import { getPharmacyId } from '@/lib/tenant';
-import { detectTextDir } from '@/lib/text-direction';
 import { normalizePhone, displayPhone, validatePhone } from '@/lib/phone';
 import Link from 'next/link';
 import { FilePdf } from '@phosphor-icons/react';
@@ -937,8 +935,7 @@ export default function PatientCardPage({ params }: PageProps) {
                         )}
                         {v.ai_report_output && (
                           <div>
-                            <div className="flex items-center justify-between mb-2">
-                              <p className="text-[10px] font-bold text-slate-400">التقرير الذكي</p>
+                            <div className="flex items-center justify-end mb-2">
                               <div className="flex items-center gap-2 flex-wrap">
                                 {(v.bp_systolic || v.sugar_value) && (
                                   <>
@@ -971,16 +968,6 @@ export default function PatientCardPage({ params }: PageProps) {
                                   إرسال واتساب
                                 </button>
                               </div>
-                            </div>
-                            <div
-                              className="bg-white border border-slate-200 rounded-xl p-4 text-[11px] text-slate-700 leading-relaxed font-medium"
-                              dir={detectTextDir(v.ai_report_output)}
-                              style={{ textAlign: detectTextDir(v.ai_report_output) === 'ltr' ? 'left' : 'right' }}
-                            >
-                              {v.ai_report_output}
-                            </div>
-                            <div className="mt-3">
-                              <Disclaimer variant="pharmacist" />
                             </div>
                           </div>
                         )}

@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { upsertPipeline } from '@/lib/pipeline';
 import { getPharmacyId } from '@/lib/tenant';
 import { normalizePhone, validatePhone } from '@/lib/phone';
+import PatientSafetyFields, { EMPTY_PATIENT_SAFETY, PatientSafetyValues, safetyForSave } from '@/components/PatientSafetyFields';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -16,6 +17,10 @@ export interface NewPatient {
   gender: string;
   birth_date: string;
   diagnosed_conditions: string[] | null;
+  drug_allergies?: string[] | null;
+  food_allergies?: string[] | null;
+  is_pregnant?: boolean | null;
+  is_lactating?: boolean | null;
 }
 
 interface AddPatientFormProps {
@@ -63,6 +68,7 @@ export default function AddPatientForm({
   const [gender, setGender] = useState(prefill?.gender || 'male');
   const [dob, setDob] = useState(prefill?.birth_date || '');
   const [conditions, setConditions] = useState<string[]>([]);
+  const [safety, setSafety] = useState<PatientSafetyValues>(EMPTY_PATIENT_SAFETY);
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
@@ -93,6 +99,7 @@ export default function AddPatientForm({
         gender,
         birth_date: dob,
         diagnosed_conditions: conditions,
+        ...safetyForSave(safety, gender),
       }).select().single();
       if (error || !data) throw new Error('تعذر الحفظ — تأكد من عدم تكرار رقم الهاتف');
       if (note.trim()) {
@@ -106,7 +113,7 @@ export default function AddPatientForm({
 
   return (
     <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center sm:p-4" onClick={onClose}>
-      <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-sm shadow-2xl border border-slate-200 saas-slide-up" onClick={e => e.stopPropagation()}>
+      <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-sm max-h-[100dvh] sm:max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 saas-slide-up" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
           <h3 className="text-sm font-bold text-slate-900">{title}</h3>
           <button onClick={onClose} className="w-8 h-8 rounded-full bg-slate-50 hover:bg-slate-100 text-slate-500 flex items-center justify-center transition-colors text-sm cursor-pointer">✕</button>
@@ -166,6 +173,8 @@ export default function AddPatientForm({
               })}
             </div>
           </div>
+
+          <PatientSafetyFields value={safety} onChange={setSafety} gender={gender} />
 
           <div>
             <label className="block text-xs font-bold text-slate-600 mb-1.5">ملاحظة <span className="font-normal text-slate-400">(اختياري)</span></label>

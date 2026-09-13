@@ -9,6 +9,7 @@ import { getPharmacyId } from '@/lib/tenant';
 import { normalizePhone, displayPhone, validatePhone } from '@/lib/phone';
 import Link from 'next/link';
 import { FilePdf } from '@phosphor-icons/react';
+import PatientSafetyFields, { EMPTY_PATIENT_SAFETY, PatientSafetyValues, safetyForSave } from '@/components/PatientSafetyFields';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -21,6 +22,10 @@ interface PatientDetail {
   birth_date: string;
   height: number | null;
   diagnosed_conditions: string[] | null;
+  drug_allergies?: string[] | null;
+  food_allergies?: string[] | null;
+  is_pregnant?: boolean | null;
+  is_lactating?: boolean | null;
   created_at: string;
 }
 
@@ -401,6 +406,7 @@ export default function PatientCardPage({ params }: PageProps) {
   const [editPhone, setEditPhone] = useState('');
   const [editGender, setEditGender] = useState('male');
   const [editDob, setEditDob] = useState('');
+  const [editSafety, setEditSafety] = useState<PatientSafetyValues>(EMPTY_PATIENT_SAFETY);
   const [savingInfo, setSavingInfo] = useState(false);
   const [infoErr, setInfoErr] = useState('');
 
@@ -465,6 +471,12 @@ export default function PatientCardPage({ params }: PageProps) {
     setEditPhone(patient.phone_number);
     setEditGender(patient.gender);
     setEditDob(patient.birth_date);
+    setEditSafety({
+      drug_allergies: patient.drug_allergies || [],
+      food_allergies: patient.food_allergies || [],
+      is_pregnant: !!patient.is_pregnant,
+      is_lactating: !!patient.is_lactating,
+    });
     setInfoErr('');
     setEditingInfo(true);
   };
@@ -481,6 +493,7 @@ export default function PatientCardPage({ params }: PageProps) {
         phone_number: normalizePhone(editPhone),
         gender: editGender,
         birth_date: editDob,
+        ...safetyForSave(editSafety, editGender),
       };
       const { error } = await supabase.from('patients').update(updated).eq('id', patient.id);
       if (error) throw new Error('تعذر الحفظ — تأكد من عدم تكرار رقم الهاتف');
@@ -616,6 +629,7 @@ export default function PatientCardPage({ params }: PageProps) {
                   <input type="date" value={editDob} onChange={e => setEditDob(e.target.value)}
                     className="px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 transition text-slate-900" />
                 </div>
+                <PatientSafetyFields value={editSafety} onChange={setEditSafety} gender={editGender} />
                 {infoErr && <p className="text-xs text-rose-600 font-medium bg-rose-50 border border-rose-200 px-3 py-2 rounded-lg">{infoErr}</p>}
                 <div className="flex gap-2">
                   <button onClick={saveInfo} disabled={savingInfo}
@@ -653,12 +667,29 @@ export default function PatientCardPage({ params }: PageProps) {
                         <IconDroplet className="w-3 h-3" /> سكري
                       </span>
                     )}
+                    {(patient.drug_allergies || []).map(a => (
+                      <span key={`da-${a}`} className="text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-md">
+                        حساسية دواء: {a}
+                      </span>
+                    ))}
+                    {(patient.food_allergies || []).map(a => (
+                      <span key={`fa-${a}`} className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
+                        حساسية طعام: {a}
+                      </span>
+                    ))}
+                    {patient.is_pregnant && (
+                      <span className="text-[10px] font-bold text-pink-700 bg-pink-50 border border-pink-200 px-2 py-0.5 rounded-md">حامل</span>
+                    )}
+                    {patient.is_lactating && (
+                      <span className="text-[10px] font-bold text-pink-700 bg-pink-50 border border-pink-200 px-2 py-0.5 rounded-md">مرضعة</span>
+                    )}
                   </div>
                 </div>
               </div>
             )}
 
-            {/* أزرار التواصل */}
+            {/* أزرار التواصل — تُخفى أثناء التعديل كي يأخذ النموذج كامل العرض */}
+            {!editingInfo && (
             <div className="flex items-center gap-2 shrink-0">
               {!editingInfo && (
                 <button onClick={startEditInfo}
@@ -677,6 +708,7 @@ export default function PatientCardPage({ params }: PageProps) {
                 <span>واتساب</span>
               </a>
             </div>
+            )}
           </div>
 
           {/* إحصاءات سريعة */}

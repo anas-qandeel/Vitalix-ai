@@ -681,12 +681,16 @@ function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill }: {
 // ═══════════════════════════════════════════════════════
 // MODAL: تسجيل / تجديد الأدوية — تجديد انتقائي بدون DELETE+INSERT
 // ═══════════════════════════════════════════════════════
-function MedModal({ patientId, pharmacyId, existingMeds, patientName, onClose, onSaved, onBack, isNewPatient }: {
+function MedModal({ patientId, pharmacyId, existingMeds, patientName, onClose, onSaved, onBack, isNewPatient, drugAllergies, foodAllergies, isPregnant, isLactating }: {
   patientId: string; pharmacyId: string;
   existingMeds: ChronicMed[]; patientName: string;
   onClose: () => void; onSaved: () => void;
   onBack?: () => void;
   isNewPatient?: boolean; // لإظهار banner تأكيد التسجيل
+  drugAllergies?: string[] | null; // حساسية الأدوية — تنبيه في رأس النافذة
+  foodAllergies?: string[] | null; // حساسية الأطعمة — بعض المستحضرات تحوي مكوّنات غذائية
+  isPregnant?: boolean | null;
+  isLactating?: boolean | null;
 }) {
   const isRenewal_initial = existingMeds.length > 0;
   const today = new Date().toISOString().split('T')[0];
@@ -895,6 +899,15 @@ function MedModal({ patientId, pharmacyId, existingMeds, patientName, onClose, o
               <p className="text-xs text-slate-500 mt-1 truncate">
                 {isRenewal ? 'اختر الأدوية التي جدّدها المريض فعلاً' : 'أدخل الأدوية والجرعات لمتابعتها'}
               </p>
+              {(drugAllergies?.length ?? 0) > 0 && (
+                <p className="text-[11px] font-bold text-rose-700 mt-1 truncate">حساسية دواء: {(drugAllergies || []).join('، ')}</p>
+              )}
+              {(foodAllergies?.length ?? 0) > 0 && (
+                <p className="text-[11px] font-bold text-amber-700 mt-0.5 truncate">حساسية طعام: {(foodAllergies || []).join('، ')}</p>
+              )}
+              {(isPregnant || isLactating) && (
+                <p className="text-[11px] font-bold text-pink-700 mt-0.5 truncate">{[isPregnant && 'حامل', isLactating && 'مرضعة'].filter(Boolean).join(' · ')}</p>
+              )}
             </div>
           </div>
           <button onClick={onClose} className="w-8 h-8 rounded-full bg-slate-50 hover:bg-slate-100 text-slate-500 flex items-center justify-center transition-colors shrink-0">✕</button>
@@ -1329,6 +1342,9 @@ function PatientMedsModal({ patient, cards, onClose }: {
             <div className="min-w-0">
               <p className="text-sm font-semibold text-slate-900 truncate">{card.patient.name}</p>
               <p className="text-xs text-slate-400 font-mono mt-0.5 truncate">{displayPhone(card.patient.phone_number)}</p>
+              {(card.patient.drug_allergies?.length ?? 0) > 0 && (
+                <p className="text-[11px] font-bold text-rose-700 mt-1 truncate">حساسية دواء: {(card.patient.drug_allergies || []).join('، ')}</p>
+              )}
             </div>
           </div>
           <button onClick={onClose}
@@ -1895,6 +1911,18 @@ function PatientCard({ card, pharmacyName, onAction, onNotesUpdate }: {
       {open && (
         <div className="border-t border-slate-100 px-5 pt-4 pb-5 space-y-4 bg-slate-50/30">
           <p className="text-xs text-slate-500 font-mono">{displayPhone(patient.phone_number)}</p>
+          {((patient.drug_allergies?.length ?? 0) > 0 || (patient.food_allergies?.length ?? 0) > 0 || patient.is_pregnant || patient.is_lactating) && (
+            <div className="flex flex-wrap gap-2">
+              {(patient.drug_allergies?.length ?? 0) > 0 && (
+                <span className="text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-1 rounded-lg">حساسية دواء: {(patient.drug_allergies || []).join('، ')}</span>
+              )}
+              {(patient.food_allergies?.length ?? 0) > 0 && (
+                <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1 rounded-lg">حساسية طعام: {(patient.food_allergies || []).join('، ')}</span>
+              )}
+              {patient.is_pregnant && <span className="text-[10px] font-bold text-pink-700 bg-pink-50 border border-pink-200 px-2 py-1 rounded-lg">حامل</span>}
+              {patient.is_lactating && <span className="text-[10px] font-bold text-pink-700 bg-pink-50 border border-pink-200 px-2 py-1 rounded-lg">مرضعة</span>}
+            </div>
+          )}
           <NotesField notes={card.notes} pipelineId={card.pipeline?.id} onSaved={(n) => onNotesUpdate(patient.id, n)} />
 
           {/* بادجات الأدوية مع Days */}
@@ -2047,7 +2075,7 @@ export default function ChronicPage() {
       setPharmacyId(pid);
 
       const { data: medsData } = await supabase.from('chronic_medications')
-        .select('*, patients!inner(id, name, phone_number, gender, birth_date)')
+        .select('*, patients!inner(id, name, phone_number, gender, birth_date, drug_allergies, food_allergies, is_pregnant, is_lactating)')
         .eq('pharmacy_id', pid).eq('status', 'active');
       const { data: pipelineData } = await supabase.from('refill_tracking_pipeline')
         .select('*').eq('pharmacy_id', pid).eq('payment_type', 'cash');
@@ -2688,7 +2716,7 @@ export default function ChronicPage() {
       {medModal && (
         <MedModal
           patientId={medModal.patient.id} pharmacyId={pharmacyId}
-          existingMeds={medModal.meds} patientName={medModal.patient.name}
+          existingMeds={medModal.meds} patientName={medModal.patient.name} drugAllergies={medModal.patient.drug_allergies} foodAllergies={medModal.patient.food_allergies} isPregnant={medModal.patient.is_pregnant} isLactating={medModal.patient.is_lactating}
           isNewPatient={medModal.isNewPatient}
           onClose={() => {
             const wasNewPatient = medModal.isNewPatient;

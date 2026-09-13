@@ -667,16 +667,16 @@ export default function PatientCardPage({ params }: PageProps) {
                         <IconDroplet className="w-3 h-3" /> سكري
                       </span>
                     )}
-                    {(patient.drug_allergies || []).map(a => (
-                      <span key={`da-${a}`} className="text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-md">
-                        حساسية دواء: {a}
+                    {(patient.drug_allergies?.length ?? 0) > 0 && (
+                      <span className="text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-md">
+                        حساسية دواء: {(patient.drug_allergies || []).join('، ')}
                       </span>
-                    ))}
-                    {(patient.food_allergies || []).map(a => (
-                      <span key={`fa-${a}`} className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
-                        حساسية طعام: {a}
+                    )}
+                    {(patient.food_allergies?.length ?? 0) > 0 && (
+                      <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
+                        حساسية طعام: {(patient.food_allergies || []).join('، ')}
                       </span>
-                    ))}
+                    )}
                     {patient.is_pregnant && (
                       <span className="text-[10px] font-bold text-pink-700 bg-pink-50 border border-pink-200 px-2 py-0.5 rounded-md">حامل</span>
                     )}

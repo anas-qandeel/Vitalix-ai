@@ -1428,6 +1428,29 @@ ${planUrl}
                       </div>
                     </div>
 
+                    {/* الحساسية والحمل — عرض فقط، التعديل من كرت المريض */}
+                    {((currentPatient.drug_allergies?.length ?? 0) > 0 || (currentPatient.food_allergies?.length ?? 0) > 0 || currentPatient.is_pregnant || currentPatient.is_lactating) && (
+                      <div className="px-4 pb-2.5 flex items-center gap-2 flex-wrap">
+                        {(currentPatient.drug_allergies || []).map(a => (
+                          <span key={`da-${a}`} className="text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-1 rounded-lg">
+                            حساسية دواء: {a}
+                          </span>
+                        ))}
+                        {(currentPatient.food_allergies || []).map(a => (
+                          <span key={`fa-${a}`} className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1 rounded-lg">
+                            حساسية طعام: {a}
+                          </span>
+                        ))}
+                        {currentPatient.is_pregnant && (
+                          <span className="text-[10px] font-bold text-pink-700 bg-pink-50 border border-pink-200 px-2 py-1 rounded-lg">حامل</span>
+                        )}
+                        {currentPatient.is_lactating && (
+                          <span className="text-[10px] font-bold text-pink-700 bg-pink-50 border border-pink-200 px-2 py-1 rounded-lg">مرضعة</span>
+                        )}
+                        <span className="text-[10px] text-slate-400 mr-auto">يُعدَّل من السجل</span>
+                      </div>
+                    )}
+
                     {/* التشخيصات */}
                     <div className="px-4 pb-3.5 flex items-center gap-2 flex-wrap">
                       {[

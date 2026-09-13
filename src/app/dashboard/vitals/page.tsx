@@ -2825,8 +2825,11 @@ ${weightPlanUrl}
                     {v.sugar_value && <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg">س: {v.sugar_value}</span>}
                     {v.weight && <span className="text-xs font-bold text-purple-700 bg-purple-50 border border-purple-200 px-2.5 py-1 rounded-lg">{v.weight} kg</span>}
                   </div>
-                  {v.ai_report_output && (
-                    <p className="text-[11px] text-slate-600 leading-relaxed bg-slate-50 border border-slate-100 p-3 rounded-lg">{v.ai_report_output}</p>
+                  {v.pharmacist_summary && (
+                    <p className="text-[11px] text-slate-600 leading-relaxed bg-slate-50 border border-slate-100 p-3 rounded-lg">{v.pharmacist_summary}</p>
+                  )}
+                  {v.medications_alert && (
+                    <p className="text-[11px] text-amber-800 leading-relaxed bg-amber-50 border border-amber-200 p-3 rounded-lg">⚠️ {v.medications_alert}</p>
                   )}
                 </div>
               ))}

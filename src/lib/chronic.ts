@@ -5,6 +5,10 @@ export interface Patient {
   gender: string;
   birth_date: string;
   diagnosed_conditions?: string[] | null;
+  drug_allergies?: string[] | null;
+  food_allergies?: string[] | null;
+  is_pregnant?: boolean | null;
+  is_lactating?: boolean | null;
 }
 
 export interface ChronicMed {

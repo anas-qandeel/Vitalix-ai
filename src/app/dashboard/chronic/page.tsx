@@ -13,6 +13,7 @@ import { normalizeAr } from '@/lib/arabic';
 import { checkInteractions } from '@/lib/interaction-check';
 import { logActivity } from '@/lib/activity';
 import { normalizePhone, displayPhone, validatePhone } from '@/lib/phone';
+import PatientSafetyFields, { EMPTY_PATIENT_SAFETY, PatientSafetyValues, safetyForSave } from '@/components/PatientSafetyFields';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { ChartBar, Package, Lightning, User, LightbulbFilament, CheckCircle, Check, FilePdf } from '@phosphor-icons/react';
 
@@ -313,6 +314,7 @@ function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill }: {
   const [gender, setGender] = useState('male');
   const [dob, setDob]       = useState('');
   const [conditions, setConditions] = useState<string[]>([]);
+  const [safety, setSafety] = useState<PatientSafetyValues>(EMPTY_PATIENT_SAFETY);
   const [searching, setSearching] = useState(false);
   const [found, setFound]   = useState<Patient | null>(prefill?.patient || null);
   const [results, setResults] = useState<Patient[]>([]); // نتائج متعددة
@@ -459,6 +461,7 @@ function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill }: {
       const pid = pharmacyId || session?.user?.id || '';
       const { data, error } = await supabase.from('patients').insert({
         pharmacy_id: pid, name: name.trim(), phone_number: normalizePhone(query), gender, birth_date: dob, diagnosed_conditions: conditions,
+        ...safetyForSave(safety, gender),
       }).select().single();
       if (error || !data) throw error;
       onAdded(data as Patient, patientNote.trim(), false); // مريض جديد
@@ -627,6 +630,7 @@ function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill }: {
                   })}
                 </div>
               </div>
+              <PatientSafetyFields value={safety} onChange={setSafety} gender={gender} />
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-2">ملاحظة <span className="font-normal text-slate-400">(اختياري)</span></label>
                 <textarea value={patientNote} onChange={e => setPatientNote(e.target.value)}

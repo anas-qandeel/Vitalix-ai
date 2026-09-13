@@ -96,11 +96,16 @@ export default function WeightPlanPage({ params }: PageProps) {
       if (!hadNutritionRef.current && nowHas) { setNewArrival(true); stopPolling(); setTimeout(() => setNewArrival(false), 3500); }
       hadNutritionRef.current = nowHas;
       setPageData(data);
-    } catch (e: any) { setError(e.message); }
+    } catch (e: unknown) { setError(e instanceof Error ? e.message : 'حدث خطأ غير متوقع'); }
     finally { if (!silent) setLoading(false); }
   };
 
-  useEffect(() => { fetchData(); return () => stopPolling(); }, [planId]);
+  const fetchDataRef = useRef(fetchData);
+  useEffect(() => { fetchDataRef.current = fetchData; });
+  useEffect(() => {
+    fetchDataRef.current();
+    return () => stopPolling();
+  }, [planId]);
   useEffect(() => {
     if (!pageData) return;
     if (!pageData.plan.nutrition_plan) {

@@ -3,7 +3,6 @@
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { Storefront } from '@phosphor-icons/react';
 import { supabase } from '@/lib/supabase';
-import { upsertPipeline } from '@/lib/pipeline';
 import { useRouter } from 'next/navigation';
 import DashboardHeader, { usePharmacyInfo } from '../components/DashboardHeader';
 import AppFooter from '../../components/AppFooter';
@@ -11,7 +10,7 @@ import { getPharmacyId, getStaffId, getStaffName } from '@/lib/tenant';
 import { normalizeAr } from '@/lib/arabic';
 import { calcWeightGoals, getBMICategory, LACTATION_FIRST_GOAL_CAP_KG } from '@/lib/weight-math';
 import { detectTextDir } from '@/lib/text-direction';
-import { normalizePhone, displayPhone, validatePhone } from '@/lib/phone';
+import { normalizePhone, displayPhone } from '@/lib/phone';
 import { SUPPLEMENT_CATEGORIES } from '@/lib/supplement-categories';
 import WeightHistoryChart from '@/components/WeightHistoryChart';
 import BpHistoryChart from '@/components/BpHistoryChart';
@@ -20,7 +19,7 @@ import WeightThinkingOverlay from '@/components/WeightThinkingOverlay';
 import WeightPlanReport, { type WeightPlan, parseNutrition } from '@/components/WeightPlanReport';
 import VitalsThinkingOverlay from '@/components/VitalsThinkingOverlay';
 import { classifyBp, classifySugar, classifyHeartRate, overallVisitStatus } from '@/lib/vitals-classify';
-import PatientSafetyFields, { EMPTY_PATIENT_SAFETY, PatientSafetyValues, safetyForSave } from '@/components/PatientSafetyFields';
+import AddPatientForm from '@/components/AddPatientForm';
 
 const CATEGORY_LABELS: Record<string, string> = Object.fromEntries(SUPPLEMENT_CATEGORIES.map(c => [c.code, c.labelAr]));
 
@@ -176,151 +175,6 @@ function IconPlus({ className = 'w-4 h-4' }: { className?: string }) {
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
     </svg>
-  );
-}
-
-// ═══════════════════════════════════════════════════════
-// MODAL: مريض جديد
-// ═══════════════════════════════════════════════════════
-function NewPatientModal({ phone, onClose, onCreated }: {
-  phone: string;
-  onClose: () => void;
-  onCreated: (p: Patient) => void;
-}) {
-  const [name, setName] = useState('');
-  const [gender, setGender] = useState('male');
-  const [dob, setDob] = useState('');
-  const [conditions, setConditions] = useState<string[]>([]);
-  const [safety, setSafety] = useState<PatientSafetyValues>(EMPTY_PATIENT_SAFETY);
-  const [note, setNote] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [err, setErr] = useState('');
-
-  const toggleCondition = (key: string) => {
-    setConditions(prev => prev.includes(key) ? prev.filter(c => c !== key) : [...prev, key]);
-  };
-
-  const save = async () => {
-    if (!name.trim()) { setErr('يرجى إدخال اسم المريض'); return; }
-    const phoneCheck = validatePhone(phone);
-    if (!phoneCheck.valid) { setErr(phoneCheck.message || 'رقم الهاتف غير صحيح'); return; }
-    if (!dob) { setErr('يرجى إدخال تاريخ الميلاد'); return; }
-    setSaving(true); setErr('');
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error('انتهت الجلسة');
-      const pid = await getPharmacyId();
-      if (!pid) return;
-      const { data, error } = await supabase.from('patients').insert({
-        pharmacy_id: pid,
-        name: name.trim(),
-        phone_number: normalizePhone(phone),
-        gender,
-        birth_date: dob,
-        diagnosed_conditions: conditions,
-        ...safetyForSave(safety, gender),
-      }).select().single();
-      if (error || !data) throw new Error('تعذر الحفظ');
-      if (note.trim()) {
-        await upsertPipeline(pid, data.id, 'due', {});
-        await supabase.from('refill_tracking_pipeline').update({ insurance_status: note.trim() })
-          .eq('pharmacy_id', pid).eq('patient_id', data.id).eq('payment_type', 'cash');
-      }
-      onCreated(data as Patient);
-    } catch (e: any) { setErr(e.message); setSaving(false); }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center sm:p-4" onClick={onClose}>
-      <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-sm max-h-[100dvh] sm:max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 saas-slide-up" onClick={e => e.stopPropagation()}>
-
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-          <div>
-            <h3 className="text-sm font-bold text-slate-900">تسجيل مريض جديد</h3>
-            <p className="text-[11px] text-slate-400 font-mono mt-0.5">{phone}</p>
-          </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-full bg-slate-50 hover:bg-slate-100 text-slate-500 flex items-center justify-center transition-colors text-sm">✕</button>
-        </div>
-
-        <div className="p-5 space-y-4">
-
-          {/* الاسم */}
-          <div>
-            <label className="block text-xs font-bold text-slate-600 mb-1.5">الاسم الكامل</label>
-            <input
-              autoFocus
-              type="text"
-              value={name}
-              onChange={e => setName(e.target.value)}
-              className="w-full px-4 py-3 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-slate-900 transition text-slate-900"
-            />
-          </div>
-
-          {/* الجنس + تاريخ الميلاد */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-bold text-slate-600 mb-1.5">الجنس</label>
-              <div className="flex bg-slate-100 p-1 rounded-lg">
-                {[{ v: 'male', l: 'ذكر' }, { v: 'female', l: 'أنثى' }].map(g => (
-                  <button key={g.v} onClick={() => setGender(g.v)}
-                    className={`flex-1 py-1.5 rounded-md text-xs font-bold transition-all ${gender === g.v ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500'}`}>
-                    {g.l}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-600 mb-1.5">تاريخ الميلاد</label>
-              <input type="date" value={dob} onChange={e => setDob(e.target.value)}
-                className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 transition text-slate-900" />
-            </div>
-          </div>
-
-          {/* التشخيصات */}
-          <div>
-            <label className="block text-xs font-bold text-slate-600 mb-2">التشخيصات المزمنة <span className="font-normal text-slate-400">(اختياري)</span></label>
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                { key: 'hypertension', label: 'ضغط الدم', icon: <IconHeart className="w-3.5 h-3.5" /> },
-                { key: 'diabetes', label: 'السكري', icon: <IconDroplet className="w-3.5 h-3.5" /> },
-              ].map(({ key, label, icon }) => {
-                const active = conditions.includes(key);
-                return (
-                  <button key={key} onClick={() => toggleCondition(key)}
-                    className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-xs font-bold transition-all ${
-                      active ? 'bg-slate-900 border-slate-900 text-white' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
-                    }`}>
-                    {icon}
-                    <span>{active ? '✓ ' : ''}{label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <PatientSafetyFields value={safety} onChange={setSafety} gender={gender} />
-
-          {/* ملاحظة */}
-          <div>
-            <label className="block text-xs font-bold text-slate-600 mb-1.5">ملاحظة <span className="font-normal text-slate-400">(اختياري)</span></label>
-            <textarea value={note} onChange={e => setNote(e.target.value)}
-              placeholder="مثال: خصم ثابت 10%"
-              rows={2}
-              className="w-full px-4 py-3 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-slate-900 transition text-slate-900 resize-none" />
-          </div>
-
-          {err && <p className="text-xs text-rose-600 font-medium bg-rose-50 border border-rose-200 px-3 py-2 rounded-lg">{err}</p>}
-        </div>
-
-        <div className="px-5 pb-5">
-          <button onClick={save} disabled={saving || !name.trim()}
-            className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-bold transition active:scale-[0.98] disabled:opacity-50 shadow-sm">
-            {saving ? 'جاري الحفظ...' : 'حفظ وبدء الفحص'}
-          </button>
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -824,9 +678,9 @@ ${planUrl}
 
   // ── إنشاء مريض جديد من Modal ──
   const handleNewPatientCreated = (p: Patient) => {
-    setCurrentPatient(p);
-    setSearchQuery(p.name);
     setShowNewPatientModal(false);
+    // نفس مسار اختيار مريض من نتائج البحث: يصفّر حالة المريض السابق (الفحوصات، خطة الوزن، السجل) ويحمّل سجل الجديد
+    void selectPatient(p);
   };
 
   // ── حساب الحالة الكلية ──
@@ -2873,10 +2727,13 @@ ${weightPlanUrl}
 
       {/* ════ Modal: مريض جديد ════ */}
       {showNewPatientModal && (
-        <NewPatientModal
-          phone={searchQuery}
+        <AddPatientForm
+          prefill={{ phone_number: searchQuery }}
+          lockPhone
+          title="تسجيل مريض جديد"
+          submitLabel="حفظ وبدء الفحص"
           onClose={() => setShowNewPatientModal(false)}
-          onCreated={handleNewPatientCreated}
+          onSaved={handleNewPatientCreated}
         />
       )}
 

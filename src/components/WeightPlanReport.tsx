@@ -116,6 +116,9 @@ export default function WeightPlanReport({ plan, nutrition, formatDate, animate 
   const bmiStyle  = getBMICategory(plan.bmi);
   const hasData   = !!nutrition;
   const isSetback = !!nutrition?.progress && nutrition.progress.diffFromPrevious > 0;
+  // هدف الخسارة معطّل عمداً (مثال: حامل) — صفر مع وزن زائد/سمنة لا يعني "ضمن المثالي"
+  const goalDisabled = plan.target_loss_kg === 0 &&
+    (plan.bmi_category === 'overweight' || plan.bmi_category === 'obese_1' || plan.bmi_category === 'obese_2');
 
   return (
     <>
@@ -148,6 +151,13 @@ export default function WeightPlanReport({ plan, nutrition, formatDate, animate 
                   <div className="w-px bg-slate-200" />
                 </>
               )}
+              <div className="flex-1">
+                <p className="text-xl font-black text-slate-900">{((plan.ideal_weight_min + plan.ideal_weight_max) / 2).toFixed(1)}</p>
+                <p className="text-[11px] text-slate-400 mt-0.5">الوزن المثالي (كغ)</p>
+              </div>
+            </div>
+          ) : goalDisabled ? (
+            <div className="flex text-center mb-4">
               <div className="flex-1">
                 <p className="text-xl font-black text-slate-900">{((plan.ideal_weight_min + plan.ideal_weight_max) / 2).toFixed(1)}</p>
                 <p className="text-[11px] text-slate-400 mt-0.5">الوزن المثالي (كغ)</p>
@@ -195,6 +205,12 @@ export default function WeightPlanReport({ plan, nutrition, formatDate, animate 
                 <p className="text-[10px] text-slate-400 text-center mt-1">هذه النسبة الصغيرة تُحسّن طاقتك وتخفف الضغط على مفاصلك</p>
               </div>
             )
+          )}
+          {goalDisabled && (
+            <div className="mt-4 bg-slate-50 rounded-xl px-4 py-3">
+              <p className="text-xs font-bold text-slate-900 text-center">لا هدف لإنقاص الوزن في هذه الخطة — بتوجيه الصيدلاني</p>
+              <p className="text-[10px] text-slate-400 text-center mt-1">التركيز على تغذية متوازنة ومتابعة الوزن مع الطبيب</p>
+            </div>
           )}
           {plan.bmi_category === 'underweight' && (
             <div className="mt-4 bg-slate-50 rounded-xl px-4 py-3">

@@ -2525,6 +2525,20 @@ ${planUrl}
                         const diffValue = overBy > 0 ? overBy : underBy > 0 ? underBy : 0;
                         const diffLabel = overBy > 0 ? 'نقص مطلوب (كغ)' : underBy > 0 ? 'زيادة مطلوبة (كغ)' : '';
                         const idealMid = ((bmiLive.idealMin + bmiLive.idealMax) / 2).toFixed(1);
+                        // حامل: لا هدف لخسارة الوزن — يطابق ما يحفظه POST ويعرضه WeightPlanReport
+                        if (overBy > 0 && currentPatient?.is_pregnant) {
+                          return (
+                            <div className="mb-4">
+                              <div className="flex justify-center text-center">
+                                <div>
+                                  <p className="text-xl font-black text-slate-900">{idealMid}</p>
+                                  <p className="text-[11px] text-slate-400 mt-0.5">الوزن المثالي (كغ)</p>
+                                </div>
+                              </div>
+                              <p className="text-[11px] font-bold text-slate-700 text-center mt-3">لا هدف لإنقاص الوزن في هذه الخطة — حامل</p>
+                            </div>
+                          );
+                        }
                         if (diffValue > 0) {
                           return (
                             <div className="flex text-center mb-4">

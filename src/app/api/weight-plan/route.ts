@@ -270,7 +270,14 @@ export async function POST(req: Request) {
     }
 
     // ── الحسابات بالكود (لا AI) ──────────────────────────────────────
-    const goals   = calcWeightGoals(wNum, hNum);
+    // ── حمل: لا هدف لخسارة الوزن — يُقرأ من سجل المريضة في القاعدة لا من body ──
+    const { data: patientRow } = await supabaseAdmin
+      .from('patients').select('is_pregnant').eq('id', patient_id).maybeSingle();
+    const isPregnant = patientRow?.is_pregnant === true;
+
+    const goals     = calcWeightGoals(wNum, hNum);
+    const toLoose   = isPregnant ? 0 : goals.toLoose;
+    const firstGoal = isPregnant ? 0 : goals.firstGoal;
     const bmi     = Math.round(goals.bmi * 10) / 10;
     const cat     = getBMICategory(goals.bmi);
 
@@ -292,8 +299,8 @@ export async function POST(req: Request) {
         bmi_category:     bmiCategoryKey,
         ideal_weight_min: goals.idealMin,
         ideal_weight_max: goals.idealMax,
-        target_loss_kg:   goals.toLoose,
-        first_goal_kg:    goals.firstGoal,
+        target_loss_kg:   toLoose,
+        first_goal_kg:    firstGoal,
         performed_by:     performed_by || null,
         visitation_id:    visitation_id || null,
       })
@@ -320,8 +327,8 @@ export async function POST(req: Request) {
       goals: {
         idealMin:   goals.idealMin,
         idealMax:   goals.idealMax,
-        toLoose:    goals.toLoose,
-        firstGoal:  goals.firstGoal,
+        toLoose:    toLoose,
+        firstGoal:  firstGoal,
       },
     });
   } catch (err: any) {

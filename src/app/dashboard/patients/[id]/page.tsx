@@ -407,6 +407,7 @@ export default function PatientCardPage({ params }: PageProps) {
   const [editGender, setEditGender] = useState('male');
   const [editDob, setEditDob] = useState('');
   const [editSafety, setEditSafety] = useState<PatientSafetyValues>(EMPTY_PATIENT_SAFETY);
+  const [editConditions, setEditConditions] = useState<string[]>([]);
   const [savingInfo, setSavingInfo] = useState(false);
   const [infoErr, setInfoErr] = useState('');
 
@@ -477,6 +478,7 @@ export default function PatientCardPage({ params }: PageProps) {
       is_pregnant: !!patient.is_pregnant,
       is_lactating: !!patient.is_lactating,
     });
+    setEditConditions(patient.diagnosed_conditions || []);
     setInfoErr('');
     setEditingInfo(true);
   };
@@ -494,6 +496,7 @@ export default function PatientCardPage({ params }: PageProps) {
         gender: editGender,
         birth_date: editDob,
         ...safetyForSave(editSafety, editGender),
+        diagnosed_conditions: editConditions,
       };
       const { error } = await supabase.from('patients').update(updated).eq('id', patient.id);
       if (error) throw new Error('تعذر الحفظ — تأكد من عدم تكرار رقم الهاتف');
@@ -628,6 +631,28 @@ export default function PatientCardPage({ params }: PageProps) {
                   </div>
                   <input type="date" value={editDob} onChange={e => setEditDob(e.target.value)}
                     className="px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 transition text-slate-900" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-2">التشخيصات المزمنة <span className="font-normal text-slate-400">(اختياري)</span></label>
+                  <div className="grid grid-cols-2 gap-2 max-w-xs">
+                    {[
+                      { key: 'hypertension', label: 'ضغط الدم', icon: <IconHeart className="w-3.5 h-3.5" /> },
+                      { key: 'diabetes', label: 'السكري', icon: <IconDroplet className="w-3.5 h-3.5" /> },
+                    ].map(({ key, label, icon }) => {
+                      const active = editConditions.includes(key);
+                      return (
+                        <button key={key} type="button"
+                          onClick={() => setEditConditions(prev => prev.includes(key) ? prev.filter(c => c !== key) : [...prev, key])}
+                          className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                            active ? 'bg-slate-900 border-slate-900 text-white' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
+                          }`}>
+                          {icon}
+                          <span>{active ? '✓ ' : ''}{label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-1.5">التشخيص يغيّر معايير تصنيف قراءات المريض.</p>
                 </div>
                 <PatientSafetyFields value={editSafety} onChange={setEditSafety} gender={editGender} />
                 {infoErr && <p className="text-xs text-rose-600 font-medium bg-rose-50 border border-rose-200 px-3 py-2 rounded-lg">{infoErr}</p>}

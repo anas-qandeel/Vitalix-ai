@@ -516,6 +516,7 @@ export default function VitalsPage() {
   const [weightWaMsg, setWeightWaMsg] = useState<string>('');
   const [weightDataSuspect, setWeightDataSuspect] = useState(false);
   const [weightSafetyNotes, setWeightSafetyNotes] = useState<{ reason: string | null; conflicts: string[] }>({ reason: null, conflicts: [] });
+  const [pendingDiagnosis, setPendingDiagnosis] = useState<{ key: string; label: string; willAdd: boolean } | null>(null);
   const generalPdfRef = useRef<HTMLDivElement>(null);
   const weightPdfRef = useRef<HTMLDivElement>(null);
 
@@ -1465,12 +1466,7 @@ ${planUrl}
                         const active = currentPatient.diagnosed_conditions?.includes(key);
                         return (
                           <button key={key}
-                            onClick={async () => {
-                              const cur = currentPatient.diagnosed_conditions || [];
-                              const updated = cur.includes(key) ? cur.filter(c => c !== key) : [...cur, key];
-                              setCurrentPatient({ ...currentPatient, diagnosed_conditions: updated });
-                              await supabase.from('patients').update({ diagnosed_conditions: updated }).eq('id', currentPatient.id);
-                            }}
+                            onClick={() => setPendingDiagnosis({ key, label, willAdd: !(currentPatient.diagnosed_conditions || []).includes(key) })}
                             className={`flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-lg border transition-all ${
                               active ? 'bg-slate-900 border-slate-900 text-white' : 'bg-white border-slate-200 text-slate-400 hover:border-slate-400'
                             }`}>
@@ -2898,6 +2894,29 @@ ${weightPlanUrl}
                   )}
                 </div>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* تأكيد تبديل التشخيص — في أعلى المستوى كي لا يُحبس داخل سياق تراص الكرت */}
+      {pendingDiagnosis && currentPatient && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[9998] flex items-center justify-center p-4" onClick={() => setPendingDiagnosis(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm border border-slate-200 overflow-hidden saas-slide-up" onClick={e => e.stopPropagation()}>
+            <div className="p-6 text-center">
+              <h4 className="text-lg font-semibold text-slate-900 mb-2">{pendingDiagnosis.willAdd ? 'إضافة' : 'إزالة'} تشخيص «{pendingDiagnosis.label}»؟</h4>
+              <p className="text-sm text-slate-500 mb-6">للمريض {currentPatient.name} — هذا يغيّر معايير تصنيف قراءاته فوراً.</p>
+              <div className="grid grid-cols-2 gap-3">
+                <button onClick={() => setPendingDiagnosis(null)} className="py-2.5 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">إلغاء</button>
+                <button onClick={async () => {
+                  const { key } = pendingDiagnosis;
+                  const cur = currentPatient.diagnosed_conditions || [];
+                  const updated = cur.includes(key) ? cur.filter(c => c !== key) : [...cur, key];
+                  setPendingDiagnosis(null);
+                  setCurrentPatient({ ...currentPatient, diagnosed_conditions: updated });
+                  await supabase.from('patients').update({ diagnosed_conditions: updated }).eq('id', currentPatient.id);
+                }} className="py-2.5 text-sm font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-lg shadow-sm transition-colors">نعم، {pendingDiagnosis.willAdd ? 'أضِف' : 'أزِل'} ✓</button>
+              </div>
             </div>
           </div>
         </div>

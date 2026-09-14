@@ -345,6 +345,10 @@ export async function PATCH(req: Request) {
       gender,
       diagnosed_conditions = [],
       medications          = [],   // أسماء الأدوية المزمنة
+      drug_allergies       = [],   // حساسية الأدوية المسجّلة للمريض
+      food_allergies       = [],   // حساسية الأطعمة المسجّلة للمريض
+      is_pregnant          = false,
+      is_lactating         = false,
       pharmacy_name        = 'صيدليتك',
     } = body;
 
@@ -508,6 +512,28 @@ ${rateWarningLine}`;
       for (const c of d.avoidSupplements || []) avoidCategoriesForPatient.add(c);
     }
 
+    // ── تنبيهات السلامة: حساسية الأدوية/الأطعمة + الحمل/الرضاعة ──
+    // قرار المنتج: أي مريض له حساسية مسجّلة أو حامل/مرضعة لا تُقترح له منتجات
+    // من الكتالوج إطلاقاً — الكتالوج لا يحمل مكوّنات المنتج فلا يمكن ضمان سلامته
+    // حتمياً، والصيدلاني يختار بنفسه. الخطة الغذائية والنصائح تبقى مع مراعاة الحساسية.
+    const drugAllergyList: string[] = Array.isArray(drug_allergies) ? drug_allergies.filter((x: any) => typeof x === 'string' && x.trim()) : [];
+    const foodAllergyList: string[] = Array.isArray(food_allergies) ? food_allergies.filter((x: any) => typeof x === 'string' && x.trim()) : [];
+    const isPregnant  = is_pregnant === true;
+    const isLactating = is_lactating === true;
+    const suppressProductsReason: string | null =
+      isPregnant && isLactating ? 'حامل ومرضعة' :
+      isPregnant  ? 'حامل' :
+      isLactating ? 'مرضعة' :
+      (drugAllergyList.length > 0 || foodAllergyList.length > 0) ? 'حساسية مسجّلة' : null;
+    const safetyLines: string[] = [
+      `حساسية الأدوية: ${drugAllergyList.length ? drugAllergyList.join('، ') : 'لا يوجد مسجّل'}`,
+      `حساسية الأطعمة: ${foodAllergyList.length ? foodAllergyList.join('، ') : 'لا يوجد مسجّل'}`,
+    ];
+    if (isPregnant)  safetyLines.push('المريضة حامل — لا هدف لخسارة الوزن؛ الهدف تغذية صحية متوازنة ومتابعة وزن الحمل مع الطبيب');
+    if (isLactating) safetyLines.push('المريضة مرضعة — لا حمية قاسية ولا نقص سعرات حاد أثناء الرضاعة');
+    if (suppressProductsReason) safetyLines.push('ممنوع اقتراح أي فئة مكملات لهذا المريض — أعد pharmacy_products مصفوفة فارغة []');
+    const safetyText = safetyLines.join('\n');
+
     const userPrompt =
 `اسم المريض: ${patient_name}
 الجنس: ${genderAr} — العمر: ${age || 'غير محدد'} سنة
@@ -518,6 +544,9 @@ ${rateWarningLine}`;
 المطلوب إنقاصه: ${plan.target_loss_kg > 0 ? plan.target_loss_kg + ' كغ' : 'الوزن ضمن النطاق المثالي'}
 ${plan.first_goal_kg > 0 ? `الهدف المبدئي: ${plan.first_goal_kg} كغ (5٪ من الوزن الحالي)\n` : ''}الأمراض المزمنة: ${conditionsText}
 الأدوية المزمنة: ${medsText}
+
+تنبيهات السلامة (ملزمة — لا تقترح أي طعام أو مشروب أو مكمّل مذكور في الحساسية أو مشتق منه، وراعِ الحمل/الرضاعة في كل نصيحة):
+${safetyText}
 
 التفاعلات الدوائية الغذائية المعروفة لأدويته — معطاة لك حتمياً ولا تُستنتج:
 ${drugFactsText}
@@ -762,7 +791,9 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
     // ── استعلام حتمي: مطابقة الفئات المقترحة بمنتج فعلي في كتالوج الصيدلية ──
     // القرار المعماري الموثّق في docs/schema.sql: المطابقة عبر استعلام قاعدة
     // بيانات حتمي وليس عبر الذكاء الاصطناعي — النموذج لا يرى الكتالوج إطلاقاً
-    const suggestedCodes = nutritionData.pharmacy_products.map(p => p.category_code);
+    // حجب حتمي: عند وجود حساسية/حمل/رضاعة لا تُطابَق أي فئة بمنتج مهما اقترح النموذج
+    const productSuggestions = suppressProductsReason ? [] : nutritionData.pharmacy_products;
+    const suggestedCodes = productSuggestions.map(p => p.category_code);
     let recommendationsByCategory = new Map<string, { product_name: string; price: number; image_url: string | null }>();
 
     if (suggestedCodes.length > 0) {
@@ -782,7 +813,7 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
       }
     }
 
-    const enrichedProducts = nutritionData.pharmacy_products.map(p => ({
+    const enrichedProducts = productSuggestions.map(p => ({
       ...p,
       product: recommendationsByCategory.get(p.category_code) || null,
     }));
@@ -842,6 +873,7 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
     return NextResponse.json({
       success: true,
       dataSuspect: progressData?.dataSuspect ?? false,
+      productsSuppressedReason: suppressProductsReason,
       pharmacistSummary: {
         clinical_reasoning: finalNutritionData.clinical_reasoning ?? '',
         medications_alert:  finalNutritionData.medications_alert ?? '',

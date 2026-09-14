@@ -832,13 +832,13 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
     // المنطق في src/lib/allergen-scan.ts (مختبَر حتمياً)
     const allergenConflicts = findAllergenMentions(
       [
-        nutritionData.personal_message,
-        ...(nutritionData.smart_habits || []),
-        ...(nutritionData.breakfast || []),
-        ...(nutritionData.lunch || []),
-        ...(nutritionData.dinner || []),
-        ...(nutritionData.snacks || []),
-        nutritionData.medications_alert,
+        { label: 'الرسالة الشخصية', text: nutritionData.personal_message },
+        ...(nutritionData.smart_habits || []).map((t, i) => ({ label: `العادات الذكية ${i + 1}`, text: t })),
+        ...(nutritionData.breakfast || []).map((t, i) => ({ label: `الإفطار ${i + 1}`, text: t })),
+        ...(nutritionData.lunch || []).map((t, i) => ({ label: `الغداء ${i + 1}`, text: t })),
+        ...(nutritionData.dinner || []).map((t, i) => ({ label: `العشاء ${i + 1}`, text: t })),
+        ...(nutritionData.snacks || []).map((t, i) => ({ label: `الوجبات الخفيفة ${i + 1}`, text: t })),
+        { label: 'تنبيه الأدوية', text: nutritionData.medications_alert },
       ],
       [...drugAllergyList, ...foodAllergyList],
     );

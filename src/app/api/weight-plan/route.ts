@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { GoogleGenAI, Type } from '@google/genai';
-import { calcWeightGoals, getBMICategory } from '@/lib/weight-math';
+import { calcWeightGoals, getBMICategory, LACTATION_FIRST_GOAL_CAP_KG } from '@/lib/weight-math';
 import { SUPPLEMENT_CATEGORIES, isValidCategory } from '@/lib/supplement-categories';
 import { matchPatientDrugs, type DrugEntry } from '@/lib/drug-food-interactions';
 import { findAllergenMentions } from '@/lib/allergen-scan';
@@ -273,12 +273,15 @@ export async function POST(req: Request) {
     // ── الحسابات بالكود (لا AI) ──────────────────────────────────────
     // ── حمل: لا هدف لخسارة الوزن — يُقرأ من سجل المريضة في القاعدة لا من body ──
     const { data: patientRow } = await supabaseAdmin
-      .from('patients').select('is_pregnant').eq('id', patient_id).maybeSingle();
-    const isPregnant = patientRow?.is_pregnant === true;
+      .from('patients').select('is_pregnant, is_lactating').eq('id', patient_id).maybeSingle();
+    const isPregnant  = patientRow?.is_pregnant === true;
+    const isLactating = patientRow?.is_lactating === true;
 
     const goals     = calcWeightGoals(wNum, hNum);
     const toLoose   = isPregnant ? 0 : goals.toLoose;
-    const firstGoal = isPregnant ? 0 : goals.firstGoal;
+    // مرضعة: نزول لا يتجاوز 0.5 كغ/أسبوع (ACOG/eatright) — الهدف المبدئي يُسقَّف عند 3 كغ
+    // (0.5 × 6 أسابيع، منتصف نطاق "4–8 أسابيع" الذي يعرضه التقرير). الحامل: صفر.
+    const firstGoal = isPregnant ? 0 : isLactating ? Math.min(goals.firstGoal, LACTATION_FIRST_GOAL_CAP_KG) : goals.firstGoal;
     const bmi     = Math.round(goals.bmi * 10) / 10;
     const cat     = getBMICategory(goals.bmi);
 
@@ -537,8 +540,8 @@ ${rateWarningLine}`;
       `حساسية الأدوية: ${drugAllergyList.length ? drugAllergyList.join('، ') : 'لا يوجد مسجّل'}`,
       `حساسية الأطعمة: ${foodAllergyList.length ? foodAllergyList.join('، ') : 'لا يوجد مسجّل'}`,
     ];
-    if (isPregnant)  safetyLines.push('المريضة حامل — لا هدف لخسارة الوزن؛ الهدف تغذية صحية متوازنة ومتابعة وزن الحمل مع الطبيب. لا تقترح أسماكاً عالية الزئبق (تونة كبيرة، سمك أبو سيف، قرش، ماكريل ملكي) ولا أسماكاً نيئة؛ الأسماك منخفضة الزئبق (سلمون، سردين، تونة معلبة خفيفة) مسموحة بحد وجبتين أسبوعياً');
-    if (isLactating) safetyLines.push('المريضة مرضعة — لا حمية قاسية ولا نقص سعرات حاد أثناء الرضاعة');
+    if (isPregnant)  safetyLines.push('المريضة حامل — لا هدف لخسارة الوزن؛ الهدف تغذية متوازنة ومتابعة وزن الحمل مع الطبيب. الأسماك 2–3 وجبات أسبوعياً من منخفضة الزئبق (سلمون، سردين، تونة معلبة خفيفة)؛ ممنوع: التونة كبيرة العين، الماكريل الملكي، المارلين، الروفي البرتقالي، القرش، سمك أبو سيف، التايلفيش، وأي سمك نيء؛ تونة الباكور وجبة واحدة أسبوعياً. تجنّبي الألبان والعصائر غير المبسترة، الأجبان الطرية، اللحوم النيئة أو غير المطهوة جيداً، اللحوم الباردة الجاهزة، والكبدة. الكافيين لا يتجاوز 200 ملغ يومياً (كوبان)');
+    if (isLactating) safetyLines.push('المريضة مرضعة — نزول تدريجي فقط بمعدل لا يتجاوز 0.5 كغ أسبوعياً، ولا يبدأ قبل 6–8 أسابيع من الولادة؛ السعرات لا تقل عن 1800 يومياً مع 330–400 سعرة إضافية عن المعتاد؛ السوائل حسب العطش. الأسماك 2–3 وجبات أسبوعياً من منخفضة الزئبق (سلمون، سردين، تونة معلبة خفيفة)؛ ممنوع: التونة كبيرة العين، الماكريل الملكي، المارلين، الروفي البرتقالي، القرش، سمك أبو سيف، التايلفيش؛ تونة الباكور وجبة واحدة أسبوعياً. الكافيين لا يتجاوز 200 ملغ يومياً (كوبان). لا مكملات إنقاص وزن ولا حمية قاسية');
     if (suppressProductsReason) safetyLines.push('ممنوع اقتراح أي فئة مكملات لهذا المريض — أعد pharmacy_products مصفوفة فارغة []');
     const safetyText = safetyLines.join('\n');
 
@@ -981,7 +984,7 @@ export async function GET(req: Request) {
         id, performed_by, visitation_id, weight_kg, height_cm, bmi, bmi_category,
         ideal_weight_min, ideal_weight_max, target_loss_kg, first_goal_kg,
         nutrition_plan, plan_generated_at, created_at,
-        patient:patients(name, phone_number, gender, birth_date),
+        patient:patients(name, phone_number, gender, birth_date, is_pregnant, is_lactating),
         pharmacy:pharmacies(name, pharmacy_name, phone_number)
       `)
       .eq('id', plan_id)
@@ -1035,6 +1038,8 @@ export async function GET(req: Request) {
         phone_number: patient?.phone_number || '',
         gender:       patient?.gender       || 'male',
         birth_date:   patient?.birth_date   || null,
+        is_pregnant:  patient?.is_pregnant  === true,
+        is_lactating: patient?.is_lactating === true,
       },
       pharmacyName,
       pharmacyPhone,

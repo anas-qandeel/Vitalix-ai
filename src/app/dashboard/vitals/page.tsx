@@ -9,7 +9,7 @@ import DashboardHeader, { usePharmacyInfo } from '../components/DashboardHeader'
 import AppFooter from '../../components/AppFooter';
 import { getPharmacyId, getStaffId, getStaffName } from '@/lib/tenant';
 import { normalizeAr } from '@/lib/arabic';
-import { calcWeightGoals, getBMICategory } from '@/lib/weight-math';
+import { calcWeightGoals, getBMICategory, LACTATION_FIRST_GOAL_CAP_KG } from '@/lib/weight-math';
 import { detectTextDir } from '@/lib/text-direction';
 import { normalizePhone, displayPhone, validatePhone } from '@/lib/phone';
 import { SUPPLEMENT_CATEGORIES } from '@/lib/supplement-categories';
@@ -2559,8 +2559,9 @@ ${planUrl}
                               </div>
                               <div className="w-px bg-slate-200" />
                               <div className="flex-1">
-                                <p className="text-xl font-black text-slate-900">{bmiLive.firstGoal}</p>
+                                <p className="text-xl font-black text-slate-900">{currentPatient?.is_lactating ? Math.min(bmiLive.firstGoal, LACTATION_FIRST_GOAL_CAP_KG) : bmiLive.firstGoal}</p>
                                 <p className="text-[11px] text-slate-400 mt-0.5">الهدف المبدئي (كغ)</p>
+                                <p className="text-[10px] text-slate-400 mt-0.5">{currentPatient?.is_lactating ? 'بمعدل لا يتجاوز 0.5 كغ أسبوعياً — نحو 6 أسابيع' : 'خلال 4–8 أسابيع'}</p>
                               </div>
                               <div className="w-px bg-slate-200" />
                               <div className="flex-1">
@@ -3153,7 +3154,7 @@ ${weightPlanUrl}
         </div>
         {weightPdfPlan && (
           <div className="space-y-4" style={{ marginBottom: 16 }}>
-            <WeightPlanReport plan={weightPdfPlan} nutrition={parseNutrition(weightPdfPlan.nutrition_plan)} formatDate={formatDate} animate={false} />
+            <WeightPlanReport plan={weightPdfPlan} nutrition={parseNutrition(weightPdfPlan.nutrition_plan)} formatDate={formatDate} animate={false} patientFlags={{ is_pregnant: currentPatient?.is_pregnant, is_lactating: currentPatient?.is_lactating }} />
           </div>
         )}
         <div style={{ borderTop: '1px solid #E2E8F0', paddingTop: 14 }}>

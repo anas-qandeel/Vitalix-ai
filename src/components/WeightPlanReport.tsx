@@ -112,8 +112,12 @@ function ProgressStat({ label, diff, days, goalDirection }: { label: string; dif
   );
 }
 
-export default function WeightPlanReport({ plan, nutrition, formatDate, animate = true }: { plan: WeightPlan; nutrition: NutritionData | null; formatDate: (d: string) => string; animate?: boolean }) {
+export default function WeightPlanReport({ plan, nutrition, formatDate, animate = true, patientFlags }: { plan: WeightPlan; nutrition: NutritionData | null; formatDate: (d: string) => string; animate?: boolean; patientFlags?: { is_pregnant?: boolean | null; is_lactating?: boolean | null } }) {
   const bmiStyle  = getBMICategory(plan.bmi);
+  // حالة المريضة تُمرَّر صراحة من المستدعي (الفحوصات/PDF من currentPatient، صفحة المريضة من GET) — لا تُستنتج من الأرقام
+  const isPregnant  = !!patientFlags?.is_pregnant;
+  const isLactating = !!patientFlags?.is_lactating;
+  const lactationPace = 'بمعدل لا يتجاوز نصف كيلو أسبوعياً (نحو 6 أسابيع) مراعاةً للرضاعة';
   const hasData   = !!nutrition;
   const isSetback = !!nutrition?.progress && nutrition.progress.diffFromPrevious > 0;
   // هدف الخسارة معطّل عمداً (مثال: حامل) — صفر مع وزن زائد/سمنة لا يعني "ضمن المثالي"
@@ -196,19 +200,19 @@ export default function WeightPlanReport({ plan, nutrition, formatDate, animate 
           {plan.target_loss_kg > 0 && (
             isSetback ? (
               <div className="mt-4 bg-slate-50 rounded-xl px-4 py-3">
-                <p className="text-xs font-bold text-slate-900 text-center">نبدأ بـ {plan.first_goal_kg} كغ كهدف أول — والمسافة الكاملة {plan.target_loss_kg} كغ نقطعها خطوة خطوة</p>
+                <p className="text-xs font-bold text-slate-900 text-center">نبدأ بـ {plan.first_goal_kg} كغ كهدف أول{isLactating ? ` ${lactationPace}` : ''} — والمسافة الكاملة {plan.target_loss_kg} كغ نقطعها خطوة خطوة</p>
                 <p className="text-[10px] text-slate-400 text-center mt-1">هذه النسبة الصغيرة تُحسّن طاقتك وتخفف الضغط على مفاصلك</p>
               </div>
             ) : (
               <div className="mt-4 bg-slate-50 rounded-xl px-4 py-3">
-                <p className="text-xs font-bold text-slate-900 text-center">تحتاج إنقاص {plan.target_loss_kg} كغ للوصول لوزنك المثالي — نبدأ بـ {plan.first_goal_kg} كغ كهدف أول خلال 4–8 أسابيع</p>
+                <p className="text-xs font-bold text-slate-900 text-center">تحتاج إنقاص {plan.target_loss_kg} كغ للوصول لوزنك المثالي — نبدأ بـ {plan.first_goal_kg} كغ كهدف أول {isLactating ? lactationPace : 'خلال 4–8 أسابيع'}</p>
                 <p className="text-[10px] text-slate-400 text-center mt-1">هذه النسبة الصغيرة تُحسّن طاقتك وتخفف الضغط على مفاصلك</p>
               </div>
             )
           )}
           {goalDisabled && (
             <div className="mt-4 bg-slate-50 rounded-xl px-4 py-3">
-              <p className="text-xs font-bold text-slate-900 text-center">لا هدف لإنقاص الوزن في هذه الخطة — بتوجيه الصيدلاني</p>
+              <p className="text-xs font-bold text-slate-900 text-center">{isPregnant ? 'لا هدف لإنقاص الوزن أثناء الحمل — سلامتك وسلامة الجنين أولاً' : 'لا هدف لإنقاص الوزن في هذه الخطة — بتوجيه الصيدلاني'}</p>
               <p className="text-[10px] text-slate-400 text-center mt-1">التركيز على تغذية متوازنة ومتابعة الوزن مع الطبيب</p>
             </div>
           )}

@@ -47,3 +47,10 @@ export function calcWeightGoals(weightKg: number, heightCm: number): {
   const firstGoal = toLoose > 0 ? Math.min(firstGoalUncapped, toLoose) : 0;
   return { bmi, idealMin, idealMax, toLoose, firstGoal };
 }
+
+/**
+ * مرضعة: نزول لا يتجاوز 0.5 كغ/أسبوع (ACOG / Academy of Nutrition and Dietetics).
+ * الهدف المبدئي يُسقَّف عند 3 كغ = 0.5 × 6 أسابيع (منتصف نطاق "4–8 أسابيع" الذي يعرضه التقرير).
+ * يُستخدم في POST /api/weight-plan (الحفظ) وفي كرت الفحوصات (الحساب المحلي) — مصدر واحد.
+ */
+export const LACTATION_FIRST_GOAL_CAP_KG = 3;

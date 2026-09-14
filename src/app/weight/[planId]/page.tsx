@@ -14,7 +14,7 @@ const CATEGORY_LABELS: Record<string, string> = Object.fromEntries(
 // ════════════════════════════════════════════════════════════════════════
 // TYPES
 // ════════════════════════════════════════════════════════════════════════
-interface PatientInfo { name: string; gender: string; birth_date: string | null; }
+interface PatientInfo { name: string; gender: string; birth_date: string | null; is_pregnant?: boolean | null; is_lactating?: boolean | null; }
 interface PageData { plan: WeightPlan; patient: PatientInfo; pharmacyName: string; pharmacyPhone: string; performedBy: string | null; relatedVisitId: string | null; }
 interface PageProps { params: Promise<{ planId: string }>; }
 
@@ -198,7 +198,7 @@ export default function WeightPlanPage({ params }: PageProps) {
           </div>
         </div>
 
-        <WeightPlanReport plan={plan} nutrition={nutrition} formatDate={formatDate} />
+        <WeightPlanReport plan={plan} nutrition={nutrition} formatDate={formatDate} patientFlags={{ is_pregnant: patient.is_pregnant, is_lactating: patient.is_lactating }} />
 
         {/* المحتوى الكامل */}
         {hasData ? (

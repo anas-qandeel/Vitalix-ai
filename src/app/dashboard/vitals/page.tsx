@@ -558,6 +558,13 @@ export default function VitalsPage() {
     : null;
   const liveHasHtn = currentPatient?.diagnosed_conditions?.includes('hypertension') ?? false;
   const liveHasDm  = currentPatient?.diagnosed_conditions?.includes('diabetes') ?? false;
+  // سطر حتمي من ملف المريض (لا من النموذج) — يُعرض أسفل ملخصات الصيدلاني كي لا يُعتمد على تلخيص النموذج للحساسيات
+  const patientSafetyLine = currentPatient ? [
+    (currentPatient.drug_allergies?.length ?? 0) > 0 ? `حساسية دواء: ${(currentPatient.drug_allergies || []).join('، ')}` : null,
+    (currentPatient.food_allergies?.length ?? 0) > 0 ? `حساسية طعام: ${(currentPatient.food_allergies || []).join('، ')}` : null,
+    currentPatient.is_pregnant ? 'حامل' : null,
+    currentPatient.is_lactating ? 'مرضعة' : null,
+  ].filter(Boolean).join(' · ') : '';
   const liveBpClf = useMemo(
     () => (finalSys && finalDia) ? classifyBp(finalSys, finalDia, liveAge, liveHasHtn) : null,
     [finalSys, finalDia, liveAge, liveHasHtn]
@@ -2296,6 +2303,9 @@ ${planUrl}
                             <p className="text-[13px] text-amber-800 leading-relaxed">{latestMedicationsAlert}</p>
                           </div>
                         )}
+                        {patientSafetyLine && (
+                          <p className="text-[11px] text-slate-500 leading-relaxed">المسجّل في ملف المريض: {patientSafetyLine}</p>
+                        )}
                         {vitalsRecommendations.length > 0 && (
                           <div>
                             <p className="text-[9px] font-bold text-slate-400 mb-1.5">منتجات مقترحة — أزل ما لا تريد وصوله للمريض</p>
@@ -2691,6 +2701,9 @@ ${planUrl}
                                 ))}
                               </div>
                             </div>
+                          )}
+                          {patientSafetyLine && (
+                            <p className="text-[11px] text-slate-500 leading-relaxed">المسجّل في ملف المريض: {patientSafetyLine}</p>
                           )}
                         </div>
                       </div>

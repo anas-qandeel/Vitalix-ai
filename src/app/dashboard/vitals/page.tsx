@@ -2304,7 +2304,7 @@ ${planUrl}
                           </div>
                         )}
                         {patientSafetyLine && (
-                          <p className="text-[11px] text-slate-500 leading-relaxed">المسجّل في ملف المريض: {patientSafetyLine}</p>
+                          <p className="text-xs font-medium text-slate-700 leading-relaxed bg-slate-100 border border-slate-200 rounded-lg px-3 py-2">المسجّل في ملف المريض: {patientSafetyLine}</p>
                         )}
                         {vitalsRecommendations.length > 0 && (
                           <div>
@@ -2703,7 +2703,7 @@ ${planUrl}
                             </div>
                           )}
                           {patientSafetyLine && (
-                            <p className="text-[11px] text-slate-500 leading-relaxed">المسجّل في ملف المريض: {patientSafetyLine}</p>
+                            <p className="text-xs font-medium text-slate-700 leading-relaxed bg-slate-100 border border-slate-200 rounded-lg px-3 py-2">المسجّل في ملف المريض: {patientSafetyLine}</p>
                           )}
                         </div>
                       </div>

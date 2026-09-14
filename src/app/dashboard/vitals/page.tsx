@@ -515,6 +515,7 @@ export default function VitalsPage() {
   const [weightSaveError,  setWeightSaveError]  = useState('');
   const [weightWaMsg, setWeightWaMsg] = useState<string>('');
   const [weightDataSuspect, setWeightDataSuspect] = useState(false);
+  const [weightSafetyNotes, setWeightSafetyNotes] = useState<{ reason: string | null; conflicts: string[] }>({ reason: null, conflicts: [] });
   const generalPdfRef = useRef<HTMLDivElement>(null);
   const weightPdfRef = useRef<HTMLDivElement>(null);
 
@@ -730,7 +731,7 @@ ${planUrl}
     setErrorMsg(''); setSoftWarningMsg(''); setSoftWarningConfirmed(false);
     setLatestGeneratedReport(null); setLatestVisitId(null);
     setLatestPharmacistSummary(null); setLatestMedicationsAlert(null);
-    setWeightPlanId(null); setWeightSummary(null); setExcludedProducts(new Set()); setExcludedLabs(new Set()); setWeightPlanUrl(null); setWeightStatus('idle'); setBmiLive(null); setWeightDataSuspect(false); setWeightReviewed(false); setWeightWaMsg(''); setWeightApproveError(''); setWeightSaving(false); setSavedExclusions(''); setWeightSaveError('');
+    setWeightPlanId(null); setWeightSummary(null); setExcludedProducts(new Set()); setExcludedLabs(new Set()); setWeightPlanUrl(null); setWeightStatus('idle'); setBmiLive(null); setWeightDataSuspect(false); setWeightSafetyNotes({ reason: null, conflicts: [] }); setWeightReviewed(false); setWeightWaMsg(''); setWeightApproveError(''); setWeightSaving(false); setSavedExclusions(''); setWeightSaveError('');
     setReportLanguage('ar');
     setPatientMedications([]);
     setVitalsRecommendations([]); setExcludedVitalsProducts(new Set());
@@ -1118,7 +1119,7 @@ ${planUrl}
               }),
             })
               .then(r => r.json())
-              .then(d => { if (d.success) { setWeightStatus('sent'); setWeightDataSuspect(!!d.dataSuspect); setWeightSummary(d.pharmacistSummary ?? null); } })
+              .then(d => { if (d.success) { setWeightStatus('sent'); setWeightDataSuspect(!!d.dataSuspect); setWeightSummary(d.pharmacistSummary ?? null); setWeightSafetyNotes({ reason: d.productsSuppressedReason ?? null, conflicts: Array.isArray(d.allergenConflicts) ? d.allergenConflicts : [] }); } })
               .catch(() => setWeightStatus('error'));
 
             // الخطوة 3: فتح WhatsApp فوراً بعد إنشاء الـ plan_id
@@ -1248,7 +1249,7 @@ ${planUrl}
     setLatestGeneratedReport(null);
     setLatestVisitId(null);
     setLatestPharmacistSummary(null); setLatestMedicationsAlert(null);
-    setWeightPlanId(null); setWeightSummary(null); setExcludedProducts(new Set()); setExcludedLabs(new Set()); setWeightPlanUrl(null); setWeightStatus('idle'); setBmiLive(null); setWeightDataSuspect(false); setWeightReviewed(false); setWeightWaMsg(''); setWeightApproveError(''); setWeightSaving(false); setSavedExclusions(''); setWeightSaveError('');
+    setWeightPlanId(null); setWeightSummary(null); setExcludedProducts(new Set()); setExcludedLabs(new Set()); setWeightPlanUrl(null); setWeightStatus('idle'); setBmiLive(null); setWeightDataSuspect(false); setWeightSafetyNotes({ reason: null, conflicts: [] }); setWeightReviewed(false); setWeightWaMsg(''); setWeightApproveError(''); setWeightSaving(false); setSavedExclusions(''); setWeightSaveError('');
     setReportLanguage('ar');
     setErrorMsg('');
   };
@@ -2642,6 +2643,20 @@ ${planUrl}
                             </div>
                           )}
 
+                          {weightSafetyNotes.reason && (
+                            <div className="bg-rose-50 border border-rose-200 rounded-lg px-3 py-2">
+                              <p className="text-[9px] font-bold text-rose-700 mb-0.5">المكمّلات</p>
+                              <p className="text-xs text-rose-800 leading-relaxed">لم تُقترح منتجات من الكتالوج ({weightSafetyNotes.reason}) — اختر بنفسك ما يناسب المريض.</p>
+                            </div>
+                          )}
+                          {weightSafetyNotes.conflicts.length > 0 && (
+                            <div className="bg-rose-50 border border-rose-200 rounded-lg px-3 py-2">
+                              <p className="text-[9px] font-bold text-rose-700 mb-0.5">مراجعة الحساسية — ورد ذكر مسبب حساسية في نص الخطة</p>
+                              <ul className="text-xs text-rose-800 leading-relaxed list-disc pr-4 space-y-0.5">
+                                {weightSafetyNotes.conflicts.map((c, i) => <li key={i}>{c}</li>)}
+                              </ul>
+                            </div>
+                          )}
                           {weightSummary.pharmacy_products.length > 0 && (
                             <div>
                               <p className="text-[9px] font-bold text-slate-400 mb-1.5">المكمّلات المقترحة — أزل ما لا تريد وصوله للمريض</p>

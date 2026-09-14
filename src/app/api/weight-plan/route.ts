@@ -4,6 +4,7 @@ import { GoogleGenAI, Type } from '@google/genai';
 import { calcWeightGoals, getBMICategory } from '@/lib/weight-math';
 import { SUPPLEMENT_CATEGORIES, isValidCategory } from '@/lib/supplement-categories';
 import { matchPatientDrugs, type DrugEntry } from '@/lib/drug-food-interactions';
+import { normalizeAr } from '@/lib/arabic';
 
 // ═══════════════════════════════════════════════════════════════════════
 // نماذج Gemini
@@ -825,6 +826,42 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
       product: recommendationsByCategory.get(p.category_code) || null,
     }));
 
+    // ── فحص النص الحر ضد الحساسية المسجّلة — خط دفاع ثانٍ: علم مراجعة للصيدلاني لا حكم ──
+    // يتجاهل الذكر المسبوق بنفي قريب ("خالية من الحليب"، "تجنّبي المكسرات")
+    const NEGATION_RE = /(خالي|خالية|خال|بدون|بلا|دون|تجنب|تجنبي|لا تتناول|لا تتناولي|ابتعد|ابتعدي|ممنوع|استبدل|استبدلي)/;
+    const allergenConflicts: string[] = [];
+    const allAllergens = [...drugAllergyList, ...foodAllergyList];
+    if (allAllergens.length > 0) {
+      const textFields: string[] = [
+        nutritionData.personal_message,
+        ...(nutritionData.smart_habits || []),
+        ...(nutritionData.breakfast || []),
+        ...(nutritionData.lunch || []),
+        ...(nutritionData.dinner || []),
+        ...(nutritionData.snacks || []),
+        nutritionData.medications_alert,
+      ].filter((t): t is string => typeof t === 'string' && t.length > 0);
+      for (const allergen of allAllergens) {
+        const needle = normalizeAr(allergen).toLowerCase().trim();
+        if (needle.length < 2) continue;
+        for (const t of textFields) {
+          const hay = normalizeAr(t).toLowerCase();
+          let idx = hay.indexOf(needle);
+          while (idx !== -1) {
+            const before = hay.slice(Math.max(0, idx - 40), idx);
+            if (!NEGATION_RE.test(before)) {
+              // المقتطف يتمحور حول الكلمة نفسها (من النص المطبَّع — مواضعه لا تطابق الأصل بعد حذف التشكيل)
+              const start = Math.max(0, idx - 35);
+              const end   = Math.min(hay.length, idx + needle.length + 35);
+              allergenConflicts.push(`«${allergen}» ورد في: ${start > 0 ? '…' : ''}${hay.slice(start, end)}${end < hay.length ? '…' : ''}`);
+              break;
+            }
+            idx = hay.indexOf(needle, idx + needle.length);
+          }
+        }
+      }
+    }
+
     const finalNutritionData: NutritionData = {
       ...nutritionData,
       pharmacy_products: enrichedProducts,
@@ -881,6 +918,7 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
       success: true,
       dataSuspect: progressData?.dataSuspect ?? false,
       productsSuppressedReason: suppressProductsReason,
+      allergenConflicts,
       pharmacistSummary: {
         clinical_reasoning: finalNutritionData.clinical_reasoning ?? '',
         medications_alert:  finalNutritionData.medications_alert ?? '',

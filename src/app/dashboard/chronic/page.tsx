@@ -547,6 +547,16 @@ function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill }: {
                 <div className="flex-1 min-w-0">
                   <p className={`text-sm font-semibold truncate ${foundIsArchived ? 'text-amber-900' : 'text-slate-900'}`}>{found.name}</p>
                   <p className="text-[11px] text-slate-400 font-mono mt-0.5">{displayPhone(found.phone_number)}</p>
+                  {((found.diagnosed_conditions?.length ?? 0) > 0 || (found.drug_allergies?.length ?? 0) > 0 || (found.food_allergies?.length ?? 0) > 0 || found.is_pregnant || found.is_lactating) && (
+                    <div className="flex flex-wrap gap-1 mt-1.5">
+                      {found.diagnosed_conditions?.includes('hypertension') && <span className="text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-md">ضغط</span>}
+                      {found.diagnosed_conditions?.includes('diabetes') && <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">سكري</span>}
+                      {(found.drug_allergies?.length ?? 0) > 0 && <span className="text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-md">حساسية دواء: {(found.drug_allergies || []).join('، ')}</span>}
+                      {(found.food_allergies?.length ?? 0) > 0 && <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">حساسية طعام: {(found.food_allergies || []).join('، ')}</span>}
+                      {found.is_pregnant && <span className="text-[10px] font-bold text-pink-700 bg-pink-50 border border-pink-200 px-2 py-0.5 rounded-md">حامل</span>}
+                      {found.is_lactating && <span className="text-[10px] font-bold text-pink-700 bg-pink-50 border border-pink-200 px-2 py-0.5 rounded-md">مرضعة</span>}
+                    </div>
+                  )}
                   {foundIsArchived && (
                     <p className="text-xs text-amber-700 mt-0.5">🔄 مريض عائد — كنّا قد فقدنا تواصلنا معه. سجّل أدويته الجديدة لإعادة متابعته.</p>
                   )}
@@ -681,7 +691,7 @@ function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill }: {
 // ═══════════════════════════════════════════════════════
 // MODAL: تسجيل / تجديد الأدوية — تجديد انتقائي بدون DELETE+INSERT
 // ═══════════════════════════════════════════════════════
-function MedModal({ patientId, pharmacyId, existingMeds, patientName, onClose, onSaved, onBack, isNewPatient, drugAllergies, foodAllergies, isPregnant, isLactating }: {
+function MedModal({ patientId, pharmacyId, existingMeds, patientName, onClose, onSaved, onBack, isNewPatient, drugAllergies, foodAllergies, isPregnant, isLactating, diagnosedConditions }: {
   patientId: string; pharmacyId: string;
   existingMeds: ChronicMed[]; patientName: string;
   onClose: () => void; onSaved: () => void;
@@ -691,6 +701,7 @@ function MedModal({ patientId, pharmacyId, existingMeds, patientName, onClose, o
   foodAllergies?: string[] | null; // حساسية الأطعمة — بعض المستحضرات تحوي مكوّنات غذائية
   isPregnant?: boolean | null;
   isLactating?: boolean | null;
+  diagnosedConditions?: string[] | null; // التشخيصات المزمنة — للعرض في رأس النافذة
 }) {
   const isRenewal_initial = existingMeds.length > 0;
   const today = new Date().toISOString().split('T')[0];
@@ -907,6 +918,9 @@ function MedModal({ patientId, pharmacyId, existingMeds, patientName, onClose, o
               )}
               {(isPregnant || isLactating) && (
                 <p className="text-[11px] font-bold text-pink-700 mt-0.5 truncate">{[isPregnant && 'حامل', isLactating && 'مرضعة'].filter(Boolean).join(' · ')}</p>
+              )}
+              {(diagnosedConditions?.length ?? 0) > 0 && (
+                <p className="text-[11px] font-bold text-slate-600 mt-0.5 truncate">التشخيص: {[diagnosedConditions?.includes('hypertension') && 'ضغط', diagnosedConditions?.includes('diabetes') && 'سكري'].filter(Boolean).join(' · ')}</p>
               )}
             </div>
           </div>
@@ -1911,8 +1925,10 @@ function PatientCard({ card, pharmacyName, onAction, onNotesUpdate }: {
       {open && (
         <div className="border-t border-slate-100 px-5 pt-4 pb-5 space-y-4 bg-slate-50/30">
           <p className="text-xs text-slate-500 font-mono">{displayPhone(patient.phone_number)}</p>
-          {((patient.drug_allergies?.length ?? 0) > 0 || (patient.food_allergies?.length ?? 0) > 0 || patient.is_pregnant || patient.is_lactating) && (
+          {((patient.diagnosed_conditions?.length ?? 0) > 0 || (patient.drug_allergies?.length ?? 0) > 0 || (patient.food_allergies?.length ?? 0) > 0 || patient.is_pregnant || patient.is_lactating) && (
             <div className="flex flex-wrap gap-2">
+              {patient.diagnosed_conditions?.includes('hypertension') && <span className="text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-1 rounded-lg">ضغط</span>}
+              {patient.diagnosed_conditions?.includes('diabetes') && <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-lg">سكري</span>}
               {(patient.drug_allergies?.length ?? 0) > 0 && (
                 <span className="text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-1 rounded-lg">حساسية دواء: {(patient.drug_allergies || []).join('، ')}</span>
               )}
@@ -2075,7 +2091,7 @@ export default function ChronicPage() {
       setPharmacyId(pid);
 
       const { data: medsData } = await supabase.from('chronic_medications')
-        .select('*, patients!inner(id, name, phone_number, gender, birth_date, drug_allergies, food_allergies, is_pregnant, is_lactating)')
+        .select('*, patients!inner(id, name, phone_number, gender, birth_date, diagnosed_conditions, drug_allergies, food_allergies, is_pregnant, is_lactating)')
         .eq('pharmacy_id', pid).eq('status', 'active');
       const { data: pipelineData } = await supabase.from('refill_tracking_pipeline')
         .select('*').eq('pharmacy_id', pid).eq('payment_type', 'cash');
@@ -2716,7 +2732,7 @@ export default function ChronicPage() {
       {medModal && (
         <MedModal
           patientId={medModal.patient.id} pharmacyId={pharmacyId}
-          existingMeds={medModal.meds} patientName={medModal.patient.name} drugAllergies={medModal.patient.drug_allergies} foodAllergies={medModal.patient.food_allergies} isPregnant={medModal.patient.is_pregnant} isLactating={medModal.patient.is_lactating}
+          existingMeds={medModal.meds} patientName={medModal.patient.name} drugAllergies={medModal.patient.drug_allergies} foodAllergies={medModal.patient.food_allergies} isPregnant={medModal.patient.is_pregnant} isLactating={medModal.patient.is_lactating} diagnosedConditions={medModal.patient.diagnosed_conditions}
           isNewPatient={medModal.isNewPatient}
           onClose={() => {
             const wasNewPatient = medModal.isNewPatient;

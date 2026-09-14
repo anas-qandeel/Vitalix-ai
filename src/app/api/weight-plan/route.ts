@@ -590,6 +590,8 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
       // وتُحذف في GET قبل الوصول لصفحة المريض
       _all_products?:     EnrichedPharmacyProduct[];
       _all_labs?:         string[];
+      // سبب حجب المنتجات ومقتطفات مراجعة الحساسية — للصيدلاني فقط، يحفظه الخادم ويُحذف في GET
+      safety_review?:     { products_suppressed_reason: string | null; allergen_conflicts: string[] };
     };
 
     // شرط قبول رد النموذج: يفحص البنية (أنواع الحقول) لا مجرد الوجود
@@ -849,6 +851,7 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
       // نسخة كاملة أصلية — يقرأها PUT عند بناء الاستبعادات (راجع تعليق PUT)
       _all_products: enrichedProducts,
       _all_labs: nutritionData.lab_alerts,
+      safety_review: { products_suppressed_reason: suppressProductsReason, allergen_conflicts: allergenConflicts },
     };
 
     // ── حفظ JSON في DB ────────────────────────────────────────────────
@@ -1007,7 +1010,7 @@ export async function GET(req: Request) {
     const rawNutritionPlan = plan.nutrition_plan as any;
     const nutritionPlanForPatient = rawNutritionPlan
       ? (() => {
-          const { clinical_reasoning, drug_matching, _all_products, _all_labs, ...safeNutritionPlan } = rawNutritionPlan;
+          const { clinical_reasoning, drug_matching, _all_products, _all_labs, safety_review, ...safeNutritionPlan } = rawNutritionPlan;
           return safeNutritionPlan;
         })()
       : rawNutritionPlan;

@@ -655,6 +655,10 @@ ${planUrl}
     setExcludedProducts(exP); setExcludedLabs(exL);
     setSavedExclusions(JSON.stringify({ p: [...exP].sort(), l: [...exL].sort() }));
     setWeightDataSuspect(!!np.progress?.dataSuspect);
+    setWeightSafetyNotes({
+      reason:    np.safety_review?.products_suppressed_reason ?? null,
+      conflicts: Array.isArray(np.safety_review?.allergen_conflicts) ? np.safety_review.allergen_conflicts : [],
+    });
     setWeightStatus('sent');
     // weightWaMsg يُبنى تلقائياً في useEffect مستقل بعد اكتمال pharmacyName (يمنع رسالة باسم صيدلية فارغ)
   };

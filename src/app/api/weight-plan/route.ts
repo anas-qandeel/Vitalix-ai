@@ -537,7 +537,7 @@ ${rateWarningLine}`;
       `حساسية الأدوية: ${drugAllergyList.length ? drugAllergyList.join('، ') : 'لا يوجد مسجّل'}`,
       `حساسية الأطعمة: ${foodAllergyList.length ? foodAllergyList.join('، ') : 'لا يوجد مسجّل'}`,
     ];
-    if (isPregnant)  safetyLines.push('المريضة حامل — لا هدف لخسارة الوزن؛ الهدف تغذية صحية متوازنة ومتابعة وزن الحمل مع الطبيب');
+    if (isPregnant)  safetyLines.push('المريضة حامل — لا هدف لخسارة الوزن؛ الهدف تغذية صحية متوازنة ومتابعة وزن الحمل مع الطبيب. لا تقترح أسماكاً عالية الزئبق (تونة كبيرة، سمك أبو سيف، قرش، ماكريل ملكي) ولا أسماكاً نيئة؛ الأسماك منخفضة الزئبق (سلمون، سردين، تونة معلبة خفيفة) مسموحة بحد وجبتين أسبوعياً');
     if (isLactating) safetyLines.push('المريضة مرضعة — لا حمية قاسية ولا نقص سعرات حاد أثناء الرضاعة');
     if (suppressProductsReason) safetyLines.push('ممنوع اقتراح أي فئة مكملات لهذا المريض — أعد pharmacy_products مصفوفة فارغة []');
     const safetyText = safetyLines.join('\n');

@@ -473,15 +473,15 @@ function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill }: {
       <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md shadow-2xl border border-slate-200 saas-slide-up flex flex-col h-[82vh] sm:h-[78vh]" onClick={e => e.stopPropagation()}>
 
         {/* Header — ثابت */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 shrink-0">
-          <h3 className="text-base font-semibold text-slate-900">البحث عن مريض أو تسجيله</h3>
-          <button onClick={onClose} className="w-8 h-8 rounded-full bg-slate-50 hover:bg-slate-100 text-slate-500 flex items-center justify-center transition-colors">✕</button>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 shrink-0">
+          <h3 className="text-sm font-bold text-slate-900">البحث عن مريض أو تسجيله</h3>
+          <button onClick={onClose} className="w-8 h-8 rounded-full bg-slate-50 hover:bg-slate-100 text-slate-500 flex items-center justify-center transition-colors text-sm cursor-pointer">✕</button>
         </div>
 
         {/* حقل البحث — ثابت تحت الهيدر */}
         <div className="px-6 pt-5 pb-3 shrink-0">
           <div className="relative">
-            <label className="block text-xs font-semibold text-slate-600 mb-2">البحث بالاسم أو رقم الهاتف أو اسم الدواء</label>
+            <label className="block text-xs font-bold text-slate-600 mb-1.5">البحث بالاسم أو رقم الهاتف أو اسم الدواء</label>
             <input type="text" value={query} onChange={e => search(e.target.value)}
               placeholder="" autoFocus dir="auto"
               className="w-full px-4 py-3 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-all text-slate-900 shadow-sm" />
@@ -599,30 +599,30 @@ function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill }: {
                 <p className="text-xs font-semibold text-amber-800">مريض جديد — يرجى إكمال البيانات قبل المتابعة</p>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-2">الاسم الكامل</label>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5">الاسم الكامل</label>
                 <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="الاسم الكامل"
-                  className="w-full px-4 py-3 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-all text-slate-900 shadow-sm" />
+                  className="w-full px-4 py-3 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-slate-900 transition text-slate-900" />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-2">الجنس</label>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5">الجنس</label>
                   <div className="flex bg-slate-100 p-1 rounded-lg">
                     {[{ v: 'male', l: 'ذكر' }, { v: 'female', l: 'أنثى' }].map(g => (
-                      <button key={g.v} onClick={() => setGender(g.v)}
-                        className={`flex-1 py-1.5 rounded-md text-xs font-medium transition-all ${gender === g.v ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}>
+                      <button key={g.v} type="button" onClick={() => setGender(g.v)}
+                        className={`flex-1 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${gender === g.v ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500'}`}>
                         {g.l}
                       </button>
                     ))}
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-2">تاريخ الميلاد</label>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5">تاريخ الميلاد</label>
                   <input type="date" value={dob} onChange={e => setDob(e.target.value)}
-                    className="w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-all shadow-sm text-slate-900" />
+                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 transition text-slate-900" />
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-2">التشخيصات المزمنة <span className="font-normal text-slate-400">(اختياري)</span></label>
+                <label className="block text-xs font-bold text-slate-600 mb-2">التشخيصات المزمنة <span className="font-normal text-slate-400">(اختياري)</span></label>
                 <div className="grid grid-cols-2 gap-2">
                   {[
                     { key: 'hypertension', label: 'ضغط الدم' },
@@ -631,7 +631,7 @@ function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill }: {
                     const active = conditions.includes(key);
                     return (
                       <button key={key} type="button" onClick={() => toggleCondition(key)}
-                        className={`py-2.5 rounded-lg border text-xs font-semibold transition-all ${
+                        className={`flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
                           active ? 'bg-slate-900 border-slate-900 text-white' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
                         }`}>
                         {active ? '✓ ' : ''}{label}
@@ -642,10 +642,10 @@ function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill }: {
               </div>
               <PatientSafetyFields value={safety} onChange={setSafety} gender={gender} />
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-2">ملاحظة <span className="font-normal text-slate-400">(اختياري)</span></label>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5">ملاحظة <span className="font-normal text-slate-400">(اختياري)</span></label>
                 <textarea value={patientNote} onChange={e => setPatientNote(e.target.value)}
                   placeholder="مثال: خصم ثابت 10%"
-                  rows={2} className="w-full px-4 py-3 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-all resize-none text-slate-900 shadow-sm" />
+                  rows={2} className="w-full px-4 py-3 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-slate-900 transition text-slate-900 resize-none" />
               </div>
             </div>
           ) : results.length === 0 && query.trim().length >= 2 && !searching ? (

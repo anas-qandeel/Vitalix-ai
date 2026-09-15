@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { matchPatientDrugs } from '@/lib/drug-food-interactions';
+import { assessProductForPatient, type PatientForSuitability, type ProductForSuitability } from '@/lib/product-suitability';
 
 // تصريح صريح: هذا المسار يجب أن يُنفَّذ من جديد في كل طلب، ولا يُخزَّن مؤقتاً بأي شكل —
 // ضروري لأن البيانات (الزيارات الطبية) تتغيّر باستمرار ويجب أن تكون محدّثة دائماً
@@ -32,7 +34,7 @@ export async function GET(
     const { data: visit, error: visitError } = await supabaseAdmin
       .from('visitations')
       .select(
-        'id, pharmacy_id, patient_id, bp_systolic, bp_diastolic, heart_rate, is_dual_bp, bp_sys1, bp_dia1, hr1, bp_sys2, bp_dia2, hr2, sugar_value, sugar_test_type, weight, symptoms, ai_report_output, created_at, excluded_recommendation_ids, took_bp_medication, took_sugar_medication, bp_classification, bp_classification_level, sugar_classification, sugar_classification_level, heart_rate_classification, heart_rate_classification_level, classification_special_criteria, performed_by, had_stimulants, recent_exertion, recent_heavy_meal, is_stressed, patient:patients(name, phone_number, height, gender, birth_date)'
+        'id, pharmacy_id, patient_id, bp_systolic, bp_diastolic, heart_rate, is_dual_bp, bp_sys1, bp_dia1, hr1, bp_sys2, bp_dia2, hr2, sugar_value, sugar_test_type, weight, symptoms, ai_report_output, created_at, excluded_recommendation_ids, took_bp_medication, took_sugar_medication, bp_classification, bp_classification_level, sugar_classification, sugar_classification_level, heart_rate_classification, heart_rate_classification_level, classification_special_criteria, performed_by, had_stimulants, recent_exertion, recent_heavy_meal, is_stressed, patient:patients(name, phone_number, height, gender, birth_date, diagnosed_conditions, drug_allergies, food_allergies, is_pregnant, is_lactating)'
       )
       .eq('id', id)
       .single();
@@ -44,7 +46,11 @@ export async function GET(
       );
     }
 
-    const patient = visit.patient as unknown as { name: string; phone_number: string; height: number | null } | null;
+    const patient = visit.patient as unknown as {
+      name: string; phone_number: string; height: number | null; birth_date: string | null;
+      diagnosed_conditions: string[] | null; drug_allergies: string[] | null; food_allergies: string[] | null;
+      is_pregnant: boolean | null; is_lactating: boolean | null;
+    } | null;
 
     const { data: relatedWeightPlan } = await supabaseAdmin
       .from('weight_plans')
@@ -85,7 +91,8 @@ export async function GET(
       if (historyData) history = historyData;
     }
 
-    // 4. تقييم القياسات وجلب التوصيات المطابقة من كتالوج هذه الصيدلية فقط
+    // 4. تقييم القياسات لتحديد الفئات ذات الصلة بهذه الزيارة تحديداً —
+    // منطق طبي بحت، لا علاقة له بملف المريض (ذلك يأتي في خطوة الملاءمة التالية)
     const activeCategories: string[] = [];
 
     if (visit.sugar_value && visit.sugar_value >= 180) {
@@ -94,24 +101,54 @@ export async function GET(
     if ((visit.bp_systolic && visit.bp_systolic >= 140) || (visit.bp_diastolic && visit.bp_diastolic >= 90)) {
       activeCategories.push('bp_device');
     }
-    if (visit.weight && patient?.height) {
-      const heightMeters = patient.height / 100;
-      const bmi = visit.weight / (heightMeters * heightMeters);
-      if (bmi >= 25.0) activeCategories.push('weight_loss_med');
+    // ملاحظة: لا فئة لإدارة الوزن دوائياً — المنصة لا تعرض أدوية ولا تقترح علاجاً
+
+    // ── ملف المريض لمحرك الملاءمة: التشخيصات، الحساسيات، الحمل/الرضاعة، العمر، والأدوية المزمنة (الاسم العلمي) ──
+    let chronicGenerics: string[] = [];
+    if (visit.patient_id) {
+      const { data: medsData } = await supabaseAdmin
+        .from('chronic_medications')
+        .select('medication_name')
+        .eq('patient_id', visit.patient_id)
+        .eq('status', 'active');
+      if (medsData && medsData.length > 0) {
+        const { matched } = matchPatientDrugs(medsData.map((m: { medication_name: string }) => m.medication_name));
+        chronicGenerics = matched.map(d => d.generic);
+      }
     }
+    const patientAge = patient?.birth_date ? new Date().getFullYear() - new Date(patient.birth_date).getFullYear() : null;
+    const patientForSuitability: PatientForSuitability = {
+      age: patientAge,
+      diagnosed_conditions: patient?.diagnosed_conditions || [],
+      drug_allergies: patient?.drug_allergies || [],
+      food_allergies: patient?.food_allergies || [],
+      is_pregnant: patient?.is_pregnant === true,
+      is_lactating: patient?.is_lactating === true,
+      chronic_generics: chronicGenerics,
+    };
 
     let recommendations: unknown[] = [];
     if (activeCategories.length > 0) {
       const { data: recData } = await supabaseAdmin
-        .from('pharmacy_catalog')
-        .select('id, pharmacy_id, category, brand_name, price, image_url, ai_pitch_prompt, is_active')
+        .from('pharmacy_products')
+        .select('id, pharmacy_id, kind, category, brand_name, price, image_url, patient_pitch, clinical_profile, profile_source, profile_confirmed_at, review_status, is_active')
         .eq('pharmacy_id', visit.pharmacy_id)
         .eq('is_active', true)
         .in('category', activeCategories);
 
       if (recData) {
+        // ── محرك الملاءمة الحتمي: يُستبعد كل منتج «ممنوع»، ويبقى «بحذر» مع سببه للصيدلاني ──
+        const assessed = recData
+          .map((r: Record<string, unknown>) => {
+            const product = r as unknown as ProductForSuitability;
+            const { status, reasons } = assessProductForPatient(product, patientForSuitability);
+            return { row: r, status, reasons };
+          })
+          .filter(a => a.status !== 'forbidden')
+          .map(a => ({ ...a.row, suitability_note: a.status === 'caution' ? a.reasons : [] }));
+
         const excludedIds = new Set(visit.excluded_recommendation_ids || []);
-        recommendations = recData.filter((r: any) => !excludedIds.has(r.id));
+        recommendations = assessed.filter((r: Record<string, unknown>) => !excludedIds.has(r.id as string));
       }
     }
 
@@ -160,8 +197,8 @@ export async function GET(
     }, {
       headers: { 'Cache-Control': 'no-store, max-age=0' },
     });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message || 'حدث خطأ في الخادم' }, { status: 500 });
+  } catch (err) {
+    return NextResponse.json({ error: (err as Error)?.message || 'حدث خطأ في الخادم' }, { status: 500 });
   }
 }
 
@@ -185,7 +222,7 @@ export async function PUT(
       return NextResponse.json({ error: 'تعذر حفظ الاستثناءات' }, { status: 500 });
     }
     return NextResponse.json({ success: true });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message || 'حدث خطأ في الخادم' }, { status: 500 });
+  } catch (err) {
+    return NextResponse.json({ error: (err as Error)?.message || 'حدث خطأ في الخادم' }, { status: 500 });
   }
 }

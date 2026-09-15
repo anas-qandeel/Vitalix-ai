@@ -209,41 +209,55 @@ CREATE TABLE public.refill_tracking_pipeline (
 
 
 -- ----------------------------------------------------------------------------
--- pharmacy_catalog — كتالوج أجهزة/منتجات الصيدلية (حد أقصى 10 عناصر بالتصميم)
+-- pharmacy_products — الكتالوج الموحّد للصيدلية (مكملات، أجهزة، مستلزمات، أغذية طبية)
 -- ----------------------------------------------------------------------------
-CREATE TABLE public.pharmacy_catalog (
-    id uuid NOT NULL,
-    pharmacy_id uuid NOT NULL,
-    category character varying(50) NOT NULL,
-    brand_name character varying(150) NOT NULL,
-    price numeric NOT NULL,
-    image_url text,
-    ai_pitch_prompt text NOT NULL,                -- نص تسويقي مولّد بالذكاء الاصطناعي (زر violet بالواجهة)
-    is_active boolean,
-    created_at timestamp with time zone NOT NULL
+-- حلّ محل pharmacy_catalog و pharmacy_recommendations (حُذفا في هجرة 20260915140000).
+-- مبدأ المنصة: لا أدوية ولا علاجات — قيد kind لا يقبل نوع "دواء"، والحارس الحتمي
+-- (src/lib/medicine-blocklist.ts) والذكاء الاصطناعي يرفضان المستحضر الدوائي قبل الحفظ.
+-- المطابقة بين حالة المريض والمنتج تتم بمحرك حتمي (src/lib/product-suitability.ts)
+-- يقرأ clinical_profile («بطاقة الأمان» في الواجهة) — لا عبر الذكاء الاصطناعي.
+-- الذكاء الاصطناعي يعمل مرة واحدة فقط عند إدخال المنتج لبناء البطاقة، والصيدلاني يؤكدها.
+CREATE TABLE public.pharmacy_products (
+    id                   uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    pharmacy_id          uuid NOT NULL,
+    kind                 text NOT NULL,            -- supplement | device | consumable | medical_food (قيد CHECK)
+    category             text NOT NULL,            -- 18 فئة مغلقة + uncategorized (قيد CHECK؛ المصدر src/lib/catalog-taxonomy.ts)
+    brand_name           text NOT NULL,
+    price                numeric(10,2) NOT NULL,
+    image_url            text,
+    patient_pitch        text,                     -- النص الترويجي الموجه للمريض
+    clinical_profile     jsonb NOT NULL DEFAULT '{}'::jsonb,  -- بطاقة الأمان: المكونات، المسببات، الحمل/الرضاعة، العمر، السكر/الصوديوم/الكافيين، التداخلات
+    profile_source       text NOT NULL DEFAULT 'manual',      -- manual | ai
+    profile_confirmed_at timestamptz,              -- تأكيد الصيدلاني للبطاقة
+    review_status        text NOT NULL DEFAULT 'ok',          -- ok | needs_review | rejected_medicine
+    review_reason        text,
+    is_active            boolean NOT NULL DEFAULT true,
+    legacy_source        text,                     -- من أي جدول قديم نُسخ الصف (تتبع تاريخي)
+    created_at           timestamptz NOT NULL DEFAULT timezone('utc', now()),
+    updated_at           timestamptz NOT NULL DEFAULT timezone('utc', now())
 );
--- فهارس: pharmacy_catalog_pkey (id) UNIQUE فقط — لا حاجة لفهرس pharmacy_id
--- حالياً بسبب الحد الأقصى المتعمّد (10 عناصر لكل صيدلية).
+-- فهارس: idx_products_ph (pharmacy_id)، idx_products_ph_cat_active (pharmacy_id, category) WHERE is_active
+-- RLS: قراءة لكل مصادَق في صيدليته؛ كتابة لدوري owner/pharmacist فقط.
 
 
 -- ----------------------------------------------------------------------------
--- pharmacy_recommendations — توصيات المنتجات المطابقة لحالة المريض
+-- catalog_rejections — سجل تدقيق محاولات إدخال أدوية في الكتالوج
 -- ----------------------------------------------------------------------------
--- راجع AGENTS.md: المطابقة بين حالة المريض ومنتجات الكتالوج تتم عبر استعلام
--- قاعدة بيانات حتمي (deterministic)، وليس عبر الذكاء الاصطناعي — قرار معماري
--- متعمّد لتجنّب "اختراع" توصيات غير موثوقة طبياً.
-CREATE TABLE public.pharmacy_recommendations (
-    id uuid NOT NULL,
-    pharmacy_id uuid NOT NULL,
-    category character varying(50) NOT NULL,
-    product_name character varying(200) NOT NULL,
-    price numeric NOT NULL,
-    image_url text,
-    ai_description text NOT NULL,
-    is_active boolean,
-    created_at timestamp with time zone NOT NULL
+-- يُكتب من مسارات API عبر service_role فقط؛ لا سياسة لدور authenticated عمداً —
+-- الجدول غير مرئي للصيدليات، ويُقرأ من شاشة الأدمن فقط.
+CREATE TABLE public.catalog_rejections (
+    id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    pharmacy_id       uuid NOT NULL,
+    user_id           uuid,                        -- الموظف الذي حاول
+    brand_name        text NOT NULL,
+    ingredients       text[] NOT NULL DEFAULT '{}', -- ما استخرجه النموذج/أُدخل يدوياً
+    reason            text NOT NULL,
+    source            text NOT NULL,               -- blocklist | ai | both (قيد CHECK)
+    matched_terms     text[] NOT NULL DEFAULT '{}', -- المطابقات من القائمة الحتمية
+    image_url         text,
+    created_at        timestamptz NOT NULL DEFAULT timezone('utc', now())
 );
--- فهارس: pharmacy_recommendations_pkey (id) UNIQUE فقط
+-- فهارس: idx_catalog_rejections_ph (pharmacy_id, created_at DESC)
 
 
 -- ----------------------------------------------------------------------------

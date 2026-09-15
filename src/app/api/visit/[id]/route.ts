@@ -203,7 +203,7 @@ export async function GET(
 }
 
 // PUT — يحفظ قائمة معرّفات التوصيات التي استبعدها الصيدلاني من عرضها على المريض.
-// لا يمسّ pharmacy_catalog ولا الزيارة نفسها؛ فقط قائمة استبعاد تُطبَّق وقت GET.
+// لا يمسّ pharmacy_products ولا الزيارة نفسها؛ فقط قائمة استبعاد تُطبَّق وقت GET.
 export async function PUT(
   req: Request,
   { params }: { params: Promise<{ id: string }> }

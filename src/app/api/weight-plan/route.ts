@@ -52,7 +52,7 @@ const CATEGORY_LIST_TEXT = SUPPLEMENT_CATEGORIES.map(c => `- ${c.code} — ${c.l
 // System Instruction — خبير التغذية (مستقل تماماً)
 // النموذج يقرر الفئة السريرية فقط (category_code من قائمة مغلقة) — لا يرى
 // كتالوج الصيدلية ولا يسمّي منتجاً إطلاقاً؛ المطابقة بمنتج فعلي تتم بعد ذلك
-// عبر استعلام حتمي على pharmacy_recommendations (راجع docs/schema.sql)
+// عبر استعلام حتمي على pharmacy_products ثم محرك الملاءمة (راجع docs/schema.sql)
 // ═══════════════════════════════════════════════════════════════════════
 const NUTRITION_DEEP_INSTRUCTION = `
 أنت مستشار التغذية وإدارة الوزن في الصيدلية. لديك مهمتان متكاملتان لا تتعارضان:

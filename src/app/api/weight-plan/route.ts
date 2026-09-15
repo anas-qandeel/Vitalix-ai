@@ -7,6 +7,7 @@ import { matchPatientDrugs, type DrugEntry } from '@/lib/drug-food-interactions'
 import { findAllergenMentions } from '@/lib/allergen-scan';
 import { assessProductForPatient, type PatientForSuitability, type ProductForSuitability } from '@/lib/product-suitability';
 import { fetchProductScores, rankSuitable } from '@/lib/product-ranking';
+import { requireStaff } from '@/lib/api-auth';
 
 // ═══════════════════════════════════════════════════════════════════════
 // نماذج Gemini
@@ -991,12 +992,17 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
 // (finalize=false) قد يكون قصّر المصفوفة فعلاً فتصبح الفهارس اللاحقة غير مطابقة.
 export async function PUT(req: Request) {
   try {
+    // ── حارس: موظف نشط في صيدليته، والخطة تخص صيدليته ──
+    const auth = await requireStaff(req);
+    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
     const { plan_id, excluded_products = [], excluded_labs = [], finalize = true } = await req.json();
     if (!plan_id) return NextResponse.json({ error: 'معرف الخطة مطلوب' }, { status: 400 });
 
     const { data: plan, error: fetchErr } = await supabaseAdmin
       .from('weight_plans').select('nutrition_plan, pharmacy_id, patient_id').eq('id', plan_id).single();
     if (fetchErr || !plan) return NextResponse.json({ error: 'الخطة غير موجودة' }, { status: 404 });
+    if (plan.pharmacy_id !== auth.pharmacyId) return NextResponse.json({ error: 'الخطة لا تخص صيدليتك' }, { status: 403 });
 
     const np = (plan.nutrition_plan ?? {}) as any;
     const exP = new Set<number>(excluded_products);

@@ -2591,9 +2591,10 @@ ${planUrl}
                                   if (!weightPlanId) return;
                                   setWeightSaving(true); setWeightSaveError('');
                                   try {
+                                    const { data: { session: putSession } } = await supabase.auth.getSession();
                                     const r = await fetch('/api/weight-plan', {
                                       method: 'PUT',
-                                      headers: { 'Content-Type': 'application/json' },
+                                      headers: { 'Content-Type': 'application/json', ...(putSession ? { Authorization: `Bearer ${putSession.access_token}` } : {}) },
                                       body: JSON.stringify({ plan_id: weightPlanId, excluded_products: [...excludedProducts], excluded_labs: [...excludedLabs], finalize: false }),
                                     }).then(x => x.json());
                                     if (!r?.success) { setWeightSaveError('تعذّر حفظ الاستثناءات — تحقّق من الاتصال وأعد المحاولة.'); return; }
@@ -2654,9 +2655,10 @@ ${planUrl}
                               setWeightApproving(true);
                               setWeightApproveError('');
                               try {
+                                const { data: { session: putSession } } = await supabase.auth.getSession();
                                 const r = await fetch('/api/weight-plan', {
                                   method: 'PUT',
-                                  headers: { 'Content-Type': 'application/json' },
+                                  headers: { 'Content-Type': 'application/json', ...(putSession ? { Authorization: `Bearer ${putSession.access_token}` } : {}) },
                                   body: JSON.stringify({ plan_id: weightPlanId, excluded_products: [...excludedProducts], excluded_labs: [...excludedLabs] }),
                                 }).then(x => x.json());
                                 if (!r?.success) { setWeightApproveError('تعذّر حفظ اعتماد الخطة — لم تُرسل. تحقّق من الاتصال وأعد المحاولة.'); return; }

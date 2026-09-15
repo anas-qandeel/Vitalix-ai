@@ -76,7 +76,7 @@ interface VisitationRecord {
 type PharmacistSummary = {
   clinical_reasoning: string;
   medications_alert:  string;
-  pharmacy_products:  { category_code: string; reason: string; instruction: string; product: { product_name: string; price: number; image_url: string | null } | null }[];
+  pharmacy_products:  { category_code: string; reason: string; instruction: string; product: { product_name: string; price: number; image_url: string | null; suitability_note?: string[] } | null }[];
   lab_alerts:         string[];
 };
 
@@ -2535,6 +2535,12 @@ ${planUrl}
                                       <span className="font-bold">{p.product?.product_name ?? CATEGORY_LABELS[p.category_code] ?? p.category_code}</span>
                                       {p.product?.price != null && <span className="text-slate-400"> · {p.product.price} د.أ</span>}
                                       <span className="text-slate-500"> — {p.reason}</span>
+                                      {/* ملاحظة محرك الملاءمة — للصيدلاني فقط، لا تصل للمريض */}
+                                      {p.product?.suitability_note && p.product.suitability_note.length > 0 && (
+                                        <span className="block mt-0.5 text-[11px] text-amber-700">
+                                          <span className="font-bold">بحذر:</span> {p.product.suitability_note.join('، ')}
+                                        </span>
+                                      )}
                                     </span>
                                   </label>
                                 ))}

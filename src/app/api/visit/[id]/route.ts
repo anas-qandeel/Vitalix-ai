@@ -221,6 +221,46 @@ export async function PUT(
     if (updErr) {
       return NextResponse.json({ error: 'تعذر حفظ الاستثناءات' }, { status: 500 });
     }
+
+    // ── حلقة التعلّم: تسجيل استبعادات الصيدلاني كأحداث — غير مُعطِّل ──
+    // الزيارة لا تملك خطوة اعتماد منفصلة؛ حفظ الاستثناءات هو القرار النهائي.
+    // القيد الفريد في الجدول يمنع مضاعفة العدّ عند إعادة الحفظ لنفس الزيارة.
+    const productIds = excluded_ids.filter((x: unknown): x is string => typeof x === 'string' && x.length > 0);
+    if (productIds.length > 0) {
+      try {
+        const { data: visitRow } = await supabaseAdmin
+          .from('visitations')
+          .select('pharmacy_id, patient_id, patient:patients(is_pregnant, is_lactating, diagnosed_conditions)')
+          .eq('id', id)
+          .maybeSingle();
+        if (visitRow?.pharmacy_id) {
+          const p = Array.isArray(visitRow.patient) ? visitRow.patient[0] : visitRow.patient;
+          const conds: string[] = Array.isArray(p?.diagnosed_conditions) ? p.diagnosed_conditions : [];
+          const patientFlags = {
+            is_pregnant:  p?.is_pregnant  === true,
+            is_lactating: p?.is_lactating === true,
+            hypertension: conds.includes('hypertension'),
+            diabetes:     conds.includes('diabetes'),
+          };
+          const events = productIds.map(pid => ({
+            pharmacy_id:   visitRow.pharmacy_id,
+            product_id:    pid,
+            patient_id:    visitRow.patient_id ?? null,
+            event_type:    'pharmacist_excluded',
+            context:       'visit',
+            context_id:    id,
+            patient_flags: patientFlags,
+          }));
+          const { error: evErr } = await supabaseAdmin
+            .from('catalog_product_events')
+            .upsert(events, { onConflict: 'event_type,context,context_id,product_id', ignoreDuplicates: true });
+          if (evErr) console.warn('[visit PUT] learning events write failed (non-blocking):', evErr);
+          else console.log(`[visit PUT] learning: ${events.length} exclusion event(s) recorded`);
+        }
+      } catch (evErr) {
+        console.warn('[visit PUT] learning events write failed (non-blocking):', evErr);
+      }
+    }
     return NextResponse.json({ success: true });
   } catch (err) {
     return NextResponse.json({ error: (err as Error)?.message || 'حدث خطأ في الخادم' }, { status: 500 });

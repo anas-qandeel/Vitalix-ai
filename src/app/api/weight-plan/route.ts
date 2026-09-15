@@ -600,7 +600,7 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
     };
     type EnrichedPharmacyProduct = PharmacyProductSuggestion & {
       // suitability_note: أسباب «بحذر» بالعربية من محرك الملاءمة — فارغة إن كان المنتج ملائماً تماماً
-      product: { product_name: string; price: number; image_url: string | null; suitability_note: string[] } | null;
+      product: { id?: string; product_name: string; price: number; image_url: string | null; suitability_note: string[] } | null;
     };
     type NutritionData = {
       personal_message:   string;        // رسالة شخصية تحفيزية
@@ -847,7 +847,7 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
     // أسبابه للصيدلاني؛ و«ممنوع» لا يُعرض إطلاقاً. النموذج لا يرى الكتالوج أبداً.
     const productSuggestions = nutritionData.pharmacy_products;
     const suggestedCodes = productSuggestions.map(p => p.category_code);
-    type MatchedProduct = { product_name: string; price: number; image_url: string | null; suitability_note: string[] };
+    type MatchedProduct = { id: string; product_name: string; price: number; image_url: string | null; suitability_note: string[] };
     const recommendationsByCategory = new Map<string, MatchedProduct>();
 
     if (suggestedCodes.length > 0) {
@@ -870,6 +870,7 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
         // لا نستبدل منتجاً «ملائماً» بآخر، ولا «بحذر» بمثله — الأول الملائم يفوز
         if (existing && (existing.suitability_note.length === 0 || status === 'caution')) continue;
         recommendationsByCategory.set(rec.category, {
+          id:               rec.id,
           product_name:     rec.brand_name,
           price:            rec.price,
           image_url:        rec.image_url,
@@ -983,7 +984,7 @@ export async function PUT(req: Request) {
     if (!plan_id) return NextResponse.json({ error: 'معرف الخطة مطلوب' }, { status: 400 });
 
     const { data: plan, error: fetchErr } = await supabaseAdmin
-      .from('weight_plans').select('nutrition_plan').eq('id', plan_id).single();
+      .from('weight_plans').select('nutrition_plan, pharmacy_id, patient_id').eq('id', plan_id).single();
     if (fetchErr || !plan) return NextResponse.json({ error: 'الخطة غير موجودة' }, { status: 404 });
 
     const np = (plan.nutrition_plan ?? {}) as any;
@@ -1005,6 +1006,47 @@ export async function PUT(req: Request) {
     if (updErr) {
       console.error('[weight-plan PUT] update failed:', updErr);
       return NextResponse.json({ error: 'تعذر حفظ الاعتماد' }, { status: 500 });
+    }
+
+    // ── حلقة التعلّم: تسجيل استبعادات الصيدلاني عند الاعتماد فقط (finalize) ──
+    // غير مُعطِّل: فشل التسجيل لا يُفشل الاعتماد. القيد الفريد في الجدول يمنع
+    // مضاعفة العدّ عند إعادة اعتماد الخطة نفسها. خطط قديمة بلا product.id تُتجاهل.
+    if (finalize && exP.size > 0) {
+      try {
+        const { data: patientRow } = await supabaseAdmin
+          .from('patients')
+          .select('is_pregnant, is_lactating, diagnosed_conditions')
+          .eq('id', plan.patient_id)
+          .maybeSingle();
+        const conds: string[] = Array.isArray(patientRow?.diagnosed_conditions) ? patientRow.diagnosed_conditions : [];
+        const patientFlags = {
+          is_pregnant:  patientRow?.is_pregnant  === true,
+          is_lactating: patientRow?.is_lactating === true,
+          hypertension: conds.includes('hypertension'),
+          diabetes:     conds.includes('diabetes'),
+        };
+        const events = [...exP]
+          .map(i => allProducts[i]?.product?.id)
+          .filter((pid: unknown): pid is string => typeof pid === 'string' && pid.length > 0)
+          .map(pid => ({
+            pharmacy_id:   plan.pharmacy_id,
+            product_id:    pid,
+            patient_id:    plan.patient_id,
+            event_type:    'pharmacist_excluded',
+            context:       'weight_plan',
+            context_id:    plan_id,
+            patient_flags: patientFlags,
+          }));
+        if (events.length > 0) {
+          const { error: evErr } = await supabaseAdmin
+            .from('catalog_product_events')
+            .upsert(events, { onConflict: 'event_type,context,context_id,product_id', ignoreDuplicates: true });
+          if (evErr) console.warn('[weight-plan PUT] learning events write failed (non-blocking):', evErr);
+          else console.log(`[weight-plan PUT] learning: ${events.length} exclusion event(s) recorded`);
+        }
+      } catch (evErr) {
+        console.warn('[weight-plan PUT] learning events write failed (non-blocking):', evErr);
+      }
     }
     return NextResponse.json({ success: true });
   } catch (err: any) {

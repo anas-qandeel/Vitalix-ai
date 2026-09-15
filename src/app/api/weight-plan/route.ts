@@ -6,6 +6,7 @@ import { SUPPLEMENT_CATEGORIES, isValidCategory } from '@/lib/supplement-categor
 import { matchPatientDrugs, type DrugEntry } from '@/lib/drug-food-interactions';
 import { findAllergenMentions } from '@/lib/allergen-scan';
 import { assessProductForPatient, type PatientForSuitability, type ProductForSuitability } from '@/lib/product-suitability';
+import { fetchProductScores, rankSuitable } from '@/lib/product-ranking';
 
 // ═══════════════════════════════════════════════════════════════════════
 // نماذج Gemini
@@ -860,22 +861,32 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
         .order('brand_name');
 
       type CatalogRow = ProductForSuitability & { category: string; price: number; image_url: string | null };
+      const candidates: { rec: CatalogRow; status: 'ok' | 'caution'; reasons: string[] }[] = [];
       for (const rec of ((recData || []) as unknown as CatalogRow[])) {
         const { status, reasons } = assessProductForPatient(rec, patientForSuitability);
         if (status === 'forbidden') {
           console.warn(`[weight-plan PATCH] منتج ممنوع على هذا المريض استُبعد: ${rec.brand_name} — ${reasons.join(' | ')}`);
           continue;
         }
-        const existing = recommendationsByCategory.get(rec.category);
-        // لا نستبدل منتجاً «ملائماً» بآخر، ولا «بحذر» بمثله — الأول الملائم يفوز
-        if (existing && (existing.suitability_note.length === 0 || status === 'caution')) continue;
-        recommendationsByCategory.set(rec.category, {
-          id:               rec.id,
-          product_name:     rec.brand_name,
-          price:            rec.price,
-          image_url:        rec.image_url,
-          suitability_note: status === 'caution' ? reasons : [],
+        candidates.push({ rec, status: status as 'ok' | 'caution', reasons });
+      }
+      // ── حلقة التعلّم: درجة كل مرشّح من أحداث الصيدلية نفسها (90 يوماً)، ثم لكل فئة
+      // يفوز الأول بعد الفرز: ملائم قبل بحذر، ثم الدرجة الأعلى، ثم الاسم — لا يمس الأمان ──
+      const scores = await fetchProductScores(supabaseAdmin, plan.pharmacy_id, candidates.map(c => c.rec.id));
+      candidates.sort((a, b) => rankSuitable(
+        { status: a.status, score: scores.get(a.rec.id) ?? 0, name: a.rec.brand_name },
+        { status: b.status, score: scores.get(b.rec.id) ?? 0, name: b.rec.brand_name },
+      ));
+      for (const c of candidates) {
+        if (recommendationsByCategory.has(c.rec.category)) continue;
+        recommendationsByCategory.set(c.rec.category, {
+          id:               c.rec.id,
+          product_name:     c.rec.brand_name,
+          price:            c.rec.price,
+          image_url:        c.rec.image_url,
+          suitability_note: c.status === 'caution' ? c.reasons : [],
         });
+        console.log(`[weight-plan PATCH] learning: ${c.rec.category} ← ${c.rec.brand_name} (${c.status}, score ${scores.get(c.rec.id) ?? 0})`);
       }
     }
 

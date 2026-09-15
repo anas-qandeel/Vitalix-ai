@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { matchPatientDrugs } from '@/lib/drug-food-interactions';
 import { assessProductForPatient, type PatientForSuitability, type ProductForSuitability } from '@/lib/product-suitability';
+import { fetchProductScores, rankSuitable } from '@/lib/product-ranking';
 
 // تصريح صريح: هذا المسار يجب أن يُنفَّذ من جديد في كل طلب، ولا يُخزَّن مؤقتاً بأي شكل —
 // ضروري لأن البيانات (الزيارات الطبية) تتغيّر باستمرار ويجب أن تكون محدّثة دائماً
@@ -138,14 +139,20 @@ export async function GET(
 
       if (recData) {
         // ── محرك الملاءمة الحتمي: يُستبعد كل منتج «ممنوع»، ويبقى «بحذر» مع سببه للصيدلاني ──
-        const assessed = recData
+        const scored = recData
           .map((r: Record<string, unknown>) => {
             const product = r as unknown as ProductForSuitability;
             const { status, reasons } = assessProductForPatient(product, patientForSuitability);
             return { row: r, status, reasons };
           })
-          .filter(a => a.status !== 'forbidden')
-          .map(a => ({ ...a.row, suitability_note: a.status === 'caution' ? a.reasons : [] }));
+          .filter(a => a.status !== 'forbidden');
+        // ── حلقة التعلّم: ترتيب الملائمين بأحداث الصيدلية نفسها (90 يوماً) — لا يمس الأمان ──
+        const scores = await fetchProductScores(supabaseAdmin, visit.pharmacy_id, scored.map(a => a.row.id as string));
+        scored.sort((a, b) => rankSuitable(
+          { status: a.status as 'ok' | 'caution', score: scores.get(a.row.id as string) ?? 0, name: String(a.row.brand_name ?? '') },
+          { status: b.status as 'ok' | 'caution', score: scores.get(b.row.id as string) ?? 0, name: String(b.row.brand_name ?? '') },
+        ));
+        const assessed = scored.map(a => ({ ...a.row, suitability_note: a.status === 'caution' ? a.reasons : [] }));
 
         const excludedIds = new Set(visit.excluded_recommendation_ids || []);
         recommendations = assessed.filter((r: Record<string, unknown>) => !excludedIds.has(r.id as string));

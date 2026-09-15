@@ -7,9 +7,15 @@ const SNIPPET_PAD = 35;     // حرفاً حول الكلمة في المقتط�
 
 // توابع آمنة: إن تلت المسبّبَ مباشرةً فالذكر لبديل نباتي لا للمسبّب نفسه (المفاتيح بعد normalizeAr)
 const SAFE_FOLLOWERS: Record<string, RegExp> = {
-  'حليب': /^\s*(اللوز|الصويا|الشوفان|الارز|جوز الهند|النباتي|نباتي)/,
+  'حليب': /^\s*(اللوز|الصويا|الشوفان|الارز|جوز الهند|النباتي|نباتي|الام|الثدي)/,
   'زبده': /^\s*(الفول السوداني|اللوز|الشيا|الكاكاو)/,
   'جبن':  /^\s*(نباتي|النباتي)/,
+};
+
+// سوابق آمنة: إن سبقت المسبّبَ مباشرةً (مع "ال" اختيارية) فالذكر لحليب الرضاعة لا لمنتج ألبان.
+// مؤمّنة بفراغ/بداية النص قبلها كي لا تطابق جزء كلمة. "كمية/مصدر الحليب" تبقى إنذاراً عمداً.
+const SAFE_PRECEDERS: Record<string, RegExp> = {
+  'حليب': /(^|\s)(انتاج|إنتاج|ادرار|إدرار|تدفق|غزاره|غزارة)\s*(ال)?$/,
 };
 
 export interface LabeledText { label: string; text: unknown }
@@ -34,7 +40,8 @@ export function findAllergenMentions(texts: LabeledText[], allergens: unknown[])
         const before = hay.slice(Math.max(0, idx - NEGATION_WINDOW), idx);
         const after  = hay.slice(idx + needle.length, idx + needle.length + 20);
         const safeFollower = SAFE_FOLLOWERS[needle]?.test(after) ?? false;
-        if (!NEGATION_RE.test(before) && !safeFollower) {
+        const safePreceder = SAFE_PRECEDERS[needle]?.test(before) ?? false;
+        if (!NEGATION_RE.test(before) && !safeFollower && !safePreceder) {
           const start = Math.max(0, idx - SNIPPET_PAD);
           const end   = Math.min(hay.length, idx + needle.length + SNIPPET_PAD);
           conflicts.push(`«${allergen}» — ${label}: ${start > 0 ? '…' : ''}${hay.slice(start, end)}${end < hay.length ? '…' : ''}`);

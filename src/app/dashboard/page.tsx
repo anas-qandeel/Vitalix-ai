@@ -633,15 +633,15 @@ export default function PharmacistDashboard() {
             </div>
 
             {/* الكتالوج */}
-            <div onClick={() => router.push('/dashboard/pharmacy-catalog-manager')}
+            <div onClick={() => router.push('/dashboard/pharmacy-catalog-manager/v2')}
               className="group bg-white border border-slate-200 rounded-xl p-5 cursor-pointer shadow-sm hover:shadow-md transition-all flex items-center justify-between gap-4">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center shrink-0 group-hover:bg-slate-900 group-hover:text-white transition-colors">
                   <IconCatalog className="w-6 h-6 text-slate-600 group-hover:text-white transition-colors" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900">كتالوج الأجهزة (حد 10)</h3>
-                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">تعريف أجهزة القياس لاقتراحها تلقائياً.</p>
+                  <h3 className="text-sm font-bold text-slate-900">كتالوج المنتجات</h3>
+                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">مكملات وأجهزة ومستلزمات، لكل منتج بطاقة أمان تُفحص تلقائياً لكل مريض.</p>
                 </div>
               </div>
               <IconArrow className="w-5 h-5 text-slate-300 group-hover:text-slate-900 transition-colors shrink-0 rotate-180" />

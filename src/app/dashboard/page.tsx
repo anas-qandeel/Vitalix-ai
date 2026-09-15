@@ -633,7 +633,7 @@ export default function PharmacistDashboard() {
             </div>
 
             {/* الكتالوج */}
-            <div onClick={() => router.push('/dashboard/pharmacy-catalog-manager/v2')}
+            <div onClick={() => router.push('/dashboard/pharmacy-catalog-manager')}
               className="group bg-white border border-slate-200 rounded-xl p-5 cursor-pointer shadow-sm hover:shadow-md transition-all flex items-center justify-between gap-4">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center shrink-0 group-hover:bg-slate-900 group-hover:text-white transition-colors">

@@ -42,11 +42,13 @@ export async function GET(
       .order('created_at', { ascending: false })
       .limit(1);
 
+    // الكتالوج الموحّد pharmacy_products (يستبدل pharmacy_catalog) — المرفوض كدواء لا يُعدّ
     const { count: catalogCount } = await supabaseAdmin
-      .from('pharmacy_catalog')
+      .from('pharmacy_products')
       .select('*', { count: 'exact', head: true })
       .eq('pharmacy_id', id)
-      .eq('is_active', true);
+      .eq('is_active', true)
+      .neq('review_status', 'rejected_medicine');
 
     return NextResponse.json({
       pharmacy,

@@ -3,6 +3,7 @@ import { GoogleGenAI, Type, ThinkingLevel } from '@google/genai';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { looksLikeMedicine } from '@/lib/medicine-blocklist';
 import { ALLERGEN_TAGS, CONDITION_TAGS, type ClinicalProfile } from '@/lib/product-suitability';
+import { PRODUCT_KINDS, PRODUCT_CATEGORIES } from '@/lib/catalog-taxonomy';
 
 // ═══════════════════════════════════════════════════════════════════════
 // POST /api/catalog/profile — يبني البطاقة السريرية لمنتج من اسمه (وصورة علبته إن وُجدت).
@@ -16,13 +17,6 @@ const GEMINI_MODELS_FALLBACK = [
   'gemini-3.5-flash-lite',
 ].filter(Boolean) as string[];
 
-export const PRODUCT_KINDS = ['supplement', 'device', 'consumable', 'medical_food'] as const;
-export const PRODUCT_CATEGORIES = [
-  'b12', 'omega3', 'fiber', 'vitamin_d', 'calcium', 'magnesium_potassium', 'protein',
-  'sugar_substitute', 'blood_sugar_support', 'zinc_selenium', 'probiotic', 'iron',
-  'appetite_stimulant', 'satiety_aid', 'multivitamin',
-  'sugar_device', 'sugar_strips', 'bp_device', 'uncategorized',
-] as const;
 
 const SAFETY = ['safe', 'caution', 'avoid', 'unknown'];
 const CONF   = ['high', 'medium', 'low'];

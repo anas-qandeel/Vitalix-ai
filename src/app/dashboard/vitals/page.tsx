@@ -935,9 +935,10 @@ ${planUrl}
           setWeightStatus('saving');
 
           // الخطوة 1: إنشاء weight_plan (فوري، بدون AI)
+          const { data: { session: postSession } } = await supabase.auth.getSession();
           const planRes = await fetch('/api/weight-plan', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', ...(postSession ? { Authorization: `Bearer ${postSession.access_token}` } : {}) },
             body: JSON.stringify({
               patient_id:    currentPatient.id,
               pharmacy_id:   pid2,
@@ -967,9 +968,10 @@ ${planUrl}
               .eq('status', 'active');
             const medications = (meds || []).map((m: any) => m.medication_name);
 
+            const { data: { session: patchSession } } = await supabase.auth.getSession();
             fetch('/api/weight-plan', {
               method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
+              headers: { 'Content-Type': 'application/json', ...(patchSession ? { Authorization: `Bearer ${patchSession.access_token}` } : {}) },
               body: JSON.stringify({
                 plan_id:              planId,
                 patient_name:         currentPatient.name,

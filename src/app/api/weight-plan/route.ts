@@ -259,8 +259,13 @@ function getErrStatus(e: any): number {
 // ═══════════════════════════════════════════════════════════════════════
 export async function POST(req: Request) {
   try {
+    // ── حارس: موظف نشط، والخطة تُنشأ في صيدليته فقط ──
+    const auth = await requireStaff(req);
+    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
     const body = await req.json();
     const { patient_id, pharmacy_id, weight_kg, height_cm, performed_by, visitation_id } = body;
+    if (pharmacy_id && pharmacy_id !== auth.pharmacyId) return NextResponse.json({ error: 'الصيدلية لا تطابق حسابك' }, { status: 403 });
 
     if (!patient_id || !pharmacy_id || !weight_kg || !height_cm) {
       return NextResponse.json({ error: 'بيانات ناقصة' }, { status: 400 });
@@ -351,6 +356,10 @@ export async function POST(req: Request) {
 // ═══════════════════════════════════════════════════════════════════════
 export async function PATCH(req: Request) {
   try {
+    // ── حارس: موظف نشط؛ مطابقة صيدلية الخطة بعد جلبها أدناه ──
+    const auth = await requireStaff(req);
+    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
     const body = await req.json();
     // حقول السلامة من الجسم تُستخدم احتياطاً فقط — المصدر الفعلي سجل المريض في القاعدة (أدناه)
     const {
@@ -381,6 +390,7 @@ export async function PATCH(req: Request) {
     if (fetchErr || !plan) {
       return NextResponse.json({ error: 'الخطة غير موجودة' }, { status: 404 });
     }
+    if (plan.pharmacy_id !== auth.pharmacyId) return NextResponse.json({ error: 'الخطة لا تخص صيدليتك' }, { status: 403 });
 
     // ── ملف المريض من القاعدة — مصدر الحقيقة لحقول السلامة (نفس مبدأ POST) ──
     // نسخة المتصفح قد تكون قديمة (حمل أو حساسية سُجّلا بعد فتح الصفحة)؛ لذلك

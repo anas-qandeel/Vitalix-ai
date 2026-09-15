@@ -853,9 +853,10 @@ ${planUrl}
 
       if (!isWeightOnly) {
         try {
+          const { data: { session: reportSession } } = await supabase.auth.getSession();
           const res = await fetch('/api/generate-ai-report', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', ...(reportSession ? { Authorization: `Bearer ${reportSession.access_token}` } : {}) },
             body: JSON.stringify({ patient: currentPatient, currentVisit: aiPayload, history: patientHistory, pharmacyName: pharmacyNameForOutput, language: reportLanguage, approvedClassifications, chronicMedications: patientMedications }),
           });
           if (res.ok) {
@@ -2213,9 +2214,10 @@ ${planUrl}
                                 if (!latestVisitId) return;
                                 setVitalsExclusionSaving(true); setVitalsExclusionError('');
                                 try {
+                                  const { data: { session: visitSession } } = await supabase.auth.getSession();
                                   const r = await fetch(`/api/visit/${latestVisitId}`, {
                                     method: 'PUT',
-                                    headers: { 'Content-Type': 'application/json' },
+                                    headers: { 'Content-Type': 'application/json', ...(visitSession ? { Authorization: `Bearer ${visitSession.access_token}` } : {}) },
                                     body: JSON.stringify({ excluded_ids: [...excludedVitalsProducts] }),
                                   }).then(x => x.json());
                                   if (!r?.success) { setVitalsExclusionError('تعذّر حفظ الاستثناءات — تحقّق من الاتصال وأعد المحاولة.'); return; }
@@ -2280,9 +2282,10 @@ ${planUrl}
                           setVitalsSendApproving(true); setVitalsSendError('');
                           try {
                             if (vitalsRecommendations.length > 0) {
+                              const { data: { session: visitSession } } = await supabase.auth.getSession();
                               const r = await fetch(`/api/visit/${latestVisitId}`, {
                                 method: 'PUT',
-                                headers: { 'Content-Type': 'application/json' },
+                                headers: { 'Content-Type': 'application/json', ...(visitSession ? { Authorization: `Bearer ${visitSession.access_token}` } : {}) },
                                 body: JSON.stringify({ excluded_ids: [...excludedVitalsProducts] }),
                               }).then(x => x.json());
                               if (!r?.success) { setVitalsSendError('تعذّر حفظ الاستثناءات — لم يُرسل. تحقّق من الاتصال وأعد المحاولة.'); return; }

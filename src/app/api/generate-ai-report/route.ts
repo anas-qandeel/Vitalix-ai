@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
 import { classifySugar, classifyBp, classifyHeartRate } from '@/lib/vitals-classify';
 import { getBMICategory } from '@/lib/weight-math';
+import { requireStaff } from '@/lib/api-auth';
 
 // قائمة نماذج مرتبة — يُجرَّب الأول فإن أعطى 404 ينتقل للتالي تلقائياً
 // يمكن تجاوز الكل بتعريف GEMINI_MODEL في ملف .env.local
@@ -96,6 +97,10 @@ function getErrStatus(e: any): number {
 
 export async function POST(req: Request) {
   try {
+    // ── حارس: موظف نشط في صيدلية (التقرير يُولَّد بالذكاء — مكلف، لا يُترك مفتوحاً) ──
+    const auth = await requireStaff(req);
+    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
     const body = await req.json();
     const { patient, currentVisit, history, pharmacyName, language: languageRaw, approvedClassifications, chronicMedications } = body;
     const language: 'ar' | 'en' = languageRaw === 'en' ? 'en' : 'ar';

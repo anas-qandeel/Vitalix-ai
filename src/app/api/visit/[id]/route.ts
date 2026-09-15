@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase-admin';
 import { matchPatientDrugs } from '@/lib/drug-food-interactions';
 import { assessProductForPatient, type PatientForSuitability, type ProductForSuitability } from '@/lib/product-suitability';
 import { fetchProductScores, rankSuitable } from '@/lib/product-ranking';
+import { requireStaff } from '@/lib/api-auth';
 
 // تصريح صريح: هذا المسار يجب أن يُنفَّذ من جديد في كل طلب، ولا يُخزَّن مؤقتاً بأي شكل —
 // ضروري لأن البيانات (الزيارات الطبية) تتغيّر باستمرار ويجب أن تكون محدّثة دائماً
@@ -216,11 +217,18 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // ── حارس: موظف نشط، والزيارة تخص صيدليته ──
+    const auth = await requireStaff(req);
+    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
     const { id } = await params;
     const { excluded_ids } = await req.json();
     if (!Array.isArray(excluded_ids)) {
       return NextResponse.json({ error: 'excluded_ids يجب أن تكون مصفوفة' }, { status: 400 });
     }
+    const { data: visitOwner } = await supabaseAdmin.from('visitations').select('pharmacy_id').eq('id', id).maybeSingle();
+    if (!visitOwner) return NextResponse.json({ error: 'الزيارة غير موجودة' }, { status: 404 });
+    if (visitOwner.pharmacy_id !== auth.pharmacyId) return NextResponse.json({ error: 'الزيارة لا تخص صيدليتك' }, { status: 403 });
     const { error: updErr } = await supabaseAdmin
       .from('visitations')
       .update({ excluded_recommendation_ids: excluded_ids })

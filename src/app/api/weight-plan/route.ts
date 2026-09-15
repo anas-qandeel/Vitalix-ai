@@ -5,6 +5,7 @@ import { calcWeightGoals, getBMICategory, LACTATION_FIRST_GOAL_CAP_KG } from '@/
 import { SUPPLEMENT_CATEGORIES, isValidCategory } from '@/lib/supplement-categories';
 import { matchPatientDrugs, type DrugEntry } from '@/lib/drug-food-interactions';
 import { findAllergenMentions } from '@/lib/allergen-scan';
+import { assessProductForPatient, type PatientForSuitability, type ProductForSuitability } from '@/lib/product-suitability';
 
 // ═══════════════════════════════════════════════════════════════════════
 // نماذج Gemini
@@ -524,18 +525,13 @@ ${rateWarningLine}`;
     }
 
     // ── تنبيهات السلامة: حساسية الأدوية/الأطعمة + الحمل/الرضاعة ──
-    // قرار المنتج: أي مريض له حساسية مسجّلة أو حامل/مرضعة لا تُقترح له منتجات
-    // من الكتالوج إطلاقاً — الكتالوج لا يحمل مكوّنات المنتج فلا يمكن ضمان سلامته
-    // حتمياً، والصيدلاني يختار بنفسه. الخطة الغذائية والنصائح تبقى مع مراعاة الحساسية.
+    // ملاءمة المنتجات لهذا المريض تُقرَّر لاحقاً لكل منتج على حدة عبر محرك
+    // الملاءمة الحتمي (product-suitability) بناءً على بطاقة الأمان — لا حجب كلي.
+    // هذه الأسطر تخص الخطة الغذائية والنصائح فقط.
     const drugAllergyList: string[] = Array.isArray(drug_allergies) ? drug_allergies.filter((x: any) => typeof x === 'string' && x.trim()) : [];
     const foodAllergyList: string[] = Array.isArray(food_allergies) ? food_allergies.filter((x: any) => typeof x === 'string' && x.trim()) : [];
     const isPregnant  = is_pregnant === true;
     const isLactating = is_lactating === true;
-    const suppressProductsReason: string | null =
-      isPregnant && isLactating ? 'حامل ومرضعة' :
-      isPregnant  ? 'حامل' :
-      isLactating ? 'مرضعة' :
-      (drugAllergyList.length > 0 || foodAllergyList.length > 0) ? 'حساسية مسجّلة' : null;
     const safetyLines: string[] = [
       `حساسية الأدوية: ${drugAllergyList.length ? drugAllergyList.join('، ') : 'لا يوجد مسجّل'}`,
       `حساسية الأطعمة: ${foodAllergyList.length ? foodAllergyList.join('، ') : 'لا يوجد مسجّل'}`,
@@ -543,7 +539,6 @@ ${rateWarningLine}`;
     if (isPregnant)  safetyLines.push('المريضة حامل — لا هدف لخسارة الوزن؛ الهدف تغذية متوازنة ومتابعة وزن الحمل مع الطبيب. الأسماك 2–3 وجبات أسبوعياً من منخفضة الزئبق (سلمون، سردين، تونة معلبة خفيفة)؛ ممنوع: التونة كبيرة العين، الماكريل الملكي، المارلين، الروفي البرتقالي، القرش، سمك أبو سيف، التايلفيش، وأي سمك نيء؛ تونة الباكور وجبة واحدة أسبوعياً. تجنّبي الألبان والعصائر غير المبسترة، الأجبان الطرية، اللحوم النيئة أو غير المطهوة جيداً، اللحوم الباردة الجاهزة، والكبدة. الكافيين لا يتجاوز 200 ملغ يومياً (كوبان)');
     if (isPregnant && isLactating) safetyLines.push('المريضة حامل ومرضعة معاً — تنطبق قيود الحمل كاملة ولا هدف لخسارة الوزن إطلاقاً؛ الاحتياج من السعرات والسوائل أعلى لتغذية الحمل والرضاعة معاً (نحو 600–700 سعرة إضافية عن المعتاد)؛ توجيه المريضة لمتابعة طبية أوثق لأن الرضاعة أثناء الحمل تُقيَّم طبياً حالة بحالة');
     if (isLactating && !isPregnant) safetyLines.push('المريضة مرضعة — نزول تدريجي فقط بمعدل لا يتجاوز 0.5 كغ أسبوعياً، ولا يبدأ قبل 6–8 أسابيع من الولادة؛ السعرات لا تقل عن 1800 يومياً مع 330–400 سعرة إضافية عن المعتاد؛ السوائل حسب العطش. الأسماك 2–3 وجبات أسبوعياً من منخفضة الزئبق (سلمون، سردين، تونة معلبة خفيفة)؛ ممنوع: التونة كبيرة العين، الماكريل الملكي، المارلين، الروفي البرتقالي، القرش، سمك أبو سيف، التايلفيش؛ تونة الباكور وجبة واحدة أسبوعياً. الكافيين لا يتجاوز 200 ملغ يومياً (كوبان). لا مكملات إنقاص وزن ولا حمية قاسية');
-    if (suppressProductsReason) safetyLines.push('ممنوع اقتراح أي فئة مكملات لهذا المريض — أعد pharmacy_products مصفوفة فارغة []');
     const safetyText = safetyLines.join('\n');
 
     const userPrompt =
@@ -574,7 +569,8 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
       instruction:   string;
     };
     type EnrichedPharmacyProduct = PharmacyProductSuggestion & {
-      product: { product_name: string; price: number; image_url: string | null } | null;
+      // suitability_note: أسباب «بحذر» بالعربية من محرك الملاءمة — فارغة إن كان المنتج ملائماً تماماً
+      product: { product_name: string; price: number; image_url: string | null; suitability_note: string[] } | null;
     };
     type NutritionData = {
       personal_message:   string;        // رسالة شخصية تحفيزية
@@ -805,24 +801,49 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
     // ── استعلام حتمي: مطابقة الفئات المقترحة بمنتج فعلي في كتالوج الصيدلية ──
     // القرار المعماري الموثّق في docs/schema.sql: المطابقة عبر استعلام قاعدة
     // بيانات حتمي وليس عبر الذكاء الاصطناعي — النموذج لا يرى الكتالوج إطلاقاً
-    // حجب حتمي: عند وجود حساسية/حمل/رضاعة لا تُطابَق أي فئة بمنتج مهما اقترح النموذج
-    const productSuggestions = suppressProductsReason ? [] : nutritionData.pharmacy_products;
+    // ── ملف المريض لمحرك الملاءمة — من نفس المصدر الذي بُني منه البرومبت أعلاه (نمط visit/[id]) ──
+    const patientForSuitability: PatientForSuitability = {
+      age:                  typeof age === 'number' ? age : (Number(age) || null),
+      diagnosed_conditions: Array.isArray(diagnosed_conditions) ? diagnosed_conditions : [],
+      drug_allergies:       drugAllergyList,
+      food_allergies:       foodAllergyList,
+      is_pregnant:          isPregnant,
+      is_lactating:         isLactating,
+      chronic_generics:     matchedDrugs.map(d => d.generic),
+    };
+
+    // ── استعلام حتمي من الكتالوج الموحّد pharmacy_products ثم محرك الملاءمة لكل مرشّح ──
+    // لكل فئة اقترحها النموذج: يُختار أول منتج «ملائم»؛ وإن لم يوجد فأول «بحذر» مع
+    // أسبابه للصيدلاني؛ و«ممنوع» لا يُعرض إطلاقاً. النموذج لا يرى الكتالوج أبداً.
+    const productSuggestions = nutritionData.pharmacy_products;
     const suggestedCodes = productSuggestions.map(p => p.category_code);
-    let recommendationsByCategory = new Map<string, { product_name: string; price: number; image_url: string | null }>();
+    type MatchedProduct = { product_name: string; price: number; image_url: string | null; suitability_note: string[] };
+    const recommendationsByCategory = new Map<string, MatchedProduct>();
 
     if (suggestedCodes.length > 0) {
       const { data: recData } = await supabaseAdmin
-        .from('pharmacy_recommendations')
-        .select('category, product_name, price, image_url')
+        .from('pharmacy_products')
+        .select('id, category, brand_name, price, image_url, clinical_profile, profile_confirmed_at, review_status, is_active')
         .eq('pharmacy_id', plan.pharmacy_id)
         .eq('is_active', true)
-        .in('category', suggestedCodes);
+        .in('category', suggestedCodes)
+        .order('brand_name');
 
-      for (const rec of recData || []) {
+      type CatalogRow = ProductForSuitability & { category: string; price: number; image_url: string | null };
+      for (const rec of ((recData || []) as unknown as CatalogRow[])) {
+        const { status, reasons } = assessProductForPatient(rec, patientForSuitability);
+        if (status === 'forbidden') {
+          console.warn(`[weight-plan PATCH] منتج ممنوع على هذا المريض استُبعد: ${rec.brand_name} — ${reasons.join(' | ')}`);
+          continue;
+        }
+        const existing = recommendationsByCategory.get(rec.category);
+        // لا نستبدل منتجاً «ملائماً» بآخر، ولا «بحذر» بمثله — الأول الملائم يفوز
+        if (existing && (existing.suitability_note.length === 0 || status === 'caution')) continue;
         recommendationsByCategory.set(rec.category, {
-          product_name: rec.product_name,
-          price:        rec.price,
-          image_url:    rec.image_url,
+          product_name:     rec.brand_name,
+          price:            rec.price,
+          image_url:        rec.image_url,
+          suitability_note: status === 'caution' ? reasons : [],
         });
       }
     }
@@ -855,7 +876,7 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
       // نسخة كاملة أصلية — يقرأها PUT عند بناء الاستبعادات (راجع تعليق PUT)
       _all_products: enrichedProducts,
       _all_labs: nutritionData.lab_alerts,
-      safety_review: { products_suppressed_reason: suppressProductsReason, allergen_conflicts: allergenConflicts },
+      safety_review: { products_suppressed_reason: null, allergen_conflicts: allergenConflicts },
     };
 
     // ── حفظ JSON في DB ────────────────────────────────────────────────
@@ -903,7 +924,7 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
     return NextResponse.json({
       success: true,
       dataSuspect: progressData?.dataSuspect ?? false,
-      productsSuppressedReason: suppressProductsReason,
+      productsSuppressedReason: null as string | null,
       allergenConflicts,
       pharmacistSummary: {
         clinical_reasoning: finalNutritionData.clinical_reasoning ?? '',

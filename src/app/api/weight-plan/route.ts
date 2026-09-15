@@ -350,17 +350,18 @@ export async function POST(req: Request) {
 export async function PATCH(req: Request) {
   try {
     const body = await req.json();
+    // حقول السلامة من الجسم تُستخدم احتياطاً فقط — المصدر الفعلي سجل المريض في القاعدة (أدناه)
     const {
       plan_id,
       patient_name     = 'المريض',
-      age,
+      age:                  bodyAge,
       gender,
-      diagnosed_conditions = [],
-      medications          = [],   // أسماء الأدوية المزمنة
-      drug_allergies       = [],   // حساسية الأدوية المسجّلة للمريض
-      food_allergies       = [],   // حساسية الأطعمة المسجّلة للمريض
-      is_pregnant          = false,
-      is_lactating         = false,
+      diagnosed_conditions: bodyDiagnosedConditions = [],
+      medications:          bodyMedications         = [],   // أسماء الأدوية المزمنة
+      drug_allergies:       bodyDrugAllergies       = [],   // حساسية الأدوية المسجّلة للمريض
+      food_allergies:       bodyFoodAllergies       = [],   // حساسية الأطعمة المسجّلة للمريض
+      is_pregnant:          bodyIsPregnant          = false,
+      is_lactating:         bodyIsLactating         = false,
       pharmacy_name        = 'صيدليتك',
     } = body;
 
@@ -378,6 +379,35 @@ export async function PATCH(req: Request) {
     if (fetchErr || !plan) {
       return NextResponse.json({ error: 'الخطة غير موجودة' }, { status: 404 });
     }
+
+    // ── ملف المريض من القاعدة — مصدر الحقيقة لحقول السلامة (نفس مبدأ POST) ──
+    // نسخة المتصفح قد تكون قديمة (حمل أو حساسية سُجّلا بعد فتح الصفحة)؛ لذلك
+    // كل حقل يؤثر على المحرك أو البرومبت يُقرأ من السجل الحالي، والجسم احتياط فقط.
+    const { data: patientRow } = await supabaseAdmin
+      .from('patients')
+      .select('birth_date, diagnosed_conditions, drug_allergies, food_allergies, is_pregnant, is_lactating')
+      .eq('id', plan.patient_id)
+      .maybeSingle();
+    const { data: chronicRows } = await supabaseAdmin
+      .from('chronic_medications')
+      .select('medication_name')
+      .eq('patient_id', plan.patient_id)
+      .eq('status', 'active');
+
+    const cleanStrings = (v: unknown): string[] =>
+      Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && x.trim().length > 0) : [];
+    const diagnosed_conditions: string[] = patientRow ? cleanStrings(patientRow.diagnosed_conditions) : cleanStrings(bodyDiagnosedConditions);
+    const drug_allergies:       string[] = patientRow ? cleanStrings(patientRow.drug_allergies)       : cleanStrings(bodyDrugAllergies);
+    const food_allergies:       string[] = patientRow ? cleanStrings(patientRow.food_allergies)       : cleanStrings(bodyFoodAllergies);
+    const is_pregnant  = patientRow ? patientRow.is_pregnant  === true : bodyIsPregnant  === true;
+    const is_lactating = patientRow ? patientRow.is_lactating === true : bodyIsLactating === true;
+    const medications: string[] = chronicRows
+      ? chronicRows.map((m: { medication_name: string }) => m.medication_name)
+      : cleanStrings(bodyMedications);
+    const age: number | null = patientRow?.birth_date
+      ? new Date().getFullYear() - new Date(patientRow.birth_date).getFullYear()
+      : (typeof bodyAge === 'number' ? bodyAge : (Number(bodyAge) || null));
+    if (!patientRow) console.warn(`[weight-plan PATCH] سجل المريض ${plan.patient_id} غير موجود — استُخدمت بيانات الجسم احتياطاً`);
 
     // ── تقدّم المريض: مقارنة بالخطة السابقة وبأول خطة له ─────────────
     // استعلام حتمي بالكود لا استنتاج من النموذج — نفس مبدأ التفاعلات الدوائية

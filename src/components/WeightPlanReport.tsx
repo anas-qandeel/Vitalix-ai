@@ -8,7 +8,7 @@ export interface PharmacyProduct {
   category_code: string;
   reason:        string;
   instruction:   string;
-  product: { product_name: string; price: number; image_url: string | null } | null;
+  product: { id?: string; product_name: string; price: number; image_url: string | null } | null;
 }
 export interface ProgressData {
   baselineWeight:    number;

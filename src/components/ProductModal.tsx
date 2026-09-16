@@ -115,7 +115,15 @@ export default function ProductModal({ item, pharmacyId, onClose, onSaved }: Pro
         if (error) throw error;
         onSaved(data as ProductRecord);
       }
-    } catch (e: unknown) { setSaveError((e as Error)?.message || 'تعذر الحفظ'); setSaving(false); }
+    } catch (e: unknown) {
+      const err = e as { code?: string; message?: string };
+      // 23505 = القيد الفريد uniq_products_pharmacy_name: الاسم نفسه موجود في كتالوج هذه الصيدلية
+      const isDuplicate = err?.code === '23505' || /uniq_products_pharmacy_name|duplicate key/i.test(err?.message || '');
+      setSaveError(isDuplicate
+        ? 'هذا المنتج موجود في كتالوجك بالاسم نفسه — عدّل المنتج الموجود بدل إضافته مرة أخرى.'
+        : (err?.message || 'تعذر الحفظ'));
+      setSaving(false);
+    }
   };
 
   const availableCategories = CATEGORIES_FOR_KIND[kind];

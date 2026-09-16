@@ -12,6 +12,7 @@ import {
   PRODUCT_KINDS, KIND_LABELS_AR, CATEGORIES_FOR_KIND, CATEGORY_LABELS_AR,
   type ProductKind, type ProductCategory,
 } from '@/lib/catalog-taxonomy';
+import { summarizeProductEvents, type ProductSignals } from '@/lib/product-signals';
 
 // ═══════════════════════════════════════════════════════
 // كتالوج المنتجات — شاشة موحّدة (نسخة جديدة، عرض فقط في هذه الخطوة)
@@ -19,6 +20,7 @@ import {
 export default function PharmacyCatalogManagerPageV2() {
   const router = useRouter();
   const [items, setItems] = useState<ProductRecord[]>([]);
+  const [signals, setSignals] = useState<Map<string, ProductSignals>>(new Map());
   const [loading, setLoading] = useState(true);
   const [pharmacyId, setPharmacyId] = useState('');
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -47,6 +49,14 @@ export default function PharmacyCatalogManagerPageV2() {
           .neq('review_status', 'rejected_medicine')
           .order('created_at', { ascending: false });
         if (data) setItems(data as ProductRecord[]);
+        // حلقة التعلّم: أحداث صيدليتك لآخر 90 يوماً (RLS تحصرها بصيدليتك) — للعرض فقط
+        const since = new Date(Date.now() - 90 * 86400000).toISOString();
+        const { data: events } = await supabase
+          .from('catalog_product_events')
+          .select('product_id, event_type, patient_flags')
+          .eq('pharmacy_id', pid)
+          .gte('created_at', since);
+        if (events) setSignals(summarizeProductEvents(events));
       } finally { setLoading(false); }
     };
     load();
@@ -130,6 +140,18 @@ export default function PharmacyCatalogManagerPageV2() {
                   </div>
                 </div>
                 {item.clinical_profile && <SafetyProfileSummary profile={item.clinical_profile} />}
+                {(() => {
+                  const s = signals.get(item.id);
+                  if (!s || (s.inquired === 0 && s.excluded === 0)) return null;
+                  return (
+                    <div className="px-4 pb-2.5 -mt-1 space-y-1">
+                      <p className="text-[10px] text-slate-400">آخر 90 يوماً: استُفسر {s.inquired} · استُبعد {s.excluded}</p>
+                      {s.review_hint && (
+                        <p className="text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1 inline-block">{s.review_hint}</p>
+                      )}
+                    </div>
+                  );
+                })()}
                 {canManage && (
                   <div className="flex items-center gap-2 px-4 py-2.5 border-t border-slate-100">
                     <button onClick={() => setEditItem(item)}

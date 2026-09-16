@@ -846,6 +846,7 @@ ${planUrl}
 
       let report = '';
       let pharmacistSummaryLocal: string | null = null;
+      let productNotesLocal: Record<string, { reason: string; instruction: string }> | null = null;
       let medicationsAlertLocal: string | null = null;
 
       // الوزن وحده: لا نستدعي generate-ai-report — تقرير إدارة الوزن المنفصل يتولى ذلك
@@ -864,6 +865,7 @@ ${planUrl}
             if (d.report) report = d.report;
             pharmacistSummaryLocal = d.pharmacistSummary || null;
             medicationsAlertLocal = d.medicationsAlert || null;
+            productNotesLocal = d.productNotes || null;
             setLatestPharmacistSummary(pharmacistSummaryLocal);
             setLatestMedicationsAlert(medicationsAlertLocal);
           }
@@ -908,6 +910,7 @@ ${planUrl}
         ai_report_output: report,
         pharmacist_summary: pharmacistSummaryLocal,
         medications_alert: medicationsAlertLocal,
+        product_notes: productNotesLocal,
         recorded_by: staffId,
       }).select().single();
       if (visitError) throw new Error('تعذر حفظ بيانات الفحص');

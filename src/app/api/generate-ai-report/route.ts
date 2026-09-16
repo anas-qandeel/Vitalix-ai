@@ -3,6 +3,7 @@ import { GoogleGenAI } from '@google/genai';
 import { classifySugar, classifyBp, classifyHeartRate } from '@/lib/vitals-classify';
 import { getBMICategory } from '@/lib/weight-math';
 import { requireStaff } from '@/lib/api-auth';
+import { dueVisitCategories, VISIT_CATEGORY_LABELS_AR, resolveProductNotes } from '@/lib/visit-categories';
 
 // قائمة نماذج مرتبة — يُجرَّب الأول فإن أعطى 404 ينتقل للتالي تلقائياً
 // يمكن تجاوز الكل بتعريف GEMINI_MODEL في ملف .env.local
@@ -274,6 +275,12 @@ export async function POST(req: Request) {
           : null;
         const ageCategory = ageNum ? (ageNum > 60 ? 'فوق 60 سنة' : '60 سنة أو أقل') : 'غير محدد';
 
+        // الفئات المستحقة قرار الكود بالعتبات (src/lib/visit-categories.ts) — النموذج يكتب سبباً لها فقط ولا يقترح فئة
+        const dueCategories = dueVisitCategories(currentVisit || {});
+        const dueLine = dueCategories.length > 0
+          ? `فئات المنتجات المستحقة (قرار النظام — اكتب لها product_notes ولا تغيّرها): ${dueCategories.map(c => `${c} = ${VISIT_CATEGORY_LABELS_AR[c]}`).join('، ')}`
+          : 'فئات المنتجات المستحقة: لا شيء (اجعل product_notes كائناً فارغاً {})';
+
         const userPrompt = `اسم المريض: ${patientName}
 اسم الصيدلية: ${pharmacyDisplayName}
 الجنس: ${genderLine} - العمر: ${patientAge} (${ageCategory})
@@ -287,7 +294,8 @@ ${safetyLine}
 الوزن: ${weightLine}${bmiLine}
 الأعراض: ${symptomsLine}
 ${contextLine}
-${recentVisitsLine}${sameDayLine ? `\n${sameDayLine}` : ''}`;
+${recentVisitsLine}${sameDayLine ? `\n${sameDayLine}` : ''}
+${dueLine}`;
 
         // ═══════════════════════════════════════════════════════
         // الطلب الأول: توليد التقرير الخام بحرية كاملة
@@ -305,7 +313,7 @@ ${recentVisitsLine}${sameDayLine ? `\n${sameDayLine}` : ''}`;
 5. لا تضف معلومات جديدة — فقط نقّح ما هو موجود.`;
 
         const PHARMACIST_SUMMARY_INSTRUCTION = `أنت مساعد سريري للصيدلاني في منصة Vitalix.ai. ستُعطى بيانات فحص مريض. أخرج JSON فقط بلا أي نص آخر، بلا Markdown، بلا \`\`\`، بهذه البنية حرفياً:
-{"pharmacist_summary":"...","medications_alert":"..."}
+{"pharmacist_summary":"...","medications_alert":"...","product_notes":{"bp_device":{"reason":"...","instruction":"..."}}}
 
 - pharmacist_summary: سطران إلى ثلاثة بلغة سريرية مهنية موجهة للصيدلاني (ليس للمريض): التقييم السريري للقراءات، الارتباط بالتشخيصات المزمنة والأدوية، وأي نمط ملحوظ من الزيارات السابقة. مصطلحات طبية مسموحة هنا.
 - medications_alert: جملة واحدة عن تداخل أو تنبيه دوائي مهم متعلق بالقراءات الحالية إن وُجد (مثل دواء يخفي أعراض هبوط السكر). إن لم يوجد تنبيه حقيقي، اجعل قيمته null.
@@ -313,7 +321,10 @@ ${recentVisitsLine}${sameDayLine ? `\n${sameDayLine}` : ''}`;
 - medications_alert يُبنى حصراً على «الأدوية المزمنة النشطة» المذكورة في البيانات: لا تفترض دواءً غير مذكور، ولا تذكر آلية دوائية لا تنطبق على الأدوية المذكورة فعلاً. إن لم تُذكر أدوية، اجعل قيمته null.
 - سطر «تنبيهات السلامة» ملزم: إن وُجد تعارض بين دواء مزمن مسجّل وحساسية المريض، أو دواء مزمن يستدعي انتباهاً مع الحمل/الرضاعة، اذكره في medications_alert بأولوية على أي تنبيه آخر، ولا تقترح بديلاً. إن ذُكرت حساسية من جيلاتين أو لاتكس أو مصدر حيواني فهي تخص شكل الجرعة ولا يعرفها النظام — نبّه الصيدلاني للتحقق عند الصرف.
 - إذا وُردت «قراءات أخرى مسجّلة خلال آخر 24 ساعة» أدمجها في التقييم ولا تطلب قياس ما قيس بالفعل.
-- لا تقترح تعديل جرعات — أشر فقط لما يستحق انتباه الصيدلاني.`;
+- لا تقترح تعديل جرعات — أشر فقط لما يستحق انتباه الصيدلاني.
+- product_notes: للفئات المذكورة في سطر «فئات المنتجات المستحقة» فقط، بمفاتيحها الإنجليزية حرفياً (bp_device / sugar_device / sugar_strips)؛ إن كان السطر «لا شيء» فاجعلها {}. لا تضف فئة غير مذكورة.
+- product_notes.reason: جملة أو جملتان موجّهتان للمريض بصيغة المخاطب، لا تتجاوز 35 كلمة، تشرح لماذا يحتاج هذه الفئة بناءً على قراءاته اليوم وتاريخ زياراته وحالته (حمل/رضاعة إن وُجدا). بلا اسم منتج أو ماركة، بلا ادعاء علاجي، بلا ذكر دواء أو جرعة، بلا رموز.
+- product_notes.instruction: جملة واحدة لا تتجاوز 15 كلمة عن الاستخدام المنزلي الصحيح (متى يقيس وكيف يسجّل).`;
 
         // اللغة الإنجليزية تُلحق كتعليمة إضافية بنهاية كل تعليمة نظام — لا تُترجم
         // النصوص العربية نفسها (راجع ENGLISH_OUTPUT_INSTRUCTION أعلى الملف)
@@ -395,6 +406,7 @@ ${recentVisitsLine}${sameDayLine ? `\n${sameDayLine}` : ''}`;
           // ── استدعاء ثالث خفيف: ملخص الصيدلاني + تنبيه الأدوية (JSON) ──
           // فشله لا يمس نص المريض إطلاقاً — يُرجع null للحقلين فقط
           let pharmacistSummary: string | null = null;
+          let productNotes: Record<string, { reason: string; instruction: string }> | null = null;
           let medicationsAlert: string | null = null;
           try {
             const summaryResponse = await ai.models.generateContent({
@@ -417,6 +429,18 @@ ${recentVisitsLine}${sameDayLine ? `\n${sameDayLine}` : ''}`;
               if (typeof parsed.medications_alert === 'string' && parsed.medications_alert.trim() && parsed.medications_alert !== 'null') {
                 medicationsAlert = parsed.medications_alert.trim();
               }
+              // ما كتبه الذكاء للفئات المستحقة بعد التنقية — نحفظ ما مصدره الذكاء فقط؛ الناقص يُكمله القالب في GET
+              if (dueCategories.length > 0) {
+                const resolved = resolveProductNotes(parsed.product_notes, dueCategories, currentVisit || {}, {
+                  is_pregnant: patient?.is_pregnant === true,
+                  is_lactating: patient?.is_lactating === true,
+                });
+                const aiOnly = Object.fromEntries(
+                  Object.entries(resolved).filter(([, n]) => n.source === 'ai').map(([c, n]) => [c, { reason: n.reason, instruction: n.instruction }]),
+                );
+                productNotes = Object.keys(aiOnly).length > 0 ? aiOnly : null;
+                console.log('[Gemini] product_notes:', Object.keys(aiOnly).join(',') || 'none (fallback will apply)');
+              }
             } else {
               // استجابة مقطوعة (بلا } ختامية): ننقذ نص pharmacist_summary مباشرة من الخام —
               // نأخذ ما بعد "pharmacist_summary":" حتى آخر جملة مكتملة (نقطة) أو نهاية الخام
@@ -433,7 +457,7 @@ ${recentVisitsLine}${sameDayLine ? `\n${sameDayLine}` : ''}`;
             console.warn('[Gemini] pharmacist summary failed (non-blocking):', summaryErr);
           }
           console.log('[Gemini] returning — pharmacistSummary:', pharmacistSummary ? `${pharmacistSummary.length} chars` : 'NULL');
-          return NextResponse.json({ report, pharmacistSummary, medicationsAlert });
+          return NextResponse.json({ report, pharmacistSummary, medicationsAlert, productNotes });
         }
         throw lastModelErr || new Error('no model returned a response');
       } catch (aiErr) {

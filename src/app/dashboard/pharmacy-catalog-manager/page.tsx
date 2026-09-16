@@ -44,7 +44,7 @@ export default function PharmacyCatalogManagerPageV2() {
         setUserRole(await getUserRole());
         const { data } = await supabase
           .from('pharmacy_products')
-          .select('*')
+          .select('*, confirmer:pharmacy_staff!profile_confirmed_by(name)')
           .eq('pharmacy_id', pid)
           .neq('review_status', 'rejected_medicine')
           .order('created_at', { ascending: false });
@@ -135,7 +135,7 @@ export default function PharmacyCatalogManagerPageV2() {
                   <div className="text-left shrink-0">
                     <p className="text-sm font-bold text-slate-900">{item.price} د.أ</p>
                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${item.profile_confirmed_at ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
-                      {item.profile_confirmed_at ? '✓ مؤكَّد' : 'بحاجة مراجعة'}
+                      {item.profile_confirmed_at ? `✓ مؤكَّد${item.confirmer?.name ? ' · ' + item.confirmer.name : ''} · بتاريخ ${new Date(item.profile_confirmed_at).getDate()}/${new Date(item.profile_confirmed_at).getMonth() + 1}` : 'بحاجة مراجعة'}
                     </span>
                   </div>
                 </div>
@@ -174,8 +174,15 @@ export default function PharmacyCatalogManagerPageV2() {
           item={editItem === 'new' ? null : editItem}
           pharmacyId={pharmacyId}
           onClose={() => setEditItem(null)}
-          onSaved={(saved) => {
-            setItems(prev => prev.find(i => i.id === saved.id) ? prev.map(i => i.id === saved.id ? saved : i) : [saved, ...prev]);
+          onSaved={async (saved) => {
+            // النموذج يعيد الصف بلا الضم؛ نعيد جلبه مع اسم المؤكِّد ليظهر فوراً
+            const { data: fresh } = await supabase
+              .from('pharmacy_products')
+              .select('*, confirmer:pharmacy_staff!profile_confirmed_by(name)')
+              .eq('id', saved.id)
+              .maybeSingle();
+            const row = (fresh ?? saved) as ProductRecord;
+            setItems(prev => prev.find(i => i.id === row.id) ? prev.map(i => i.id === row.id ? row : i) : [row, ...prev]);
             setEditItem(null);
           }}
         />

@@ -10,6 +10,7 @@ import {
   PRODUCT_KINDS, KIND_LABELS_AR, CATEGORIES_FOR_KIND, CATEGORY_LABELS_AR,
   isProductKind, isProductCategory, type ProductKind, type ProductCategory,
 } from '@/lib/catalog-taxonomy';
+import { getStaffId } from '@/lib/tenant';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -25,6 +26,8 @@ export interface ProductRecord {
   clinical_profile: ClinicalProfile | null;
   profile_source: 'manual' | 'ai';
   profile_confirmed_at: string | null;
+  profile_confirmed_by?: string | null;          // معرّف الموظف المؤكِّد (pharmacy_staff.id)
+  confirmer?: { name: string } | null;            // يُملأ بالانضمام في شاشة الكتالوج
   review_status: 'ok' | 'needs_review' | 'rejected_medicine';
   is_active: boolean;
 }
@@ -61,6 +64,8 @@ export default function ProductModal({ item, pharmacyId, onClose, onSaved }: Pro
   const [building, setBuilding] = useState(false);
   const [buildError, setBuildError] = useState('');
   const [rejected, setRejected] = useState<{ reason: string; detail?: string } | null>(null);
+  // إقرار المراجعة: يُصفَّر عند كل بناء جديد للبطاقة، ويمنع الحفظ حتى يُعلَّم
+  const [reviewed, setReviewed] = useState(false);
 
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
@@ -78,6 +83,7 @@ export default function ProductModal({ item, pharmacyId, onClose, onSaved }: Pro
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'تعذّر بناء بطاقة الأمان');
+      setReviewed(false);
       if (data.rejected) { setRejected({ reason: data.reason, detail: data.detail }); return; }
       setProfile(data.profile as ClinicalProfile);
       setProfileSource('ai');
@@ -93,6 +99,7 @@ export default function ProductModal({ item, pharmacyId, onClose, onSaved }: Pro
     if (!Number.isFinite(priceNum) || priceNum < 0) { setSaveError('السعر غير صحيح'); return; }
     setSaving(true); setSaveError('');
     try {
+      const confirmedBy = withProfile && profile ? await getStaffId() : null;
       const payload = {
         pharmacy_id: pharmacyId,
         kind, category,
@@ -103,6 +110,7 @@ export default function ProductModal({ item, pharmacyId, onClose, onSaved }: Pro
         clinical_profile: withProfile && profile ? profile : (item?.clinical_profile ?? EMPTY_PROFILE),
         profile_source: withProfile && profile ? profileSource : (item?.profile_source ?? 'manual'),
         profile_confirmed_at: withProfile && profile ? new Date().toISOString() : (item?.profile_confirmed_at ?? null),
+        profile_confirmed_by: withProfile && profile ? confirmedBy : (item?.profile_confirmed_by ?? null),
         review_status: withProfile && profile ? 'ok' : 'needs_review',
         is_active: item?.is_active ?? true,
       };
@@ -203,12 +211,16 @@ export default function ProductModal({ item, pharmacyId, onClose, onSaved }: Pro
           {profile && (
             <div className="border border-slate-200 rounded-xl overflow-hidden">
               <SafetyProfileSummary profile={profile} />
-              <details className="border-t border-slate-100">
+              <details open className="border-t border-slate-100">
                 <summary className="px-4 py-2.5 text-xs font-bold text-slate-600 cursor-pointer select-none">بطاقة الأمان ▾</summary>
                 <div className="px-4 pb-4">
                   <SafetyProfileFields profile={profile} onChange={setProfile} />
                 </div>
               </details>
+              <label className="flex items-start gap-2 px-4 py-3 border-t border-slate-100 bg-slate-50 cursor-pointer select-none">
+                <input type="checkbox" className="mt-0.5 accent-teal-700" checked={reviewed} onChange={e => setReviewed(e.target.checked)} />
+                <span className="text-xs font-bold text-slate-700">راجعتُ بطاقة الأمان بخبرتي وأعتمدها باسمي</span>
+              </label>
             </div>
           )}
 
@@ -216,7 +228,7 @@ export default function ProductModal({ item, pharmacyId, onClose, onSaved }: Pro
         </div>
 
         <div className="px-5 pb-5 pt-2 border-t border-slate-100 space-y-2 sticky bottom-0 bg-white">
-          <button type="button" onClick={() => handleSave(true)} disabled={saving || !brandName.trim() || !!rejected}
+          <button type="button" onClick={() => handleSave(true)} disabled={saving || !brandName.trim() || !!rejected || (!!profile && !reviewed)}
             className="w-full py-3 bg-gradient-to-l from-slate-900 to-teal-800 hover:from-slate-800 hover:to-teal-700 text-white rounded-xl text-sm font-bold transition active:scale-[0.98] disabled:opacity-50 shadow-sm cursor-pointer">
             {saving ? 'جاري الحفظ...' : profile ? 'تأكيد بطاقة الأمان وحفظ المنتج' : 'حفظ المنتج'}
           </button>

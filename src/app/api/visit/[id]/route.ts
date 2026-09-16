@@ -4,6 +4,7 @@ import { matchPatientDrugs } from '@/lib/drug-food-interactions';
 import { assessProductForPatient, type PatientForSuitability, type ProductForSuitability } from '@/lib/product-suitability';
 import { fetchProductScores, rankSuitable } from '@/lib/product-ranking';
 import { requireStaff } from '@/lib/api-auth';
+import { dueVisitCategories, resolveProductNotes } from '@/lib/visit-categories';
 
 // تصريح صريح: هذا المسار يجب أن يُنفَّذ من جديد في كل طلب، ولا يُخزَّن مؤقتاً بأي شكل —
 // ضروري لأن البيانات (الزيارات الطبية) تتغيّر باستمرار ويجب أن تكون محدّثة دائماً
@@ -36,7 +37,7 @@ export async function GET(
     const { data: visit, error: visitError } = await supabaseAdmin
       .from('visitations')
       .select(
-        'id, pharmacy_id, patient_id, bp_systolic, bp_diastolic, heart_rate, is_dual_bp, bp_sys1, bp_dia1, hr1, bp_sys2, bp_dia2, hr2, sugar_value, sugar_test_type, weight, symptoms, ai_report_output, created_at, excluded_recommendation_ids, took_bp_medication, took_sugar_medication, bp_classification, bp_classification_level, sugar_classification, sugar_classification_level, heart_rate_classification, heart_rate_classification_level, classification_special_criteria, performed_by, had_stimulants, recent_exertion, recent_heavy_meal, is_stressed, patient:patients(name, phone_number, height, gender, birth_date, diagnosed_conditions, drug_allergies, food_allergies, is_pregnant, is_lactating)'
+        'id, pharmacy_id, patient_id, bp_systolic, bp_diastolic, heart_rate, is_dual_bp, bp_sys1, bp_dia1, hr1, bp_sys2, bp_dia2, hr2, sugar_value, sugar_test_type, weight, symptoms, ai_report_output, product_notes, created_at, excluded_recommendation_ids, took_bp_medication, took_sugar_medication, bp_classification, bp_classification_level, sugar_classification, sugar_classification_level, heart_rate_classification, heart_rate_classification_level, classification_special_criteria, performed_by, had_stimulants, recent_exertion, recent_heavy_meal, is_stressed, patient:patients(name, phone_number, height, gender, birth_date, diagnosed_conditions, drug_allergies, food_allergies, is_pregnant, is_lactating)'
       )
       .eq('id', id)
       .single();
@@ -95,14 +96,14 @@ export async function GET(
 
     // 4. تقييم القياسات لتحديد الفئات ذات الصلة بهذه الزيارة تحديداً —
     // منطق طبي بحت، لا علاقة له بملف المريض (ذلك يأتي في خطوة الملاءمة التالية)
-    const activeCategories: string[] = [];
-
-    if (visit.sugar_value && visit.sugar_value >= 180) {
-      activeCategories.push('sugar_device', 'sugar_strips');
-    }
-    if ((visit.bp_systolic && visit.bp_systolic >= 140) || (visit.bp_diastolic && visit.bp_diastolic >= 90)) {
-      activeCategories.push('bp_device');
-    }
+    // العتبات في وحدة مشتركة (src/lib/visit-categories.ts) — نفس المنطق، يستخدمه تقرير الذكاء أيضاً
+    const dueCategories = dueVisitCategories(visit);
+    const activeCategories: string[] = [...dueCategories];
+    // سبب/إرشاد لكل فئة: ما كتبه الذكاء وقت التقرير (product_notes) أو قالب حتمي احتياطي
+    const productNotes = resolveProductNotes(visit.product_notes, dueCategories, visit, {
+      is_pregnant: patient?.is_pregnant === true,
+      is_lactating: patient?.is_lactating === true,
+    });
     // ملاحظة: لا فئة لإدارة الوزن دوائياً — المنصة لا تعرض أدوية ولا تقترح علاجاً
 
     // ── ملف المريض لمحرك الملاءمة: التشخيصات، الحساسيات، الحمل/الرضاعة، العمر، والأدوية المزمنة (الاسم العلمي) ──
@@ -156,7 +157,9 @@ export async function GET(
         const assessed = scored.map(a => ({ ...a.row, suitability_note: a.status === 'caution' ? a.reasons : [] }));
 
         const excludedIds = new Set(visit.excluded_recommendation_ids || []);
-        recommendations = assessed.filter((r: Record<string, unknown>) => !excludedIds.has(r.id as string));
+        recommendations = assessed
+          .filter((r: Record<string, unknown>) => !excludedIds.has(r.id as string))
+          .map((r: Record<string, unknown>) => ({ ...r, note: productNotes[r.category as keyof typeof productNotes] ?? null }));
       }
     }
 

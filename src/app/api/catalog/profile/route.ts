@@ -4,6 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase-admin';
 import { looksLikeMedicine } from '@/lib/medicine-blocklist';
 import { ALLERGEN_TAGS, CONDITION_TAGS, type ClinicalProfile } from '@/lib/product-suitability';
 import { PRODUCT_KINDS, PRODUCT_CATEGORIES, CATEGORIES_FOR_KIND, type ProductKind } from '@/lib/catalog-taxonomy';
+import { applyPharmacistRules } from '@/lib/pharmacist-rules';
 
 // ═══════════════════════════════════════════════════════════════════════
 // POST /api/catalog/profile — يبني البطاقة السريرية لمنتج من اسمه (وصورة علبته إن وُجدت).
@@ -196,6 +197,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ rejected: true, reason: 'هذا مستحضر دوائي — Vitalix لا يعرض أدوية ولا يقترح علاجاً', detail: reason });
     }
 
+    // ── القواعد الصيدلانية الحتمية (3): بعد الحارس وقبل العرض — تشديد فقط، لا تخفيف ──
+    const { profile: enforcedProfile, applied: appliedRules } = applyPharmacistRules(profile, brandName);
+
     // الفئة المقترحة يجب أن تكون ضمن فئات النوع المقترح تحديداً — لا من القائمة الكبرى (مثلاً "كالسيوم" لجهاز)
     const suggestedKind = (PRODUCT_KINDS as readonly string[]).includes(String(parsed.suggested_kind)) ? String(parsed.suggested_kind) : 'supplement';
     const kindCategories = CATEGORIES_FOR_KIND[suggestedKind as ProductKind] as readonly string[];
@@ -205,7 +209,8 @@ export async function POST(req: NextRequest) {
       rejected: false,
       suggested_kind: suggestedKind,
       suggested_category: suggestedCategory,
-      profile,
+      profile: enforcedProfile,
+      applied_rules: appliedRules,
       used_image: !!inlineImage,
     });
   } catch (error) {

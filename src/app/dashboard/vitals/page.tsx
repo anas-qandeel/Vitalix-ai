@@ -329,7 +329,7 @@ export default function VitalsPage() {
   const [isFallbackReport, setIsFallbackReport] = useState(false);
   const [latestVisitId, setLatestVisitId] = useState<string | null>(null);
   const [patientMedications, setPatientMedications] = useState<{ id: string; medication_name: string; daily_dosage: number | null; dosage_unit: string | null }[]>([]);
-  const [vitalsRecommendations, setVitalsRecommendations] = useState<{ id: string; category: string; brand_name: string; price: number | null; image_url: string | null; ai_pitch_prompt: string | null }[]>([]);
+  const [vitalsRecommendations, setVitalsRecommendations] = useState<{ id: string; category: string; brand_name: string; price: number | null; image_url: string | null; ai_pitch_prompt?: string | null; suitability_note?: string[]; note?: { reason: string; instruction: string; source: 'ai' | 'fallback' } | null }[]>([]);
   const [excludedVitalsProducts, setExcludedVitalsProducts] = useState<Set<string>>(new Set());
   const [savedVitalsExclusions, setSavedVitalsExclusions] = useState<string>('');
   const [vitalsExclusionSaving, setVitalsExclusionSaving] = useState(false);
@@ -2178,7 +2178,13 @@ ${planUrl}
                                   <span className={`text-xs leading-relaxed ${excludedVitalsProducts.has(p.id) ? 'text-slate-400 line-through' : 'text-slate-700'}`}>
                                     <span className="font-bold">{p.brand_name}</span>
                                     {p.price != null && <span className="text-slate-400"> · <span dir="ltr" className="tabular-nums inline-block">{p.price}</span> د.أ</span>}
-                                    {p.ai_pitch_prompt && <span className="text-slate-500"> — {p.ai_pitch_prompt.slice(0, 60)}{p.ai_pitch_prompt.length > 60 ? '…' : ''}</span>}
+                                    {p.note?.reason && <span className="block mt-0.5 text-[11px] text-slate-500">{p.note.reason}</span>}
+                                    {/* ملاحظة محرك الملاءمة — للصيدلاني فقط، لا تصل للمريض */}
+                                    {p.suitability_note && p.suitability_note.length > 0 && (
+                                      <span className="block mt-0.5 text-[11px] text-amber-700">
+                                        <span className="font-bold">بحذر:</span> {p.suitability_note.join('، ')}
+                                      </span>
+                                    )}
                                   </span>
                                 </label>
                               ))}

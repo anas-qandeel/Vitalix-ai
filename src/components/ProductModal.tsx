@@ -98,6 +98,21 @@ export default function ProductModal({ item, pharmacyId, onClose, onSaved }: Pro
     const priceNum = Number(price);
     if (!Number.isFinite(priceNum) || priceNum < 0) { setSaveError('السعر غير صحيح'); return; }
     setSaving(true); setSaveError('');
+    // ── الحارس الحتمي لحظة الحفظ: يغطي الحفظ بلا بطاقة وتغيير الاسم بعد بناء البطاقة.
+    // فشل الفحص لا يفتح الباب — يُمنع الحفظ احتياطاً ──
+    try {
+      const { data: { session: guardSession } } = await supabase.auth.getSession();
+      const g = await fetch('/api/catalog/guard', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(guardSession ? { Authorization: `Bearer ${guardSession.access_token}` } : {}) },
+        body: JSON.stringify({ brand_name: brandName.trim(), ingredients: withProfile && profile ? (profile.active_ingredients ?? []) : [] }),
+      }).then(r => r.json());
+      if (g?.blocked) {
+        setRejected({ reason: 'هذا مستحضر دوائي — Vitalix لا يعرض أدوية ولا يقترح علاجاً', detail: `مطابقة لمادة أو اسم دوائي: ${(g.matched || []).join('، ')}` });
+        setSaving(false); return;
+      }
+      if (g?.error) { setSaveError('تعذّر التحقق من المنتج — أعد المحاولة'); setSaving(false); return; }
+    } catch { setSaveError('تعذّر التحقق من المنتج — أعد المحاولة'); setSaving(false); return; }
     try {
       const confirmedBy = withProfile && profile ? await getStaffId() : null;
       const payload = {
@@ -150,7 +165,7 @@ export default function ProductModal({ item, pharmacyId, onClose, onSaved }: Pro
         <div className="p-5 space-y-4">
           <div>
             <label className="block text-xs font-bold text-slate-600 mb-1.5">اسم المنتج</label>
-            <input type="text" value={brandName} onChange={e => setBrandName(e.target.value)} placeholder="مثال: فيتامين D3 5000"
+            <input type="text" value={brandName} onChange={e => { setBrandName(e.target.value); setRejected(null); }} placeholder="مثال: فيتامين D3 5000"
               className="w-full px-4 py-3 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-slate-900 transition text-slate-900" />
           </div>
 

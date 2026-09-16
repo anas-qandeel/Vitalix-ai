@@ -61,8 +61,10 @@ interface RecommendationItem {
   brand_name: string;
   price: number;
   image_url?: string | null;
-  ai_pitch_prompt: string;
+  ai_pitch_prompt?: string;          // حقل قديم — لم يعد يُعاد من المسار
   is_active: boolean;
+  /** سبب شخصي وإرشاد لهذه الفئة — يكتبه الذكاء وقت التقرير أو قالب حتمي احتياطي */
+  note?: { reason: string; instruction: string; source: 'ai' | 'fallback' } | null;
 }
 
 interface PageProps {
@@ -804,10 +806,17 @@ export default function SingleVitalViewPage({ params }: PageProps) {
                       </div>
                     </div>
 
-                    {/* النص التسويقي */}
-                    <p style={{ fontSize: 12, color: '#64748b', lineHeight: 1.7, marginBottom: 0 }}>
-                      {item.ai_pitch_prompt}
-                    </p>
+                    {/* السبب الشخصي والإرشاد — بأسلوب صفحة خطة الوزن */}
+                    {item.note && (
+                      <>
+                        <p style={{ fontSize: 13, color: '#334155', lineHeight: 1.8, margin: '10px 0 0' }}>
+                          {item.note.reason}
+                        </p>
+                        <p style={{ fontSize: 12, color: '#0f766e', background: '#f0fdfa', border: '1px solid #ccfbf1', borderRadius: 8, padding: '6px 10px', lineHeight: 1.7, margin: '8px 0 0' }}>
+                          {item.note.instruction}
+                        </p>
+                      </>
+                    )}
 
                     {/* زر واتساب */}
                     <button

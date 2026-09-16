@@ -8,10 +8,19 @@ const CONDITION_LABELS_AR: Record<ConditionTag, string> = { hypertension: 'ضغ�
 const SAFETY_LABELS_AR: Record<SafetyLevel, string> = { safe: 'آمن', caution: 'بحذر', avoid: 'ممنوع', unknown: 'غير معروف' };
 const SAFETY_LEVELS: SafetyLevel[] = ['safe', 'caution', 'avoid', 'unknown'];
 
+// درجة ثقة الذكاء الاصطناعي في الحقل — ظاهرة ككلمة لا نقطة، كي لا تُقرأ كحكم أمان
 function ConfidenceDot({ level }: { level?: 'high' | 'medium' | 'low' }) {
   if (!level) return null;
-  const cls = level === 'high' ? 'bg-emerald-400' : level === 'medium' ? 'bg-amber-400' : 'bg-slate-300';
-  return <span className={`inline-block w-1.5 h-1.5 rounded-full ${cls}`} title={`ثقة الذكاء الاصطناعي: ${level}`} />;
+  const meta = level === 'high'
+    ? { cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', label: 'ثقة عالية' }
+    : level === 'medium'
+    ? { cls: 'bg-amber-50 text-amber-700 border-amber-200', label: 'ثقة متوسطة — راجعه' }
+    : { cls: 'bg-slate-100 text-slate-500 border-slate-200', label: 'ثقة منخفضة — راجعه' };
+  return (
+    <span className={`inline-block text-[9px] font-bold px-1.5 py-px rounded border ${meta.cls}`} title="مدى ثقة الذكاء الاصطناعي في هذا الحقل — القرار النهائي للصيدلاني">
+      {meta.label}
+    </span>
+  );
 }
 
 function FieldLabel({ text, confidence }: { text: string; confidence?: 'high' | 'medium' | 'low' }) {

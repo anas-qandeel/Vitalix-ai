@@ -56,7 +56,7 @@ export default function ProductModal({ item, pharmacyId, onClose, onSaved }: Pro
   const [brandName, setBrandName] = useState(item?.brand_name ?? '');
   const [price, setPrice] = useState(String(item?.price ?? 15));
   const [imageUrl, setImageUrl] = useState<string | null>(item?.image_url ?? null);
-  const [patientPitch, setPatientPitch] = useState(item?.patient_pitch ?? '');
+  const patientPitch = item?.patient_pitch ?? ''; // الحقل لم يعد يُعرض في أي مكان؛ نُبقي القيمة القديمة كما هي عند الحفظ
 
   const [profile, setProfile] = useState<ClinicalProfile | null>(item?.clinical_profile ?? null);
   const [profileSource, setProfileSource] = useState<'manual' | 'ai'>(item?.profile_source ?? 'manual');
@@ -198,13 +198,6 @@ export default function ProductModal({ item, pharmacyId, onClose, onSaved }: Pro
               className="w-full px-3 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-slate-900 transition text-slate-900">
               {availableCategories.map(c => <option key={c} value={c}>{CATEGORY_LABELS_AR[c]}</option>)}
             </select>
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-slate-600 mb-1.5">النص الترويجي للمريض <span className="font-normal text-slate-400">(اختياري)</span></label>
-            <textarea value={patientPitch} onChange={e => setPatientPitch(e.target.value)} rows={3}
-              placeholder="جملة قصيرة تُعرض للمريض عبر واتساب"
-              className="w-full px-4 py-3 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-slate-900 transition text-slate-900 resize-none" />
           </div>
 
           {/* ── ملخص بطاقة الأمان + التفاصيل المطوية ── */}

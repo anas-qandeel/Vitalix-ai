@@ -236,6 +236,15 @@ export default function SingleVitalViewPage({ params }: PageProps) {
     : 'صيدليتك المعتمدة';
 
   const handleOrderRecommendation = (item: RecommendationItem) => {
+    // حلقة التعلّم: تسجيل اهتمام المريض بهذا المنتج — في الخلفية، لا ينتظر ولا يعطّل فتح واتساب
+    if (visitId && item.id) {
+      fetch('/api/catalog/inquiry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ context: 'visit', context_id: visitId, product_id: item.id }),
+        keepalive: true,
+      }).catch(() => {});
+    }
     const rawPhone = pharmacyPhone || currentVisit?.patient?.phone_number || '';
     const formattedPhone = rawPhone.replace(/[^0-9]/g, '');
     const cleanPhone = formattedPhone.startsWith('0') ? '962' + formattedPhone.substring(1) : formattedPhone;

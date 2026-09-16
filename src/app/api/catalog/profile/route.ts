@@ -3,7 +3,7 @@ import { GoogleGenAI, Type, ThinkingLevel } from '@google/genai';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { looksLikeMedicine } from '@/lib/medicine-blocklist';
 import { ALLERGEN_TAGS, CONDITION_TAGS, type ClinicalProfile } from '@/lib/product-suitability';
-import { PRODUCT_KINDS, PRODUCT_CATEGORIES } from '@/lib/catalog-taxonomy';
+import { PRODUCT_KINDS, PRODUCT_CATEGORIES, CATEGORIES_FOR_KIND, type ProductKind } from '@/lib/catalog-taxonomy';
 
 // ═══════════════════════════════════════════════════════════════════════
 // POST /api/catalog/profile — يبني البطاقة السريرية لمنتج من اسمه (وصورة علبته إن وُجدت).
@@ -56,8 +56,8 @@ const PROFILE_RESPONSE_SCHEMA = {
 
 const SYSTEM_INSTRUCTION = `أنت صيدلاني سريري في منصة Vitalix.ai. ستُعطى اسم منتج معروض في صيدلية (وربما صورة علبته وفئته المقترحة). مهمتك بناء بطاقته السريرية بدقة وحذر، ولا تخترع معلومة: إن لم تكن متأكداً من حقل فاجعله unknown أو فارغاً وثقته low.
 أولاً: قرر هل هذا مستحضر صيدلاني (يحوي مادة دوائية فعالة، بوصفة أو بلا وصفة). إن نعم فاجعل is_medicine = true مع السبب في medicine_reason واملأ بقية الحقول بأقل جهد. المنصة لا تعرض أدوية ولا تقترح علاجاً.
-ثانياً: من العلبة أولاً (اقرأ المكونات والتحذيرات المطبوعة إن وُجدت صورة) ثم من معرفتك بالمنتج: المكونات الفعالة بالإنجليزية، المسببات من القائمة المغلقة فقط، أمان الحمل والرضاعة (safe فقط عند دليل واضح، وإلا caution أو unknown)، أقل عمر مناسب، احتواء السكر والصوديوم والكافيين، ما إن كان غير مناسب لمرضى الضغط أو السكري، والأسماء العلمية للأدوية التي يتداخل معها.
-ثالثاً: اقترح نوع المنتج (suggested_kind) وفئته (suggested_category) من القائمتين المغلقتين — استخدم uncategorized فقط إن لم تنطبق أي فئة — وملاحظة واحدة للصيدلاني بالعربية لا تتجاوز 20 كلمة.
+ثانياً: من العلبة أولاً (اقرأ المكونات والتحذيرات المطبوعة إن وُجدت صورة) ثم من معرفتك بالمنتج: المكونات الفعالة بالإنجليزية، المسببات من القائمة المغلقة فقط (إن كان المنتج كبسولات جيلاتينية فأدرج gelatin ما لم تكن نباتية)، أمان الحمل والرضاعة (safe فقط عند دليل واضح؛ avoid إن كانت إرشادات جهة رسمية مثل NHS أو ACOG أو FDA توصي بالتجنّب؛ وإلا caution أو unknown)، أقل عمر مناسب، احتواء السكر والصوديوم والكافيين، ما إن كان غير مناسب لمرضى الضغط أو السكري، والأسماء العلمية للأدوية التي يتداخل معها.
+ثالثاً: اقترح نوع المنتج (suggested_kind) وفئته (suggested_category) من القائمتين المغلقتين — الغذاء الطبي يُصنَّف بالحاجة التي يلبيها (تغذية السكري = blood_sugar_support، تغذية عالية البروتين = protein)؛ استخدم uncategorized فقط بعد استبعاد كل الفئات — وملاحظة واحدة للصيدلاني بالعربية لا تتجاوز 20 كلمة.
 قواعد: لا تسمِّ المنتج علاجاً لأي حالة؛ لا تُدرج مسبباً أو تداخلاً بلا أساس؛ درجة الثقة لكل حقل صادقة.`;
 
 async function verifyOwnerOrPharmacist(req: NextRequest) {
@@ -196,10 +196,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ rejected: true, reason: 'هذا مستحضر دوائي — Vitalix لا يعرض أدوية ولا يقترح علاجاً', detail: reason });
     }
 
+    // الفئة المقترحة يجب أن تكون ضمن فئات النوع المقترح تحديداً — لا من القائمة الكبرى (مثلاً "كالسيوم" لجهاز)
+    const suggestedKind = (PRODUCT_KINDS as readonly string[]).includes(String(parsed.suggested_kind)) ? String(parsed.suggested_kind) : 'supplement';
+    const kindCategories = CATEGORIES_FOR_KIND[suggestedKind as ProductKind] as readonly string[];
+    const suggestedCategory = kindCategories.includes(String(parsed.suggested_category)) ? String(parsed.suggested_category) : 'uncategorized';
+
     return NextResponse.json({
       rejected: false,
-      suggested_kind: (PRODUCT_KINDS as readonly string[]).includes(String(parsed.suggested_kind)) ? String(parsed.suggested_kind) : 'supplement',
-      suggested_category: (PRODUCT_CATEGORIES as readonly string[]).includes(String(parsed.suggested_category)) ? String(parsed.suggested_category) : 'uncategorized',
+      suggested_kind: suggestedKind,
+      suggested_category: suggestedCategory,
       profile,
       used_image: !!inlineImage,
     });

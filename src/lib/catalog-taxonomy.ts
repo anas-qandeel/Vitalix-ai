@@ -50,7 +50,7 @@ export const CATEGORIES_FOR_KIND: Record<ProductKind, ProductCategory[]> = {
                'appetite_stimulant', 'satiety_aid', 'multivitamin', 'uncategorized'],
   device: ['sugar_device', 'bp_device', 'uncategorized'],
   consumable: ['sugar_strips', 'uncategorized'],
-  medical_food: ['uncategorized'],
+  medical_food: ['blood_sugar_support', 'protein', 'fiber', 'iron', 'calcium', 'multivitamin', 'uncategorized'],
 };
 
 export function isProductKind(v: unknown): v is ProductKind {

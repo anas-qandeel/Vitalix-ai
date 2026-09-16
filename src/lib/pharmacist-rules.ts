@@ -50,6 +50,19 @@ export const PHARMACIST_RULES: PharmacistRule[] = [
   },
 ];
 
+// قاعدة الجيلاتين تُضاف هنا لأنها تحتاج الوسوم لا مستويات الأمان
+PHARMACIST_RULES.push({
+  id: 'capsule_gelatin',
+  match: /\b(softgel|soft gel|softgels|capsule|capsules|caps)\b|كبسول/,
+  exclude: /vegetarian|vegan|veggie|hpmc|pullulan|نباتي/,
+  reason_ar: 'شكل كبسولات — الغلاف جيلاتيني ما لم يُذكر أنه نباتي؛ أُضيف وسم الجيلاتين',
+  apply: p => ({
+    ...p,
+    allergen_tags: Array.from(new Set([...(p.allergen_tags ?? []), 'gelatin' as const])),
+    confidence: { ...(p.confidence ?? {}), allergen_tags: 'high' },
+  }),
+});
+
 export interface AppliedRule { id: string; reason_ar: string }
 
 export function applyPharmacistRules(

@@ -787,10 +787,15 @@ export default function SingleVitalViewPage({ params }: PageProps) {
                           style={{
                             width: 80, height: 80, background: '#f1f5f9',
                             borderRadius: 10, display: 'flex', alignItems: 'center',
-                            justifyContent: 'center', fontSize: 26, flexShrink: 0,
+                            justifyContent: 'center', flexShrink: 0,
                           }}
                         >
-                          🩺
+                          {/* أيقونة منتج عامة (SVG) عند غياب الصورة — لا إيموجي في الواجهة */}
+                          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <path d="M21 8.25 12 3 3 8.25v7.5L12 21l9-5.25v-7.5Z" />
+                            <path d="M3.3 8.5 12 13.5l8.7-5" />
+                            <path d="M12 13.5V21" />
+                          </svg>
                         </div>
                       )}
                       <div style={{ flex: 1, minWidth: 0 }}>

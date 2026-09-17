@@ -23,6 +23,7 @@ export interface ChronicMed {
   last_refill_date: string;
   next_refill_date: string;
   status: string;
+  carryover_pills?: number; // الحبات المرحّلة وقت آخر صرف (افتراضي 0)
 }
 
 export function calcDaysLeft(d: string): number {

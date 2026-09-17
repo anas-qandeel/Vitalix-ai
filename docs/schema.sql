@@ -115,10 +115,17 @@ CREATE TABLE public.chronic_medications (
     dosage_unit text NOT NULL,
     last_refill_date date NOT NULL,
     next_refill_date date NOT NULL,
+    carryover_pills integer NOT NULL DEFAULT 0, -- الحبات المرحّلة وقت آخر صرف (هجرة 20260917150000)؛ الإجمالي = pills_per_box × boxes_count + carryover_pills
     status text NOT NULL,                       -- active / archived
     created_at timestamp with time zone
 );
 -- فهارس: chronic_medications_pkey (id) UNIQUE, idx_chronic_medications_pharmacy (pharmacy_id)
+-- triggers:
+--   trigger_auto_refill_date (BEFORE INSERT/UPDATE) → auto_calculate_next_refill():
+--     next_refill_date = last_refill_date + floor((pills_per_box × boxes_count + carryover_pills) / daily_dosage)
+--     القاعدة هي مصدر الحقيقة لهذا الحقل؛ التطبيق يحسبه للعرض فقط بالمعادلة نفسها (هجرة 20260917153000).
+--   trg_log_medication_activity (AFTER INSERT/UPDATE/DELETE) → log_medication_activity(): يسجّل في activity_log
+--     عبر current_staff_id()؛ بلا هوية موظف لا يسجّل.
 
 
 -- ----------------------------------------------------------------------------

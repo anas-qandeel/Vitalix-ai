@@ -726,7 +726,7 @@ function MedModal({ patientId, pharmacyId, existingMeds, patientName, onClose, o
           //
           // هذا أدق من حساب daysLeft × daily_dosage لأن next_refill_date
           // قد يتضمن بالفعل حبات متبقية من دورات سابقة فتكون القيمة مضخّمة.
-          const totalPillsAtLastRefill = Number(m.pills_per_box) * Number(m.boxes_count);
+          const totalPillsAtLastRefill = Number(m.pills_per_box) * Number(m.boxes_count) + Number(m.carryover_pills ?? 0);
           const lastRefillMs = m.last_refill_date
             ? new Date(m.last_refill_date).getTime()
             : Date.now();
@@ -859,10 +859,11 @@ function MedModal({ patientId, pharmacyId, existingMeds, patientName, onClose, o
           const totalPills = newBoxesPills + rem;
           const dose = Math.max(Number(m.daily_dosage), 0.5);
 
-          // نحفظ totalPills كـ pills_per_box مع boxes_count=1
-          // هذا يضمن: pills_per_box × boxes_count = totalPills بدون أي تقريب أو فقدان
-          const newPillsPerBox = Math.round(totalPills);
-          const newBoxesCount  = 1;
+          // نحفظ حجم العلبة وعدد العلب الحقيقيين، والحبات المتبقية في carryover_pills
+          // الإجمالي عند الصرف = pills_per_box × boxes_count + carryover_pills
+          const newPillsPerBox = ppb;
+          const newBoxesCount  = Number(m.boxes_count);
+          const newCarryover   = Math.round(rem);
 
           const newDays = Math.floor(totalPills / dose);
           const d = new Date(today);
@@ -872,6 +873,7 @@ function MedModal({ patientId, pharmacyId, existingMeds, patientName, onClose, o
           const { error } = await supabase.from('chronic_medications').update({
             pills_per_box: newPillsPerBox,
             boxes_count:   newBoxesCount,
+            carryover_pills: newCarryover,
             daily_dosage:  Number(m.daily_dosage),
             dosage_unit:   m.dosage_unit,
             last_refill_date: m.last_refill_date,

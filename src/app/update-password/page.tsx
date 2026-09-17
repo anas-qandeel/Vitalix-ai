@@ -137,7 +137,7 @@ function UpdatePasswordContent() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800;900&display=swap');
         .font-brand {
-          font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+          font-family: 'IBM Plex Sans Arabic', system-ui, -apple-system, sans-serif;
         }
       `}</style>
 

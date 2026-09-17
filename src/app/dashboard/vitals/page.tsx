@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState, useRef, useMemo } from 'react';
-import { Storefront } from '@phosphor-icons/react';
+import { Storefront, Warning } from '@phosphor-icons/react';
+import AiActionButton from '@/components/AiActionButton';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import DashboardHeader, { usePharmacyInfo } from '../components/DashboardHeader';
@@ -1920,21 +1921,15 @@ ${planUrl}
                   </div>
                 </div>
 
-                <button
+                <AiActionButton
+                  type="button"
+                  size="lg"
                   onClick={() => handleSave()}
                   disabled={submitting || !hasAnyReading || !!softWarningMsg}
-                  className="w-full py-4 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl text-sm font-black transition shadow-sm active:scale-[0.98] disabled:opacity-40 flex items-center justify-center gap-2">
-                  {submitting ? (
-                    <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /><span>جاري التحليل والحفظ...</span></>
-                  ) : (
-                    <>
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
-                      </svg>
-                      <span>توليد التقرير الذكي وحفظ الزيارة</span>
-                    </>
-                  )}
-                </button>
+                  loading={submitting}
+                  loadingText="يحلّل القراءات ويعدّ الملخّص...">
+                  توليد الملخّص الذكي وحفظ الزيارة
+                </AiActionButton>
                 {submitting && (activeTests.bp || activeTests.sugar) && (
                   <div ref={thinkingRef}>
                   <VitalsThinkingOverlay
@@ -1962,7 +1957,7 @@ ${planUrl}
                   <>
                     {isFallbackReport && (
                       <div className="mb-3 text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 px-4 py-2.5 rounded-lg">
-                        ⚠️ تعذّر توليد التقرير الذكي — هذا تقرير مختصر مبني على القراءات مباشرة. القراءة محفوظة.
+                        <Warning size={14} weight="bold" className="inline-block ml-1 align-[-2px]" aria-hidden="true" /> تعذّر توليد الملخّص الذكي — هذا ملخّص مختصر مبني على القراءات مباشرة. القراءة محفوظة.
                       </div>
                     )}
                     <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
@@ -2787,7 +2782,7 @@ ${weightPlanUrl}
                     <p className="text-[11px] text-slate-600 leading-relaxed bg-slate-50 border border-slate-100 p-3 rounded-lg">{v.pharmacist_summary}</p>
                   )}
                   {v.medications_alert && (
-                    <p className="text-[11px] text-amber-800 leading-relaxed bg-amber-50 border border-amber-200 p-3 rounded-lg">⚠️ {v.medications_alert}</p>
+                    <p className="text-[11px] text-amber-800 leading-relaxed bg-amber-50 border border-amber-200 p-3 rounded-lg"><Warning size={14} weight="bold" className="inline-block ml-1 align-[-2px]" aria-hidden="true" /> {v.medications_alert}</p>
                   )}
                 </div>
               ))}

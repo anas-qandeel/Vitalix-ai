@@ -92,6 +92,12 @@ function ToastContainer({ toasts }: { toasts: ToastMsg[] }) {
 // ═══════════════════════════════════════════════════════
 // HELPERS
 // ═══════════════════════════════════════════════════════
+/** تاريخ اليوم بالتوقيت المحلي (YYYY-MM-DD) — لا UTC، حتى لا يُسجَّل الصرف بتاريخ أمس بين منتصف الليل و3 فجراً */
+function localToday(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 function pluralizeDays(days: number): string {
   if (days === 1) return 'يوم واحد';
   if (days === 2) return 'يومان';
@@ -100,14 +106,14 @@ function pluralizeDays(days: number): string {
 }
 
 function formatDaysLeft(days: number): string {
-  if (days < 0) return `متأخر ${Math.abs(days)} أيام`;
+  if (days < 0) return `متأخر ${pluralizeDays(Math.abs(days))}`;
   if (days === 0) return 'ينفد اليوم';
   return `متبقي ${pluralizeDays(days)}`;
 }
 
 function calcNextRefill(last: string, ppb: number, boxes: number, dose: number): string {
-  const base = new Date(last || new Date().toISOString().split('T')[0]);
-  if (isNaN(base.getTime())) return new Date().toISOString().split('T')[0];
+  const base = new Date(last || localToday());
+  if (isNaN(base.getTime())) return localToday();
   const days = Math.floor((ppb * boxes) / Math.max(dose, 0.5));
   base.setDate(base.getDate() + days);
   return base.toISOString().split('T')[0];
@@ -705,7 +711,7 @@ function MedModal({ patientId, pharmacyId, existingMeds, patientName, onClose, o
   diagnosedConditions?: string[] | null; // التشخيصات المزمنة — للعرض في رأس النافذة
 }) {
   const isRenewal_initial = existingMeds.length > 0;
-  const today = new Date().toISOString().split('T')[0];
+  const today = localToday();
   const [deleting, setDeleting] = useState<string | null>(null);
 
   const [meds, setMeds] = useState(
@@ -786,8 +792,16 @@ function MedModal({ patientId, pharmacyId, existingMeds, patientName, onClose, o
       const next = [...prev];
       next[idx] = { ...next[idx], [field]: val };
       if (['pills_per_box','boxes_count','daily_dosage','last_refill_date','remaining_pills'].includes(field)) {
-        next[idx].last_refill_date = today;
-        next[idx].next_refill_date = calcNextRefillWithRemaining(next[idx]);
+        if (isRenewal) {
+          // تجديد: الصرف اليوم + الحبات المتبقية
+          next[idx].last_refill_date = today;
+          next[idx].next_refill_date = calcNextRefillWithRemaining(next[idx]);
+        } else {
+          // تسجيل جديد: التاريخ كما أدخله الصيدلاني، والنفاذ يُحسب منه
+          const last = next[idx].last_refill_date || today;
+          next[idx].last_refill_date = last;
+          next[idx].next_refill_date = calcNextRefill(last, Number(next[idx].pills_per_box), Number(next[idx].boxes_count), Number(next[idx].daily_dosage));
+        }
       }
       return next;
     });
@@ -806,7 +820,7 @@ function MedModal({ patientId, pharmacyId, existingMeds, patientName, onClose, o
         const newNext = d.toISOString().split('T')[0];
         return { ...m, selected: true, last_refill_date: today, next_refill_date: newNext, boxes_count: m.boxes_count };
       } else {
-        const origMed = existingMeds[idx];
+        const origMed = existingMeds.find(x => x.id === m.id);
         const origLastRefill = origMed?.last_refill_date || today;
         const origNextRefill = m.original_next_refill ||
           calcNextRefill(origLastRefill, Number(m.pills_per_box), Number(m.boxes_count), Number(m.daily_dosage));

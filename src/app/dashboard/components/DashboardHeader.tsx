@@ -130,6 +130,13 @@ export default function DashboardHeader({ breadcrumb, onBack }: DashboardHeaderP
   const pathname = usePathname();
   const { pharmacyName, pharmacistName, pharmacyStatus, daysLeft, loading } = usePharmacyInfo();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  // رسالة عائمة داخل المنصة بدل alert() المتصفح — تختفي تلقائياً
+  const [notice, setNotice] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  useEffect(() => {
+    if (!notice) return;
+    const t = setTimeout(() => setNotice(null), 4500);
+    return () => clearTimeout(t);
+  }, [notice]);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackType, setFeedbackType] = useState('feature');
   const [feedbackMsg, setFeedbackMsg] = useState('');
@@ -414,10 +421,13 @@ export default function DashboardHeader({ breadcrumb, onBack }: DashboardHeaderP
                                 redirectTo: `${window.location.origin}/auth/confirm`,
                               }).then(({ error }) => {
                                 if (error) {
-                                  alert('تعذر إرسال الرابط، حاول مجدداً ❌');
+                                  const rateLimited = error.status === 429 || /security purposes|rate limit/i.test(error.message);
+                                  setNotice({ kind: 'err', text: rateLimited
+                                    ? 'أُرسل رابط قبل قليل — تحقق من بريدك (ومجلد الرسائل غير المرغوبة)، أو انتظر دقيقة ثم أعد المحاولة'
+                                    : `تعذر إرسال الرابط: ${error.message}` });
                                   return;
                                 }
-                                alert('تم إرسال رابط تغيير كلمة المرور إلى بريدك الإلكتروني ✅');
+                                setNotice({ kind: 'ok', text: 'تم إرسال رابط تغيير كلمة المرور إلى بريدك الإلكتروني' });
                               });
                             }
                           });
@@ -480,6 +490,14 @@ export default function DashboardHeader({ breadcrumb, onBack }: DashboardHeaderP
           </div>
         )}
       </header>
+
+      {notice && (
+        <div role="status" aria-live="polite"
+          className={`fixed bottom-5 left-1/2 -translate-x-1/2 z-[60] max-w-[92vw] px-4 py-2.5 rounded-xl shadow-lg border text-sm font-bold saas-fade-in ${notice.kind === 'ok' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-rose-50 border-rose-200 text-rose-700'}`}>
+          {notice.text}
+        </div>
+      )}
+
       {/* ════ Feedback Modal ════ */}
       {feedbackOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center sm:p-4"

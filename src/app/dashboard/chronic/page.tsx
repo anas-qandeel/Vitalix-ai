@@ -16,6 +16,7 @@ import { normalizePhone, displayPhone, validatePhone } from '@/lib/phone';
 import PatientSafetyFields, { EMPTY_PATIENT_SAFETY, PatientSafetyValues, safetyForSave } from '@/components/PatientSafetyFields';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { ChartBar, Package, Lightning, User, LightbulbFilament, CheckCircle, Check, FilePdf } from '@phosphor-icons/react';
+import { useConfirm } from '@/components/ConfirmDialog';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -814,8 +815,10 @@ function MedModal({ patientId, pharmacyId, existingMeds, patientName, onClose, o
     }));
   };
 
+  const { confirm, dialog: confirmDialog } = useConfirm();
+
   const deleteMed = async (medId: string, medName: string) => {
-    if (!window.confirm(`هل أنت متأكد من حذف "${medName}" من سجل المريض نهائياً؟`)) return;
+    if (!(await confirm({ title: `حذف «${medName}»؟`, message: 'سيُحذف الدواء من سجل المريض نهائياً.', confirmText: 'حذف', destructive: true }))) return;
     setDeleting(medId);
     try {
       const { error } = await supabase.from('chronic_medications').update({ status: 'deleted' }).eq('id', medId);
@@ -888,6 +891,7 @@ function MedModal({ patientId, pharmacyId, existingMeds, patientName, onClose, o
 
   return (
     <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center sm:p-4 transition-all" onClick={onClose}>
+      {confirmDialog}
       <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-xl max-h-[92vh] overflow-hidden shadow-2xl border border-slate-200 flex flex-col saas-slide-up" onClick={e => e.stopPropagation()}>
 
         <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between gap-3 bg-white shrink-0">
@@ -2062,6 +2066,7 @@ function PatientCard({ card, pharmacyName, onAction, onNotesUpdate }: {
 // MAIN PAGE
 // ═══════════════════════════════════════════════════════
 export default function ChronicPage() {
+  const { confirm, dialog: confirmDialog } = useConfirm();
   const [pharmacyId, setPharmacyId] = useState('');
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -2208,7 +2213,7 @@ export default function ChronicPage() {
           return next;
         });
       } else if (action === 'close') {
-        const confirmed = window.confirm(`هل أنت متأكد من نقل ${card.patient.name} إلى "فقدنا تواصلهم"؟`);
+        const confirmed = await confirm({ title: `إخراج ${card.patient.name} من المتابعة؟`, message: 'سيُنقل إلى قائمة «فقدنا تواصلهم» ويعود للمتابعة تلقائياً إذا سُجّل له دواء جديد.', confirmText: 'إخراج من المتابعة', destructive: true });
         if (!confirmed) return;
         // طرح أدوية هذا المريض من المخزون المؤكَّد قبل الأرشفة
         card.meds.forEach(med => {
@@ -2217,7 +2222,7 @@ export default function ChronicPage() {
           deductFromInventory(key, boxes);
         });
         const updated = await upsertPipeline(pharmacyId, patientId, 'archived');
-        showToast('نُقل للمحفوظات', 'info');
+        showToast('خرج من المتابعة — في قائمة «فقدنا تواصلهم»', 'info');
         setCards(prev => prev.map(c => c.patient.id === patientId ? { ...c, stage: 'archived' as DisplayStage, pipeline: updated || c.pipeline } : c));
       } else if (action === 'renewed' || action === 'edit') {
         setMedModal({ patient: card.patient, meds: card.meds });
@@ -2241,6 +2246,7 @@ export default function ChronicPage() {
 
   return (
     <div className="min-h-screen bg-slate-50/50 antialiased text-slate-900 pb-20 overflow-x-hidden" dir="rtl">
+      {confirmDialog}
 
       <style jsx global>{`
         @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700;800&display=swap');

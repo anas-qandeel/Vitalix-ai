@@ -17,7 +17,7 @@ export async function POST(req: Request) {
     const ingredients: string[] = Array.isArray(body?.ingredients) ? body.ingredients.filter((x: unknown): x is string => typeof x === 'string') : [];
     if (!brandName) return NextResponse.json({ error: 'اسم المنتج مطلوب' }, { status: 400 });
 
-    const check = looksLikeMedicine(brandName, ingredients);
+    const check = await looksLikeMedicine(brandName, ingredients);
     if (check.blocked) {
       const { error } = await supabaseAdmin.from('catalog_rejections').insert({
         pharmacy_id: auth.pharmacyId,

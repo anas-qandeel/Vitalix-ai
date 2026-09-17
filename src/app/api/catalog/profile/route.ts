@@ -120,7 +120,7 @@ export async function POST(req: NextRequest) {
     if (!brandName) return NextResponse.json({ error: 'اسم المنتج مطلوب' }, { status: 400 });
 
     // ── الحارس الحتمي (1): على الاسم قبل أي استدعاء ──
-    const pre = looksLikeMedicine(brandName);
+    const pre = await looksLikeMedicine(brandName);
     if (pre.blocked) {
       const reason = `مطابقة لمادة أو اسم دوائي: ${pre.matched.join('، ')}`;
       await logRejection({ pharmacyId: auth.pharmacyId, userId: auth.userId, brandName, ingredients: [], reason, source: 'blocklist', matched: pre.matched, imageUrl });
@@ -188,7 +188,7 @@ export async function POST(req: NextRequest) {
     };
 
     // ── الحارس الحتمي (2): على المكونات المستخرجة + حكم النموذج ──
-    const post = looksLikeMedicine(brandName, ingredients);
+    const post = await looksLikeMedicine(brandName, ingredients);
     const aiSaysMedicine = parsed.is_medicine === true;
     if (post.blocked || aiSaysMedicine) {
       const source: 'blocklist' | 'ai' | 'both' = post.blocked && aiSaysMedicine ? 'both' : post.blocked ? 'blocklist' : 'ai';

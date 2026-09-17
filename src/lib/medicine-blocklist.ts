@@ -1,4 +1,5 @@
 import { normalizeAr } from '@/lib/arabic';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 
 // ═══════════════════════════════════════════════════════════════════════
 // حارس حتمي ضد إدخال الأدوية في كتالوج الصيدلية.
@@ -62,19 +63,56 @@ const BRAND_NAMES: string[] = [
 
 export interface MedicineCheck { blocked: boolean; matched: string[] }
 
-/** يفحص اسم المنتج ومكوناته ضد القائمتين — أي مطابقة = دواء */
-export function looksLikeMedicine(brandName: string, ingredients: string[] = []): MedicineCheck {
+type Blocklist = { generics: string[]; brands: string[] };
+
+// ── مصدر القائمة: جدول medicine_blocklist (يملكه مالك المنصة) مع ذاكرة 5 دقائق؛
+//    القائمتان المكتوبتان أعلاه احتياط فقط إن تعذّرت القراءة.
+const CACHE_TTL_MS = 5 * 60 * 1000;
+let cached: { list: Blocklist; at: number } | null = null;
+
+async function loadBlocklist(): Promise<Blocklist> {
+  if (cached && Date.now() - cached.at < CACHE_TTL_MS) return cached.list;
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('medicine_blocklist')
+      .select('term, term_type')
+      .eq('is_active', true);
+    if (error || !data || data.length === 0) throw error ?? new Error('empty blocklist');
+    const list: Blocklist = {
+      generics: data.filter(r => r.term_type === 'generic').map(r => String(r.term)),
+      brands:   data.filter(r => r.term_type === 'brand').map(r => String(r.term)),
+    };
+    cached = { list, at: Date.now() };
+    return list;
+  } catch (e) {
+    console.error('[medicine-blocklist] fallback to built-in list:', e);
+    return { generics: GENERIC_ACTIVES, brands: BRAND_NAMES };
+  }
+}
+
+/** المطابقة الحتمية ضد قائمة معطاة — نفس قاعدة الـtrigger في القاعدة */
+function matchAgainst(list: Blocklist, brandName: string, ingredients: string[]): MedicineCheck {
   const matched = new Set<string>();
   const texts = [brandName, ...ingredients].map(t => normalizeAr(String(t ?? '')));
   for (const text of texts) {
     if (!text) continue;
-    for (const g of GENERIC_ACTIVES) {
+    for (const g of list.generics) {
       if (new RegExp(`(^|[^a-z])${g}([^a-z]|$)`, 'i').test(text)) matched.add(g);
     }
-    for (const b of BRAND_NAMES) {
+    for (const b of list.brands) {
       const nb = normalizeAr(b);
       if (nb.length >= 4 && text.includes(nb)) matched.add(b);
     }
   }
   return { blocked: matched.size > 0, matched: [...matched] };
+}
+
+/** يفحص اسم المنتج ومكوناته ضد قائمة الجدول — أي مطابقة = دواء */
+export async function looksLikeMedicine(brandName: string, ingredients: string[] = []): Promise<MedicineCheck> {
+  return matchAgainst(await loadBlocklist(), brandName, ingredients);
+}
+
+/** نسخة متزامنة بالقائمة المكتوبة — للاختبارات الحتمية فقط */
+export function looksLikeMedicineSync(brandName: string, ingredients: string[] = []): MedicineCheck {
+  return matchAgainst({ generics: GENERIC_ACTIVES, brands: BRAND_NAMES }, brandName, ingredients);
 }

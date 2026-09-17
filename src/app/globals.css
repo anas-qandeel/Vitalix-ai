@@ -14,10 +14,16 @@
   --font-mono: var(--font-geist-mono);
 }
 
+html {
+  overscroll-behavior-y: contain; /* يمنع "سحب للتحديث" وارتداد الصفحة كأنها موقع ويب */
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: 'IBM Plex Sans Arabic', system-ui, -apple-system, sans-serif;
+  -webkit-tap-highlight-color: transparent; /* يزيل التظليل الرمادي/الأزرق عند لمس أي عنصر */
+  overscroll-behavior-y: contain;
 }
 
 /* تعريف عام لحركة انزلاق المودالات — احتياطي لأي صفحة/مكوّن مشترك (مثل WaMsgModal)

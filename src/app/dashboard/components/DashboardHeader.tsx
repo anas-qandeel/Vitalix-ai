@@ -17,6 +17,14 @@ const VitalixLogo = () => (
   </svg>
 );
 
+function IconBook({ className = 'w-4 h-4' }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
+    </svg>
+  );
+}
+
 function IconUserCircle({ className = 'w-4 h-4' }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -405,6 +413,10 @@ export default function DashboardHeader({ breadcrumb, onBack }: DashboardHeaderP
                     <button className="w-full flex items-center gap-3 px-3 py-2 text-xs font-medium text-violet-600 rounded-lg hover:bg-violet-50 transition-colors"
                       onClick={() => { setDropdownOpen(false); setFeedbackOpen(true); }}>
                       <IconLightBulb className="w-4 h-4 shrink-0 text-violet-500" /><span>اقتراح أو ملاحظة</span>
+                    </button>
+                    <button className="w-full flex items-center gap-3 px-3 py-2 text-xs font-medium text-slate-600 rounded-lg hover:bg-slate-50 hover:text-slate-900 transition-colors mt-0.5"
+                      onClick={() => { setDropdownOpen(false); router.push('/help'); }}>
+                      <IconBook className="w-4 h-4 shrink-0 text-slate-500" /><span>دليل الاستخدام</span>
                     </button>
                     {userRole === 'owner' ? (
                       <button className="w-full flex items-center gap-3 px-3 py-2 text-xs font-medium text-slate-600 rounded-lg hover:bg-slate-50 hover:text-slate-900 transition-colors"

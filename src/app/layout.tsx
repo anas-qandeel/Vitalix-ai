@@ -10,7 +10,7 @@ export const viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Vitalix-ai — تابع مرضاك بذكاء",
+  title: "Vitalix-ai",
   description: "منصة Vitalix-ai لإدارة الصيدليات ومتابعة مرضى الأمراض المزمنة",
   manifest: '/manifest.json',
   appleWebApp: {

@@ -15,7 +15,7 @@ import { logActivity } from '@/lib/activity';
 import { normalizePhone, displayPhone, validatePhone } from '@/lib/phone';
 import PatientSafetyFields, { EMPTY_PATIENT_SAFETY, PatientSafetyValues, safetyForSave } from '@/components/PatientSafetyFields';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { ChartBar, Package, Lightning, User, LightbulbFilament, CheckCircle, Check, FilePdf } from '@phosphor-icons/react';
+import { ChartBar, Package, Lightning, User, LightbulbFilament, CheckCircle, Check, FilePdf, WarningCircle, Hourglass, PaperPlaneTilt, Star, ClipboardText, Bell, Alarm, EnvelopeSimple, CalendarBlank, Clock, BellSlash, PhoneX, Phone, Heart } from '@phosphor-icons/react';
 import { useConfirm } from '@/components/ConfirmDialog';
 
 // ═══════════════════════════════════════════════════════
@@ -174,7 +174,18 @@ function pickRandom<T>(arr: T[], seed: number): T {
   return arr[Math.abs(seed) % arr.length];
 }
 
-function getSmartTip(card: CareCard): { icon: string; text: string; accent: string } | null {
+type TipIcon = 'alert' | 'bolt' | 'hourglass' | 'send' | 'star' | 'bulb' | 'note' | 'bell' | 'alarm' | 'mail' | 'calendar' | 'clock' | 'check' | 'mute' | 'phoneOff' | 'phone' | 'heart';
+const TIP_ICONS: Record<TipIcon, React.ElementType> = {
+  alert: WarningCircle, bolt: Lightning, hourglass: Hourglass, send: PaperPlaneTilt, star: Star, bulb: LightbulbFilament,
+  note: ClipboardText, bell: Bell, alarm: Alarm, mail: EnvelopeSimple, calendar: CalendarBlank, clock: Clock,
+  check: CheckCircle, mute: BellSlash, phoneOff: PhoneX, phone: Phone, heart: Heart,
+};
+function TipIconSvg({ name }: { name: TipIcon }) {
+  const Icon = TIP_ICONS[name];
+  return <Icon size={16} weight="bold" className="shrink-0" aria-hidden="true" />;
+}
+
+function getSmartTip(card: CareCard): { icon: TipIcon; text: string; accent: string } | null {
   const { daysLeft, loyaltyMonths, stage, pipeline, patient } = card;
   const time = getTimeOfDay();
   const seed = patient.id.charCodeAt(0) + new Date().getDate();
@@ -182,27 +193,27 @@ function getSmartTip(card: CareCard): { icon: string; text: string; accent: stri
 
   if (stage === 'due') {
     if (daysLeft <= 0) return {
-      icon: '🚨',
+      icon: 'alert',
       text: 'الدواء نفد — الرسالة اليوم آخر فرصة قبل أن يبحث عن بديل.',
       accent: 'rose'
     };
     if (daysLeft === 1) return {
-      icon: '⚡',
+      icon: 'bolt',
       text: 'يوم واحد فقط — أرسل الرسالة الآن. انتظار الغد يعني أن المريض ربما اشترى من مكان آخر.',
       accent: 'rose'
     };
     if (daysLeft === 2) return {
-      icon: '⏳',
+      icon: 'hourglass',
       text: 'يومان فقط — أرسل اليوم. غداً سيبدأ بالتفكير من أين يشتري.',
       accent: 'amber'
     };
     if (daysLeft === 3) return {
-      icon: '📨',
+      icon: 'send',
       text: 'ثلاثة أيام متبقّية — أفضل وقت للتذكير. المريض ما زال مرتاحاً ولم يبحث عن بديل.',
       accent: 'amber'
     };
     if (loyaltyMonths >= 12) return {
-      icon: '⭐',
+      icon: 'star',
       text: `${firstName} مريض منتظم — رسالة تذكير بسيطة تكفي، علاقتك معه تتكلم عن نفسها.`,
       accent: 'teal'
     };
@@ -213,11 +224,11 @@ function getSmartTip(card: CareCard): { icon: string; text: string; accent: stri
         afternoon: 'أرسل بعد الساعة 4 — معظم المرضى يقرؤون رسائلهم بعد الدوام.',
         evening: 'المساء وقت هادئ — رسالة قصيرة الآن ستُقرأ وتُرد غالباً.',
       };
-      return { icon: '💡', text: timeHints[time], accent: 'amber' };
+      return { icon: 'bulb', text: timeHints[time], accent: 'amber' };
     }
     // مسجّل حديثاً في النظام
     return {
-      icon: '📋',
+      icon: 'note',
       text: 'أرسل رسالة التذكير الآن — المريض الذي يتلقى تذكيراً من صيدليته يشعر أنه ليس مجرد زبون، بل شخص يُهتم بصحته. هذا الشعور هو ما يجعله يعود إليك دون أن يفكر في البديل.',
       accent: 'blue'
     };
@@ -226,32 +237,32 @@ function getSmartTip(card: CareCard): { icon: string; text: string; accent: stri
   if (stage === 'messaged' && pipeline?.reminded_at) {
     const daysSince = Math.floor((Date.now() - new Date(pipeline.reminded_at).getTime()) / 86400000);
     if (daysSince >= MSG_EXPIRY_DAYS) return {
-      icon: '🔔',
+      icon: 'bell',
       text: `مضت ${pluralizeDays(daysSince)} بدون رد — انقله الآن لقائمة "لم يستجيبوا" حتى لا يُنسى.`,
       accent: 'rose'
     };
     if (daysSince === MSG_EXPIRY_DAYS - 1) return {
-      icon: '⏰',
+      icon: 'alarm',
       text: `مضت ${pluralizeDays(daysSince)} — هذا آخر يوم قبل نقله تلقائياً إلى "بدون رد". الرسالة الثانية اليوم أو غداً يفوت الأوان.`,
       accent: 'rose'
     };
     if (daysSince === 3) return {
-      icon: '📩',
+      icon: 'mail',
       text: 'مضت 3 أيام — إذا أردت رسالة ثانية، غيّر الأسلوب: اسأل عن صحته أولاً دون ذكر الدواء.',
       accent: 'blue'
     };
     if (daysSince === 2) return {
-      icon: '📅',
+      icon: 'calendar',
       text: 'يومان بلا رد — انتظر الغد، فكثير من المرضى يردّون في اليوم الثالث.',
       accent: 'teal'
     };
     if (daysSince === 1) return {
-      icon: '🕐',
+      icon: 'clock',
       text: 'مضى يوم واحد — ما زال ضمن الوقت الطبيعي للرد. لا تتابع بعد.',
       accent: 'teal'
     };
     return {
-      icon: '✅',
+      icon: 'check',
       text: 'أُرسلت اليوم — أمهله حتى الغد قبل أي متابعة. الضغط المبكر يُنفّر المريض.',
       accent: 'teal'
     };
@@ -260,42 +271,42 @@ function getSmartTip(card: CareCard): { icon: string; text: string; accent: stri
   if (stage === 'no_response' && (pipeline?.stage_changed_at || pipeline?.updated_at)) {
     const daysSince = Math.floor((Date.now() - new Date(pipeline.stage_changed_at || pipeline.updated_at).getTime()) / 86400000);
     if (daysSince >= NO_RESPONSE_ARCHIVE_DAYS) return {
-      icon: '🔇',
+      icon: 'mute',
       text: `مضى ${pluralizeDays(daysSince)} بلا استجابة — دورة دواء كاملة. الأرجح أنه يشتري من مكان آخر. انقله إلى "فقدنا تواصلهم" حتى تبقى قائمتك عملية.`,
       accent: 'slate'
     };
     if (daysSince >= 21) return {
-      icon: '⌛',
+      icon: 'hourglass',
       text: `مضى ${pluralizeDays(daysSince)} — إن لم يستجب هذا الأسبوع، الأفضل نقله إلى "فقدنا تواصلهم". القائمة الطويلة تُقرأ أقل.`,
       accent: 'slate'
     };
     if (daysSince >= 14) return {
-      icon: '🔕',
+      icon: 'mute',
       text: `أسبوعان بلا رد — محاولة أخيرة بالاتصال المباشر. إن لم يرد، سجّل ذلك ولا تكرّر.`,
       accent: 'slate'
     };
     if (daysSince >= 10) return {
-      icon: '📵',
+      icon: 'phoneOff',
       text: 'أكثر من 10 أيام — الرسائل لم تنفع. الاتصال المباشر هو الخيار الوحيد المتبقّي.',
       accent: 'slate'
     };
     if (daysSince >= 7) return {
-      icon: '📞',
+      icon: 'phone',
       text: 'أسبوع بدون رد — اتصل به مباشرة. ابدأ بالسلام والسؤال عن صحته، ثم اكتشف بهدوء: هل اشترى من مكان آخر؟ هل تغيّر طبيبه؟ هل واجه مشكلة في الدواء؟ معرفة السبب تساعدك على استعادته.',
       accent: 'blue'
     };
     if (daysSince >= 3) return {
-      icon: '☎️',
+      icon: 'phone',
       text: `مضت ${pluralizeDays(daysSince)} منذ نقله — الاتصال الآن أفضل من رسالة أخرى. الرسائل المتكررة تُتجاهل.`,
       accent: 'blue'
     };
     if (loyaltyMonths >= 6) return {
-      icon: '💛',
+      icon: 'heart',
       text: `${firstName} مريض منتظم لكنه لم يرد — اتصل به شخصياً، هذا النوع من المرضى يستحق الجهد.`,
       accent: 'amber'
     };
     return {
-      icon: '☎️',
+      icon: 'phone',
       text: 'جرّب الاتصال بدلاً من الرسالة — ابدأ بالسؤال عن صحته لا عن الدواء.',
       accent: 'blue'
     };
@@ -1984,7 +1995,7 @@ function PatientCard({ card, pharmacyName, onAction, onNotesUpdate }: {
           {/* النصيحة الذكية */}
           {tip && (
             <div className="flex items-start gap-3 rounded-lg px-4 py-3 bg-blue-50/50 border border-blue-100">
-              <span className="text-base shrink-0">{tip.icon}</span>
+              <TipIconSvg name={tip.icon} />
               <p className="text-xs font-medium text-blue-900 leading-relaxed">{tip.text}</p>
             </div>
           )}

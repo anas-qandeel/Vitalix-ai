@@ -44,7 +44,7 @@ export async function GET(
 
     if (visitError || !visit) {
       return NextResponse.json(
-        { error: 'لم يتم العثور على التقرير المطلوب أو أن الرابط غير صالح.' },
+        { error: 'لم يتم العثور على الملخّص المطلوب أو أن الرابط غير صالح.' },
         { status: 404 }
       );
     }

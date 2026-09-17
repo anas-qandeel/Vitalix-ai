@@ -261,6 +261,28 @@ CREATE TABLE public.catalog_rejections (
 
 
 -- ----------------------------------------------------------------------------
+-- medicine_blocklist — طبقة القاعدة ضد الأدوية (هجرة 20260917130000)
+-- ----------------------------------------------------------------------------
+-- قائمة الحظر التي يملكها مالك المنصة؛ القائمة الأولية منسوخة من
+-- src/lib/medicine-blocklist.ts (142 مادة فعالة + 87 اسماً تجارياً).
+-- الكتابة عبر service_role / SQL Editor فقط (لا سياسات كتابة)؛ القراءة لكل مصادَق.
+CREATE TABLE public.medicine_blocklist (
+    id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    term       text NOT NULL,
+    term_type  text NOT NULL,      -- generic | brand (قيد CHECK)
+    is_active  boolean NOT NULL DEFAULT true,
+    note       text,
+    created_at timestamptz NOT NULL DEFAULT timezone('utc', now())
+);
+-- فهرس فريد: (normalize_ar(term), term_type)
+-- دالة medicine_blocklist_match(name, clinical_profile) → text[] بالمطابقات؛ نفس قاعدة الكود:
+--   generic بحدود كلمة لاتينية، brand احتواءً بطول >= 4، بعد normalize_ar.
+-- trigger trg_products_reject_medicine (BEFORE INSERT OR UPDATE OF brand_name, clinical_profile
+--   ON pharmacy_products) يرفض الصف برسالة تبدأ بـ MEDICINE_BLOCKED مهما كان مصدر الكتابة.
+--   لا يمس الصفوف القائمة ما لم يُعدَّل اسمها أو بطاقتها.
+
+
+-- ----------------------------------------------------------------------------
 -- pharmacy_staff — طاقم الصيدلية (نظام "الصيدلاني النشط")
 -- ----------------------------------------------------------------------------
 -- يُدار جانب العرض عبر localStorage + CustomEvent، راجع

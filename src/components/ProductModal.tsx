@@ -11,6 +11,7 @@ import {
   isProductKind, isProductCategory, type ProductKind, type ProductCategory,
 } from '@/lib/catalog-taxonomy';
 import { getStaffId } from '@/lib/tenant';
+import AiActionButton from '@/components/AiActionButton';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -182,10 +183,10 @@ export default function ProductModal({ item, pharmacyId, onClose, onSaved }: Pro
 
           {/* ── بطاقة الأمان: البناء بالذكاء الاصطناعي ── */}
           <div className="border-t border-slate-100 pt-4">
-            <button type="button" onClick={handleBuildProfile} disabled={building || !brandName.trim()}
-              className="w-full py-3 bg-gradient-to-l from-slate-900 to-teal-800 hover:from-slate-800 hover:to-teal-700 text-white rounded-xl text-sm font-bold transition active:scale-[0.98] disabled:opacity-50 shadow-sm cursor-pointer">
-              {building ? 'جاري البناء...' : '✨ بناء بطاقة الأمان بالذكاء الاصطناعي'}
-            </button>
+            <AiActionButton type="button" onClick={handleBuildProfile} disabled={building || !brandName.trim()}
+              loading={building} loadingText="يقرأ المنتج ويبني بطاقة الأمان...">
+              بناء بطاقة الأمان بالذكاء الاصطناعي
+            </AiActionButton>
             {buildError && <p className="text-xs text-rose-600 font-medium bg-rose-50 border border-rose-200 px-3 py-2 rounded-lg mt-2">{buildError}</p>}
             {rejected && (
               <div className="mt-2 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2.5">
@@ -237,12 +238,12 @@ export default function ProductModal({ item, pharmacyId, onClose, onSaved }: Pro
 
         <div className="px-5 pb-5 pt-2 border-t border-slate-100 space-y-2 sticky bottom-0 bg-white">
           <button type="button" onClick={() => handleSave(true)} disabled={saving || !brandName.trim() || !!rejected || (!!profile && !reviewed)}
-            className="w-full py-3 bg-gradient-to-l from-slate-900 to-teal-800 hover:from-slate-800 hover:to-teal-700 text-white rounded-xl text-sm font-bold transition active:scale-[0.98] disabled:opacity-50 shadow-sm cursor-pointer">
+            className="w-full h-11 flex items-center justify-center rounded-lg bg-teal-600 text-white text-sm font-medium hover:bg-teal-700 transition-all disabled:opacity-50 shadow-sm cursor-pointer">
             {saving ? 'جاري الحفظ...' : profile ? 'تأكيد بطاقة الأمان وحفظ المنتج' : 'حفظ المنتج'}
           </button>
           {!profile && !rejected && (
             <button type="button" onClick={() => handleSave(false)} disabled={saving || !brandName.trim()}
-              className="w-full py-2 bg-white border border-slate-200 text-slate-500 rounded-xl text-xs font-bold hover:bg-slate-50 transition cursor-pointer">
+              className="w-full h-10 flex items-center justify-center rounded-lg bg-white border border-slate-200 text-slate-700 text-xs font-medium hover:bg-slate-50 transition-all disabled:opacity-50 shadow-sm cursor-pointer">
               حفظ بلا بطاقة أمان الآن — يظهر «بحاجة مراجعة» حتى تُبنى لاحقاً
             </button>
           )}

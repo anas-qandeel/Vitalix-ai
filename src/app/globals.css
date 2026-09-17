@@ -31,3 +31,64 @@ body {
    لأن كلتيهما تملك تعريفاً محلياً أقوى ترتيباً (<style jsx global>) يبقى كما هو. */
 @keyframes saasSlideUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 .saas-slide-up { animation: saasSlideUp 0.25s ease both; }
+
+/* ── AiActionButton: زر الإجراءات الذكية ── */
+@property --ai-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+.ai-btn {
+  background: conic-gradient(from var(--ai-angle), #0d9488, #7c3aed, #06b6d4, #0d9488);
+  animation: aiSpin 4s linear infinite;
+  box-shadow: 0 0 18px rgba(13, 148, 136, 0.35);
+}
+.ai-btn:disabled:not(.ai-btn-loading) { animation-play-state: paused; }
+.ai-btn-loading { animation-duration: 1.2s; box-shadow: 0 0 26px rgba(13, 148, 136, 0.55); }
+@keyframes aiSpin { to { --ai-angle: 360deg; } }
+
+.ai-btn > span { background-color: #0f172a; }
+.ai-orb {
+  position: absolute;
+  border-radius: 9999px;
+  pointer-events: none;
+  filter: blur(12px);
+  opacity: 0.16;
+  transition: opacity 0.5s ease;
+  animation: aiFloat var(--d, 9s) ease-in-out infinite alternate;
+}
+.ai-btn:hover .ai-orb,
+.ai-btn-loading .ai-orb { opacity: 0.6; animation-duration: calc(var(--d, 9s) / 3); }
+@keyframes aiFloat {
+  from { transform: translate(0, 0) scale(1); }
+  to { transform: translate(var(--dx, 30px), var(--dy, -8px)) scale(1.3); }
+}
+
+.ai-btn-pulse { animation: aiPulse 2.2s ease-in-out infinite; }
+@keyframes aiPulse {
+  0%, 100% { transform: scale(1); opacity: 0.85; }
+  50% { transform: scale(1.18); opacity: 1; }
+}
+
+.ai-btn-spark { animation: aiSpark 1.4s ease-in-out infinite; }
+@keyframes aiSpark {
+  0% { transform: rotate(0deg) scale(1); }
+  50% { transform: rotate(180deg) scale(1.25); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+
+.ai-btn-shimmer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.22) 50%, transparent 70%);
+  animation: aiShimmer 1.4s linear infinite;
+}
+@keyframes aiShimmer {
+  from { transform: translateX(-150%); }
+  to { transform: translateX(150%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-btn, .ai-orb, .ai-btn-pulse, .ai-btn-spark, .ai-btn-shimmer { animation: none; }
+}

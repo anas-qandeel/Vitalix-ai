@@ -13,6 +13,7 @@ import {
   type ProductKind, type ProductCategory,
 } from '@/lib/catalog-taxonomy';
 import { summarizeProductEvents, type ProductSignals } from '@/lib/product-signals';
+import { Plus } from '@phosphor-icons/react';
 
 // ═══════════════════════════════════════════════════════
 // كتالوج المنتجات — شاشة موحّدة (نسخة جديدة، عرض فقط في هذه الخطوة)
@@ -90,8 +91,8 @@ export default function PharmacyCatalogManagerPageV2() {
           </div>
           {canManage && (
             <button onClick={() => setEditItem('new')}
-              className="px-4 py-2.5 bg-gradient-to-l from-slate-900 to-teal-800 hover:from-slate-800 hover:to-teal-700 text-white rounded-xl text-xs font-bold transition active:scale-[0.98] shadow-sm cursor-pointer">
-              + إضافة منتج
+              className="h-10 shrink-0 whitespace-nowrap px-3 sm:px-4 flex items-center justify-center gap-2 rounded-lg bg-teal-600 text-white text-xs sm:text-sm font-medium hover:bg-teal-700 transition-all shadow-sm cursor-pointer">
+              <Plus size={16} weight="bold" /> إضافة منتج
             </button>
           )}
         </div>
@@ -195,7 +196,7 @@ export default function PharmacyCatalogManagerPageV2() {
             <p className="text-xs text-slate-500 mb-6">هذا الإجراء لا يمكن التراجع عنه.</p>
             <div className="grid grid-cols-2 gap-3">
               <button onClick={() => setDeleteItem(null)} disabled={deleting}
-                className="py-2.5 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer">إلغاء</button>
+                className="h-10 flex items-center justify-center rounded-lg bg-white border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50 transition-all shadow-sm cursor-pointer">إلغاء</button>
               <button onClick={async () => {
                 setDeleting(true);
                 const { error } = await supabase.from('pharmacy_products').delete().eq('id', deleteItem.id);

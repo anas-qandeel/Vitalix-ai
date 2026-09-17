@@ -24,6 +24,7 @@ export interface ChronicMed {
   next_refill_date: string;
   status: string;
   carryover_pills?: number; // الحبات المرحّلة وقت آخر صرف (افتراضي 0)
+  created_at?: string;      // تاريخ تسجيل الدواء — أساس حساب الولاء
 }
 
 export function calcDaysLeft(d: string): number {

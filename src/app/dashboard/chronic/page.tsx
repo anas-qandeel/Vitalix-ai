@@ -119,14 +119,12 @@ function calcNextRefill(last: string, ppb: number, boxes: number, dose: number):
   return base.toISOString().split('T')[0];
 }
 
+/** أشهر الولاء = منذ أقدم تسجيل دواء (created_at)؛ last_refill_date يتجدد مع كل صرف فلا يصلح مقياساً */
 function calcLoyaltyMonths(meds: ChronicMed[]): number {
   if (!meds.length) return 0;
-  const oldest = meds.reduce((a, b) =>
-    new Date(a.last_refill_date) < new Date(b.last_refill_date) ? a : b
-  );
-  return Math.max(0, Math.floor(
-    (Date.now() - new Date(oldest.last_refill_date).getTime()) / (1000 * 60 * 60 * 24 * 30)
-  ));
+  const since = (m: ChronicMed) => new Date(m.created_at || m.last_refill_date).getTime();
+  const oldest = Math.min(...meds.map(since));
+  return Math.max(0, Math.floor((Date.now() - oldest) / (1000 * 60 * 60 * 24 * 30)));
 }
 
 function fmtDate(d: string): string {

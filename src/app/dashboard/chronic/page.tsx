@@ -15,7 +15,7 @@ import { logActivity } from '@/lib/activity';
 import { normalizePhone, displayPhone, validatePhone } from '@/lib/phone';
 import PatientSafetyFields, { EMPTY_PATIENT_SAFETY, PatientSafetyValues, safetyForSave } from '@/components/PatientSafetyFields';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { ChartBar, Package, Lightning, User, LightbulbFilament, CheckCircle, Check, FilePdf, WarningCircle, Hourglass, PaperPlaneTilt, Star, ClipboardText, Bell, Alarm, EnvelopeSimple, CalendarBlank, Clock, BellSlash, PhoneX, Phone, Heart } from '@phosphor-icons/react';
+import { ChartBar, Package, Lightning, User, LightbulbFilament, CheckCircle, Check, FilePdf, WarningCircle, Hourglass, PaperPlaneTilt, Star, ClipboardText, Bell, Alarm, EnvelopeSimple, CalendarBlank, Clock, BellSlash, PhoneX, Phone, Heart, Pill, ArrowsClockwise, Warning } from '@phosphor-icons/react';
 import { useConfirm } from '@/components/ConfirmDialog';
 
 // ═══════════════════════════════════════════════════════
@@ -536,7 +536,7 @@ function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill }: {
                         <p className="text-sm font-semibold text-slate-900 truncate">{r.name}</p>
                         {!nameMatches && matchedDrugs.length > 0 ? (
                           <p className="flex items-center gap-1 min-w-0 text-[11px] text-violet-600 font-medium mt-0.5">
-                            <span className="shrink-0">💊</span>
+                            <Pill size={16} weight="bold" className="shrink-0 text-slate-400" aria-hidden="true" />
                             <span dir="ltr" className="block min-w-0 truncate text-right">{matchedDrugs.map(m => m.medication_name).join(' · ')}</span>
                           </p>
                         ) : (
@@ -574,7 +574,7 @@ function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill }: {
                     </div>
                   )}
                   {foundIsArchived && (
-                    <p className="text-xs text-amber-700 mt-0.5">🔄 مريض عائد — كنّا قد فقدنا تواصلنا معه. سجّل أدويته الجديدة لإعادة متابعته.</p>
+                    <p className="text-xs text-amber-700 mt-0.5"><ArrowsClockwise size={12} weight="bold" className="inline-block ml-1 align-[-2px]" aria-hidden="true" /> مريض عائد — كنّا قد فقدنا تواصلنا معه. سجّل أدويته الجديدة لإعادة متابعته.</p>
                   )}
                   <p className="text-xs text-slate-500 mt-0.5">{foundMeds.length} {foundMeds.length === 1 ? 'دواء مزمن مسجّل' : 'أدوية مزمنة مسجّلة'}</p>
                 </div>
@@ -611,7 +611,7 @@ function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill }: {
           ) : canRegisterNew ? (
             <div className="space-y-4 pt-1 border-t border-slate-100">
               <div className="flex items-center gap-2 px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-lg">
-                <span className="text-amber-500 text-sm shrink-0">⚠️</span>
+                <Warning size={16} weight="bold" className="text-amber-500 shrink-0" aria-hidden="true" />
                 <p className="text-xs font-semibold text-amber-800">مريض جديد — يرجى إكمال البيانات قبل المتابعة</p>
               </div>
               <div>
@@ -676,7 +676,7 @@ function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill }: {
           {/* رسالة الخطأ — ثابتة فوق الأزرار دائماً */}
           {err && (
             <div className="flex items-center gap-2 bg-rose-50 border border-rose-200 px-4 py-3 rounded-lg">
-              <span className="text-rose-500 shrink-0">⚠️</span>
+              <Warning size={16} weight="bold" className="text-rose-500 shrink-0" aria-hidden="true" />
               <p className="text-sm text-rose-700 font-medium">{err}</p>
             </div>
           )}
@@ -684,7 +684,7 @@ function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill }: {
             <>
               <button onClick={() => onRenew(found, foundMeds, foundIsArchived)}
                 className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-sm font-semibold transition-all active:scale-[0.98] shadow-sm flex items-center justify-center gap-2">
-                <span>🔄</span><span>تجديد أو تعديل الأدوية</span>
+                <ArrowsClockwise size={16} weight="bold" aria-hidden="true" /><span>تجديد أو تعديل الأدوية</span>
               </button>
               <button onClick={next} disabled={saving}
                 className="w-full py-3 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg text-sm font-medium transition-all active:scale-[0.98] disabled:opacity-50 shadow-sm flex items-center justify-center gap-2">
@@ -959,7 +959,7 @@ function MedModal({ patientId, pharmacyId, existingMeds, patientName, onClose, o
         {/* ── banner تأكيد — يظهر فقط عند الفتح من modal البحث بوضع الإضافة ── */}
         {isNewPatient && !isRenewal && (
           <div className="mx-6 mt-4 flex items-center gap-2.5 bg-emerald-50 border border-emerald-200 rounded-lg px-3.5 py-3 shrink-0">
-            <span className="text-base shrink-0">✅</span>
+            <CheckCircle size={20} weight="fill" className="text-emerald-500 shrink-0" aria-hidden="true" />
             <div>
               <p className="text-xs font-bold text-emerald-800">تم تسجيل {patientName} بنجاح</p>
               <p className="text-[11px] text-emerald-700 mt-0.5">أضف أدويته المزمنة الآن لبدء متابعتها</p>
@@ -969,7 +969,7 @@ function MedModal({ patientId, pharmacyId, existingMeds, patientName, onClose, o
 
         {!isNewPatient && !isRenewal && (
           <div className="mx-6 mt-4 flex items-center gap-2.5 bg-blue-50 border border-blue-200 rounded-lg px-3.5 py-3 shrink-0">
-            <span className="text-base shrink-0">💊</span>
+            <Pill size={20} weight="bold" className="text-slate-500 shrink-0" aria-hidden="true" />
             <div>
               <p className="text-xs font-bold text-blue-800">إضافة دواء جديد لـ {patientName}</p>
               <p className="text-[11px] text-blue-700 mt-0.5">أدخل الدواء الجديد وسيُضاف لسجله الحالي</p>
@@ -1115,7 +1115,7 @@ function MedModal({ patientId, pharmacyId, existingMeds, patientName, onClose, o
                       <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 space-y-2">
                         <div className="flex items-center justify-between">
                           <label className="text-xs font-semibold text-amber-800">
-                            💊 {getUnitLabels(m.dosage_unit).remaining}
+                            <Pill size={12} weight="bold" className="inline-block ml-1 align-[-2px]" aria-hidden="true" /> {getUnitLabels(m.dosage_unit).remaining}
                           </label>
                           <span className="text-[10px] text-emerald-600 font-medium bg-emerald-100 px-2 py-0.5 rounded-full">محسوبة تلقائياً</span>
                         </div>
@@ -2009,7 +2009,7 @@ function PatientCard({ card, pharmacyName, onAction, onNotesUpdate }: {
                 return (
                   <div key={m.id} className={`border rounded-lg px-3.5 py-2.5 ${isClose ? 'bg-amber-50 border-amber-200' : 'bg-white border-slate-200'}`}>
                     <div className="flex items-center justify-between gap-2">
-                      <p className="text-xs font-semibold text-slate-800 truncate">💊 {m.medication_name}</p>
+                      <p className="text-xs font-semibold text-slate-800 truncate"><Pill size={12} weight="bold" className="inline-block ml-1 align-[-2px] text-slate-400" aria-hidden="true" /> {m.medication_name}</p>
                       <span className={`text-[9px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${
                         dLeft <= 0 ? 'bg-rose-100 text-rose-700 border-rose-200' :
                         dLeft <= 7 ? 'bg-amber-100 text-amber-700 border-amber-200' :

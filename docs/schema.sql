@@ -124,6 +124,27 @@ CREATE TABLE public.chronic_medications (
 --   trigger_auto_refill_date (BEFORE INSERT/UPDATE) → auto_calculate_next_refill():
 --     next_refill_date = last_refill_date + floor((pills_per_box × boxes_count + carryover_pills) / daily_dosage)
 --     القاعدة هي مصدر الحقيقة لهذا الحقل؛ التطبيق يحسبه للعرض فقط بالمعادلة نفسها (هجرة 20260917153000).
+
+
+-- ----------------------------------------------------------------------------
+-- inventory_stock — مخزون شاشة "جهّز مخزونك" في المزمنين (هجرة 20260917170000)
+-- ----------------------------------------------------------------------------
+-- صف لكل (صيدلية، دواء)؛ كان محفوظاً سابقاً في localStorage للمتصفح (بمفتاح عام
+-- غير مرتبط بالصيدلية) — لا يعمل عبر الأجهزة أو الموظفين. الآن في القاعدة.
+CREATE TABLE public.inventory_stock (
+    id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    pharmacy_id      uuid NOT NULL REFERENCES public.pharmacies(id) ON DELETE CASCADE,
+    med_key          text NOT NULL,               -- اسم الدواء بعد trim + lowercase (يطابق مفتاح calcInventory)
+    boxes_confirmed  integer NOT NULL DEFAULT 0,  -- "مؤكَّد الكامل": الكمية عند التأكيد
+    boxes_remaining  integer NOT NULL DEFAULT 0,  -- تُطرح عند تجديد/أرشفة كل مريض (deductFromInventory)
+    partial_boxes    integer NOT NULL DEFAULT 0,  -- "موجود جزئياً" — مستقل تماماً عن boxes_confirmed/remaining
+    confirmed_at     timestamptz,
+    confirmed_by     uuid REFERENCES public.pharmacy_staff(id) ON DELETE SET NULL,
+    updated_at       timestamptz NOT NULL DEFAULT now()
+);
+-- قيد فريد: (pharmacy_id, med_key). فهرس: idx_inventory_stock_ph (pharmacy_id)
+-- RLS: tenant_rw عبر current_pharmacy_id() (قراءة وكتابة لموظفي الصيدلية نفسها فقط)
+-- trigger trg_inventory_stock_updated_at يحدّث updated_at تلقائياً
 --   trg_log_medication_activity (AFTER INSERT/UPDATE/DELETE) → log_medication_activity(): يسجّل في activity_log
 --     عبر current_staff_id()؛ بلا هوية موظف لا يسجّل.
 

@@ -1235,64 +1235,55 @@ interface InventoryItem {
   partial_available: number; // كمية جزئية أكّدها الصيدلاني كموجودة على الرف (0 = لا يوجد تأكيد جزئي)
 }
 
-const LS_KEY = 'vitalix_inventory_confirmed';
-
 type ConfirmedEntry = {
   confirmed_at: string;
   boxes_confirmed: number;  // الكمية التي أكد الصيدلاني وجودها
   boxes_remaining: number;  // ما تبقى بعد طرح المجدَّدين والمؤرشفين
 };
-
-// تخزين منفصل تماماً عن ConfirmedEntry — لا يُغيّر حالة "مؤكَّد الكامل" ولا يتفاعل مع deductFromInventory
-const PARTIAL_LS_KEY = 'vitalix_inventory_partial';
 type PartialEntry = { amount: number; updated_at: string };
-function getPartialMap(): Record<string, PartialEntry> {
-  try { return JSON.parse(localStorage.getItem(PARTIAL_LS_KEY) || '{}'); } catch { return {}; }
-}
-function setPartialMap(map: Record<string, PartialEntry>) {
-  try { localStorage.setItem(PARTIAL_LS_KEY, JSON.stringify(map)); } catch {}
+
+// مخزون "جهّز مخزونك" في جدول inventory_stock (لكل صيدلية)، لا localStorage.
+// صف واحد لكل دواء: boxes_confirmed/boxes_remaining لحالة "مؤكَّد الكامل"،
+// partial_boxes لحالة "موجود جزئياً" — مستقلتان تماماً كما كانتا في LS_KEY/PARTIAL_LS_KEY.
+async function fetchInventoryMaps(pharmacyId: string): Promise<{
+  confirmed: Record<string, ConfirmedEntry>;
+  partial: Record<string, PartialEntry>;
+}> {
+  const confirmed: Record<string, ConfirmedEntry> = {};
+  const partial: Record<string, PartialEntry> = {};
+  const { data } = await supabase.from('inventory_stock').select('*').eq('pharmacy_id', pharmacyId);
+  (data || []).forEach((row: any) => {
+    if (row.confirmed_at && row.boxes_remaining > 0) {
+      confirmed[row.med_key] = { confirmed_at: row.confirmed_at, boxes_confirmed: row.boxes_confirmed, boxes_remaining: row.boxes_remaining };
+    }
+    if (row.partial_boxes > 0) {
+      partial[row.med_key] = { amount: row.partial_boxes, updated_at: row.updated_at };
+    }
+  });
+  return { confirmed, partial };
 }
 
-function getConfirmedMap(): Record<string, ConfirmedEntry> {
-  try {
-    const raw = JSON.parse(localStorage.getItem(LS_KEY) || '{}');
-    // migration: القيم القديمة كانت strings (تاريخ فقط) — نحوّلها للـ schema الجديد
-    const migrated: Record<string, ConfirmedEntry> = {};
-    for (const [key, val] of Object.entries(raw)) {
-      if (typeof val === 'string') {
-        // schema قديم — نحوّله بـ boxes افتراضية = 1
-        migrated[key] = { confirmed_at: val, boxes_confirmed: 1, boxes_remaining: 1 };
-      } else if (val && typeof val === 'object') {
-        migrated[key] = val as ConfirmedEntry;
-      }
-    }
-    // إذا تم migration → احفظ القيم المحوّلة
-    if (Object.keys(migrated).length > 0) {
-      localStorage.setItem(LS_KEY, JSON.stringify(migrated));
-    }
-    return migrated;
-  } catch { return {}; }
-}
-function setConfirmedMap(map: Record<string, ConfirmedEntry>) {
-  try { localStorage.setItem(LS_KEY, JSON.stringify(map)); } catch {}
+async function upsertInventoryRow(pharmacyId: string, medKey: string, patch: Record<string, any>) {
+  await supabase.from('inventory_stock').upsert(
+    { pharmacy_id: pharmacyId, med_key: medKey, ...patch },
+    { onConflict: 'pharmacy_id,med_key' }
+  );
 }
 
-// يُستدعى عند تجديد مريض أو أرشفته — يطرح كميته من boxes_remaining
-// إذا وصل الرصيد لصفر → يُلغى التأكيد تلقائياً
-function deductFromInventory(medKey: string, boxesToDeduct: number) {
-  const map = getConfirmedMap();
-  if (!map[medKey]) return;
-  map[medKey].boxes_remaining = Math.max(0, map[medKey].boxes_remaining - boxesToDeduct);
-  if (map[medKey].boxes_remaining <= 0) {
-    delete map[medKey]; // الكمية نفدت → يعود للقائمة الحمراء
+// يُستدعى عند تجديد مريض أو أرشفته — يطرح كميته من boxes_remaining؛ عند نفاد الرصيد يُلغى التأكيد تلقائياً
+async function deductFromInventory(pharmacyId: string, medKey: string, boxesToDeduct: number) {
+  const { data } = await supabase.from('inventory_stock').select('boxes_remaining, boxes_confirmed')
+    .eq('pharmacy_id', pharmacyId).eq('med_key', medKey).maybeSingle();
+  if (!data || data.boxes_remaining <= 0) return;
+  const remaining = Math.max(0, data.boxes_remaining - boxesToDeduct);
+  if (remaining <= 0) {
+    await upsertInventoryRow(pharmacyId, medKey, { boxes_remaining: 0, boxes_confirmed: 0, confirmed_at: null });
   } else {
-    setConfirmedMap(map);
+    await upsertInventoryRow(pharmacyId, medKey, { boxes_remaining: remaining });
   }
-  setConfirmedMap(map);
 }
-
-function calcInventory(cards: CareCard[]): InventoryItem[] {
-  const confirmed = getConfirmedMap();
+function calcInventory(cards: CareCard[], confirmed: Record<string, ConfirmedEntry>, partialMap: Record<string, PartialEntry>): InventoryItem[] {
+  void 0;
   const activeCards = cards.filter(c => c.stage !== ('archived' as DisplayStage));
 
   const map = new Map<string, {
@@ -1336,7 +1327,6 @@ function calcInventory(cards: CareCard[]): InventoryItem[] {
     const boxes_confirmed = entry?.boxes_confirmed || 0;
     const boxes_remaining = entry?.boxes_remaining || 0;
     const stillConfirmed = Boolean(confirmedAt) && boxes_remaining > 0;
-    const partialMap = getPartialMap();
     const partial_available = partialMap[key]?.amount || 0;
 
     items.push({
@@ -1447,11 +1437,20 @@ function PatientMedsModal({ patient, cards, onClose }: {
   );
 }
 
-function InventoryTab({ cards, onClose, pharmacyName }: {
+function InventoryTab({ cards, onClose, pharmacyName, pharmacyId }: {
   cards: CareCard[];
   onClose?: () => void;
   pharmacyName: string;
+  pharmacyId: string;
 }) {
+  const [confirmedMap, setConfirmedMapState] = useState<Record<string, ConfirmedEntry>>({});
+  const [partialMap, setPartialMapState] = useState<Record<string, PartialEntry>>({});
+  useEffect(() => {
+    fetchInventoryMaps(pharmacyId).then(({ confirmed, partial }) => {
+      setConfirmedMapState(confirmed);
+      setPartialMapState(partial);
+    });
+  }, [pharmacyId]);
   const exportInventoryPDF = async (rows: InventoryItem[]) => {
     const jspdfModule: any = await import('jspdf');
     const JsPDF = jspdfModule.jsPDF || jspdfModule.default;
@@ -1581,41 +1580,36 @@ function InventoryTab({ cards, onClose, pharmacyName }: {
   const [search, setSearch] = useState('');
   const [partialEditKey, setPartialEditKey] = useState<string | null>(null);
   const [partialInput, setPartialInput] = useState('');
-  const recompute = useCallback(() => setItems(calcInventory(cards)), [cards]);
-  useEffect(() => { recompute(); }, [recompute]);
+  const recompute = useCallback(async () => {
+    const { confirmed, partial } = await fetchInventoryMaps(pharmacyId);
+    setConfirmedMapState(confirmed);
+    setPartialMapState(partial);
+    setItems(calcInventory(cards, confirmed, partial));
+  }, [cards, pharmacyId]);
+  useEffect(() => { if (pharmacyId) recompute(); }, [recompute, pharmacyId]);
 
   // pending: الأدوية غير المؤكَّدة فقط
   // confirmedNow: كل الأدوية المؤكَّدة بغض النظر عن موعد نفاذها
   const pending      = items.filter(i => !i.confirmed_at);
   const confirmedNow = items.filter(i =>  i.confirmed_at);
 
-  const handleConfirm = (item: InventoryItem) => {
-    const map = getConfirmedMap();
-    map[item.key] = {
+  const handleConfirm = async (item: InventoryItem) => {
+    await upsertInventoryRow(pharmacyId, item.key, {
       confirmed_at: new Date().toISOString(),
       boxes_confirmed: item.boxes_needed_monthly,
       boxes_remaining: item.boxes_needed_monthly,
-    };
-    setConfirmedMap(map);
+    });
     recompute();
   };
 
-  const handleUnconfirm = (key: string) => {
-    const map = getConfirmedMap();
-    delete map[key];
-    setConfirmedMap(map);
+  const handleUnconfirm = async (key: string) => {
+    await upsertInventoryRow(pharmacyId, key, { confirmed_at: null, boxes_confirmed: 0, boxes_remaining: 0 });
     recompute();
   };
 
-  const handleSavePartial = (key: string) => {
+  const handleSavePartial = async (key: string) => {
     const amount = Math.max(0, parseInt(partialInput, 10) || 0);
-    const map = getPartialMap();
-    if (amount <= 0) {
-      delete map[key];
-    } else {
-      map[key] = { amount, updated_at: new Date().toISOString() };
-    }
-    setPartialMap(map);
+    await upsertInventoryRow(pharmacyId, key, { partial_boxes: amount });
     setPartialEditKey(null);
     setPartialInput('');
     recompute();
@@ -2247,11 +2241,11 @@ export default function ChronicPage() {
         const confirmed = await confirm({ title: `إخراج ${card.patient.name} من المتابعة؟`, message: 'سيُنقل إلى قائمة «فقدنا تواصلهم» ويعود للمتابعة تلقائياً إذا سُجّل له دواء جديد.', confirmText: 'إخراج من المتابعة', destructive: true });
         if (!confirmed) return;
         // طرح أدوية هذا المريض من المخزون المؤكَّد قبل الأرشفة
-        card.meds.forEach(med => {
+        for (const med of card.meds) {
           const key = med.medication_name.trim().toLowerCase();
           const boxes = Math.max(1, Number(med.boxes_count));
-          deductFromInventory(key, boxes);
-        });
+          await deductFromInventory(pharmacyId, key, boxes);
+        }
         const updated = await upsertPipeline(pharmacyId, patientId, 'archived');
         showToast('خرج من المتابعة — في قائمة «فقدنا تواصلهم»', 'info');
         setCards(prev => prev.map(c => c.patient.id === patientId ? { ...c, stage: 'archived' as DisplayStage, pipeline: updated || c.pipeline } : c));
@@ -2640,7 +2634,7 @@ export default function ChronicPage() {
           );
         })()}
 
-        {showInventory && <InventoryTab cards={cards} onClose={() => setShowInventory(false)} pharmacyName={pharmacyName} />}
+        {showInventory && <InventoryTab cards={cards} onClose={() => setShowInventory(false)} pharmacyName={pharmacyName} pharmacyId={pharmacyId} />}
 
         {/* Patients List */}
         {!showInventory && !showStats && total > 0 && (
@@ -2796,11 +2790,11 @@ export default function ChronicPage() {
             setMedModalFromSearch(false);
             setSearchPrefill(null);
             // طرح أدوية هذا المريض من المخزون المؤكَّد
-            savedMeds.forEach(med => {
+            for (const med of savedMeds) {
               const key = med.medication_name.trim().toLowerCase();
               const boxes = Math.max(1, Number(med.boxes_count));
-              deductFromInventory(key, boxes);
-            });
+              await deductFromInventory(pharmacyId, key, boxes);
+            }
             const updated = await upsertPipeline(pharmacyId, patientId, 'renewed');
             showToast('تم الحفظ بنجاح ✓');
             setCards(prev => {

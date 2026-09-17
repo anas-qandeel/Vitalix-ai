@@ -141,6 +141,7 @@ export default function DashboardHeader({ breadcrumb, onBack }: DashboardHeaderP
   const [userRole, setUserRole] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
   const mobileNavRef = useRef<HTMLDivElement>(null);
+  const mobileNavBtnRef = useRef<HTMLButtonElement>(null);
 
   // هوية المستخدم الحالي فعلياً (من سجّل دخوله) — لا من مبدّل محلي
   useEffect(() => {
@@ -158,7 +159,7 @@ export default function DashboardHeader({ breadcrumb, onBack }: DashboardHeaderP
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) setDropdownOpen(false);
-      if (mobileNavRef.current && !mobileNavRef.current.contains(e.target as Node)) setMobileNavOpen(false);
+      if (mobileNavRef.current && !mobileNavRef.current.contains(e.target as Node) && !mobileNavBtnRef.current?.contains(e.target as Node)) setMobileNavOpen(false);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
@@ -228,7 +229,7 @@ export default function DashboardHeader({ breadcrumb, onBack }: DashboardHeaderP
           <div className="flex items-center gap-3 shrink-0">
             {/* زر قائمة التنقل — يظهر فقط على الموبايل/التابلت الصغير حيث تُخفى nav الديسكتوب */}
             {!breadcrumb && (
-              <button onClick={() => setMobileNavOpen(v => !v)}
+              <button ref={mobileNavBtnRef} onClick={() => setMobileNavOpen(v => !v)}
                 className="md:hidden w-9 h-9 rounded-lg flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors shrink-0"
                 aria-label="فتح قائمة التنقل" aria-expanded={mobileNavOpen}>
                 {mobileNavOpen ? (
@@ -444,6 +445,21 @@ export default function DashboardHeader({ breadcrumb, onBack }: DashboardHeaderP
             </div>
           </div>
         </div>
+
+        {/* سطر الهوية — موبايل فقط: اسم الصيدلية والترحيب مخفيان في الصف الرئيسي تحت sm */}
+        {(pharmacyName || displayName) && (
+          <div className="sm:hidden border-t border-slate-100 bg-white">
+            <div className="px-4 h-8 flex items-center justify-between gap-3 text-[12px]">
+              <span className="flex items-center gap-1.5 min-w-0">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" aria-hidden="true" />
+                <span className="text-[13px] font-black text-teal-900 truncate">{pharmacyName}</span>
+              </span>
+              <span className="font-bold text-teal-700 truncate shrink-0">
+                مرحباً بعودتك {formatPharmacistName(displayName, userRole === 'owner' || userRole === 'pharmacist' || userRole === 'assistant')}
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* قائمة التنقل — موبايل/تابلت فقط، بديل روابط التنقل المخفية تحت md */}
         {!breadcrumb && mobileNavOpen && (

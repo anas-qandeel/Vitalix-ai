@@ -342,6 +342,7 @@ export default function VitalsPage() {
   const [vitalsSendError, setVitalsSendError] = useState('');
   const [reportExpanded, setReportExpanded] = useState(false);
   const [reportLanguage, setReportLanguage] = useState<'ar' | 'en'>('ar');
+  const REPORT_LANGUAGE_TOGGLE = false; // مخفي مؤقتاً — الإنجليزية مشروع مستقل لاحقاً؛ المنطق باقٍ
   // اسم الصيدلية للمخرجات الإنجليزية — الاسم الإنجليزي إن وُجد وإلا العربي كما هو الآن
   const pharmacyNameForOutput = reportLanguage === 'en' ? (pharmacyNameEn || pharmacyName) : pharmacyName;
 
@@ -1918,6 +1919,7 @@ ${planUrl}
                   </div>
                 )}
 
+                {REPORT_LANGUAGE_TOGGLE && (
                 <div className="flex items-center justify-center gap-2">
                   <span className="text-[10px] font-bold text-slate-400">لغة الملخّص:</span>
                   <div className="flex items-center gap-1 bg-slate-100 border border-slate-200 rounded-lg p-0.5">
@@ -1935,6 +1937,7 @@ ${planUrl}
                     </button>
                   </div>
                 </div>
+                )}
 
                 <AiActionButton
                   type="button"

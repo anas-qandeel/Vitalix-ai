@@ -206,7 +206,8 @@ CREATE TABLE public.refill_tracking_pipeline (
     copay_percent integer,
     copay_amount numeric,
     reminded_at timestamp with time zone,
-    updated_at timestamp with time zone,
+    updated_at timestamp with time zone,         -- يتغير مع أي تعديل (trg_pipeline_updated_at → set_updated_at)
+    stage_changed_at timestamp with time zone NOT NULL DEFAULT now(), -- لحظة دخول المرحلة الحالية فقط (trg_pipeline_stage_changed_at، هجرة 20260917160000) — أساس عدّاد "بدون رد"
     cycle_date date NOT NULL
 );
 -- فهارس: refill_tracking_pipeline_pkey (id) UNIQUE,

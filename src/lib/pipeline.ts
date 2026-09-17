@@ -7,6 +7,7 @@ export interface PipelineRecord {
   pipeline_stage: CareStage;
   reminded_at: string | null;
   updated_at: string;
+  stage_changed_at?: string; // لحظة دخول المرحلة الحالية (trigger في القاعدة) — لا يتغير بحفظ ملاحظة
   cycle_date: string;
   insurance_status: string | null;
 }

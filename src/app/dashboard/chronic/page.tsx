@@ -257,8 +257,8 @@ function getSmartTip(card: CareCard): { icon: string; text: string; accent: stri
     };
   }
 
-  if (stage === 'no_response' && pipeline?.updated_at) {
-    const daysSince = Math.floor((Date.now() - new Date(pipeline.updated_at).getTime()) / 86400000);
+  if (stage === 'no_response' && (pipeline?.stage_changed_at || pipeline?.updated_at)) {
+    const daysSince = Math.floor((Date.now() - new Date(pipeline.stage_changed_at || pipeline.updated_at).getTime()) / 86400000);
     if (daysSince >= NO_RESPONSE_ARCHIVE_DAYS) return {
       icon: '🔇',
       text: `مضى ${pluralizeDays(daysSince)} بلا استجابة — دورة دواء كاملة. الأرجح أنه يشتري من مكان آخر. انقله إلى "فقدنا تواصلهم" حتى تبقى قائمتك عملية.`,
@@ -2423,10 +2423,10 @@ export default function ChronicPage() {
           const avgMeds = activePipelines.length > 0
             ? (totalMedsCount / activePipelines.length).toFixed(1) : '0';
 
-          const atRisk = noResponse.filter(c =>
-            c.pipeline?.updated_at &&
-            Math.floor((Date.now() - new Date(c.pipeline.updated_at).getTime()) / 86400000) >= 7
-          ).length;
+          const atRisk = noResponse.filter(c => {
+            const since = c.pipeline?.stage_changed_at || c.pipeline?.updated_at;
+            return !!since && Math.floor((Date.now() - new Date(since).getTime()) / 86400000) >= 7;
+          }).length;
 
           return (
             <div className="space-y-4 saas-slide-up" dir="rtl">

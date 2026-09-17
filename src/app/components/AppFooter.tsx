@@ -10,6 +10,8 @@ export default function AppFooter({ className = '' }: { className?: string }) {
           Vitalix<span className="text-slate-900">-ai</span> — v1.0.0
         </span>
         <span>· © {new Date().getFullYear()} جميع الحقوق محفوظة</span>
+        <span>·</span>
+        <a href="/privacy" className="hover:text-slate-600 hover:underline transition-colors">سياسة الخصوصية</a>
       </p>
       <div className="text-[11px] text-slate-500 font-medium select-none" style={{ direction: 'ltr', unicodeBidi: 'bidi-override' }}>
         Made <span className="text-rose-500 text-[10px]">♥</span> in <span className="font-bold tracking-wider text-slate-700">ΛMMΛN</span>

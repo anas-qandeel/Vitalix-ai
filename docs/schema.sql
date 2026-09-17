@@ -309,6 +309,11 @@ CREATE TABLE public.medicine_blocklist (
 -- trigger trg_products_reject_medicine (BEFORE INSERT OR UPDATE OF brand_name, clinical_profile
 --   ON pharmacy_products) يرفض الصف برسالة تبدأ بـ MEDICINE_BLOCKED مهما كان مصدر الكتابة.
 --   لا يمس الصفوف القائمة ما لم يُعدَّل اسمها أو بطاقتها.
+-- trigger trg_log_product_activity (AFTER INSERT/UPDATE/DELETE على pharmacy_products) → log_product_activity():
+--   يسجّل في activity_log (entity_type='product') عبر current_staff_id()؛ بلا هوية موظف لا يسجّل.
+--   action: product_added / product_updated / product_deleted / product_deactivated (إخفاء عبر is_active=false).
+--   هجرة 20260917180000. يستبدل trg_log_catalog_activity/log_catalog_activity القديمين اللذين كانا
+--   مكتوبين لجدول pharmacy_catalog المحذوف ولم يكونا مربوطين فعلياً بـ pharmacy_products (لم يُسجَّل شيء قط).
 
 
 -- ----------------------------------------------------------------------------

@@ -194,17 +194,17 @@ function getSmartTip(card: CareCard): { icon: TipIcon; text: string; accent: str
   if (stage === 'due') {
     if (daysLeft <= 0) return {
       icon: 'alert',
-      text: 'الدواء نفد — الرسالة اليوم آخر فرصة قبل أن يبحث عن بديل.',
+      text: 'الدواء نفد — تذكير اليوم يحفظ انتظامه ويُبقيه معك.',
       accent: 'rose'
     };
     if (daysLeft === 1) return {
       icon: 'bolt',
-      text: 'يوم واحد فقط — أرسل الرسالة الآن. انتظار الغد يعني أن المريض ربما اشترى من مكان آخر.',
+      text: 'يوم واحد فقط — أرسل التذكير الآن حتى لا ينقطع عن دوائه.',
       accent: 'rose'
     };
     if (daysLeft === 2) return {
       icon: 'hourglass',
-      text: 'يومان فقط — أرسل اليوم. غداً سيبدأ بالتفكير من أين يشتري.',
+      text: 'يومان — أرسل اليوم ليجدّد براحة قبل أن ينفد.',
       accent: 'amber'
     };
     if (daysLeft === 3) return {
@@ -229,7 +229,7 @@ function getSmartTip(card: CareCard): { icon: TipIcon; text: string; accent: str
     // مسجّل حديثاً في النظام
     return {
       icon: 'note',
-      text: 'أرسل رسالة التذكير الآن — المريض الذي يتلقى تذكيراً من صيدليته يشعر أنه ليس مجرد زبون، بل شخص يُهتم بصحته. هذا الشعور هو ما يجعله يعود إليك دون أن يفكر في البديل.',
+      text: 'أرسل التذكير الآن — مريض يتلقى تذكيراً من صيدليته يشعر أن صحته محل اهتمام، وهذا ما يجعله يعود.',
       accent: 'blue'
     };
   }

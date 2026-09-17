@@ -9,6 +9,7 @@ import { getPharmacyId } from '@/lib/tenant';
 import { normalizePhone, displayPhone, validatePhone } from '@/lib/phone';
 import Link from 'next/link';
 import { FilePdf } from '@phosphor-icons/react';
+import Toast, { useNotice } from '@/components/Toast';
 import PatientSafetyFields, { EMPTY_PATIENT_SAFETY, PatientSafetyValues, safetyForSave } from '@/components/PatientSafetyFields';
 
 // ═══════════════════════════════════════════════════════
@@ -360,6 +361,7 @@ export default function PatientCardPage({ params }: PageProps) {
 
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
+  const { notice, setNotice } = useNotice();
   const [patient, setPatient] = useState<PatientDetail | null>(null);
   const [visits, setVisits] = useState<Visit[]>([]);
   const [expandedVisitId, setExpandedVisitId] = useState<string | null>(null);
@@ -460,9 +462,10 @@ export default function PatientCardPage({ params }: PageProps) {
     setSavingHeight(true);
     try {
       const newHeight = heightInput ? Number(heightInput) : null;
-      await supabase.from('patients').update({ height: newHeight }).eq('id', patient.id);
+      const { error } = await supabase.from('patients').update({ height: newHeight }).eq('id', patient.id);
+      if (error) throw error;
       setPatient({ ...patient, height: newHeight });
-    } catch { alert('تعذر حفظ الطول'); }
+    } catch { setNotice({ kind: 'err', text: 'تعذر حفظ الطول' }); }
     finally { setSavingHeight(false); }
   };
 
@@ -564,7 +567,7 @@ export default function PatientCardPage({ params }: PageProps) {
       }
     } catch (err: any) {
       console.error('[PDF] خطأ فعلي أثناء التوليد:', err);
-      alert('حدث خطأ أثناء توليد ملف PDF:\n' + (err?.message || String(err)));
+      setNotice({ kind: 'err', text: 'حدث خطأ أثناء توليد ملف PDF: ' + (err?.message || String(err)) });
     } finally {
       setPdfGenerating(false);
     }
@@ -597,6 +600,7 @@ export default function PatientCardPage({ params }: PageProps) {
 
   return (
     <div className="min-h-screen bg-slate-50/50 antialiased pb-16" dir="rtl">
+      <Toast notice={notice} />
       <style jsx global>{`
         @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700;800&display=swap');
         body { font-family: 'IBM Plex Sans Arabic', system-ui, sans-serif; }

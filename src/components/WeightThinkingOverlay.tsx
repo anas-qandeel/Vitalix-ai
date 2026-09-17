@@ -13,10 +13,11 @@ type Props = {
 
 const PHASES = [
   'يقرأ القراءات…',
-  'يحلّل الأدوية والتفاعلات…',
-  'يطابق مع كتالوج الصيدلية…',
+  'يقرأ التشخيصات والأدوية المزمنة…',
+  'يقرأ الحساسية وحالة الحمل والرضاعة…',
+  'يحلّل تفاعلات الأدوية مع الغذاء…',
   'يصوغ الخطة الغذائية…',
-  'يراجع الملاءمة الطبية…',
+  'يطابق كتالوج الصيدلية مع بطاقات الأمان…',
   'يُعدّ ملخّص الصيدلاني…',
 ];
 
@@ -64,15 +65,15 @@ export default function WeightThinkingOverlay({ weightKg, heightCm, ageYears, ge
       const el = document.createElement('div');
       el.textContent = text;
       el.className = `wt-fl wt-d${depth}`;
-      el.style.left = `${4 + Math.random() * 82}%`;
+      el.style.left = Math.random() < 0.5 ? `${2 + Math.random() * 22}%` : `${70 + Math.random() * 24}%`;
       const dur = depth === 1 ? 7 + Math.random() * 3 : depth === 2 ? 9 + Math.random() * 3 : 12 + Math.random() * 4;
       el.style.animationDuration = `${dur}s`;
       stage.appendChild(el);
       timers.push(window.setTimeout(() => el.remove(), dur * 1000 + 200));
     };
-    for (let i = 0; i < 10; i++) timers.push(window.setTimeout(spawn, i * 350));
-    const spawnInt = window.setInterval(spawn, 520);
-    const phaseInt = window.setInterval(() => setPhaseIdx(i => (i + 1) % PHASES.length), 2800);
+    for (let i = 0; i < 5; i++) timers.push(window.setTimeout(spawn, i * 500));
+    const spawnInt = window.setInterval(spawn, 1100);
+    const phaseInt = window.setInterval(() => setPhaseIdx(i => Math.min(i + 1, PHASES.length - 1)), 2200);
     for (let i = 0; i < 18; i++) {
       const s = document.createElement('div');
       s.className = 'wt-spark';
@@ -96,18 +97,24 @@ export default function WeightThinkingOverlay({ weightKg, heightCm, ageYears, ge
     <div className="px-5 pt-3 pb-4 border-t border-slate-100">
       <style>{`
         .wt-stage{position:relative;height:320px;border-radius:14px;background:#F8FAFC;border:1px solid #E2E8F0;overflow:hidden;direction:rtl}
-        .wt-fl{position:absolute;top:100%;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;white-space:nowrap;opacity:0;will-change:transform,opacity;pointer-events:none}
+        .wt-fl{position:absolute;top:100%;z-index:1;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;white-space:nowrap;opacity:0;will-change:transform,opacity;pointer-events:none}
         .wt-d1{font-size:15px;color:#0F172A;animation:wt-rise linear infinite}
         .wt-d2{font-size:12px;color:#475569;animation:wt-rise-diag linear infinite}
         .wt-d3{font-size:11px;color:#94A3B8;animation:wt-rise linear infinite}
         @keyframes wt-rise{0%{transform:translateY(30px);opacity:0}12%{opacity:1}88%{opacity:1}100%{transform:translateY(-330px);opacity:0}}
         @keyframes wt-rise-diag{0%{transform:translate(0,30px);opacity:0}12%{opacity:.9}88%{opacity:.9}100%{transform:translate(-40px,-330px);opacity:0}}
-        .wt-ctr{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;pointer-events:none}
+        .wt-ctr{position:absolute;inset:0;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;pointer-events:none}
         .wt-halo{position:absolute;width:190px;height:190px;border-radius:50%;background:#E0F2FE;animation:wt-breathe 2.6s ease-in-out infinite}
         @keyframes wt-breathe{0%,100%{transform:scale(.85);opacity:.35}50%{transform:scale(1.08);opacity:.7}}
-        .wt-core{position:relative;display:flex;flex-direction:column;align-items:center;gap:12px;padding:18px 28px;border-radius:16px;background:rgba(255,255,255,.72);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);border:1px solid rgba(226,232,240,.8)}
-        .wt-phase{font-size:16px;color:#0F172A;font-weight:700;min-height:22px;animation:wt-fade .5s ease}
-        @keyframes wt-fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+        .wt-core{position:relative;display:flex;flex-direction:column;align-items:center;gap:10px;padding:14px 20px;border-radius:16px;background:rgba(255,255,255,.8);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);border:1px solid rgba(226,232,240,.8)}
+        .wt-steps{display:flex;flex-direction:column;gap:6px}
+        .wt-step{display:flex;align-items:center;gap:8px;font-size:12px;color:#94A3B8;transition:color .4s}
+        .wt-step.on{color:#0F172A;font-weight:700}
+        .wt-step.done{color:#475569}
+        .wt-dot{width:16px;height:16px;flex:none;display:flex;align-items:center;justify-content:center;color:#0D9488}
+        .wt-dot span{width:7px;height:7px;border-radius:50%;background:#CBD5E1}
+        .wt-step.on .wt-dot span{background:#0D9488;animation:wt-pulse 1.2s ease-in-out infinite}
+        @keyframes wt-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.6)}}
         .wt-bar{width:180px;height:3px;border-radius:2px;background:#E2E8F0;overflow:hidden}
         .wt-bar::after{content:"";display:block;height:100%;width:45%;border-radius:2px;background:#0D9488;animation:wt-slide 1.8s ease-in-out infinite}
         @keyframes wt-slide{0%{transform:translateX(120%)}100%{transform:translateX(-260%)}}
@@ -120,9 +127,20 @@ export default function WeightThinkingOverlay({ weightKg, heightCm, ageYears, ge
         <div className="wt-ctr">
           <div className="wt-halo" />
           <div className="wt-core">
-            <div className="wt-phase" key={phaseIdx}>{PHASES[phaseIdx]}</div>
+            <div className="wt-steps">
+              {PHASES.map((p, i) => (
+                <div key={p} className={`wt-step ${i < phaseIdx ? 'done' : i === phaseIdx ? 'on' : ''}`}>
+                  <div className="wt-dot">
+                    {i < phaseIdx ? (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7" /></svg>
+                    ) : <span />}
+                  </div>
+                  {p}
+                </div>
+              ))}
+            </div>
             <div className="wt-bar" />
-            <div className="wt-hint">عادةً ٢٠–٤٠ ثانية</div>
+            <div className="wt-hint">عادةً 20–40 ثانية</div>
           </div>
         </div>
       </div>

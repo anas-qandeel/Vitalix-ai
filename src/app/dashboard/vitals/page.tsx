@@ -293,6 +293,8 @@ export default function VitalsPage() {
   const searchRef = useRef<HTMLDivElement>(null);
   const reportRef = useRef<HTMLDivElement>(null);
   const thinkingRef = useRef<HTMLDivElement>(null);
+  const weightThinkingRef = useRef<HTMLDivElement>(null);
+  const weightSummaryRef = useRef<HTMLDivElement>(null);
   const hasRestoredRef = useRef(false);
 
   // ── حالة البحث ──
@@ -361,6 +363,17 @@ export default function VitalsPage() {
   const [weightPlanUrl, setWeightPlanUrl] = useState<string | null>(null);
   const [weightPdfPlan, setWeightPdfPlan] = useState<WeightPlan | null>(null); // بيانات الخطة الكاملة لقالب PDF الوزن
   const [weightStatus,  setWeightStatus]  = useState<'idle'|'saving'|'generating'|'sent'|'error'>('idle');
+  // تمرير تلقائي بعد الرسم: إلى صندوق التفكير عند بدء التوليد، وإلى ملخص الصيدلاني عند الاكتمال
+  useEffect(() => {
+    if (weightStatus === 'saving') {
+      const t = setTimeout(() => { weightThinkingRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 300);
+      return () => clearTimeout(t);
+    }
+    if (weightStatus === 'sent') {
+      const t = setTimeout(() => { weightSummaryRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 300);
+      return () => clearTimeout(t);
+    }
+  }, [weightStatus]);
   // تأكيد مراجعة الصيدلاني لمحتوى التقرير قبل تسليمه للمريض — يُصفَّر مع كل خطة جديدة
   const [weightReviewed, setWeightReviewed] = useState(false);
   const [weightApproving, setWeightApproving] = useState(false);
@@ -927,10 +940,12 @@ ${planUrl}
             .catch(() => {});
         }, 0);
         setPatientHistory([inserted as VisitationRecord, ...patientHistory]);
-        // تمرير تلقائي إلى التقرير بعد لحظة قصيرة للسماح بالrender
-        setTimeout(() => {
-          reportRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }, 150);
+        // تمرير تلقائي إلى التقرير بعد لحظة قصيرة للسماح بالrender — ليس في مسار الوزن وحده (له تمريره الخاص عبر weightStatus)
+        if (!isWeightOnly) {
+          setTimeout(() => {
+            reportRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }, 150);
+        }
 
         // ── نظام الوزن: POST weight_plan + PATCH nutrition (بالتوازي بعد الحفظ) ───
         if (activeTests.weight && weightValue && currentPatient?.height) {
@@ -2493,6 +2508,7 @@ ${planUrl}
 
                     {/* ٥. ملخص للصيدلاني — clinical_reasoning + تنبيه الأدوية + المكمّلات والفحوصات بخانات اختيار (الاختيارات لا تُحفظ بعد) */}
                     {(weightStatus === 'saving' || weightStatus === 'generating') && (
+                      <div ref={weightThinkingRef}>
                       <WeightThinkingOverlay
                         weightKg={weightValue ? Number(weightValue) : null}
                         heightCm={currentPatient?.height ? Number(currentPatient.height) : null}
@@ -2500,9 +2516,10 @@ ${planUrl}
                         gender={currentPatient?.gender ?? null}
                         sugarMgDl={activeTests.sugar && sugarValue ? Number(sugarValue) : null}
                       />
+                      </div>
                     )}
                     {weightStatus === 'sent' && weightSummary && (
-                      <div className="px-5 pt-4">
+                      <div ref={weightSummaryRef} className="px-5 pt-4 scroll-mt-24">
                         <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 space-y-3">
                           <p className="text-[10px] font-bold text-slate-400">ملخص للصيدلاني — لا يصل للمريض</p>
 

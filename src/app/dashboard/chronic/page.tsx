@@ -1031,10 +1031,11 @@ function MedModal({ patientId, pharmacyId, existingMeds, patientName, onClose, o
                       <p className="text-sm font-semibold text-slate-900 truncate">{m.medication_name}</p>
                       {daysRemaining !== null && (
                         <p className={`text-xs font-medium mt-1 ${
-                          daysRemaining <= 0 ? 'text-rose-600' : daysRemaining <= 7 ? 'text-amber-600' : 'text-slate-500'
+                          daysRemaining <= 0 ? 'text-rose-600' : (daysRemaining <= 7 || m.selected) ? 'text-amber-600' : 'text-slate-500'
                         }`}>
                           {daysRemaining <= 0 ? 'نفد الدواء' :
-                           daysRemaining <= 7 ? `⚠️ ينفد خلال ${pluralizeDays(daysRemaining)}` :
+                           daysRemaining <= 7 ? `ينفد خلال ${pluralizeDays(daysRemaining)}` :
+                           m.selected ? `عنده ما يكفي لـ ${pluralizeDays(daysRemaining)} — التحديد يعني أنه اشترى علبة إضافية اليوم` :
                            `✓ كافٍ لـ ${pluralizeDays(daysRemaining)} — لا يحتاج تجديد الآن`}
                         </p>
                       )}

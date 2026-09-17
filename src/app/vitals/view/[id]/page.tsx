@@ -179,7 +179,7 @@ export default function SingleVitalViewPage({ params }: PageProps) {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || 'لم يتم العثور على التقرير المطلوب أو أن الرابط غير صالح.');
+        throw new Error(data.error || 'لم يتم العثور على الملخّص المطلوب أو أن الرابط غير صالح.');
       }
 
       setCurrentVisit(data.visit);
@@ -252,7 +252,7 @@ export default function SingleVitalViewPage({ params }: PageProps) {
 
     const text =
 `مرحباً ${displayPharmacyName} 👋
-أنا المريض (${patientName})، أود الاستفسار وطلب التوصية الطبية الموضحة في تقريري الطبي:
+أنا المريض (${patientName})، أود الاستفسار وطلب التوصية الطبية الموضحة في ملخّصي:
 📦 الجهاز/المنتج: ${item.brand_name}
 💰 السعر: ${item.price} دينار
 
@@ -299,8 +299,8 @@ export default function SingleVitalViewPage({ params }: PageProps) {
           style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 20, boxShadow: '0 4px 20px rgba(0,0,0,0.06)' }}
         >
           <div style={{ fontSize: 48 }}>⚠️</div>
-          <h2 style={{ fontSize: 17, fontWeight: 700, color: '#0f172a' }}>تعذر عرض التقرير</h2>
-          <p style={{ fontSize: 13, color: '#64748b', lineHeight: 1.6 }}>{errorMsg || 'التقرير المطلوب غير موجود'}</p>
+          <h2 style={{ fontSize: 17, fontWeight: 700, color: '#0f172a' }}>تعذر عرض الملخّص</h2>
+          <p style={{ fontSize: 13, color: '#64748b', lineHeight: 1.6 }}>{errorMsg || 'الملخّص المطلوب غير موجود'}</p>
         </div>
       </div>
     );

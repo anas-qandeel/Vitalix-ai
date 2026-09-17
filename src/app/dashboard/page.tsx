@@ -606,10 +606,10 @@ export default function PharmacistDashboard() {
                 <IconVitals className="w-6 h-6 text-slate-600 group-hover:text-white transition-colors" />
               </div>
               <h3 className="text-base font-bold text-slate-900">الفحوصات والتحليل الذكي</h3>
-              <p className="text-sm text-slate-500 mt-2 leading-relaxed">قياس الضغط والسكري، تقرير AI مخصص، وإرسال فوري عبر WhatsApp.</p>
+              <p className="text-sm text-slate-500 mt-2 leading-relaxed">قياس الضغط والسكري، ملخّص ذكي مخصص، وإرسال فوري عبر WhatsApp.</p>
             </div>
             <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-900 bg-slate-100 px-3 py-1.5 rounded-md tabular-nums">{stats.totalVisits} تقرير</span>
+              <span className="text-xs font-semibold text-slate-900 bg-slate-100 px-3 py-1.5 rounded-md tabular-nums">{stats.totalVisits} زيارة</span>
               <span className="text-sm font-medium text-slate-500 group-hover:text-slate-900 transition-colors flex items-center gap-1">
                 دخول <IconArrow className="w-4 h-4 rotate-180" />
               </span>

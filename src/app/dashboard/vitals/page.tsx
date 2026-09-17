@@ -1099,7 +1099,7 @@ ${planUrl}
 
   const handleDownloadPDF = async () => {
     if (!currentPatient || !generalPdfRef.current) return;
-    await renderElementToPdf(generalPdfRef.current, `تقرير-فحص-${currentPatient.name}.pdf`);
+    await renderElementToPdf(generalPdfRef.current, `ملخّص-فحص-${currentPatient.name}.pdf`);
   };
 
   const handleDownloadWeightPDF = async () => {
@@ -1697,7 +1697,7 @@ ${planUrl}
                         )}
                         {bpFactors.length > 0 && (
                           <p className="text-[10px] text-slate-400 mt-2">
-                            سيذكر التقرير الذكي هذه العوامل عند تحليل القراءة
+                            سيذكر الملخّص الذكي هذه العوامل عند تحليل القراءة
                           </p>
                         )}
 
@@ -1792,7 +1792,7 @@ ${planUrl}
                         )}
                         {sugarFactors.length > 0 && (
                           <p className="text-[10px] text-slate-400 mt-2">
-                            سيذكر التقرير الذكي هذه العوامل عند تحليل القراءة
+                            سيذكر الملخّص الذكي هذه العوامل عند تحليل القراءة
                           </p>
                         )}
 
@@ -1919,7 +1919,7 @@ ${planUrl}
                 )}
 
                 <div className="flex items-center justify-center gap-2">
-                  <span className="text-[10px] font-bold text-slate-400">لغة التقرير:</span>
+                  <span className="text-[10px] font-bold text-slate-400">لغة الملخّص:</span>
                   <div className="flex items-center gap-1 bg-slate-100 border border-slate-200 rounded-lg p-0.5">
                     <button
                       type="button"
@@ -2720,7 +2720,7 @@ ${planUrl}
                 {(activeTests.bp || activeTests.sugar) && activeTests.weight && weightPlanUrl && latestVisitId && (
                   <div className="bg-white border border-teal-200 rounded-2xl shadow-sm p-4">
                     <p className="text-xs font-bold text-slate-700 mb-1">إرسال الاثنين معاً</p>
-                    <p className="text-[10px] text-slate-400 mb-3">يُرسل رابط تقرير الضغط/السكري ورابط خطة الوزن في رسالة واحدة — يشترط تأكيد مراجعة كلا القسمين أعلاه.</p>
+                    <p className="text-[10px] text-slate-400 mb-3">يُرسل رابط ملخّص الضغط/السكري ورابط خطة الوزن في رسالة واحدة — يشترط تأكيد مراجعة كلا القسمين أعلاه.</p>
                     <button
                       onClick={() => {
                         if (!vitalsReportReviewed || !weightReviewed || !currentPatient) return;

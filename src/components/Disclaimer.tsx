@@ -5,7 +5,7 @@ const TEXT: Record<DisclaimerVariant, string> = {
     'هذا التحليل أداة مساعدة مولَّدة بالذكاء الاصطناعي. راجعه بخبرتك قبل اعتماده أو تسليمه للمريض.',
   patient:
     'هذه المعلومات للتوعية والمتابعة فقط، وليست تشخيصاً طبياً ولا وصفة علاجية ولا بديلاً عن استشارة طبيبك أو صيدلانيك. لا توقف أو تغيّر أي دواء بناءً عليها. عند أي عرَض مقلق راجع أقرب مركز صحي فوراً.',
-  pdf: 'تقرير مساعد مولَّد آلياً. لا يُعدّ تشخيصاً طبياً ولا بديلاً عن استشارة الطبيب.',
+  pdf: 'ملخّص مساعد مولَّد آلياً. لا يُعدّ تشخيصاً طبياً ولا بديلاً عن استشارة الطبيب.',
   'patient-en':
     'This information is for awareness and follow-up only. It is not a medical diagnosis, a prescription, or a substitute for consulting your doctor or pharmacist. Do not stop or change any medication based on it. If you experience any worrying symptom, visit the nearest health centre immediately.',
 };

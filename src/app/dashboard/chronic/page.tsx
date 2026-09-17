@@ -98,6 +98,13 @@ function localToday(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+/** أيام تقويمية منذ لحظة معيّنة (من منتصف الليل المحلي): "أمس" = 1 مهما كانت ساعة الحدث — نفس مقياس calcDaysLeft */
+function calendarDaysSince(iso: string): number {
+  const start = new Date(iso); start.setHours(0, 0, 0, 0);
+  const now = new Date(); now.setHours(0, 0, 0, 0);
+  return Math.floor((now.getTime() - start.getTime()) / 86400000);
+}
+
 function pluralizeDays(days: number): string {
   if (days === 1) return 'يوم واحد';
   if (days === 2) return 'يومان';
@@ -235,7 +242,7 @@ function getSmartTip(card: CareCard): { icon: TipIcon; text: string; accent: str
   }
 
   if (stage === 'messaged' && pipeline?.reminded_at) {
-    const daysSince = Math.floor((Date.now() - new Date(pipeline.reminded_at).getTime()) / 86400000);
+    const daysSince = calendarDaysSince(pipeline.reminded_at);
     if (daysSince >= MSG_EXPIRY_DAYS) return {
       icon: 'bell',
       text: `مضت ${pluralizeDays(daysSince)} بدون رد — انقله الآن لقائمة "لم يستجيبوا" حتى لا يُنسى.`,
@@ -269,7 +276,7 @@ function getSmartTip(card: CareCard): { icon: TipIcon; text: string; accent: str
   }
 
   if (stage === 'no_response' && (pipeline?.stage_changed_at || pipeline?.updated_at)) {
-    const daysSince = Math.floor((Date.now() - new Date(pipeline.stage_changed_at || pipeline.updated_at).getTime()) / 86400000);
+    const daysSince = calendarDaysSince(pipeline.stage_changed_at || pipeline.updated_at);
     if (daysSince >= NO_RESPONSE_ARCHIVE_DAYS) return {
       icon: 'mute',
       text: `مضى ${pluralizeDays(daysSince)} بلا استجابة — دورة دواء كاملة. الأرجح أنه يشتري من مكان آخر. انقله إلى "فقدنا تواصلهم" حتى تبقى قائمتك عملية.`,
@@ -736,13 +743,9 @@ function MedModal({ patientId, pharmacyId, existingMeds, patientName, onClose, o
           // هذا أدق من حساب daysLeft × daily_dosage لأن next_refill_date
           // قد يتضمن بالفعل حبات متبقية من دورات سابقة فتكون القيمة مضخّمة.
           const totalPillsAtLastRefill = Number(m.pills_per_box) * Number(m.boxes_count) + Number(m.carryover_pills ?? 0);
-          const lastRefillMs = m.last_refill_date
-            ? new Date(m.last_refill_date).getTime()
-            : Date.now();
-          const daysSinceRefill = Math.max(
-            0,
-            Math.floor((Date.now() - lastRefillMs) / 86400000)
-          );
+          const daysSinceRefill = m.last_refill_date
+            ? Math.max(0, calendarDaysSince(m.last_refill_date))
+            : 0;
           const pillsConsumed = Math.min(
             daysSinceRefill * Number(m.daily_dosage),
             totalPillsAtLastRefill
@@ -1855,8 +1858,10 @@ function sortByPriority(cards: CareCard[], stage: CareStage): CareCard[] {
       return dB - dA;
     }
     if (stage === 'no_response') {
-      const dA = a.pipeline?.updated_at ? Date.now() - new Date(a.pipeline.updated_at).getTime() : 0;
-      const dB = b.pipeline?.updated_at ? Date.now() - new Date(b.pipeline.updated_at).getTime() : 0;
+      const sA = a.pipeline?.stage_changed_at || a.pipeline?.updated_at;
+      const sB = b.pipeline?.stage_changed_at || b.pipeline?.updated_at;
+      const dA = sA ? Date.now() - new Date(sA).getTime() : 0;
+      const dB = sB ? Date.now() - new Date(sB).getTime() : 0;
       return dB - dA;
     }
     if (stage === 'renewed') return b.loyaltyMonths - a.loyaltyMonths;
@@ -1921,7 +1926,7 @@ function PatientCard({ card, pharmacyName, onAction, onNotesUpdate }: {
   const tip = getSmartTip(card);
 
   const daysSinceMsg = pipeline?.reminded_at
-    ? Math.floor((Date.now() - new Date(pipeline.reminded_at).getTime()) / 86400000) : 0;
+    ? calendarDaysSince(pipeline.reminded_at) : 0;
   const showSecondMsg = stage === 'messaged' && daysSinceMsg >= 3;
 
   const badgeCls =
@@ -2149,7 +2154,7 @@ export default function ChronicPage() {
         if (pipeline) {
           const ps = pipeline.pipeline_stage;
           if (ps === 'messaged' && pipeline.reminded_at) {
-            const daysSince = Math.floor((Date.now() - new Date(pipeline.reminded_at).getTime()) / 86400000);
+            const daysSince = calendarDaysSince(pipeline.reminded_at);
             if (daysSince >= MSG_EXPIRY_DAYS) { stage = 'no_response'; upsertPipeline(pid, patient.id, 'no_response'); }
             else stage = ps;
           } else if (ps === 'renewed') {
@@ -2436,7 +2441,7 @@ export default function ChronicPage() {
 
           const atRisk = noResponse.filter(c => {
             const since = c.pipeline?.stage_changed_at || c.pipeline?.updated_at;
-            return !!since && Math.floor((Date.now() - new Date(since).getTime()) / 86400000) >= 7;
+            return !!since && calendarDaysSince(since) >= 7;
           }).length;
 
           return (

@@ -1,0 +1,18 @@
+{
+  "name": "Vitalix-ai — تابع مرضاك بذكاء",
+  "short_name": "Vitalix-ai",
+  "description": "منصة Vitalix-ai لإدارة الصيدليات ومتابعة مرضى الأمراض المزمنة",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "lang": "ar",
+  "dir": "rtl",
+  "background_color": "#ffffff",
+  "theme_color": "#0f172a",
+  "icons": [
+    { "src": "/favicon-192x192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512x512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icon-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

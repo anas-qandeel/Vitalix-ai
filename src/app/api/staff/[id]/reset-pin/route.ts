@@ -71,6 +71,7 @@ export async function PUT(
   });
 
   if (updateErr) {
+    console.error('[reset-pin] updateUserById failed:', updateErr.status, updateErr.code, updateErr.message);
     return NextResponse.json({ error: 'تعذّر تحديث الرمز' }, { status: 500 });
   }
 

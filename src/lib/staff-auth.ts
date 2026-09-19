@@ -50,6 +50,18 @@ export function generatePin(): string {
   throw new Error("PIN generation failed after 100 attempts");
 }
 
+/**
+ * يحوّل رمز الموظف (6 أرقام) إلى كلمة المرور الفعلية المخزَّنة في Supabase — للخادم فقط.
+ * البادئة Vx تضمن حرفاً كبيراً وصغيراً، والختم السري يمنع تجربة الأرقام على Supabase مباشرة.
+ */
+export function pinToPassword(pin: string): string {
+  const pepper = process.env.STAFF_PIN_PEPPER;
+  if (!pepper || pepper.length < 32) {
+    throw new Error("STAFF_PIN_PEPPER is missing or too short");
+  }
+  return `Vx${pin}${pepper}`;
+}
+
 /** بناء البريد الاصطناعي — lowercase إلزامي (Supabase يخزّنه كذلك) */
 export function buildStaffEmail(slug: string, pharmacyCode: string): string {
   return `${slug}@ph${pharmacyCode}.staff.vitalix-ai.com`.toLowerCase();

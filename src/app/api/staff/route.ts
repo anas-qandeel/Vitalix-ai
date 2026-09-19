@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
-import { generatePin, buildStaffEmail, normalizeJordanPhone } from '@/lib/staff-auth';
+import { generatePin, buildStaffEmail, normalizeJordanPhone, pinToPassword } from '@/lib/staff-auth';
 
 /** يتحقّق أن المستدعي مالك، ويُرجع pharmacy_id من التوكن */
 async function verifyOwner(req: NextRequest) {
@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
   // حساب المصادقة
   const { data: created, error: authErr } = await supabaseAdmin.auth.admin.createUser({
     email,
-    password: pin,
+    password: pinToPassword(pin),
     email_confirm: true,
     app_metadata: { pharmacy_id: auth.pharmacyId, role },
   });

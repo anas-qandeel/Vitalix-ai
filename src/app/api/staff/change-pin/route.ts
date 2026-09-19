@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { supabaseAdmin } from '@/lib/supabase-admin';
-import { validatePin } from '@/lib/staff-auth';
+import { validatePin, pinToPassword } from '@/lib/staff-auth';
 
 export async function POST(req: NextRequest) {
   const authHeader = req.headers.get('authorization') || '';
@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
     );
     const { data: signInData, error: signInError } = await authClient.auth.signInWithPassword({
       email,
-      password: currentPin,
+      password: pinToPassword(currentPin),
     });
 
     if (signInError || !signInData?.session) {
@@ -94,10 +94,11 @@ export async function POST(req: NextRequest) {
   }
 
   const { error: updateErr } = await supabaseAdmin.auth.admin.updateUserById(user.id, {
-    password: newPin,
+    password: pinToPassword(newPin),
   });
 
   if (updateErr) {
+    console.error('[staff-change-pin] updateUserById failed:', updateErr.status, updateErr.code, updateErr.message);
     return NextResponse.json({ error: 'تعذّر تغيير الرمز' }, { status: 500 });
   }
 

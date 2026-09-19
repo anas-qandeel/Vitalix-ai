@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
-import { generatePin } from '@/lib/staff-auth';
+import { generatePin, pinToPassword } from '@/lib/staff-auth';
 
 /** يتحقّق أن المستدعي مالك، ويُرجع pharmacy_id من التوكن */
 async function verifyOwner(req: NextRequest) {
@@ -67,7 +67,7 @@ export async function PUT(
   const pin = generatePin();
 
   const { error: updateErr } = await supabaseAdmin.auth.admin.updateUserById(staff.user_id, {
-    password: pin,
+    password: pinToPassword(pin),
   });
 
   if (updateErr) {

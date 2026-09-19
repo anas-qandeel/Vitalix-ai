@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { supabaseAdmin } from '@/lib/supabase-admin';
-import { lockoutSeconds } from '@/lib/staff-auth';
+import { lockoutSeconds, pinToPassword } from '@/lib/staff-auth';
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
   );
   const { data: signInData, error: signInError } = await authClient.auth.signInWithPassword({
     email,
-    password: pin,
+    password: pinToPassword(pin),
   });
 
   if (signInError || !signInData?.session) {

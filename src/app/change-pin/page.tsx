@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import AppFooter from '../components/AppFooter';
+import { CheckCircle } from '@phosphor-icons/react';
 
 type Step = 'current' | 'new' | 'confirm';
 
@@ -214,8 +215,9 @@ export default function ChangePinPage() {
           )}
 
           {success ? (
-            <div className="p-3.5 rounded-xl text-xs font-medium text-center border bg-emerald-50 border-emerald-200 text-emerald-700">
-              تم تغيير الرمز بنجاح ✅
+            <div className="p-3.5 rounded-xl text-xs font-medium text-center border bg-emerald-50 border-emerald-200 text-emerald-700 flex items-center justify-center gap-1.5">
+              <CheckCircle size={16} weight="fill" className="shrink-0" aria-hidden="true" />
+              تم تغيير الرمز بنجاح
             </div>
           ) : (
             <div className="space-y-5">

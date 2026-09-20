@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Patient, ChronicMed, calcDaysLeft, pluralizeDays } from '@/lib/chronic';
+import { PencilSimple, WhatsappLogo } from '@phosphor-icons/react';
 
 export default function WaMsgModal({ patient, meds, pharmacyName, msgType, onClose, onConfirm }: {
   patient: Patient;
@@ -159,7 +160,7 @@ export default function WaMsgModal({ patient, meds, pharmacyName, msgType, onClo
               className="w-full px-4 py-3 text-xs text-slate-700 leading-relaxed bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-300 resize-none transition-all"
             />
             {userEdited && (
-              <p className="text-[10px] text-amber-600 mt-1.5">✏️ تم تعديل الرسالة — الرسالة المُرسلة ستكون كما هي أعلاه</p>
+              <p className="text-[10px] text-amber-600 mt-1.5"><PencilSimple size={12} weight="bold" className="inline-block ml-1 align-[-2px]" aria-hidden="true" />تم تعديل الرسالة — الرسالة المُرسلة ستكون كما هي أعلاه</p>
             )}
           </div>
         </div>
@@ -169,7 +170,7 @@ export default function WaMsgModal({ patient, meds, pharmacyName, msgType, onClo
           <button onClick={() => onConfirm(allSelectedIds, customMsg)}
             disabled={previewMeds.length === 0 || !customMsg.trim()}
             className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-sm font-semibold transition-all active:scale-[0.98] disabled:opacity-40 shadow-sm flex items-center justify-center gap-2">
-            <span>📲</span>
+            <WhatsappLogo size={18} weight="bold" className="shrink-0" aria-hidden="true" />
             <span>فتح الواتساب وإرسال الرسالة</span>
           </button>
         </div>

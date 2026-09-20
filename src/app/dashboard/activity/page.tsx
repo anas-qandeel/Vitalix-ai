@@ -24,6 +24,9 @@ const ACTION_LABELS: Record<string, string> = {
   patient_added: 'أضاف مريضاً',
   patient_updated: 'عدّل بيانات مريض',
   patient_deleted: 'حذف مريضاً',
+  product_added: 'أضاف منتجاً',
+  product_updated: 'عدّل منتجاً',
+  product_deleted: 'حذف منتجاً',
   catalog_added: 'أضاف جهازاً',
   catalog_updated: 'عدّل جهازاً',
   catalog_deactivated: 'أخفى جهازاً',
@@ -50,17 +53,17 @@ const STAGE_LABELS: Record<string, string> = {
 type PeriodKey = '7d' | '30d' | '3m' | 'all';
 
 const PERIOD_OPTIONS: { key: PeriodKey; label: string; days: number | null }[] = [
-  { key: '7d', label: 'آخر ٧ أيام', days: 7 },
-  { key: '30d', label: 'آخر ٣٠ يوماً', days: 30 },
-  { key: '3m', label: 'آخر ٣ أشهر', days: 90 },
+  { key: '7d', label: 'آخر 7 أيام', days: 7 },
+  { key: '30d', label: 'آخر 30 يوماً', days: 30 },
+  { key: '3m', label: 'آخر 3 أشهر', days: 90 },
   { key: 'all', label: 'الكل', days: null },
 ];
 
 const PERIOD_SUMMARY_LABELS: Record<PeriodKey, string> = {
-  '7d': 'آخر ١٠٠ حركة خلال ٧ أيام',
-  '30d': 'آخر ١٠٠ حركة خلال ٣٠ يوماً',
-  '3m': 'آخر ١٠٠ حركة خلال ٣ أشهر',
-  all: 'آخر ١٠٠ حركة',
+  '7d': 'آخر 100 حركة خلال 7 أيام',
+  '30d': 'آخر 100 حركة خلال 30 يوماً',
+  '3m': 'آخر 100 حركة خلال 3 أشهر',
+  all: 'آخر 100 حركة',
 };
 
 const ENTITY_TYPE_OPTIONS: { key: string; label: string }[] = [
@@ -68,7 +71,6 @@ const ENTITY_TYPE_OPTIONS: { key: string; label: string }[] = [
   { key: 'medication', label: 'الأدوية' },
   { key: 'patient', label: 'المرضى' },
   { key: 'catalog', label: 'الكتالوج' },
-  { key: 'recommendation', label: 'المكملات' },
   { key: 'reminder', label: 'التذكيرات' },
   { key: 'greeting', label: 'التهاني' },
   { key: 'staff', label: 'دخول الموظفين' },
@@ -178,7 +180,10 @@ export default function ActivityLogPage() {
       if (periodOption.days !== null) {
         query = query.gte('created_at', new Date(Date.now() - periodOption.days * 86400000).toISOString());
       }
-      if (entityType !== 'all') {
+      if (entityType === 'catalog') {
+        // الكتالوج يشمل المنتجات الحالية (product) والأنواع القديمة قبل توحيد الجدول (catalog/recommendation)
+        query = query.in('entity_type', ['product', 'catalog', 'recommendation']);
+      } else if (entityType !== 'all') {
         query = query.eq('entity_type', entityType);
       }
 

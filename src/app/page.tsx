@@ -172,17 +172,9 @@ function LoginContent() {
             </div>
 
             <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label htmlFor="password" className="block text-xs font-semibold text-[#0F172A]">
-                  كلمة المرور
-                </label>
-                <Link
-                  href="/forgot-password"
-                  className="text-xs text-[#2563EB] hover:underline font-semibold transition cursor-pointer"
-                >
-                  نسيت كلمة المرور؟
-                </Link>
-              </div>
+              <label htmlFor="password" className="block text-xs font-semibold text-[#0F172A]">
+                كلمة المرور
+              </label>
               <input
                 id="password"
                 name="password"
@@ -194,6 +186,14 @@ function LoginContent() {
                 className="w-full px-4 py-3 text-sm bg-white border border-slate-200 rounded-xl focus:border-[#0F172A] focus:ring-1 focus:ring-[#0F172A] focus:outline-none transition-all text-[#0F172A] placeholder:text-slate-400 font-normal shadow-sm"
                 placeholder="••••••••"
               />
+              <div className="flex justify-end pt-0.5">
+                <Link
+                  href="/forgot-password"
+                  className="text-xs text-[#2563EB] hover:underline font-semibold transition cursor-pointer"
+                >
+                  نسيت كلمة المرور؟
+                </Link>
+              </div>
             </div>
 
             <button

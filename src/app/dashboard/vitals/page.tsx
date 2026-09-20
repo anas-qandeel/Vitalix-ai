@@ -301,6 +301,11 @@ export default function VitalsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [nameResults, setNameResults] = useState<Patient[]>([]);
   const [highlightedIdx, setHighlightedIdx] = useState(-1);
+  // التنقل بالأسهم: أبقِ النتيجة المحدَّدة ظاهرة داخل القائمة المتمرّرة
+  useEffect(() => {
+    if (highlightedIdx < 0) return;
+    document.querySelector(`[data-vitals-result="${highlightedIdx}"]`)?.scrollIntoView({ block: 'nearest' });
+  }, [highlightedIdx]);
   const [searchingPatient, setSearchingPatient] = useState(false);
   const [showNewPatientModal, setShowNewPatientModal] = useState(false);
 
@@ -1216,9 +1221,12 @@ ${planUrl}
                       } else if (e.key === 'ArrowUp') {
                         e.preventDefault();
                         setHighlightedIdx(i => Math.max(i - 1, 0));
-                      } else if (e.key === 'Enter' && highlightedIdx >= 0) {
+                      } else if (e.key === 'Enter') {
                         e.preventDefault();
-                        selectPatient(nameResults[highlightedIdx]);
+                        // أمان المريض: بلا تحديد، Enter يُظلّل الأول فقط ليراه الصيدلاني؛ الضغطة التالية تختاره
+                        if (highlightedIdx < 0) { setHighlightedIdx(0); return; }
+                        const target = nameResults[highlightedIdx];
+                        if (target) selectPatient(target);
                       } else if (e.key === 'Escape') {
                         setNameResults([]);
                         setHighlightedIdx(-1);
@@ -1246,6 +1254,7 @@ ${planUrl}
                           const isHighlighted = idx === highlightedIdx;
                           return (
                             <button key={p.id}
+                              data-vitals-result={idx}
                               onClick={() => selectPatient(p)}
                               onMouseEnter={() => setHighlightedIdx(idx)}
                               className={`w-full flex items-center gap-3 px-4 py-3 transition-colors text-right group ${isHighlighted ? 'bg-teal-50' : 'hover:bg-teal-50/40'}`}>

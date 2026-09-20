@@ -9,6 +9,7 @@ import { getPharmacyId } from '@/lib/tenant';
 import { formatPharmacistName } from '@/lib/name-format';
 import { authedFetch } from '@/lib/authed-fetch';
 import { Storefront } from '@phosphor-icons/react';
+import Toast, { useNotice } from '@/components/Toast';
 
 interface PharmacyProfile {
   id: string;
@@ -271,6 +272,7 @@ export default function ProfilePage() {
   const [newStaffRole, setNewStaffRole] = useState('staff');
   const [addingStaff, setAddingStaff] = useState(false);
   const [staffError, setStaffError] = useState('');
+  const { notice, setNotice } = useNotice();
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [pinModal, setPinModal] = useState<{ name: string; pin: string; pharmacyCode: string; loginSlug: string } | null>(null);
   const [codeCopied, setCodeCopied] = useState(false);
@@ -399,7 +401,7 @@ export default function ProfilePage() {
       if (!res.ok) throw new Error(json.error || 'تعذّر تصفير الرمز');
       await fetchStaffList();
       setPinModal({ name: json.staff.name, pin: json.pin, pharmacyCode: json.pharmacy_code, loginSlug: json.staff.login_slug });
-    } catch (e: any) { setStaffError(e.message || 'حدث خطأ'); }
+    } catch (e: any) { setNotice({ kind: 'err', text: e.message || 'حدث خطأ' }); }
   };
 
   const handleToggleStatus = async (member: StaffMember) => {
@@ -415,7 +417,7 @@ export default function ProfilePage() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'تعذّر تحديث الحالة');
       await fetchStaffList();
-    } catch (e: any) { setStaffError(e.message || 'حدث خطأ'); }
+    } catch (e: any) { setNotice({ kind: 'err', text: e.message || 'حدث خطأ' }); }
   };
 
   const handleDeleteStaff = async () => {
@@ -440,10 +442,11 @@ export default function ProfilePage() {
         setDeleteBlockedMsg(json.error || 'تعذّر الحذف');
       } else {
         setDeleteTarget(null);
-        setStaffError(json.error || 'تعذّر الحذف');
+        setNotice({ kind: 'err', text: json.error || 'تعذّر الحذف' });
       }
     } catch (e: any) {
-      setStaffError(e.message || 'حدث خطأ');
+      setDeleteTarget(null);
+      setNotice({ kind: 'err', text: e.message || 'حدث خطأ' });
     } finally {
       setDeleting(false);
     }
@@ -939,6 +942,8 @@ export default function ProfilePage() {
       {showRotateConfirm && (
         <RotateCodeConfirmModal rotating={rotating} onConfirm={handleRotateCode} onCancel={() => setShowRotateConfirm(false)} />
       )}
+
+      <Toast notice={notice} />
 
       <AppFooter className="max-w-2xl mx-auto px-4 py-8 border-t border-slate-200/60 mt-2" />
     </div>

@@ -7,6 +7,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { getPharmacyId, getStaffName, getUserRole } from '@/lib/tenant';
 import { formatPharmacistName } from '@/lib/name-format';
+import { Lightbulb, PlusCircle, Lightning, Bug, ChatCircleDots, CheckCircle } from '@phosphor-icons/react';
 
 const ROLE_LABELS: Record<string, string> = { owner: 'مالك', pharmacist: 'صيدلاني', assistant: 'مساعد', staff: 'موظف' };
 
@@ -508,7 +509,7 @@ export default function DashboardHeader({ breadcrumb, onBack }: DashboardHeaderP
             onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
               <div>
-                <h3 className="text-sm font-bold text-slate-900">💡 اقتراح أو ملاحظة</h3>
+                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5"><Lightbulb size={16} weight="bold" className="text-amber-500 shrink-0" aria-hidden="true" />اقتراح أو ملاحظة</h3>
                 <p className="text-[11px] text-slate-400 mt-0.5">ساعدنا في تطوير Vitalix بملاحظاتك</p>
               </div>
               <button onClick={() => setFeedbackOpen(false)}
@@ -517,7 +518,7 @@ export default function DashboardHeader({ breadcrumb, onBack }: DashboardHeaderP
 
             {feedbackDone ? (
               <div className="px-5 py-12 text-center space-y-2">
-                <p className="text-2xl">🎉</p>
+                <div className="flex justify-center"><CheckCircle size={40} weight="fill" className="text-teal-600" aria-hidden="true" /></div>
                 <p className="text-sm font-bold text-slate-900">شكراً لك!</p>
                 <p className="text-xs text-slate-500">تم إرسال ملاحظتك بنجاح</p>
               </div>
@@ -528,17 +529,18 @@ export default function DashboardHeader({ breadcrumb, onBack }: DashboardHeaderP
                   <label className="block text-xs font-bold text-slate-600 mb-2">نوع الملاحظة</label>
                   <div className="grid grid-cols-2 gap-2">
                     {[
-                      { v: 'feature',     l: '✨ ميزة جديدة' },
-                      { v: 'improvement', l: '⚡ تحسين موجود' },
-                      { v: 'bug',         l: '🐛 مشكلة تقنية' },
-                      { v: 'other',       l: '💬 أخرى' },
-                    ].map(({ v, l }) => (
+                      { v: 'feature',     l: 'ميزة جديدة',  Icon: PlusCircle },
+                      { v: 'improvement', l: 'تحسين موجود', Icon: Lightning },
+                      { v: 'bug',         l: 'مشكلة تقنية', Icon: Bug },
+                      { v: 'other',       l: 'أخرى',        Icon: ChatCircleDots },
+                    ].map(({ v, l, Icon }) => (
                       <button key={v} onClick={() => setFeedbackType(v)}
-                        className={`py-2 rounded-xl border text-xs font-bold transition ${
+                        className={`py-2 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-1.5 ${
                           feedbackType === v
                             ? 'bg-slate-900 border-slate-900 text-white'
                             : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-slate-300'
                         }`}>
+                        <Icon size={14} weight="bold" className="shrink-0" aria-hidden="true" />
                         {l}
                       </button>
                     ))}

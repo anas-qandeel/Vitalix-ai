@@ -496,7 +496,7 @@ export default function ProfilePage() {
         name_en: editNameEn.trim() || null,
       } : prev);
 
-      setSuccessMsg('✅ تم حفظ البيانات بنجاح');
+      setSuccessMsg('✓ تم حفظ البيانات بنجاح');
       setIsEditing(false);
       setTimeout(() => setSuccessMsg(''), 3000);
     } catch (err: any) {
@@ -521,7 +521,7 @@ export default function ProfilePage() {
       if (!res.ok) throw new Error(json.error || 'تعذّر تبديل الكود');
 
       setProfile((prev) => prev ? { ...prev, short_code: json.short_code } : prev);
-      setSuccessMsg(`✅ تم تبديل الكود إلى ${json.short_code} — أرسل التعليمات الجديدة لموظفيك`);
+      setSuccessMsg(`✓ تم تبديل الكود إلى ${json.short_code} — أرسل التعليمات الجديدة لموظفيك`);
       setTimeout(() => setSuccessMsg(''), 5000);
     } catch (err: any) {
       setErrorMsg(err.message || 'حدث خطأ أثناء تبديل الكود');
@@ -539,12 +539,12 @@ export default function ProfilePage() {
         redirectTo: `${window.location.origin}/auth/confirm`,
       });
       if (error) {
-        setPwMsg('❌ تعذر إرسال الرابط، حاول مجدداً');
+        setPwMsg('✕ تعذر إرسال الرابط، حاول مجدداً');
         return;
       }
-      setPwMsg('✅ تم إرسال رابط تغيير كلمة المرور إلى بريدك الإلكتروني');
+      setPwMsg('✓ تم إرسال رابط تغيير كلمة المرور إلى بريدك الإلكتروني');
     } catch {
-      setPwMsg('❌ تعذر إرسال الرابط، حاول مجدداً');
+      setPwMsg('✕ تعذر إرسال الرابط، حاول مجدداً');
     } finally {
       setPwLoading(false);
     }
@@ -602,7 +602,7 @@ export default function ProfilePage() {
                   : '—'}
                 {isExpiringSoon && (
                   <span className="mr-2 text-[10px] bg-amber-100 text-amber-700 font-black px-2 py-0.5 rounded-full border border-amber-200">
-                    ⚠️ متبقي {pluralizeDays(daysLeft)}
+                    ⚠ متبقي {pluralizeDays(daysLeft)}
                   </span>
                 )}
               </span>
@@ -631,7 +631,7 @@ export default function ProfilePage() {
                 onClick={() => setIsEditing(true)}
                 className="text-[11px] font-black text-teal-600 hover:text-teal-700 bg-teal-50 border border-teal-100 px-3 py-1.5 rounded-xl transition cursor-pointer"
               >
-                ✏️ تعديل
+                تعديل
               </button>
             ) : (
               <div className="flex gap-2">
@@ -653,7 +653,7 @@ export default function ProfilePage() {
                   disabled={saving}
                   className="text-[11px] font-black text-white bg-teal-600 hover:bg-teal-700 disabled:opacity-50 px-3 py-1.5 rounded-xl transition cursor-pointer"
                 >
-                  {saving ? 'جاري الحفظ...' : '💾 حفظ'}
+                  {saving ? 'جاري الحفظ...' : 'حفظ'}
                 </button>
               </div>
             )}
@@ -806,7 +806,7 @@ export default function ProfilePage() {
             {/* رسالة منع الحذف — تعليمية، تبقى ظاهرة حتى يغلقها المالك بنفسه لا كتنبيه عابر */}
             {deleteBlockedMsg && (
               <div className="flex items-start gap-3 px-4 py-3.5 bg-rose-50 border border-rose-200 rounded-xl">
-                <span className="text-base shrink-0">⚠️</span>
+                <span className="text-base shrink-0">⚠</span>
                 <p className="flex-1 text-xs font-bold text-rose-700 leading-relaxed">{deleteBlockedMsg}</p>
                 <button onClick={() => setDeleteBlockedMsg('')}
                   className="shrink-0 text-rose-400 hover:text-rose-600 transition-colors">✕</button>
@@ -916,12 +916,12 @@ export default function ProfilePage() {
                 disabled={pwLoading}
                 className="shrink-0 text-[11px] font-black text-white bg-[#0F172A] hover:bg-slate-700 disabled:opacity-50 px-4 py-2 rounded-xl transition cursor-pointer"
               >
-                {pwLoading ? 'جاري الإرسال...' : '🔑 إرسال رابط التغيير'}
+                {pwLoading ? 'جاري الإرسال...' : 'إرسال رابط التغيير'}
               </button>
             </div>
             {pwMsg && (
               <p className={`mt-3 text-[11px] font-bold px-3 py-2 rounded-xl border ${
-                pwMsg.startsWith('✅')
+                pwMsg.startsWith('✓')
                   ? 'text-teal-700 bg-teal-50 border-teal-100'
                   : 'text-rose-600 bg-rose-50 border-rose-100'
               }`}>{pwMsg}</p>

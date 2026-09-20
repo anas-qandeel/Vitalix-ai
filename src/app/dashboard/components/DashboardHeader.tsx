@@ -7,7 +7,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { getPharmacyId, getStaffName, getUserRole } from '@/lib/tenant';
 import { formatPharmacistName } from '@/lib/name-format';
-import { Lightbulb, PlusCircle, Lightning, Bug, ChatCircleDots, CheckCircle } from '@phosphor-icons/react';
+import { Lightbulb, PlusCircle, Lightning, Bug, ChatCircleDots, CheckCircle, Megaphone } from '@phosphor-icons/react';
 
 const ROLE_LABELS: Record<string, string> = { owner: 'مالك', pharmacist: 'صيدلاني', assistant: 'مساعد', staff: 'موظف' };
 
@@ -418,6 +418,10 @@ export default function DashboardHeader({ breadcrumb, onBack }: DashboardHeaderP
                     <button className="w-full flex items-center gap-3 px-3 py-2 text-xs font-medium text-slate-600 rounded-lg hover:bg-slate-50 hover:text-slate-900 transition-colors mt-0.5"
                       onClick={() => { setDropdownOpen(false); router.push('/help'); }}>
                       <IconBook className="w-4 h-4 shrink-0 text-slate-500" /><span>دليل الاستخدام</span>
+                    </button>
+                    <button className="w-full flex items-center gap-3 px-3 py-2 text-xs font-medium text-slate-600 rounded-lg hover:bg-slate-50 hover:text-slate-900 transition-colors mt-0.5"
+                      onClick={() => { setDropdownOpen(false); router.push('/whats-new'); }}>
+                      <Megaphone size={16} weight="bold" className="shrink-0 text-slate-500" aria-hidden="true" /><span>ما الجديد</span>
                     </button>
                     {userRole === 'owner' ? (
                       <button className="w-full flex items-center gap-3 px-3 py-2 text-xs font-medium text-slate-600 rounded-lg hover:bg-slate-50 hover:text-slate-900 transition-colors"

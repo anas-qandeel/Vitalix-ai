@@ -8,7 +8,7 @@ import AppFooter from '../../components/AppFooter';
 import { getPharmacyId } from '@/lib/tenant';
 import { formatPharmacistName } from '@/lib/name-format';
 import { authedFetch } from '@/lib/authed-fetch';
-import { Storefront } from '@phosphor-icons/react';
+import { Storefront, PencilSimple, FloppyDisk, Key, Warning } from '@phosphor-icons/react';
 import Toast, { useNotice } from '@/components/Toast';
 
 interface PharmacyProfile {
@@ -602,7 +602,7 @@ export default function ProfilePage() {
                   : '—'}
                 {isExpiringSoon && (
                   <span className="mr-2 text-[10px] bg-amber-100 text-amber-700 font-black px-2 py-0.5 rounded-full border border-amber-200">
-                    ⚠ متبقي {pluralizeDays(daysLeft)}
+                    <Warning size={14} weight="bold" className="inline-block ml-1 align-[-2px]" aria-hidden="true" />متبقي {pluralizeDays(daysLeft)}
                   </span>
                 )}
               </span>
@@ -629,8 +629,9 @@ export default function ProfilePage() {
             {!isEditing ? (
               <button
                 onClick={() => setIsEditing(true)}
-                className="text-[11px] font-black text-teal-600 hover:text-teal-700 bg-teal-50 border border-teal-100 px-3 py-1.5 rounded-xl transition cursor-pointer"
+                className="inline-flex items-center gap-1 text-[11px] font-black text-teal-600 hover:text-teal-700 bg-teal-50 border border-teal-100 px-3 py-1.5 rounded-xl transition cursor-pointer"
               >
+                <PencilSimple size={13} weight="bold" aria-hidden="true" />
                 تعديل
               </button>
             ) : (
@@ -651,9 +652,9 @@ export default function ProfilePage() {
                 <button
                   onClick={handleSaveProfile}
                   disabled={saving}
-                  className="text-[11px] font-black text-white bg-teal-600 hover:bg-teal-700 disabled:opacity-50 px-3 py-1.5 rounded-xl transition cursor-pointer"
+                  className="inline-flex items-center gap-1 text-[11px] font-black text-white bg-teal-600 hover:bg-teal-700 disabled:opacity-50 px-3 py-1.5 rounded-xl transition cursor-pointer"
                 >
-                  {saving ? 'جاري الحفظ...' : 'حفظ'}
+                  {saving ? 'جاري الحفظ...' : <><FloppyDisk size={13} weight="bold" aria-hidden="true" />حفظ</>}
                 </button>
               </div>
             )}
@@ -806,7 +807,7 @@ export default function ProfilePage() {
             {/* رسالة منع الحذف — تعليمية، تبقى ظاهرة حتى يغلقها المالك بنفسه لا كتنبيه عابر */}
             {deleteBlockedMsg && (
               <div className="flex items-start gap-3 px-4 py-3.5 bg-rose-50 border border-rose-200 rounded-xl">
-                <span className="text-base shrink-0">⚠</span>
+                <Warning size={16} weight="bold" className="text-rose-500 shrink-0 mt-0.5" aria-hidden="true" />
                 <p className="flex-1 text-xs font-bold text-rose-700 leading-relaxed">{deleteBlockedMsg}</p>
                 <button onClick={() => setDeleteBlockedMsg('')}
                   className="shrink-0 text-rose-400 hover:text-rose-600 transition-colors">✕</button>
@@ -914,9 +915,9 @@ export default function ProfilePage() {
               <button
                 onClick={handleResetPassword}
                 disabled={pwLoading}
-                className="shrink-0 text-[11px] font-black text-white bg-[#0F172A] hover:bg-slate-700 disabled:opacity-50 px-4 py-2 rounded-xl transition cursor-pointer"
+                className="shrink-0 inline-flex items-center gap-1.5 text-[11px] font-black text-white bg-[#0F172A] hover:bg-slate-700 disabled:opacity-50 px-4 py-2 rounded-xl transition cursor-pointer"
               >
-                {pwLoading ? 'جاري الإرسال...' : 'إرسال رابط التغيير'}
+                {pwLoading ? 'جاري الإرسال...' : <><Key size={13} weight="bold" aria-hidden="true" />إرسال رابط التغيير</>}
               </button>
             </div>
             {pwMsg && (

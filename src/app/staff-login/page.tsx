@@ -412,7 +412,7 @@ export default function StaffLoginPage() {
           )}
         </div>
 
-        <AppFooter className="mt-8" />
+        <AppFooter className="mt-8" hidePrivacy />
       </div>
     </div>
   );

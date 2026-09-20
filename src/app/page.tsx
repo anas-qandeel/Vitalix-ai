@@ -229,7 +229,7 @@ function LoginContent() {
           </Link>
         </div>
 
-        <AppFooter className="mt-8" />
+        <AppFooter className="mt-8" hidePrivacy />
       </div>
     </div>
   );

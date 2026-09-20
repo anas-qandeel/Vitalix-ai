@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef, useMemo } from 'react';
-import { Storefront, Warning } from '@phosphor-icons/react';
+import { Storefront, Warning, Pill } from '@phosphor-icons/react';
 import AiActionButton from '@/components/AiActionButton';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
@@ -1710,7 +1710,7 @@ ${planUrl}
                               className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl border text-xs font-bold transition ${
                                 tookBpMed ? 'bg-slate-900 border-slate-900 text-white' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-400'
                               }`}>
-                              <span>💊 أخذ دواء الضغط اليوم</span>
+                              <span className="inline-flex items-center gap-1.5"><Pill size={14} weight="bold" className="shrink-0" aria-hidden="true" />أخذ دواء الضغط اليوم</span>
                               <span>{tookBpMed ? '✓ نعم' : 'لم يُحدَّد'}</span>
                             </button>
                           </div>
@@ -1805,7 +1805,7 @@ ${planUrl}
                               className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl border text-xs font-bold transition ${
                                 tookSugarMed ? 'bg-slate-900 border-slate-900 text-white' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-400'
                               }`}>
-                              <span>💊 أخذ دواء السكري اليوم</span>
+                              <span className="inline-flex items-center gap-1.5"><Pill size={14} weight="bold" className="shrink-0" aria-hidden="true" />أخذ دواء السكري اليوم</span>
                               <span>{tookSugarMed ? '✓ نعم' : 'لم يُحدَّد'}</span>
                             </button>
                           </div>

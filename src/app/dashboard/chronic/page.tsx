@@ -15,7 +15,7 @@ import { logActivity } from '@/lib/activity';
 import { normalizePhone, displayPhone, validatePhone } from '@/lib/phone';
 import PatientSafetyFields, { EMPTY_PATIENT_SAFETY, PatientSafetyValues, safetyForSave } from '@/components/PatientSafetyFields';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { ChartBar, Package, Lightning, User, LightbulbFilament, CheckCircle, Check, FilePdf, WarningCircle, Hourglass, PaperPlaneTilt, Star, ClipboardText, Bell, Alarm, EnvelopeSimple, CalendarBlank, Clock, BellSlash, PhoneX, Phone, Heart, Pill, ArrowsClockwise, Warning } from '@phosphor-icons/react';
+import { ChartBar, Package, Lightning, User, LightbulbFilament, CheckCircle, Check, FilePdf, WarningCircle, Hourglass, PaperPlaneTilt, Star, ClipboardText, Bell, Alarm, EnvelopeSimple, CalendarBlank, Clock, BellSlash, PhoneX, Phone, Heart, Pill, ArrowsClockwise, Warning, Info } from '@phosphor-icons/react';
 import { useConfirm } from '@/components/ConfirmDialog';
 
 // ═══════════════════════════════════════════════════════
@@ -1011,7 +1011,7 @@ function MedModal({ patientId, pharmacyId, existingMeds, patientName, onClose, o
 
         {isRenewal && (
           <div className="mx-6 mt-4 flex items-start gap-2.5 bg-blue-50 border border-blue-200 rounded-lg px-3.5 py-3 shrink-0">
-            <span className="text-sm shrink-0">ℹ️</span>
+            <Info size={16} weight="bold" className="text-blue-600 shrink-0 mt-0.5" aria-hidden="true" />
             <p className="text-xs text-blue-800 leading-relaxed font-medium">
               اختر الأدوية التي اشتراها المريض اليوم — الحبات المتبقية محسوبة تلقائياً.
               الأدوية غير المحددة تبقى على مواعيدها دون تغيير.
@@ -2667,7 +2667,7 @@ export default function ChronicPage() {
         {/* Empty State */}
         {!showInventory && !showStats && total === 0 && (
           <div className="bg-white border border-slate-200 rounded-xl py-24 text-center px-6 shadow-sm flex flex-col items-center">
-            <div className="w-16 h-16 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center text-2xl mb-4 text-slate-400">⌘</div>
+            <div className="w-16 h-16 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center text-2xl mb-4 text-slate-400"><Pill size={28} weight="duotone" aria-hidden="true" /></div>
             <h3 className="text-lg font-semibold text-slate-900 mb-2">لا توجد سجلات بعد</h3>
             <p className="text-sm text-slate-500 max-w-md mx-auto mb-6">قم بإضافة مرضاك لتتبع الأدوية المزمنة والحصول على تنبيهات النفاذ التلقائية.</p>
             <button onClick={() => setAddModal(true)}

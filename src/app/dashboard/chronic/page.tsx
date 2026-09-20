@@ -341,6 +341,12 @@ function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill }: {
   const [searching, setSearching] = useState(false);
   const [found, setFound]   = useState<Patient | null>(prefill?.patient || null);
   const [results, setResults] = useState<Patient[]>([]); // نتائج متعددة
+  const [highlightedIdx, setHighlightedIdx] = useState(-1);
+  // التنقل بالأسهم: أبقِ النتيجة المحدَّدة ظاهرة داخل المنطقة المتمرّرة
+  useEffect(() => {
+    if (highlightedIdx < 0) return;
+    document.querySelector(`[data-chronic-result="${highlightedIdx}"]`)?.scrollIntoView({ block: 'nearest' });
+  }, [highlightedIdx]);
   const [saving, setSaving] = useState(false);
   const [err, setErr]       = useState('');
   const [patientNote, setPatientNote] = useState('');
@@ -436,6 +442,7 @@ function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill }: {
         await selectPatient(matches[0]);
       } else if (matches.length > 1) {
         setResults(matches);
+        setHighlightedIdx(-1);
       }
     } catch (e) { console.error(e); }
     finally { setSearching(false); }
@@ -506,6 +513,25 @@ function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill }: {
           <div className="relative">
             <label className="block text-xs font-bold text-slate-600 mb-1.5">البحث بالاسم أو رقم الهاتف أو اسم الدواء</label>
             <input type="text" value={query} onChange={e => search(e.target.value)}
+              onKeyDown={e => {
+                if (found || results.length <= 1) return;
+                if (e.key === 'ArrowDown') {
+                  e.preventDefault();
+                  setHighlightedIdx(i => Math.min(i + 1, results.length - 1));
+                } else if (e.key === 'ArrowUp') {
+                  e.preventDefault();
+                  setHighlightedIdx(i => Math.max(i - 1, 0));
+                } else if (e.key === 'Enter') {
+                  e.preventDefault();
+                  // أمان المريض: بلا تحديد، Enter يُظلّل الأول فقط ليراه الصيدلاني؛ الضغطة التالية تختاره
+                  if (highlightedIdx < 0) { setHighlightedIdx(0); return; }
+                  const target = results[highlightedIdx];
+                  if (target) selectPatient(target);
+                } else if (e.key === 'Escape') {
+                  setResults([]);
+                  setHighlightedIdx(-1);
+                }
+              }}
               placeholder="" autoFocus dir="auto"
               className="w-full px-4 py-3 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-all text-slate-900 shadow-sm" />
             {searching && <div className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />}
@@ -526,7 +552,7 @@ function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill }: {
                 </p>
               </div>
               <div className="divide-y divide-slate-100">
-                {results.map(r => {
+                {results.map((r, idx) => {
                   // عند البحث اللاتيني: أظهر الأدوية المطابقة إن وُجدت
                   const matchedDrugs = qType === 'latin'
                     ? allMeds.filter(m => m.patient_id === r.id && m.medication_name.toLowerCase().includes(query.trim().toLowerCase()))
@@ -535,7 +561,9 @@ function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill }: {
                   const nameMatches = qType === 'latin' && r.name.toLowerCase().includes(query.trim().toLowerCase());
                   return (
                     <button key={r.id} onClick={() => selectPatient(r)}
-                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors text-right">
+                      data-chronic-result={idx}
+                      onMouseEnter={() => setHighlightedIdx(idx)}
+                      className={`w-full flex items-center gap-3 px-4 py-3 transition-colors text-right ${idx === highlightedIdx ? 'bg-teal-50' : 'hover:bg-slate-50'}`}>
                       <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-700 shrink-0">
                         {r.name.charAt(0)}
                       </div>

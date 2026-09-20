@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, use } from 'react';
-import { Storefront, HeartStraight, Drop, Barbell, WhatsappLogo } from '@phosphor-icons/react';
+import { Storefront, HeartStraight, Drop, Barbell, WhatsappLogo, Warning, Info, Scales, ClipboardText } from '@phosphor-icons/react';
 import AppFooter from '../../../components/AppFooter';
 import Disclaimer from '@/components/Disclaimer';
 import { detectTextDir } from '@/lib/text-direction';
@@ -298,7 +298,7 @@ export default function SingleVitalViewPage({ params }: PageProps) {
           className="w-full max-w-sm text-center space-y-4 p-8"
           style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 20, boxShadow: '0 4px 20px rgba(0,0,0,0.06)' }}
         >
-          <div style={{ fontSize: 48 }}>⚠️</div>
+          <div style={{ display: 'flex', justifyContent: 'center' }}><Warning size={48} weight="duotone" color="#f59e0b" aria-hidden="true" /></div>
           <h2 style={{ fontSize: 17, fontWeight: 700, color: '#0f172a' }}>تعذر عرض الملخّص</h2>
           <p style={{ fontSize: 13, color: '#64748b', lineHeight: 1.6 }}>{errorMsg || 'الملخّص المطلوب غير موجود'}</p>
         </div>
@@ -662,7 +662,7 @@ export default function SingleVitalViewPage({ params }: PageProps) {
         </div>
         {currentVisit.classification_special_criteria && (
           <div style={{ padding: '10px 14px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, fontSize: 11.5, color: '#64748b', lineHeight: 1.6 }}>
-            ℹ️ {currentVisit.classification_special_criteria}
+            <Info size={14} weight="bold" style={{ display: 'inline-block', verticalAlign: '-2px', marginLeft: 4 }} aria-hidden="true" />{currentVisit.classification_special_criteria}
           </div>
         )}
 
@@ -756,7 +756,7 @@ export default function SingleVitalViewPage({ params }: PageProps) {
                       }}
                     >
                       {isWeightLoss ? (
-                        <span style={{ fontSize: 28, flexShrink: 0 }}>⚖️</span>
+                        <Scales size={28} weight="duotone" color="#0d9488" style={{ flexShrink: 0 }} aria-hidden="true" />
                       ) : item.image_url && !brokenImageIds.has(item.id) ? (
                         <div style={{ position: 'relative', flexShrink: 0, cursor: 'zoom-in' }}
                           onClick={() => setZoomedImage({ url: item.image_url as string, name: item.brand_name })}
@@ -851,7 +851,7 @@ export default function SingleVitalViewPage({ params }: PageProps) {
         {/* ─── 3. طلب السجل الكامل ─── */}
         <section className="vcard" style={{ padding: '24px 24px 28px', textAlign: 'center' }}>
           <div style={{ marginBottom: 16 }}>
-            <p className="section-title">📋 سجل القراءات الكاملة للطبيب المعالج</p>
+            <p className="section-title"><ClipboardText size={16} weight="bold" style={{ display: 'inline-block', verticalAlign: '-3px', marginLeft: 6 }} aria-hidden="true" />سجل القراءات الكاملة للطبيب المعالج</p>
           </div>
           <p style={{ fontSize: 13, color: '#64748b', margin: '0 0 20px', lineHeight: 1.7 }}>
             يمكنك طلب سجلك الطبي الكامل من الصيدلية وسيصلك ملف PDF جاهز لتسليمه لطبيبك المعالج.

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, use, useRef } from 'react';
-import { Storefront } from '@phosphor-icons/react';
+import { Storefront, Warning } from '@phosphor-icons/react';
 import AppFooter from '../../components/AppFooter';
 import Disclaimer from '@/components/Disclaimer';
 import { SUPPLEMENT_CATEGORIES } from '@/lib/supplement-categories';
@@ -125,7 +125,7 @@ export default function WeightPlanPage({ params }: PageProps) {
   if (error || !pageData) return (
     <div className="min-h-screen bg-slate-50/50 flex items-center justify-center p-6" dir="rtl">
       <div className="bg-white border border-slate-200 rounded-2xl shadow-sm px-8 py-10 text-center max-w-xs w-full">
-        <p className="text-3xl mb-3">⚠️</p>
+        <div className="flex justify-center mb-3"><Warning size={36} weight="duotone" className="text-amber-500" aria-hidden="true" /></div>
         <p className="text-sm font-bold text-slate-900">تعذر تحميل الخطة</p>
         <p className="text-xs text-slate-400 mt-1">{error || 'الرابط غير صالح'}</p>
       </div>

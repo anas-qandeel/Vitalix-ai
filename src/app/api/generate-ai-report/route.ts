@@ -4,6 +4,7 @@ import { classifySugar, classifyBp, classifyHeartRate } from '@/lib/vitals-class
 import { getBMICategory } from '@/lib/weight-math';
 import { requireStaff } from '@/lib/api-auth';
 import { dueVisitCategories, VISIT_CATEGORY_LABELS_AR, resolveProductNotes } from '@/lib/visit-categories';
+import { logAiUsage } from '@/lib/ai-usage';
 
 // قائمة نماذج مرتبة — يُجرَّب الأول فإن أعطى 404 ينتقل للتالي تلقائياً
 // يمكن تجاوز الكل بتعريف GEMINI_MODEL في ملف .env.local
@@ -304,6 +305,7 @@ ${dueLine}`;
         // ═══════════════════════════════════════════════════════
         let reportText: string | null = null;
         let lastModelErr: any = null;
+        let successModel: string | null = null;
 
         const COMPRESS_INSTRUCTION = `أنت محرر طبي. سيُعطيك تقرير طبي خام. مهمتك:
 1. احذف أي جملة غير مكتملة في النهاية.
@@ -347,6 +349,7 @@ ${dueLine}`;
               },
             });
             const rawTxt = rawResponse.text?.trim() || '';
+            await logAiUsage({ pharmacyId: auth.pharmacyId, userId: auth.userId, staffId: auth.staffId, feature: 'vitals_report', step: 'raw', model: modelName, response: rawResponse, outcome: rawTxt ? 'used' : 'discarded' });
             const finishReason = rawResponse.candidates?.[0]?.finishReason;
             console.log(`[Gemini] raw finishReason: ${finishReason}, length: ${rawTxt.length}`);
 
@@ -370,6 +373,7 @@ ${dueLine}`;
                 },
               });
               const compressed = compressResponse.text?.trim() || '';
+              await logAiUsage({ pharmacyId: auth.pharmacyId, userId: auth.userId, staffId: auth.staffId, feature: 'vitals_report', step: 'compress', model: modelName, response: compressResponse, outcome: compressed.length > 100 ? 'used' : 'discarded' });
               console.log(`[Gemini] compressed length: ${compressed.length}`);
               finalText = compressed.length > 100 ? compressed : rawTxt;
             }
@@ -386,13 +390,14 @@ ${dueLine}`;
             if (cleanedFinal) {
               reportText = cleanedFinal;
               console.log(`[Gemini] ✅ success: ${modelName} (final: ${reportText.length} chars)`);
+              successModel = modelName;
             }
             break;
           } catch (modelErr: any) {
             lastModelErr = modelErr;
             const status = getErrStatus(modelErr);
             console.warn(`[Gemini] ${modelName} → ${status || 'err'}:`, modelErr?.message || modelErr);
-            if (status === 404) continue;
+            if (status === 404 || status === 429 || status === 500 || status === 503) continue;
             break;
           }
         }
@@ -410,7 +415,7 @@ ${dueLine}`;
           let medicationsAlert: string | null = null;
           try {
             const summaryResponse = await ai.models.generateContent({
-              model: GEMINI_MODELS_FALLBACK[0],
+              model: successModel ?? GEMINI_MODELS_FALLBACK[0],
               contents: userPrompt,
               config: {
                 systemInstruction: PHARMACIST_SUMMARY_INSTRUCTION,
@@ -418,6 +423,7 @@ ${dueLine}`;
               },
             });
             const summaryRaw = summaryResponse.text?.trim() || '';
+            await logAiUsage({ pharmacyId: auth.pharmacyId, userId: auth.userId, staffId: auth.staffId, feature: 'vitals_report', step: 'summary', model: successModel ?? GEMINI_MODELS_FALLBACK[0], response: summaryResponse, outcome: summaryRaw ? 'used' : 'discarded' });
             console.log('[Gemini] pharmacist summaryRaw length:', summaryRaw.length, '| first 100:', summaryRaw.slice(0, 100));
             console.log('[Gemini] summaryRaw LAST 80:', summaryRaw.slice(-80));
             const jsonMatch = summaryRaw.match(/\{[\s\S]*\}/);

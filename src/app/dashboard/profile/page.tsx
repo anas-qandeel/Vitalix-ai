@@ -51,17 +51,6 @@ function IconWhatsapp({ className = 'w-3.5 h-3.5' }: { className?: string }) {
   );
 }
 
-/** يبني رابط تعليمات الدخول عبر واتساب — لا يحوي رمز PIN إطلاقاً، رمز PIN يُنسخ من المودال ويُرسل منفصلاً. يحمل كود الصيدلية عمداً فهو ثابت لا سرّي */
-function buildStaffLoginWaLink(phone: string, shortCode: string): string {
-  const instructions = `للدخول إلى Vitalix:
-1) افتح vitalix-ai.com
-2) اضغط «دخول الموظفين برمز PIN»
-3) كود الصيدلية: ${shortCode}
-4) اختر اسمك من القائمة
-سيُطلب منك رمز الدخول — احتفظ به ولا تشاركه مع أحد.`;
-  return `https://wa.me/${phone.replace('+', '')}?text=${encodeURIComponent(instructions)}`;
-}
-
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; cls: string }> = {
     active:    { label: 'نشط',     cls: 'bg-teal-50 text-teal-700 border-teal-200' },
@@ -86,7 +75,7 @@ function InfoRow({ label, value }: { label: string; value: string | React.ReactN
   );
 }
 
-function StaffPinModal({ name, pin, pharmacyCode, loginSlug, onClose }: { name: string; pin: string; pharmacyCode: string; loginSlug: string; onClose: () => void }) {
+function StaffPinModal({ name, pin, pharmacyCode, loginSlug, phone, onClose }: { name: string; pin: string; pharmacyCode: string; loginSlug: string; phone: string | null; onClose: () => void }) {
   const [copied, setCopied] = useState(false);
   // نص جاهز للإرسال للموظف عبر واتساب أو أي قناة أخرى — يحوي كل ما يحتاجه للدخول
   const instructions = `للدخول إلى Vitalix:
@@ -103,6 +92,7 @@ function StaffPinModal({ name, pin, pharmacyCode, loginSlug, onClose }: { name: 
       setTimeout(() => setCopied(false), 2000);
     } catch { }
   };
+  const waLink = phone ? `https://wa.me/${phone.replace('+', '')}?text=${encodeURIComponent(instructions)}` : null;
   return (
     <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[9999] flex items-end sm:items-center justify-center sm:p-4" onClick={onClose}>
       <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-sm shadow-2xl border border-slate-200" onClick={e => e.stopPropagation()}>
@@ -127,6 +117,13 @@ function StaffPinModal({ name, pin, pharmacyCode, loginSlug, onClose }: { name: 
             className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition">
             {copied ? '✓ تم النسخ' : 'نسخ التعليمات'}
           </button>
+          {waLink && (
+            <a href={waLink} target="_blank" rel="noreferrer"
+              className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2">
+              <IconWhatsapp className="w-4 h-4" />
+              إرسال التعليمات عبر واتساب
+            </a>
+          )}
           <p className="text-[11px] text-slate-400">إن ضاع الرمز يمكنك تصفيره من قائمة الموظفين</p>
           <p className="text-[11px] text-slate-400">سيُطلب من الموظف تغيير الرمز عند أول دخول</p>
         </div>
@@ -166,13 +163,6 @@ function StaffRow({
           <p className="text-[10px] text-slate-400 mt-0.5">{member.login_slug}</p>
         </div>
       </div>
-      {member.phone && shortCode && (
-        <a href={buildStaffLoginWaLink(member.phone, shortCode)}
-          target="_blank" rel="noreferrer"
-          className="shrink-0 flex items-center justify-center w-7 h-7 bg-slate-900 hover:bg-slate-800 text-white rounded-lg transition-all shadow-sm">
-          <IconWhatsapp className="w-3.5 h-3.5" />
-        </a>
-      )}
       <div className="relative shrink-0">
         <button onClick={(e) => { e.stopPropagation(); onToggleMenu(); }}
           className="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center transition-colors">
@@ -274,7 +264,7 @@ export default function ProfilePage() {
   const [staffError, setStaffError] = useState('');
   const { notice, setNotice } = useNotice();
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-  const [pinModal, setPinModal] = useState<{ name: string; pin: string; pharmacyCode: string; loginSlug: string } | null>(null);
+  const [pinModal, setPinModal] = useState<{ name: string; pin: string; pharmacyCode: string; loginSlug: string; phone: string | null } | null>(null);
   const [codeCopied, setCodeCopied] = useState(false);
   const [showRotateConfirm, setShowRotateConfirm] = useState(false);
   const [rotating, setRotating] = useState(false);
@@ -383,7 +373,7 @@ export default function ProfilePage() {
       setNewStaffPhone('');
       setNewStaffRole('staff');
       await fetchStaffList();
-      setPinModal({ name: json.staff.name, pin: json.pin, pharmacyCode: json.pharmacy_code, loginSlug: json.staff.login_slug });
+      setPinModal({ name: json.staff.name, pin: json.pin, pharmacyCode: json.pharmacy_code, loginSlug: json.staff.login_slug, phone: json.staff.phone ?? null });
     } catch (e: any) { setStaffError(e.message || 'حدث خطأ'); }
     finally { setAddingStaff(false); }
   };
@@ -400,7 +390,7 @@ export default function ProfilePage() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'تعذّر تصفير الرمز');
       await fetchStaffList();
-      setPinModal({ name: json.staff.name, pin: json.pin, pharmacyCode: json.pharmacy_code, loginSlug: json.staff.login_slug });
+      setPinModal({ name: json.staff.name, pin: json.pin, pharmacyCode: json.pharmacy_code, loginSlug: json.staff.login_slug, phone: member.phone });
     } catch (e: any) { setNotice({ kind: 'err', text: e.message || 'حدث خطأ' }); }
   };
 
@@ -933,7 +923,7 @@ export default function ProfilePage() {
       </main>
 
       {pinModal && (
-        <StaffPinModal name={pinModal.name} pin={pinModal.pin} pharmacyCode={pinModal.pharmacyCode} loginSlug={pinModal.loginSlug} onClose={() => setPinModal(null)} />
+        <StaffPinModal name={pinModal.name} pin={pinModal.pin} pharmacyCode={pinModal.pharmacyCode} loginSlug={pinModal.loginSlug} phone={pinModal.phone} onClose={() => setPinModal(null)} />
       )}
 
       {deleteTarget && (

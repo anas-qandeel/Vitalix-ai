@@ -122,7 +122,7 @@ export async function POST(req: NextRequest) {
       is_active: true,
       must_change_pin: true,
     })
-    .select('id, name, role, login_slug')
+    .select('id, name, role, login_slug, phone')
     .single();
 
   // تراجع: لا نترك حساب مصادقة يتيماً

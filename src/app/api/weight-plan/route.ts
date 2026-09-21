@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { logAiUsage } from '@/lib/ai-usage';
 import { GoogleGenAI, Type } from '@google/genai';
 import { calcWeightGoals, getBMICategory, LACTATION_FIRST_GOAL_CAP_KG } from '@/lib/weight-math';
 import { SUPPLEMENT_CATEGORIES, isValidCategory } from '@/lib/supplement-categories';
@@ -708,6 +709,7 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
                 });
                 parsed.pharmacy_products = validProducts;
 
+                await logAiUsage({ pharmacyId: auth.pharmacyId, userId: auth.userId, staffId: auth.staffId, feature: 'weight_plan', step: 'plan', model: modelName, response, outcome: 'used' });
                 nutritionData = parsed;
                 console.log(`[weight-plan PATCH] ✅ ${modelName} JSON parsed`);
                 break;
@@ -717,6 +719,7 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
               console.warn(`[weight-plan PATCH] ${modelName} parse failed | len=${raw.length} | finish=${finishReason} | tail=${raw.slice(-120)}`);
             }
           }
+          await logAiUsage({ pharmacyId: auth.pharmacyId, userId: auth.userId, staffId: auth.staffId, feature: 'weight_plan', step: 'plan', model: modelName, response, outcome: 'discarded' });
         } catch (e: any) {
           const status = getErrStatus(e);
           console.warn(`[weight-plan PATCH] ${modelName} → ${status || 'err'}:`, e?.message);

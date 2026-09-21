@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI, Type, ThinkingLevel } from '@google/genai';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { logAiUsage } from '@/lib/ai-usage';
 import { looksLikeMedicine } from '@/lib/medicine-blocklist';
 import { ALLERGEN_TAGS, CONDITION_TAGS, type ClinicalProfile } from '@/lib/product-suitability';
 import { PRODUCT_KINDS, PRODUCT_CATEGORIES, CATEGORIES_FOR_KIND, type ProductKind } from '@/lib/catalog-taxonomy';
@@ -153,6 +154,7 @@ export async function POST(req: NextRequest) {
           },
         });
         const txt = response.text?.trim();
+        await logAiUsage({ pharmacyId: auth.pharmacyId, userId: auth.userId, feature: 'catalog_profile', step: 'profile', model: modelName, response, outcome: txt ? 'used' : 'discarded' });
         if (!txt) continue;
         parsed = JSON.parse(txt);
         break;

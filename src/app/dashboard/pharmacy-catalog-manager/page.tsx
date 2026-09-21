@@ -7,6 +7,7 @@ import { getPharmacyId, getUserRole } from '@/lib/tenant';
 import DashboardHeader from '@/app/dashboard/components/DashboardHeader';
 import AppFooter from '@/app/components/AppFooter';
 import SafetyProfileSummary from '@/components/SafetyProfileSummary';
+import SafetyProfileFull from '@/components/SafetyProfileFull';
 import ProductModal, { type ProductRecord } from '@/components/ProductModal';
 import {
   PRODUCT_KINDS, KIND_LABELS_AR, CATEGORIES_FOR_KIND, CATEGORY_LABELS_AR,
@@ -32,6 +33,8 @@ export default function PharmacyCatalogManagerPageV2() {
   const [categoryFilter, setCategoryFilter] = useState<ProductCategory | 'all'>('all');
   const [editItem, setEditItem] = useState<ProductRecord | null | 'new'>(null);
   const [deleteItem, setDeleteItem] = useState<ProductRecord | null>(null);
+  const [viewItem, setViewItem] = useState<typeof deleteItem>(null);
+  const [imageZoomed, setImageZoomed] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
@@ -153,15 +156,20 @@ export default function PharmacyCatalogManagerPageV2() {
                     </div>
                   );
                 })()}
-                {canManage && (
-                  <div className="flex items-center gap-2 px-4 py-2.5 border-t border-slate-100">
-                    <button onClick={() => setEditItem(item)}
-                      className="text-xs font-bold text-slate-600 hover:text-slate-900 cursor-pointer">تعديل</button>
-                    <span className="text-slate-300">·</span>
-                    <button onClick={() => setDeleteItem(item)}
-                      className="text-xs font-bold text-rose-500 hover:text-rose-700 cursor-pointer">حذف</button>
-                  </div>
-                )}
+                <div className="flex items-center gap-2 px-4 py-2.5 border-t border-slate-100">
+                  <button onClick={() => setViewItem(item)}
+                    className="text-xs font-bold text-slate-600 hover:text-slate-900 cursor-pointer">عرض</button>
+                  {canManage && (
+                    <>
+                      <span className="text-slate-300">·</span>
+                      <button onClick={() => setEditItem(item)}
+                        className="text-xs font-bold text-slate-600 hover:text-slate-900 cursor-pointer">تعديل</button>
+                      <span className="text-slate-300">·</span>
+                      <button onClick={() => setDeleteItem(item)}
+                        className="text-xs font-bold text-rose-500 hover:text-rose-700 cursor-pointer">حذف</button>
+                    </>
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -208,6 +216,38 @@ export default function PharmacyCatalogManagerPageV2() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {viewItem && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={() => { setViewItem(null); setImageZoomed(false); }}>
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl border border-slate-200 max-h-[85vh] overflow-y-auto"
+            onClick={e => e.stopPropagation()}>
+            <div className="p-6">
+              <div className="flex items-start justify-between gap-3 mb-4">
+                <h4 className="text-sm font-bold text-slate-900">{viewItem.brand_name}</h4>
+                <button onClick={() => { setViewItem(null); setImageZoomed(false); }}
+                  className="w-7 h-7 rounded-full bg-slate-50 hover:bg-slate-100 text-slate-500 flex items-center justify-center transition-colors shrink-0 cursor-pointer">✕</button>
+              </div>
+              {viewItem.image_url && (
+                <button onClick={() => setImageZoomed(true)}
+                  className="w-full h-40 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden mb-4 cursor-zoom-in">
+                  <img src={viewItem.image_url} alt="" className="w-full h-full object-cover" />
+                </button>
+              )}
+              {viewItem.clinical_profile
+                ? <SafetyProfileFull profile={viewItem.clinical_profile} />
+                : <p className="text-xs text-slate-400 text-center py-4">لا توجد بطاقة أمان لهذا المنتج</p>}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {imageZoomed && viewItem?.image_url && (
+        <div className="fixed inset-0 bg-slate-900/80 z-[60] flex items-center justify-center p-4"
+          onClick={() => setImageZoomed(false)}>
+          <img src={viewItem.image_url} alt="" className="max-w-full max-h-full object-contain rounded-lg" />
         </div>
       )}
     </div>

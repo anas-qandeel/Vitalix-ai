@@ -59,6 +59,7 @@ const SYSTEM_INSTRUCTION = `أنت صيدلاني سريري في منصة Vital
 أولاً: قرر هل هذا مستحضر صيدلاني (يحوي مادة دوائية فعالة، بوصفة أو بلا وصفة). إن نعم فاجعل is_medicine = true مع السبب في medicine_reason واملأ بقية الحقول بأقل جهد. المنصة لا تعرض أدوية ولا تقترح علاجاً.
 ثانياً: من العلبة أولاً (اقرأ المكونات والتحذيرات المطبوعة إن وُجدت صورة) ثم من معرفتك بالمنتج: المكونات الفعالة بالإنجليزية، المسببات من القائمة المغلقة فقط (إن كان المنتج كبسولات جيلاتينية فأدرج gelatin ما لم تكن نباتية)، أمان الحمل والرضاعة (safe فقط عند دليل واضح؛ avoid إن كانت إرشادات جهة رسمية مثل NHS أو ACOG أو FDA توصي بالتجنّب؛ وإلا caution أو unknown)، أقل عمر مناسب، احتواء السكر والصوديوم والكافيين، ما إن كان غير مناسب لمرضى الضغط أو السكري، والأسماء العلمية للأدوية التي يتداخل معها.
 ثالثاً: اقترح نوع المنتج (suggested_kind) وفئته (suggested_category) من القائمتين المغلقتين — الغذاء الطبي يُصنَّف بالحاجة التي يلبيها (تغذية السكري = blood_sugar_support، تغذية عالية البروتين = protein)؛ استخدم uncategorized فقط بعد استبعاد كل الفئات — وملاحظة واحدة للصيدلاني بالعربية لا تتجاوز 20 كلمة.
+تنبيه على النوع: consumable تعني مستلزمات طبية غير مأكولة فقط (شرائط فحص، إبر، ضمادات) وليست لما يؤكل أو يُشرب؛ كل ما يُتناول بالفم يكون supplement أو medical_food. المُحلّيات وبدائل السكر (ستيفيا، سكرالوز، إريثريتول وما شابه) نوعها supplement وفئتها sugar_substitute.
 قواعد: لا تسمِّ المنتج علاجاً لأي حالة؛ لا تُدرج مسبباً أو تداخلاً بلا أساس؛ درجة الثقة لكل حقل صادقة.`;
 
 async function verifyOwnerOrPharmacist(req: NextRequest) {
@@ -201,9 +202,18 @@ export async function POST(req: NextRequest) {
     const { profile: enforcedProfile, applied: appliedRules } = applyPharmacistRules(profile, brandName);
 
     // الفئة المقترحة يجب أن تكون ضمن فئات النوع المقترح تحديداً — لا من القائمة الكبرى (مثلاً "كالسيوم" لجهاز)
-    const suggestedKind = (PRODUCT_KINDS as readonly string[]).includes(String(parsed.suggested_kind)) ? String(parsed.suggested_kind) : 'supplement';
+    const rawKind = (PRODUCT_KINDS as readonly string[]).includes(String(parsed.suggested_kind)) ? String(parsed.suggested_kind) : 'supplement';
+    const rawCategory = String(parsed.suggested_category);
+    // الفئة هي الجسر إلى محرك الاقتراح، والنوع تبويب عرض: إن اقترح النموذج فئة حقيقية لا تنتمي للنوع الذي اختاره
+    // فنصحّح النوع ولا نرمي الفئة. الاستثناء: النوع device لا يُصحَّح (يُعرف من الصورة، والفئة معه قد تكون هلوسة).
+    const rawKindCategories = CATEGORIES_FOR_KIND[rawKind as ProductKind] as readonly string[];
+    const kindOwningCategory = rawCategory !== 'uncategorized' && rawKind !== 'device' && !rawKindCategories.includes(rawCategory)
+      ? PRODUCT_KINDS.find(k => k !== 'device' && (CATEGORIES_FOR_KIND[k] as readonly string[]).includes(rawCategory))
+      : undefined;
+    const suggestedKind = kindOwningCategory ?? rawKind;
     const kindCategories = CATEGORIES_FOR_KIND[suggestedKind as ProductKind] as readonly string[];
-    const suggestedCategory = kindCategories.includes(String(parsed.suggested_category)) ? String(parsed.suggested_category) : 'uncategorized';
+    const suggestedCategory = kindCategories.includes(rawCategory) ? rawCategory : 'uncategorized';
+    console.log('[catalog-profile] classification', { rawKind, rawCategory, suggestedKind, suggestedCategory });
 
     return NextResponse.json({
       rejected: false,

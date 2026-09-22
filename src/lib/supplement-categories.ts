@@ -22,7 +22,7 @@ export const SUPPLEMENT_CATEGORIES = [
   { code: 'multivitamin',         labelAr: 'فيتامينات متعددة' },
   // أجهزة القياس المنزلية — رموزها مطابقة لـcatalog-taxonomy.ts
   { code: 'sugar_device',         labelAr: 'جهاز فحص السكري' },
-  { code: 'sugar_strips',         labelAr: 'شرائط السكري' },
+  { code: 'sugar_strips',         labelAr: 'شرائح السكري' },
   { code: 'bp_device',            labelAr: 'جهاز قياس الضغط' },
   { code: 'weight_scale',         labelAr: 'ميزان وزن' },
 ] as const;

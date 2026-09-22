@@ -38,7 +38,7 @@ export const CATEGORY_LABELS_AR: Record<ProductCategory, string> = {
   satiety_aid: 'مساعد على الشبع',
   multivitamin: 'فيتامينات متعددة',
   sugar_device: 'جهاز فحص السكري',
-  sugar_strips: 'شرائط السكري',
+  sugar_strips: 'شرائح السكري',
   bp_device: 'جهاز قياس الضغط',
   weight_scale: 'ميزان وزن',
   uncategorized: 'غير مصنّف',

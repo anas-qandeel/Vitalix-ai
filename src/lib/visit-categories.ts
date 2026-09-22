@@ -9,7 +9,7 @@ export type VisitProductCategory = typeof VISIT_PRODUCT_CATEGORIES[number];
 export const VISIT_CATEGORY_LABELS_AR: Record<VisitProductCategory, string> = {
   bp_device:    'جهاز قياس الضغط',
   sugar_device: 'جهاز فحص السكر',
-  sugar_strips: 'شرائط فحص السكر',
+  sugar_strips: 'شرائح فحص السكر',
 };
 
 export interface VisitReadings {
@@ -18,7 +18,7 @@ export interface VisitReadings {
   bp_diastolic?: number | null;
 }
 
-/** العتبات نفسها التي كانت في GET /api/visit: سكر ≥ 180 ← جهاز + شرائط؛ ضغط ≥ 140/90 ← جهاز ضغط */
+/** العتبات نفسها التي كانت في GET /api/visit: سكر ≥ 180 ← جهاز + شرائح؛ ضغط ≥ 140/90 ← جهاز ضغط */
 export function dueVisitCategories(v: VisitReadings): VisitProductCategory[] {
   const due: VisitProductCategory[] = [];
   if (v.sugar_value && v.sugar_value >= 180) due.push('sugar_device', 'sugar_strips');
@@ -49,8 +49,8 @@ export function fallbackProductNote(category: VisitProductCategory, v: VisitRead
       };
     case 'sugar_strips':
       return {
-        reason: 'شرائط الفحص تُكمّل جهازك المنزلي — بدون مخزون كافٍ منها تتوقف المتابعة.',
-        instruction: 'تأكد من توافق الشرائط مع طراز جهازك ومن تاريخ الصلاحية.',
+        reason: 'شرائح الفحص تُكمّل جهازك المنزلي — بدون مخزون كافٍ منها تتوقف المتابعة.',
+        instruction: 'تأكد من توافق الشرائح مع طراز جهازك ومن تاريخ الصلاحية.',
       };
   }
 }

@@ -2,6 +2,8 @@
 // التغذية — النموذج يرى الرموز فقط ولا يرى كتالوج الصيدلية ولا يسمّي منتجاً،
 // المطابقة بمنتج فعلي تتم لاحقاً عبر استعلام حتمي على pharmacy_products ثم محرك الملاءمة
 // (راجع القرار المعماري الموثّق في docs/schema.sql).
+// الاسم تاريخي: القائمة تشمل الآن أجهزة القياس المنزلية أيضاً (سكر/ضغط/ميزان)،
+// وتعليمات weight-plan تحدد متى يُقترح كل جهاز بحسب حالات المريض المشخّصة.
 export const SUPPLEMENT_CATEGORIES = [
   { code: 'b12',                  labelAr: 'فيتامين B12' },
   { code: 'omega3',               labelAr: 'أوميغا 3' },
@@ -18,6 +20,11 @@ export const SUPPLEMENT_CATEGORIES = [
   { code: 'appetite_stimulant',   labelAr: 'فاتح شهية' },
   { code: 'satiety_aid',          labelAr: 'مساعد على الشبع' },
   { code: 'multivitamin',         labelAr: 'فيتامينات متعددة' },
+  // أجهزة القياس المنزلية — رموزها مطابقة لـcatalog-taxonomy.ts
+  { code: 'sugar_device',         labelAr: 'جهاز فحص السكري' },
+  { code: 'sugar_strips',         labelAr: 'شرائط السكري' },
+  { code: 'bp_device',            labelAr: 'جهاز قياس الضغط' },
+  { code: 'weight_scale',         labelAr: 'ميزان وزن' },
 ] as const;
 
 export type SupplementCategory = typeof SUPPLEMENT_CATEGORIES[number]['code'];

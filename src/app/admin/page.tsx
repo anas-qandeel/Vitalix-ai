@@ -829,6 +829,13 @@ export default function SuperAdminPage() {
         {/* Tab Switcher */}
         <div className="flex border-b border-slate-200/80 gap-6 text-sm font-semibold overflow-x-auto">
           <button
+            onClick={() => router.push('/admin/blocklist')}
+            className="pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition cursor-pointer whitespace-nowrap"
+          >
+            قائمة حظر الأدوية
+          </button>
+
+          <button
             onClick={() => setActiveTab('pharmacies')}
             className={`pb-3 border-b-2 transition cursor-pointer whitespace-nowrap ${
               activeTab === 'pharmacies'

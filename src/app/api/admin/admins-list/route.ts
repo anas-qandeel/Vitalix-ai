@@ -3,7 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase-admin';
 import { verifyPlatformAdmin } from '@/lib/verify-admin';
 
 export async function GET(request: Request) {
-  const auth = await verifyPlatformAdmin(request);
+  const auth = await verifyPlatformAdmin(request, ['owner']);
   if (!auth.authorized) return auth.response;
 
   try {

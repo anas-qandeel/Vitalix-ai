@@ -864,6 +864,36 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
     // لكل فئة اقترحها النموذج: يُختار أول منتج «ملائم»؛ وإن لم يوجد فأول «بحذر» مع
     // أسبابه للصيدلاني؛ و«ممنوع» لا يُعرض إطلاقاً. النموذج لا يرى الكتالوج أبداً.
     const productSuggestions = nutritionData.pharmacy_products;
+
+    // ── إضافة حتمية: منتجات بطاقتها تقول "يفيد مرضى" إحدى حالات هذا المريض تُضاف فئاتها
+    // حتى لو لم يطلبها النموذج. حارسان: بطاقة مؤكَّدة من الصيدلاني، وفئة غير uncategorized.
+    // كل خطة وزن = weight؛ السكري/الضغط بحسب التشخيص. تمرّ بعدها بمحرك الملاءمة والترتيب كالمعتاد.
+    {
+      const relevanceTags: string[] = ['weight'];
+      if (patientForSuitability.diagnosed_conditions.includes('diabetes'))     relevanceTags.push('diabetes');
+      if (patientForSuitability.diagnosed_conditions.includes('hypertension')) relevanceTags.push('hypertension');
+      const { data: relRows } = await supabaseAdmin
+        .from('pharmacy_products')
+        .select('category, clinical_profile')
+        .eq('pharmacy_id', plan.pharmacy_id)
+        .eq('is_active', true)
+        .not('profile_confirmed_at', 'is', null)
+        .neq('category', 'uncategorized');
+      const already = new Set(productSuggestions.map(p => p.category_code));
+      for (const row of (relRows || []) as { category: string; clinical_profile: { relevant_to_conditions?: string[] } | null }[]) {
+        const tags = row.clinical_profile?.relevant_to_conditions ?? [];
+        if (!tags.some(t => relevanceTags.includes(t))) continue;
+        if (already.has(row.category)) continue;
+        already.add(row.category);
+        productSuggestions.push({
+          category_code: row.category,
+          reason:        'اختيار الصيدلية لحالتك — منتج وسمه الصيدلاني كمفيد لحالة مسجّلة في ملفك.',
+          instruction:   'اسأل الصيدلاني عن طريقة الاستخدام المناسبة لك.',
+        });
+        console.log(`[weight-plan PATCH] relevance: added category ${row.category} (tags ${tags.join(',')})`);
+      }
+    }
+
     const suggestedCodes = productSuggestions.map(p => p.category_code);
     type MatchedProduct = { id: string; product_name: string; price: number; image_url: string | null; suitability_note: string[] };
     const recommendationsByCategory = new Map<string, MatchedProduct>();

@@ -50,7 +50,7 @@ const PROFILE_RESPONSE_SCHEMA = {
       properties: {
         active_ingredients: confField, allergen_tags: confField, pregnancy: confField, lactation: confField,
         min_age_years: confField, contains_sugar: confField, contains_sodium: confField, contains_caffeine: confField,
-        avoid_with_conditions: confField, interacts_with_generics: confField,
+        avoid_with_conditions: confField, relevant_to_conditions: confField, interacts_with_generics: confField,
       },
     },
   },

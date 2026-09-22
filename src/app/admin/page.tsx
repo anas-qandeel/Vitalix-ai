@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import FeedbackInbox from './FeedbackInbox';
+import SubscriptionModal from './SubscriptionModal';
 import AppFooter from '../components/AppFooter';
 import { supabase } from '@/lib/supabase';
 import { adminFetch } from '@/lib/admin-fetch';
@@ -89,6 +90,7 @@ export default function SuperAdminPage() {
   // حالات التجديد السريع مع الإدخال اليدوي للمدفوع
   const [isQuickRenewModalOpen, setIsQuickRenewModalOpen] = useState(false);
   const [selectedPharmacyForRenew, setSelectedPharmacyForRenew] = useState<Pharmacy | null>(null);
+  const [subscriptionTarget, setSubscriptionTarget] = useState<Pharmacy | null>(null);
   const [renewPlan, setRenewPlan] = useState<'50' | '40' | '35' | '25'>('50');
   const [isQuickInstallment, setIsQuickInstallment] = useState(false);
   const [quickPaidAmount, setQuickPaidAmount] = useState<number>(25);
@@ -1074,6 +1076,14 @@ export default function SuperAdminPage() {
                                   بعيداً عن الأرشفة عبر هذين الزرين */}
                               {p.status !== 'archived' && (
                                 <>
+                                  <button
+                                    onClick={() => { setErrorMsg(''); setSubscriptionTarget(p); }}
+                                    className="px-2.5 py-1 bg-slate-900 text-white hover:bg-slate-800 rounded-lg text-[11px] font-semibold transition cursor-pointer"
+                                    title="اشتراك جديد أو تجديد بحسب الخطط المعرّفة"
+                                  >
+                                    اشتراك / تجديد
+                                  </button>
+
                                   {/* زر تسجيل الدفعة الثانية — يظهر فقط عند وجود موعد دفعة معلّق ومبلغ متبقٍ فعلياً */}
                                   {p.second_payment_date && Number(p.paid_amount) < Number(p.total_amount_due) && (
                                     <button
@@ -1744,6 +1754,14 @@ export default function SuperAdminPage() {
             </form>
           </div>
         </div>
+      )}
+
+      {subscriptionTarget && (
+        <SubscriptionModal
+          pharmacy={{ id: subscriptionTarget.id, name: subscriptionTarget.name, expiry_date: subscriptionTarget.expiry_date, status: subscriptionTarget.status }}
+          onClose={() => setSubscriptionTarget(null)}
+          onSaved={() => { fetchPharmacies(); }}
+        />
       )}
 
       {/* Modal إدارة المسؤولين */}

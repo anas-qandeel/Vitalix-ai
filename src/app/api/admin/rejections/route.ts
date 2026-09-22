@@ -8,7 +8,7 @@ import { verifyPlatformAdmin } from '@/lib/verify-admin';
 const LIMIT = 200;
 
 export async function GET(request: Request) {
-  const auth = await verifyPlatformAdmin(request);
+  const auth = await verifyPlatformAdmin(request, ['owner', 'pharmacist']);
   if (!auth.authorized) return auth.response;
 
   const { data: rows, error } = await supabaseAdmin

@@ -9,7 +9,7 @@ const TERM_TYPES = ['generic', 'brand'] as const;
 type TermType = typeof TERM_TYPES[number];
 
 export async function GET(request: Request) {
-  const auth = await verifyPlatformAdmin(request);
+  const auth = await verifyPlatformAdmin(request, ['owner', 'pharmacist']);
   if (!auth.authorized) return auth.response;
 
   const { data, error } = await supabaseAdmin
@@ -22,7 +22,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const auth = await verifyPlatformAdmin(request);
+  const auth = await verifyPlatformAdmin(request, ['owner', 'pharmacist']);
   if (!auth.authorized) return auth.response;
 
   let body: { term?: unknown; term_type?: unknown; note?: unknown };
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const auth = await verifyPlatformAdmin(request);
+  const auth = await verifyPlatformAdmin(request, ['owner', 'pharmacist']);
   if (!auth.authorized) return auth.response;
 
   const id = new URL(request.url).searchParams.get('id') || '';

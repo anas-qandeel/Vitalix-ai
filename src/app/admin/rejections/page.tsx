@@ -50,6 +50,10 @@ export default function RejectionsPage() {
         router.push('/dashboard');
         return;
       }
+      if (adminRecord.role !== 'owner' && adminRecord.role !== 'pharmacist') {
+        router.push('/admin');
+        return;
+      }
 
       load();
     };

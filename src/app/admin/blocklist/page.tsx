@@ -54,6 +54,10 @@ export default function BlocklistPage() {
         router.push('/dashboard');
         return;
       }
+      if (adminRecord.role !== 'owner' && adminRecord.role !== 'pharmacist') {
+        router.push('/admin');
+        return;
+      }
 
       load();
     };

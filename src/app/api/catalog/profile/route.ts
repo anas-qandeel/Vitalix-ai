@@ -3,7 +3,7 @@ import { GoogleGenAI, Type, ThinkingLevel } from '@google/genai';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { logAiUsage } from '@/lib/ai-usage';
 import { looksLikeMedicine } from '@/lib/medicine-blocklist';
-import { ALLERGEN_TAGS, CONDITION_TAGS, type ClinicalProfile } from '@/lib/product-suitability';
+import { ALLERGEN_TAGS, CONDITION_TAGS, RELEVANCE_TAGS, type ClinicalProfile } from '@/lib/product-suitability';
 import { PRODUCT_KINDS, PRODUCT_CATEGORIES, CATEGORIES_FOR_KIND, type ProductKind } from '@/lib/catalog-taxonomy';
 import { applyPharmacistRules } from '@/lib/pharmacist-rules';
 
@@ -42,6 +42,7 @@ const PROFILE_RESPONSE_SCHEMA = {
     contains_sodium:         { type: Type.BOOLEAN, nullable: true },
     contains_caffeine:       { type: Type.BOOLEAN, nullable: true },
     avoid_with_conditions:   { type: Type.ARRAY, items: { type: Type.STRING, enum: [...CONDITION_TAGS] } },
+    relevant_to_conditions:  { type: Type.ARRAY, items: { type: Type.STRING, enum: [...RELEVANCE_TAGS] } },
     interacts_with_generics: { type: Type.ARRAY, items: { type: Type.STRING } },
     notes_for_pharmacist:    { type: Type.STRING },
     confidence: {
@@ -60,7 +61,7 @@ const PROFILE_RESPONSE_SCHEMA = {
 
 const SYSTEM_INSTRUCTION = `أنت صيدلاني سريري في منصة Vitalix.ai. ستُعطى اسم منتج معروض في صيدلية (وربما صورة علبته وفئته المقترحة). مهمتك بناء بطاقته السريرية بدقة وحذر، ولا تخترع معلومة: إن لم تكن متأكداً من حقل فاجعله unknown أو فارغاً وثقته low.
 أولاً: قرر هل هذا مستحضر صيدلاني (يحوي مادة دوائية فعالة، بوصفة أو بلا وصفة). إن نعم فاجعل is_medicine = true مع السبب في medicine_reason واملأ بقية الحقول بأقل جهد. المنصة لا تعرض أدوية ولا تقترح علاجاً.
-ثانياً: من العلبة أولاً (اقرأ المكونات والتحذيرات المطبوعة إن وُجدت صورة) ثم من معرفتك بالمنتج: المكونات الفعالة بالإنجليزية، المسببات من القائمة المغلقة فقط (إن كان المنتج كبسولات جيلاتينية فأدرج gelatin ما لم تكن نباتية)، أمان الحمل والرضاعة (safe فقط عند دليل واضح؛ avoid إن كانت إرشادات جهة رسمية مثل NHS أو ACOG أو FDA توصي بالتجنّب؛ وإلا caution أو unknown)، أقل عمر مناسب، احتواء السكر والصوديوم والكافيين، ما إن كان غير مناسب لمرضى الضغط أو السكري، والأسماء العلمية للأدوية التي يتداخل معها.
+ثانياً: من العلبة أولاً (اقرأ المكونات والتحذيرات المطبوعة إن وُجدت صورة) ثم من معرفتك بالمنتج: المكونات الفعالة بالإنجليزية، المسببات من القائمة المغلقة فقط (إن كان المنتج كبسولات جيلاتينية فأدرج gelatin ما لم تكن نباتية)، أمان الحمل والرضاعة (safe فقط عند دليل واضح؛ avoid إن كانت إرشادات جهة رسمية مثل NHS أو ACOG أو FDA توصي بالتجنّب؛ وإلا caution أو unknown)، أقل عمر مناسب، احتواء السكر والصوديوم والكافيين، ما إن كان غير مناسب لمرضى الضغط أو السكري، والأسماء العلمية للأدوية التي يتداخل معها. وفي relevant_to_conditions حدّد الحالات التي يفيدها المنتج فعلاً من {diabetes, hypertension, weight} (مثال: بديل السكر يفيد diabetes وweight معاً، ومكمّل الماغنيسيوم قد يفيد hypertension)؛ هذا حقل "يفيد مرضى" وهو مستقل تماماً عن "غير مناسب لمرضى"، واتركه مصفوفة فارغة إن لم تكن هناك فائدة واضحة لإحدى الحالات الثلاث.
 ثالثاً: اقترح نوع المنتج (suggested_kind) وفئته (suggested_category) من القائمتين المغلقتين — الغذاء الطبي يُصنَّف بالحاجة التي يلبيها (تغذية السكري = blood_sugar_support، تغذية عالية البروتين = protein)؛ استخدم uncategorized فقط بعد استبعاد كل الفئات — وملاحظة واحدة للصيدلاني بالعربية لا تتجاوز 20 كلمة.
 تنبيه على النوع: consumable تعني مستلزمات طبية غير مأكولة فقط (شرائح فحص، إبر، ضمادات) وليست لما يؤكل أو يُشرب؛ كل ما يُتناول بالفم يكون supplement أو medical_food. المُحلّيات وبدائل السكر (ستيفيا، سكرالوز، إريثريتول وما شابه) نوعها supplement وفئتها sugar_substitute.
 قواعد: لا تسمِّ المنتج علاجاً لأي حالة؛ لا تُدرج مسبباً أو تداخلاً بلا أساس؛ درجة الثقة لكل حقل صادقة.`;
@@ -187,6 +188,7 @@ export async function POST(req: NextRequest) {
       contains_sodium: bool(parsed.contains_sodium),
       contains_caffeine: bool(parsed.contains_caffeine),
       avoid_with_conditions: strList(parsed.avoid_with_conditions).filter((t): t is ClinicalProfile['avoid_with_conditions'] extends (infer U)[] | undefined ? U : never => (CONDITION_TAGS as readonly string[]).includes(t)),
+      relevant_to_conditions: strList(parsed.relevant_to_conditions).filter((t): t is ClinicalProfile['relevant_to_conditions'] extends (infer U)[] | undefined ? U : never => (RELEVANCE_TAGS as readonly string[]).includes(t)),
       interacts_with_generics: strList(parsed.interacts_with_generics),
       notes_for_pharmacist: typeof parsed.notes_for_pharmacist === 'string' ? parsed.notes_for_pharmacist.slice(0, 200) : null,
       confidence: typeof parsed.confidence === 'object' && parsed.confidence ? (parsed.confidence as ClinicalProfile['confidence']) : {},

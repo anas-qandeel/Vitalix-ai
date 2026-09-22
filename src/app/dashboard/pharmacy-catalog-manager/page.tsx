@@ -16,6 +16,7 @@ import {
 import { summarizeProductEvents, type ProductSignals } from '@/lib/product-signals';
 import { Plus } from '@phosphor-icons/react';
 import { useConfirm } from '@/components/ConfirmDialog';
+import Toast, { useNotice } from '@/components/Toast';
 
 // ═══════════════════════════════════════════════════════
 // كتالوج المنتجات — شاشة موحّدة (نسخة جديدة، عرض فقط في هذه الخطوة)
@@ -36,6 +37,7 @@ export default function PharmacyCatalogManagerPageV2() {
   const [viewItem, setViewItem] = useState<ProductRecord | null>(null);
   const [imageZoomed, setImageZoomed] = useState(false);
   const { confirm, dialog: confirmDialog } = useConfirm();
+  const { notice, setNotice } = useNotice();
 
   const handleDelete = async (item: ProductRecord) => {
     const ok = await confirm({
@@ -46,7 +48,8 @@ export default function PharmacyCatalogManagerPageV2() {
     });
     if (!ok) return;
     const { error } = await supabase.from('pharmacy_products').delete().eq('id', item.id);
-    if (!error) setItems(prev => prev.filter(i => i.id !== item.id));
+    if (error) { setNotice({ kind: 'err', text: 'تعذّر حذف المنتج. حاول مرة أخرى.' }); return; }
+    setItems(prev => prev.filter(i => i.id !== item.id));
   };
 
   useEffect(() => {
@@ -210,6 +213,7 @@ export default function PharmacyCatalogManagerPageV2() {
       )}
 
       {confirmDialog}
+      <Toast notice={notice} />
 
       {viewItem && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"

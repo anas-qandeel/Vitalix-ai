@@ -124,7 +124,7 @@ export default function SuperAdminPage() {
     name: '',
     email: '',
     password: '',
-    role: 'super_admin'
+    role: 'support'
   });
 
   // تغيير كلمة المرور
@@ -621,7 +621,7 @@ export default function SuperAdminPage() {
 
       await fetchAdmins();
       setIsAdminModalOpen(false);
-      setAdminFormData({ name: '', email: '', password: '', role: 'super_admin' });
+      setAdminFormData({ name: '', email: '', password: '', role: 'support' });
       setEditingAdminId(null);
     } catch (err: any) {
       setErrorMsg(err.message || 'حدث خطأ أثناء حفظ بيانات المسؤول');
@@ -1253,7 +1253,7 @@ export default function SuperAdminPage() {
                 onClick={() => {
                   setErrorMsg('');
                   setEditingAdminId(null);
-                  setAdminFormData({ name: '', email: '', password: '', role: 'super_admin' });
+                  setAdminFormData({ name: '', email: '', password: '', role: 'support' });
                   setIsAdminModalOpen(true);
                 }}
                 className="px-4 py-2.5 text-xs font-semibold text-white bg-[#0F172A] hover:bg-slate-800 rounded-xl transition cursor-pointer shadow-md active:scale-95"
@@ -1291,9 +1291,9 @@ export default function SuperAdminPage() {
                         </td>
                         <td className="px-5 py-3.5">
                           <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold ${
-                            adm.role === 'super_admin' ? 'bg-blue-50 text-blue-700 border border-blue-200/60' : 'bg-amber-50 text-amber-700 border border-amber-200/60'
+                            adm.role === 'owner' ? 'bg-slate-900 text-white border border-slate-900' : adm.role === 'pharmacist' ? 'bg-teal-50 text-teal-700 border border-teal-200/60' : 'bg-amber-50 text-amber-700 border border-amber-200/60'
                           }`}>
-                            {adm.role === 'super_admin' ? 'سوبر أدمن' : 'دعم فني (support_admin)'}
+                            {adm.role === 'owner' ? 'المالك' : adm.role === 'pharmacist' ? 'صيدلاني المنصة' : 'دعم فني'}
                           </span>
                         </td>
                         <td className="px-5 py-3.5 text-slate-500">
@@ -1781,8 +1781,9 @@ export default function SuperAdminPage() {
                   disabled={isEditingSelf}
                   className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl font-medium bg-slate-50/50 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  <option value="super_admin">سوبر أدمن (super_admin)</option>
-                  <option value="support_admin">أدمن دعم فني (support_admin)</option>
+                  <option value="owner">المالك — كل الصلاحيات</option>
+                  <option value="pharmacist">صيدلاني المنصة — قوائم الحظر والمرفوضات</option>
+                  <option value="support">دعم فني — قراءة فقط</option>
                 </select>
                 {isEditingSelf && (
                   <p className="text-[10px] text-slate-400 mt-1">لا يمكنك تغيير صلاحيتك الخاصة — اطلب من مسؤول آخر</p>

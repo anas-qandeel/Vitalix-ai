@@ -115,7 +115,7 @@ export default function SuperAdminPage() {
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [userRole, setUserRole] = useState<string>('support_admin'); 
+  const [userRole, setUserRole] = useState<string>('support');
   const [currentUserName, setCurrentUserName] = useState<string>('');
   const [currentUserEmail, setCurrentUserEmail] = useState<string>('');
   
@@ -590,7 +590,7 @@ export default function SuperAdminPage() {
   // حفظ مسؤول جديد
   const handleSaveAdmin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (userRole !== 'super_admin') {
+    if (userRole !== 'owner') {
       alert('عذراً، هذه الصلاحية محصورة للسوبر أدمن فقط');
       return;
     }
@@ -672,7 +672,7 @@ export default function SuperAdminPage() {
 
   // حذف مسؤول
   const handleDeleteAdmin = async (id: string) => {
-    if (userRole !== 'super_admin') {
+    if (userRole !== 'owner') {
       alert('عذراً، لا تملك صلاحية حذف المسؤولين');
       return;
     }
@@ -763,11 +763,11 @@ export default function SuperAdminPage() {
                   Vitalix<span className="text-teal-600">-ai</span>
                 </span>
                 <span className={`text-[10px] px-2.5 py-0.5 rounded-md font-bold border ${
-                  userRole === 'super_admin' 
-                    ? 'bg-[#2563EB]/15 text-[#3B82F6] border-[#2563EB]/30' 
+                  userRole === 'owner'
+                    ? 'bg-[#2563EB]/15 text-[#3B82F6] border-[#2563EB]/30'
                     : 'bg-amber-500/15 text-amber-400 border-amber-500/30'
                 }`}>
-                  {userRole === 'super_admin' ? 'Super Admin' : 'دعم فني'}
+                  {userRole === 'owner' ? 'المالك' : userRole === 'pharmacist' ? 'صيدلاني المنصة' : 'دعم فني'}
                 </span>
               </div>
               <p className="text-[11px] text-slate-400">لوحة إدارة المنصة والاشتراكات المركزية</p>
@@ -869,7 +869,7 @@ export default function SuperAdminPage() {
             )}
           </button>
 
-          {userRole === 'super_admin' && (
+          {userRole === 'owner' && (
             <button
               onClick={() => setActiveTab('admins')}
               className={`pb-3 border-b-2 transition cursor-pointer whitespace-nowrap ${
@@ -1112,7 +1112,7 @@ export default function SuperAdminPage() {
 
                               {/* زر الأرشفة (للسوبر أدمن فقط) — يظهر فقط للحسابات الموقوفة (suspended).
                                   لا معنى لأرشفة حساب نشط أو تجريبي لا يزال يعمل فعلياً — يجب تعطيله أولاً */}
-                              {userRole === 'super_admin' && p.status === 'suspended' && (
+                              {userRole === 'owner' && p.status === 'suspended' && (
                                 <button
                                   onClick={() => handleDeletePharmacy(p.id, p.name)}
                                   className="px-2.5 py-1 bg-rose-50 text-rose-700 hover:bg-rose-100 rounded-lg text-[11px] font-semibold transition cursor-pointer"
@@ -1242,7 +1242,7 @@ export default function SuperAdminPage() {
         )}
 
         {/* Tab 3: إدارة مسؤولين النظام */}
-        {activeTab === 'admins' && userRole === 'super_admin' && (
+        {activeTab === 'admins' && userRole === 'owner' && (
           <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-[0_4px_20px_rgba(15,23,42,0.03)] space-y-5">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
@@ -1738,7 +1738,7 @@ export default function SuperAdminPage() {
       )}
 
       {/* Modal إدارة المسؤولين */}
-      {isAdminModalOpen && userRole === 'super_admin' && (
+      {isAdminModalOpen && userRole === 'owner' && (
         <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white max-w-md w-full rounded-2xl p-6 space-y-5 shadow-xl border border-slate-100">
             <div className="flex items-center justify-between border-b pb-3.5">

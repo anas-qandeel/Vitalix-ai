@@ -7,6 +7,8 @@ import { ALLERGEN_TAGS, CONDITION_TAGS, type ClinicalProfile } from '@/lib/produ
 import { PRODUCT_KINDS, PRODUCT_CATEGORIES, CATEGORIES_FOR_KIND, type ProductKind } from '@/lib/catalog-taxonomy';
 import { applyPharmacistRules } from '@/lib/pharmacist-rules';
 
+export const maxDuration = 60;
+
 // ═══════════════════════════════════════════════════════════════════════
 // POST /api/catalog/profile — يبني البطاقة السريرية لمنتج من اسمه (وصورة علبته إن وُجدت).
 // الذكاء الاصطناعي يعمل هنا مرة واحدة عند الإدخال، والصيدلاني يؤكد في الشاشة.

@@ -10,6 +10,8 @@ import { assessProductForPatient, type PatientForSuitability, type ProductForSui
 import { fetchProductScores, rankSuitable } from '@/lib/product-ranking';
 import { requireStaff } from '@/lib/api-auth';
 
+export const maxDuration = 60;
+
 // ═══════════════════════════════════════════════════════════════════════
 // نماذج Gemini
 // ═══════════════════════════════════════════════════════════════════════

@@ -6,6 +6,8 @@ import { requireStaff } from '@/lib/api-auth';
 import { dueVisitCategories, VISIT_CATEGORY_LABELS_AR, resolveProductNotes } from '@/lib/visit-categories';
 import { logAiUsage } from '@/lib/ai-usage';
 
+export const maxDuration = 60;
+
 // قائمة نماذج مرتبة — يُجرَّب الأول فإن أعطى 404 ينتقل للتالي تلقائياً
 // يمكن تجاوز الكل بتعريف GEMINI_MODEL في ملف .env.local
 // النماذج المتاحة اعتباراً من أغسطس 2026

@@ -920,9 +920,15 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
       // ── حلقة التعلّم: درجة كل مرشّح من أحداث الصيدلية نفسها (90 يوماً)، ثم لكل فئة
       // يفوز الأول بعد الفرز: ملائم قبل بحذر، ثم الدرجة الأعلى، ثم الاسم — لا يمس الأمان ──
       const scores = await fetchProductScores(supabaseAdmin, plan.pharmacy_id, candidates.map(c => c.rec.id));
+      const isRelevant = (rec: CatalogRow) => {
+        const tags = (rec.clinical_profile as { relevant_to_conditions?: string[] } | null)?.relevant_to_conditions ?? [];
+        return tags.includes('weight')
+          || (patientForSuitability.diagnosed_conditions.includes('diabetes') && tags.includes('diabetes'))
+          || (patientForSuitability.diagnosed_conditions.includes('hypertension') && tags.includes('hypertension'));
+      };
       candidates.sort((a, b) => rankSuitable(
-        { status: a.status, score: scores.get(a.rec.id) ?? 0, name: a.rec.brand_name },
-        { status: b.status, score: scores.get(b.rec.id) ?? 0, name: b.rec.brand_name },
+        { status: a.status, score: scores.get(a.rec.id) ?? 0, name: a.rec.brand_name, relevant: isRelevant(a.rec) },
+        { status: b.status, score: scores.get(b.rec.id) ?? 0, name: b.rec.brand_name, relevant: isRelevant(b.rec) },
       ));
       for (const c of candidates) {
         if (recommendationsByCategory.has(c.rec.category)) continue;

@@ -45,11 +45,13 @@ export async function fetchProductScores(
   return scoreFromEvents((data ?? []) as { product_id: string; event_type: string }[]);
 }
 
-export interface Rankable { status: 'ok' | 'caution'; score: number; name: string }
+export interface Rankable { status: 'ok' | 'caution'; score: number; name: string; relevant?: boolean }
 
-/** مقارن الفرز: ملائم قبل بحذر، ثم الدرجة الأعلى، ثم الاسم أبجدياً. */
+/** مقارن الفرز: ملائم قبل بحذر، ثم "يفيد حالة المريض" قبل غيره (اختياري)، ثم الدرجة الأعلى، ثم الاسم أبجدياً. */
 export function rankSuitable(a: Rankable, b: Rankable): number {
   if (a.status !== b.status) return a.status === 'ok' ? -1 : 1;
+  const ra = a.relevant ? 1 : 0, rb = b.relevant ? 1 : 0;
+  if (ra !== rb) return rb - ra;
   if (a.score !== b.score) return b.score - a.score;
   return a.name.localeCompare(b.name);
 }

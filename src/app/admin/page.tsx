@@ -836,6 +836,13 @@ export default function SuperAdminPage() {
           </button>
 
           <button
+            onClick={() => router.push('/admin/rejections')}
+            className="pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition cursor-pointer whitespace-nowrap"
+          >
+            المنتجات المرفوضة
+          </button>
+
+          <button
             onClick={() => setActiveTab('pharmacies')}
             className={`pb-3 border-b-2 transition cursor-pointer whitespace-nowrap ${
               activeTab === 'pharmacies'

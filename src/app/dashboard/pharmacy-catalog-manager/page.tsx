@@ -15,6 +15,7 @@ import {
 } from '@/lib/catalog-taxonomy';
 import { summarizeProductEvents, type ProductSignals } from '@/lib/product-signals';
 import { Plus } from '@phosphor-icons/react';
+import { useConfirm } from '@/components/ConfirmDialog';
 
 // ═══════════════════════════════════════════════════════
 // كتالوج المنتجات — شاشة موحّدة (نسخة جديدة، عرض فقط في هذه الخطوة)
@@ -32,10 +33,21 @@ export default function PharmacyCatalogManagerPageV2() {
   const [kindFilter, setKindFilter] = useState<ProductKind | 'all'>('all');
   const [categoryFilter, setCategoryFilter] = useState<ProductCategory | 'all'>('all');
   const [editItem, setEditItem] = useState<ProductRecord | null | 'new'>(null);
-  const [deleteItem, setDeleteItem] = useState<ProductRecord | null>(null);
-  const [viewItem, setViewItem] = useState<typeof deleteItem>(null);
+  const [viewItem, setViewItem] = useState<ProductRecord | null>(null);
   const [imageZoomed, setImageZoomed] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+  const { confirm, dialog: confirmDialog } = useConfirm();
+
+  const handleDelete = async (item: ProductRecord) => {
+    const ok = await confirm({
+      title: `حذف «${item.brand_name}»؟`,
+      message: 'هذا الإجراء لا يمكن التراجع عنه.',
+      confirmText: 'حذف نهائياً',
+      destructive: true,
+    });
+    if (!ok) return;
+    const { error } = await supabase.from('pharmacy_products').delete().eq('id', item.id);
+    if (!error) setItems(prev => prev.filter(i => i.id !== item.id));
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -165,7 +177,7 @@ export default function PharmacyCatalogManagerPageV2() {
                       <button onClick={() => setEditItem(item)}
                         className="text-xs font-bold text-slate-600 hover:text-slate-900 cursor-pointer">تعديل</button>
                       <span className="text-slate-300">·</span>
-                      <button onClick={() => setDeleteItem(item)}
+                      <button onClick={() => handleDelete(item)}
                         className="text-xs font-bold text-rose-500 hover:text-rose-700 cursor-pointer">حذف</button>
                     </>
                   )}
@@ -197,27 +209,7 @@ export default function PharmacyCatalogManagerPageV2() {
         />
       )}
 
-      {deleteItem && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setDeleteItem(null)}>
-          <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl border border-slate-200 p-6 text-center" onClick={e => e.stopPropagation()}>
-            <h4 className="text-sm font-bold text-slate-900 mb-2">حذف «{deleteItem.brand_name}»؟</h4>
-            <p className="text-xs text-slate-500 mb-6">هذا الإجراء لا يمكن التراجع عنه.</p>
-            <div className="grid grid-cols-2 gap-3">
-              <button onClick={() => setDeleteItem(null)} disabled={deleting}
-                className="h-10 flex items-center justify-center rounded-lg bg-white border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50 transition-all shadow-sm cursor-pointer">إلغاء</button>
-              <button onClick={async () => {
-                setDeleting(true);
-                const { error } = await supabase.from('pharmacy_products').delete().eq('id', deleteItem.id);
-                setDeleting(false);
-                if (!error) { setItems(prev => prev.filter(i => i.id !== deleteItem.id)); setDeleteItem(null); }
-              }} disabled={deleting}
-                className="py-2.5 text-sm font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-sm transition-colors cursor-pointer">
-                {deleting ? 'جاري الحذف...' : 'حذف نهائياً'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {confirmDialog}
 
       {viewItem && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"

@@ -1,10 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import type { ClinicalProfile, AllergenTag, ConditionTag, SafetyLevel } from '@/lib/product-suitability';
-import { ALLERGEN_TAGS, ALLERGEN_LABELS_AR, CONDITION_TAGS } from '@/lib/product-suitability';
+import type { ClinicalProfile, AllergenTag, ConditionTag, RelevanceTag, SafetyLevel } from '@/lib/product-suitability';
+import { ALLERGEN_TAGS, ALLERGEN_LABELS_AR, CONDITION_TAGS, RELEVANCE_TAGS } from '@/lib/product-suitability';
 
 const CONDITION_LABELS_AR: Record<ConditionTag, string> = { hypertension: 'ضغط الدم', diabetes: 'السكري' };
+const RELEVANCE_LABELS_AR: Record<RelevanceTag, string> = { diabetes: 'السكري', hypertension: 'ضغط الدم', weight: 'الوزن' };
 const SAFETY_LABELS_AR: Record<SafetyLevel, string> = { safe: 'آمن', caution: 'بحذر', avoid: 'ممنوع', unknown: 'غير معروف' };
 const SAFETY_LEVELS: SafetyLevel[] = ['safe', 'caution', 'avoid', 'unknown'];
 
@@ -48,6 +49,10 @@ export default function SafetyProfileFields({ profile, onChange }: {
   const toggleCondition = (tag: ConditionTag) => {
     const cur = profile.avoid_with_conditions ?? [];
     set({ avoid_with_conditions: cur.includes(tag) ? cur.filter(t => t !== tag) : [...cur, tag] });
+  };
+  const toggleRelevance = (tag: RelevanceTag) => {
+    const cur = profile.relevant_to_conditions ?? [];
+    set({ relevant_to_conditions: cur.includes(tag) ? cur.filter(t => t !== tag) : [...cur, tag] });
   };
   const addIngredient = () => {
     const v = ingredientDraft.trim();
@@ -121,6 +126,21 @@ export default function SafetyProfileFields({ profile, onChange }: {
               <button key={tag} type="button" onClick={() => toggleCondition(tag)}
                 className={`text-xs font-bold px-2.5 py-2 rounded-lg border transition-all cursor-pointer ${active ? 'bg-slate-900 border-slate-900 text-white' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'}`}>
                 {CONDITION_LABELS_AR[tag]}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div>
+        <FieldLabel text="يفيد مرضى" confidence={conf.relevant_to_conditions} />
+        <div className="grid grid-cols-3 gap-1.5">
+          {RELEVANCE_TAGS.map(tag => {
+            const active = (profile.relevant_to_conditions ?? []).includes(tag);
+            return (
+              <button key={tag} type="button" onClick={() => toggleRelevance(tag)}
+                className={`text-xs font-bold px-2.5 py-2 rounded-lg border transition-all cursor-pointer ${active ? 'bg-teal-600 border-teal-600 text-white' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'}`}>
+                {RELEVANCE_LABELS_AR[tag]}
               </button>
             );
           })}

@@ -4,6 +4,7 @@ import type { ClinicalProfile } from '@/lib/product-suitability';
 import { ALLERGEN_LABELS_AR } from '@/lib/product-suitability';
 
 const CONDITION_LABELS_AR: Record<string, string> = { hypertension: 'ضغط الدم', diabetes: 'السكري' };
+const RELEVANCE_LABELS_AR: Record<string, string> = { diabetes: 'السكري', hypertension: 'ضغط الدم', weight: 'الوزن' };
 const LEVEL_LABELS_AR: Record<string, string> = { safe: 'آمن', caution: 'بحذر', avoid: 'ممنوع', unknown: 'غير معروف' };
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
@@ -20,6 +21,7 @@ export default function SafetyProfileFull({ profile }: { profile: ClinicalProfil
   const allergens = profile.allergen_tags ?? [];
   const interactions = profile.interacts_with_generics ?? [];
   const conditions = profile.avoid_with_conditions ?? [];
+  const relevant = profile.relevant_to_conditions ?? [];
   const ingredients = profile.active_ingredients ?? [];
 
   return (
@@ -33,6 +35,7 @@ export default function SafetyProfileFull({ profile }: { profile: ClinicalProfil
       <Row label="يحتوي كافيين">{profile.contains_caffeine == null ? 'غير معروف' : profile.contains_caffeine ? 'نعم' : 'لا'}</Row>
       {allergens.length > 0 && <Row label="مسبِّبات حساسية">{allergens.map(a => ALLERGEN_LABELS_AR[a] ?? a).join('، ')}</Row>}
       {conditions.length > 0 && <Row label="غير مناسب لمرضى">{conditions.map(c => CONDITION_LABELS_AR[c] ?? c).join('، ')}</Row>}
+      {relevant.length > 0 && <Row label="يفيد مرضى">{relevant.map(c => RELEVANCE_LABELS_AR[c] ?? c).join('، ')}</Row>}
       {interactions.length > 0 && <Row label="يتداخل مع">{interactions.join('، ')}</Row>}
       {profile.notes_for_pharmacist && <Row label="ملاحظات للصيدلاني">{profile.notes_for_pharmacist}</Row>}
     </div>

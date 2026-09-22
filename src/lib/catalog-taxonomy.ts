@@ -17,7 +17,7 @@ export const PRODUCT_CATEGORIES = [
   'b12', 'omega3', 'fiber', 'vitamin_d', 'calcium', 'magnesium_potassium', 'protein',
   'sugar_substitute', 'blood_sugar_support', 'zinc_selenium', 'probiotic', 'iron',
   'appetite_stimulant', 'satiety_aid', 'multivitamin',
-  'sugar_device', 'sugar_strips', 'bp_device', 'uncategorized',
+  'sugar_device', 'sugar_strips', 'bp_device', 'weight_scale', 'uncategorized',
 ] as const;
 export type ProductCategory = typeof PRODUCT_CATEGORIES[number];
 
@@ -40,6 +40,7 @@ export const CATEGORY_LABELS_AR: Record<ProductCategory, string> = {
   sugar_device: 'جهاز فحص السكري',
   sugar_strips: 'شرائط السكري',
   bp_device: 'جهاز قياس الضغط',
+  weight_scale: 'ميزان وزن',
   uncategorized: 'غير مصنّف',
 };
 
@@ -48,7 +49,7 @@ export const CATEGORIES_FOR_KIND: Record<ProductKind, ProductCategory[]> = {
   supplement: ['b12', 'omega3', 'fiber', 'vitamin_d', 'calcium', 'magnesium_potassium', 'protein',
                'sugar_substitute', 'blood_sugar_support', 'zinc_selenium', 'probiotic', 'iron',
                'appetite_stimulant', 'satiety_aid', 'multivitamin', 'uncategorized'],
-  device: ['sugar_device', 'bp_device', 'uncategorized'],
+  device: ['sugar_device', 'bp_device', 'weight_scale', 'uncategorized'],
   consumable: ['sugar_strips', 'uncategorized'],
   medical_food: ['blood_sugar_support', 'protein', 'fiber', 'iron', 'calcium', 'multivitamin', 'uncategorized'],
 };

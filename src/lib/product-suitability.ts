@@ -16,6 +16,10 @@ export type AllergenTag = typeof ALLERGEN_TAGS[number];
 export const CONDITION_TAGS = ['hypertension', 'diabetes'] as const;
 export type ConditionTag = typeof CONDITION_TAGS[number];
 
+/** حالات يفيدها المنتج (منطق اقتراح، منفصل عن avoid_with_conditions الذي يعني "ممنوع عن") */
+export const RELEVANCE_TAGS = ['diabetes', 'hypertension', 'weight'] as const;
+export type RelevanceTag = typeof RELEVANCE_TAGS[number];
+
 export type SafetyLevel = 'safe' | 'caution' | 'avoid' | 'unknown';
 export type Confidence  = 'high' | 'medium' | 'low';
 
@@ -29,6 +33,8 @@ export interface ClinicalProfile {
   contains_sodium?: boolean | null;
   contains_caffeine?: boolean | null;
   avoid_with_conditions?: ConditionTag[];
+  /** يفيد مرضى — يقترحه النموذج ويوقّعه الصيدلاني؛ يستهلكه محرك الاقتراح */
+  relevant_to_conditions?: RelevanceTag[];
   interacts_with_generics?: string[];
   notes_for_pharmacist?: string | null;
   confidence?: Partial<Record<string, Confidence>>;

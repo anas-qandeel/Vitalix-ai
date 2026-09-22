@@ -842,6 +842,15 @@ export default function SuperAdminPage() {
             المنتجات المرفوضة
           </button>
 
+          {userRole === 'owner' && (
+            <button
+              onClick={() => router.push('/admin/plans')}
+              className="pb-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition cursor-pointer whitespace-nowrap"
+            >
+              الخطط والاشتراكات
+            </button>
+          )}
+
           <button
             onClick={() => setActiveTab('pharmacies')}
             className={`pb-3 border-b-2 transition cursor-pointer whitespace-nowrap ${

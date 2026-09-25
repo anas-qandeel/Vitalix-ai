@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import FeedbackInbox from './FeedbackInbox';
 import SubscriptionModal from './SubscriptionModal';
+import NotificationsBell from './NotificationsBell';
 import AppFooter from '../components/AppFooter';
 import { supabase } from '@/lib/supabase';
 import { adminFetch } from '@/lib/admin-fetch';
@@ -787,7 +788,11 @@ export default function SuperAdminPage() {
               </div>
             </div>
 
-            <button 
+            <div className="text-slate-300 bg-slate-800/80 hover:bg-slate-700 px-3.5 py-2.5 rounded-xl transition border border-slate-700/80 flex items-center">
+              <NotificationsBell isOwner={userRole === 'owner'} onPharmacyClick={(id) => router.push(`/admin/pharmacies/${id}`)} />
+            </div>
+
+            <button
               onClick={() => {
                 setErrorMsg('');
                 setPasswordResetTarget(null);

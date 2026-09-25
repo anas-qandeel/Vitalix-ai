@@ -10,6 +10,7 @@ import { formatPharmacistName } from '@/lib/name-format';
 import { authedFetch } from '@/lib/authed-fetch';
 import { Storefront, PencilSimple, FloppyDisk, Key, Warning } from '@phosphor-icons/react';
 import Toast, { useNotice } from '@/components/Toast';
+import { useSubscriptionState, READ_ONLY_MESSAGE } from '@/lib/subscription-state';
 
 interface PharmacyProfile {
   id: string;
@@ -241,6 +242,7 @@ function DeleteStaffModal({ name, deleting, onConfirm, onCancel }: { name: strin
 
 export default function ProfilePage() {
   const router = useRouter();
+  const { readOnly } = useSubscriptionState();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [profile, setProfile] = useState<PharmacyProfile | null>(null);
@@ -874,8 +876,9 @@ export default function ProfilePage() {
                   <option value="assistant">مساعد</option>
                   <option value="pharmacist">صيدلاني</option>
                 </select>
-                <button onClick={handleAddStaff} disabled={addingStaff || !newStaffName.trim()}
-                  className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition disabled:opacity-50 shrink-0">
+                <button onClick={handleAddStaff} disabled={addingStaff || !newStaffName.trim() || readOnly}
+                  title={readOnly ? READ_ONLY_MESSAGE : undefined}
+                  className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition disabled:opacity-50 shrink-0 disabled:cursor-not-allowed">
                   {addingStaff ? '...' : '+ إضافة'}
                 </button>
               </div>

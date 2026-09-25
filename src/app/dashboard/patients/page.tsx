@@ -9,6 +9,7 @@ import AddPatientForm from '@/components/AddPatientForm';
 import { getPharmacyId, getUserRole } from '@/lib/tenant';
 import { normalizeAr } from '@/lib/arabic';
 import { normalizePhone, displayPhone } from '@/lib/phone';
+import { useSubscriptionState, READ_ONLY_MESSAGE } from '@/lib/subscription-state';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -71,6 +72,7 @@ const PAGE_SIZE = 30;
 
 export default function PatientsListPage() {
   const router = useRouter();
+  const { readOnly } = useSubscriptionState();
   const [pharmacyId, setPharmacyId] = useState('');
   const [role, setRole] = useState('');
   const [patients, setPatients] = useState<PatientRow[]>([]);
@@ -170,7 +172,9 @@ export default function PatientsListPage() {
             )}
           </div>
           <button onClick={() => setShowAddModal(true)}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-bold shadow-sm transition active:scale-[0.98] cursor-pointer">
+            disabled={readOnly}
+            title={readOnly ? READ_ONLY_MESSAGE : undefined}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-bold shadow-sm transition active:scale-[0.98] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
             <IconPlus className="w-4 h-4" />
             مريض جديد
           </button>

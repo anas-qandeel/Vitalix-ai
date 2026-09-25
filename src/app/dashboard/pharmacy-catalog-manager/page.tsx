@@ -17,12 +17,14 @@ import { summarizeProductEvents, type ProductSignals } from '@/lib/product-signa
 import { Plus } from '@phosphor-icons/react';
 import { useConfirm } from '@/components/ConfirmDialog';
 import Toast, { useNotice } from '@/components/Toast';
+import { useSubscriptionState, READ_ONLY_MESSAGE } from '@/lib/subscription-state';
 
 // ═══════════════════════════════════════════════════════
 // كتالوج المنتجات — شاشة موحّدة (نسخة جديدة، عرض فقط في هذه الخطوة)
 // ═══════════════════════════════════════════════════════
 export default function PharmacyCatalogManagerPageV2() {
   const router = useRouter();
+  const { readOnly } = useSubscriptionState();
   const [items, setItems] = useState<ProductRecord[]>([]);
   const [signals, setSignals] = useState<Map<string, ProductSignals>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -109,7 +111,9 @@ export default function PharmacyCatalogManagerPageV2() {
           </div>
           {canManage && (
             <button onClick={() => setEditItem('new')}
-              className="h-10 shrink-0 whitespace-nowrap px-3 sm:px-4 flex items-center justify-center gap-2 rounded-lg bg-teal-600 text-white text-xs sm:text-sm font-medium hover:bg-teal-700 transition-all shadow-sm cursor-pointer">
+              disabled={readOnly}
+              title={readOnly ? READ_ONLY_MESSAGE : undefined}
+              className="h-10 shrink-0 whitespace-nowrap px-3 sm:px-4 flex items-center justify-center gap-2 rounded-lg bg-teal-600 text-white text-xs sm:text-sm font-medium hover:bg-teal-700 transition-all shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
               <Plus size={16} weight="bold" /> إضافة منتج
             </button>
           )}
@@ -178,10 +182,14 @@ export default function PharmacyCatalogManagerPageV2() {
                     <>
                       <span className="text-slate-300">·</span>
                       <button onClick={() => setEditItem(item)}
-                        className="text-xs font-bold text-slate-600 hover:text-slate-900 cursor-pointer">تعديل</button>
+                        disabled={readOnly}
+                        title={readOnly ? READ_ONLY_MESSAGE : undefined}
+                        className="text-xs font-bold text-slate-600 hover:text-slate-900 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">تعديل</button>
                       <span className="text-slate-300">·</span>
                       <button onClick={() => handleDelete(item)}
-                        className="text-xs font-bold text-rose-500 hover:text-rose-700 cursor-pointer">حذف</button>
+                        disabled={readOnly}
+                        title={readOnly ? READ_ONLY_MESSAGE : undefined}
+                        className="text-xs font-bold text-rose-500 hover:text-rose-700 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">حذف</button>
                     </>
                   )}
                 </div>

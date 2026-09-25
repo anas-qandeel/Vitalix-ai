@@ -6,6 +6,7 @@ import { upsertPipeline } from '@/lib/pipeline';
 import { getPharmacyId } from '@/lib/tenant';
 import { normalizePhone, validatePhone } from '@/lib/phone';
 import PatientSafetyFields, { EMPTY_PATIENT_SAFETY, PatientSafetyValues, safetyForSave } from '@/components/PatientSafetyFields';
+import { useSubscriptionState, READ_ONLY_MESSAGE } from '@/lib/subscription-state';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -64,6 +65,7 @@ export default function AddPatientForm({
   onClose, onSaved, prefill, lockPhone = false, pharmacyId, title = 'إضافة مريض جديد', submitLabel = 'حفظ المريض',
 }: AddPatientFormProps) {
   const [name, setName] = useState(prefill?.name || '');
+  const { readOnly } = useSubscriptionState();
   const [phone, setPhone] = useState(prefill?.phone_number || '');
   const [gender, setGender] = useState(prefill?.gender || 'male');
   const [dob, setDob] = useState(prefill?.birth_date || '');
@@ -188,8 +190,9 @@ export default function AddPatientForm({
         </div>
 
         <div className="px-5 pb-5">
-          <button onClick={save} disabled={saving || !name.trim()}
-            className="w-full py-3 bg-gradient-to-l from-slate-900 to-teal-800 hover:from-slate-800 hover:to-teal-700 text-white rounded-xl text-sm font-bold transition active:scale-[0.98] disabled:opacity-50 shadow-sm cursor-pointer">
+          <button onClick={save} disabled={saving || !name.trim() || readOnly}
+            title={readOnly ? READ_ONLY_MESSAGE : undefined}
+            className="w-full py-3 bg-gradient-to-l from-slate-900 to-teal-800 hover:from-slate-800 hover:to-teal-700 text-white rounded-xl text-sm font-bold transition active:scale-[0.98] disabled:opacity-50 shadow-sm cursor-pointer disabled:cursor-not-allowed">
             {saving ? 'جاري الحفظ...' : submitLabel}
           </button>
         </div>

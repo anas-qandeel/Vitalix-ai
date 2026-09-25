@@ -11,6 +11,7 @@ import Link from 'next/link';
 import { FilePdf } from '@phosphor-icons/react';
 import Toast, { useNotice } from '@/components/Toast';
 import PatientSafetyFields, { EMPTY_PATIENT_SAFETY, PatientSafetyValues, safetyForSave } from '@/components/PatientSafetyFields';
+import { useSubscriptionState, READ_ONLY_MESSAGE } from '@/lib/subscription-state';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -357,6 +358,7 @@ export default function PatientCardPage({ params }: PageProps) {
   const resolvedParams = use(params);
   const patientId = resolvedParams.id;
   const router = useRouter();
+  const { readOnly } = useSubscriptionState();
   const { pharmacyName } = usePharmacyInfo();
 
   const [loading, setLoading] = useState(true);
@@ -661,8 +663,9 @@ export default function PatientCardPage({ params }: PageProps) {
                 <PatientSafetyFields value={editSafety} onChange={setEditSafety} gender={editGender} />
                 {infoErr && <p className="text-xs text-rose-600 font-medium bg-rose-50 border border-rose-200 px-3 py-2 rounded-lg">{infoErr}</p>}
                 <div className="flex gap-2">
-                  <button onClick={saveInfo} disabled={savingInfo}
-                    className="px-4 py-2 bg-gradient-to-l from-slate-900 to-teal-800 text-white rounded-lg text-xs font-bold disabled:opacity-50 cursor-pointer">
+                  <button onClick={saveInfo} disabled={savingInfo || readOnly}
+                    title={readOnly ? READ_ONLY_MESSAGE : undefined}
+                    className="px-4 py-2 bg-gradient-to-l from-slate-900 to-teal-800 text-white rounded-lg text-xs font-bold disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed">
                     {savingInfo ? 'جاري الحفظ...' : 'حفظ'}
                   </button>
                   <button onClick={() => setEditingInfo(false)}

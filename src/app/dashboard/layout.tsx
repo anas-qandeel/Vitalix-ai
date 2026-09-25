@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { getPharmacyId, getUserRole } from '@/lib/tenant';
+import { SubscriptionContext } from '@/lib/subscription-state';
 
 /**
  * طبقة حماية موحّدة تُطبَّق تلقائياً على كل الصفحات ضمن /dashboard/* (بما فيها الصفحات
@@ -14,6 +15,8 @@ import { getPharmacyId, getUserRole } from '@/lib/tenant';
  */
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [checking, setChecking] = useState(true);
+  const [subBanner, setSubBanner] = useState<{ status: 'grace' | 'expired'; until: string | null; name: string } | null>(null);
+  const [subStatus, setSubStatus] = useState<string>('');
   const router = useRouter();
   const pathname = usePathname();
 
@@ -33,7 +36,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       const { data: pharmacy } = await supabase
         .from('pharmacies')
-        .select('status, must_change_password')
+        .select('status, must_change_password, expiry_date, name')
         .eq('id', pid)
         .single();
 
@@ -43,6 +46,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         await supabase.auth.signOut();
         router.push('/?blocked=suspended');
         return;
+      }
+
+      setSubStatus(pharmacy?.status ?? '');
+      if (pharmacy?.status === 'grace' || pharmacy?.status === 'expired') {
+        setSubBanner({ status: pharmacy.status, until: pharmacy.expiry_date ?? null, name: pharmacy.name ?? '' });
+      } else {
+        setSubBanner(null);
       }
 
       // إجبار المالك على تغيير كلمة مروره الأولى قبل أي استخدام للنظام — نظير must_change_pin
@@ -90,5 +100,27 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     );
   }
 
-  return <>{children}</>;
+  const waNumber = (process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP || '').replace(/[^0-9]/g, '');
+  const waHref = waNumber && subBanner ? `https://wa.me/${waNumber}?text=${encodeURIComponent(`أرغب في تجديد اشتراك ${subBanner.name || 'صيدليتي'} في Vitalix`)}` : null;
+  return (
+    <>
+      {subBanner && (
+        <div dir="rtl" className={`w-full px-4 py-2.5 text-xs font-bold flex flex-wrap items-center justify-center gap-x-4 gap-y-1 ${subBanner.status === 'expired' ? 'bg-rose-600 text-white' : 'bg-amber-500 text-slate-900'}`} role="status">
+          <span>
+            {subBanner.status === 'expired'
+              ? 'انتهى اشتراك الصيدلية — الحساب للقراءة فقط حتى التجديد. بياناتك محفوظة بالكامل.'
+              : `انتهى اشتراك الصيدلية${subBanner.until ? ` بتاريخ ${subBanner.until}` : ''} — مهلة قصيرة قبل التحويل إلى القراءة فقط. جدّد للمتابعة.`}
+          </span>
+          {waHref && (
+            <a href={waHref} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:opacity-80">
+              تواصل للتجديد
+            </a>
+          )}
+        </div>
+      )}
+      <SubscriptionContext.Provider value={{ status: subStatus, readOnly: subStatus === 'expired' }}>
+        {children}
+      </SubscriptionContext.Provider>
+    </>
+  );
 }

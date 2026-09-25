@@ -3,7 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase-admin';
 import { verifyPlatformAdmin } from '@/lib/verify-admin';
 
 export async function POST(request: Request) {
-  const auth = await verifyPlatformAdmin(request, ['owner']);
+  const auth = await verifyPlatformAdmin(request, ['owner', 'support']);
   if (!auth.authorized) return auth.response;
 
   let userId: string | null = null;

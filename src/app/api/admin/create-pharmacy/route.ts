@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { verifyPlatformAdmin } from '@/lib/verify-admin';
+import { buildQuote, todayISO } from '@/lib/subscriptions';
 
 export async function POST(request: Request) {
   const auth = await verifyPlatformAdmin(request, ['owner', 'support']);
@@ -18,44 +19,23 @@ export async function POST(request: Request) {
       phone_number,
       country,
       city_address,
-      payment_plan,
-      is_installment,
-      second_payment_date,
-      trial_days,
-      total_amount_due,
-      paid_amount
+      trial_days
     } = body;
-
-    // تحقق دفاعي على مستوى السيرفر: المبلغ المدفوع لا يمكن أن يتجاوز الإجمالي المطلوب أبداً،
-    // بغض النظر عمّا تحقق منه العميل مسبقاً (دفاع مزدوج ضد استدعاء المسار مباشرة)
-    const totalDueNum = Number(total_amount_due ?? 50);
-    const paidAmountNum = Number(paid_amount ?? 0);
-    if (paidAmountNum > totalDueNum) {
-      return NextResponse.json(
-        { error: `المبلغ المدفوع لا يمكن أن يتجاوز إجمالي قيمة الخطة (${totalDueNum} JOD)` },
-        { status: 400 }
-      );
-    }
 
     // توحيد اسم الصيدلية: إن لم يبدأ بكلمة "صيدلية"، تُضاف تلقائياً لضمان اتساق العرض
     // في الجدول بغض النظر عن الصيغة التي أدخلها الموظف (بادئة أو بدونها)
     const trimmedName = (pharmacy_name || '').trim();
     const normalizedPharmacyName = trimmedName.startsWith('صيدلية') ? trimmedName : `صيدلية ${trimmedName}`;
 
-    // 1. حساب تاريخ الانتهاء بدقة
-    const expiryDate = new Date();
-    let pharmacyStatus = 'active';
-
-    if (payment_plan === 'trial_0') {
-      pharmacyStatus = 'trial';
-      expiryDate.setDate(expiryDate.getDate() + Number(trial_days || 30));
-    } else if (payment_plan === '25') {
-      expiryDate.setMonth(expiryDate.getMonth() + 6); // 6 أشهر
-    } else {
-      expiryDate.setMonth(expiryDate.getMonth() + 12); // سنة كاملة
+    // 1. مدة التجربة من إعدادات المنصة (أو من الطلب إن أُرسلت، بحدود 0–365) — لا أرقام ثابتة.
+    // الصيدلية الجديدة تبدأ تجريبية دائماً؛ إسناد خطة يتم لاحقاً عبر /api/admin/subscriptions
+    const { data: settings } = await supabaseAdmin.from('platform_settings').select('default_trial_days').eq('id', true).single();
+    const requestedTrial = trial_days == null || trial_days === '' ? null : Number(trial_days);
+    if (requestedTrial != null && (!Number.isInteger(requestedTrial) || requestedTrial < 0 || requestedTrial > 365)) {
+      return NextResponse.json({ error: 'أيام التجربة بين 0 و365' }, { status: 400 });
     }
-
-    const formattedExpiryDate = expiryDate.toISOString().split('T')[0];
+    const trialDays = requestedTrial ?? settings?.default_trial_days ?? 60;
+    const quote = buildQuote({ plan: null, promo: null, startsOn: todayISO(), trialDays });
 
     // 2. إنشاء حساب المستخدم في Supabase Auth أولاً
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
@@ -79,12 +59,12 @@ export async function POST(request: Request) {
         phone_number,
         country,
         city_address,
-        status: pharmacyStatus,
+        status: quote.status,
         must_change_password: true, // القيمة الافتراضية في القاعدة true أصلاً — تصريح بها هنا لتوضيح النية
-        total_amount_due: totalDueNum,
-        paid_amount: paidAmountNum,
-        expiry_date: formattedExpiryDate,
-        second_payment_date: is_installment ? second_payment_date : null
+        total_amount_due: quote.final_price,
+        paid_amount: 0,
+        expiry_date: quote.ends_on,
+        second_payment_date: null
       }
     ]);
 
@@ -131,7 +111,22 @@ export async function POST(request: Request) {
       throw new Error(`تعذّر تفعيل صلاحيات الصيدلية: ${metaError.message}`);
     }
 
-    return NextResponse.json({ success: true, message: 'تم إنشاء الصيدلية بنجاح' });
+    // 6. سجل الاشتراك التجريبي في subscriptions — دورة الحياة (تنبيه/مهلة/قراءة فقط) وبطاقات الإدارة تقرآن منه.
+    // فشله يُعامَل كفشل كامل: صيدلية بلا صف اشتراك تبدو ناجحة ثم تسقط من دورة الحياة
+    const { error: subError } = await supabaseAdmin.from('subscriptions').insert({
+      pharmacy_id: userId, plan_id: quote.plan_id, promotion_id: quote.promotion_id,
+      starts_on: quote.starts_on, ends_on: quote.ends_on, list_price: quote.list_price, discount: quote.discount,
+      final_price: quote.final_price, paid_amount: 0, status: quote.status, note: null, created_by: auth.user.id,
+    });
+
+    if (subError) {
+      await supabaseAdmin.from('pharmacy_staff').delete().eq('pharmacy_id', userId);
+      await supabaseAdmin.from('pharmacies').delete().eq('id', userId);
+      await supabaseAdmin.auth.admin.deleteUser(userId);
+      throw new Error(`تعذّر إنشاء سجل الاشتراك التجريبي: ${subError.message}`);
+    }
+
+    return NextResponse.json({ success: true, message: 'تم إنشاء الصيدلية بنجاح', pharmacy_id: userId });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'حدث خطأ غير متوقع' }, { status: 400 });
   }

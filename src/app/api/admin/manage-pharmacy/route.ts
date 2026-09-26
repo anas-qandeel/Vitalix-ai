@@ -8,36 +8,37 @@ export async function PUT(request: Request) {
 
   try {
     const body = await request.json();
-    const { id, email, ...updateData } = body;
+    const { id, email } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'معرف الصيدلية مطلوب' }, { status: 400 });
     }
 
-    // ── فحص دفاعي: paid_amount لا يتجاوز total_amount_due ──────────────────
-    // يحمي من أي استدعاء مباشر للـ API يتجاوز التحقق في الواجهة
-    const totalDue  = updateData.total_amount_due  !== undefined ? Number(updateData.total_amount_due)  : null;
-    const paidAmt   = updateData.paid_amount        !== undefined ? Number(updateData.paid_amount)        : null;
-
-    if (totalDue !== null && paidAmt !== null) {
-      if (isNaN(totalDue) || isNaN(paidAmt)) {
-        return NextResponse.json(
-          { error: 'قيم المبالغ غير صالحة' },
-          { status: 400 }
-        );
-      }
-      if (paidAmt < 0) {
-        return NextResponse.json(
-          { error: 'المبلغ المدفوع لا يمكن أن يكون سالباً' },
-          { status: 400 }
-        );
-      }
-      if (paidAmt > totalDue) {
-        return NextResponse.json(
-          { error: `المبلغ المدفوع (${paidAmt} JOD) لا يمكن أن يتجاوز إجمالي قيمة الخطة (${totalDue} JOD)` },
-          { status: 400 }
-        );
-      }
+    // ── قائمة سماح: الحقول القابلة للتعديل من لوحة الإدارة فقط ─────────────
+    // المبالغ وتاريخ الانتهاء لم تعد تُعدَّل من هنا — مصدرها جدول subscriptions
+    const patch: Record<string, string | number> = {};
+    const str = (k: string, max = 120) => {
+      const v = body[k];
+      if (v === undefined) return;
+      if (typeof v !== 'string') throw new Error(`قيمة ${k} غير صالحة`);
+      patch[k] = v.trim().slice(0, max);
+    };
+    str('name'); str('pharmacist_name'); str('phone_number', 30); str('city_address', 200); str('country', 60);
+    if (body.max_staff !== undefined) {
+      const n = Number(body.max_staff);
+      if (!Number.isInteger(n) || n < 1 || n > 100) return NextResponse.json({ error: 'عدد الموظفين بين 1 و100' }, { status: 400 });
+      patch.max_staff = n;
+    }
+    if (body.status !== undefined) {
+      if (body.status !== 'active' && body.status !== 'suspended') return NextResponse.json({ error: 'الحالة المسموح بها من هنا: تفعيل أو تعطيل فقط' }, { status: 400 });
+      patch.status = body.status;
+    }
+    if (typeof patch.name === 'string') {
+      if (!patch.name) return NextResponse.json({ error: 'اسم الصيدلية مطلوب' }, { status: 400 });
+      patch.name = patch.name.startsWith('صيدلية') ? patch.name : `صيدلية ${patch.name}`;
+    }
+    if (Object.keys(patch).length === 0 && !(typeof email === 'string' && email.trim())) {
+      return NextResponse.json({ error: 'لا حقول قابلة للتعديل في الطلب' }, { status: 400 });
     }
     // ────────────────────────────────────────────────────────────────────────
 
@@ -54,18 +55,14 @@ export async function PUT(request: Request) {
       }
     }
 
-    // توحيد اسم الصيدلية: إضافة "صيدلية" إن لم تبدأ بها
-    if (typeof updateData.name === 'string') {
-      const trimmedName = updateData.name.trim();
-      updateData.name = trimmedName.startsWith('صيدلية') ? trimmedName : `صيدلية ${trimmedName}`;
+    if (Object.keys(patch).length > 0) {
+      const { error } = await supabaseAdmin
+        .from('pharmacies')
+        .update(patch)
+        .eq('id', id);
+
+      if (error) throw new Error(error.message);
     }
-
-    const { error } = await supabaseAdmin
-      .from('pharmacies')
-      .update(updateData)
-      .eq('id', id);
-
-    if (error) throw new Error(error.message);
 
     return NextResponse.json({ success: true, message: 'تم تحديث بيانات الصيدلية بنجاح' });
   } catch (err: any) {

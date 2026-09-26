@@ -8,6 +8,7 @@ import Toast, { useNotice } from '@/components/Toast';
 import { useConfirm } from '@/components/ConfirmDialog';
 import PharmacyCard, { type OverviewRow } from '../PharmacyCard';
 import SubscriptionModal from '../SubscriptionModal';
+import CreatePharmacyModal from '../CreatePharmacyModal';
 import NotificationsBell from '../NotificationsBell';
 import { MagnifyingGlass, Plus, SignOut } from '@phosphor-icons/react';
 
@@ -40,6 +41,7 @@ export default function AdminV2Page() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [onlyAlerts, setOnlyAlerts] = useState(false);
   const [subTarget, setSubTarget] = useState<OverviewRow | null>(null);
+  const [creating, setCreating] = useState(false);
 
   const canManage = role === 'owner' || role === 'support';
 
@@ -239,7 +241,7 @@ export default function AdminV2Page() {
           </button>
           {canManage && (
             <button
-              onClick={() => router.push('/admin')}
+              onClick={() => setCreating(true)}
               className="h-9 px-3 rounded-xl text-xs font-bold cursor-pointer bg-teal-600 hover:bg-teal-700 text-white flex items-center gap-1.5"
             >
               <Plus size={14} weight="bold" aria-hidden="true" />
@@ -276,6 +278,9 @@ export default function AdminV2Page() {
           onClose={() => setSubTarget(null)}
           onSaved={load}
         />
+      )}
+      {creating && (
+        <CreatePharmacyModal onClose={() => setCreating(false)} onSaved={load} />
       )}
       {confirmDialog}
       <Toast notice={notice} />

@@ -9,6 +9,7 @@ import { useConfirm } from '@/components/ConfirmDialog';
 import PharmacyCard, { type OverviewRow } from '../PharmacyCard';
 import SubscriptionModal from '../SubscriptionModal';
 import CreatePharmacyModal from '../CreatePharmacyModal';
+import PharmacyPasswordModal from '../PharmacyPasswordModal';
 import NotificationsBell from '../NotificationsBell';
 import { MagnifyingGlass, Plus, SignOut } from '@phosphor-icons/react';
 
@@ -42,6 +43,7 @@ export default function AdminV2Page() {
   const [onlyAlerts, setOnlyAlerts] = useState(false);
   const [subTarget, setSubTarget] = useState<OverviewRow | null>(null);
   const [creating, setCreating] = useState(false);
+  const [pwTarget, setPwTarget] = useState<OverviewRow | null>(null);
 
   const canManage = role === 'owner' || role === 'support';
 
@@ -98,6 +100,7 @@ export default function AdminV2Page() {
   const onOpen = (id: string) => router.push(`/admin/pharmacies/${id}`);
   const onSubscribe = (p: OverviewRow) => setSubTarget(p);
   const onEdit = (p: OverviewRow) => router.push(`/admin/pharmacies/${p.id}`);
+  const onPassword = (p: OverviewRow) => setPwTarget(p);
 
   const onToggleSuspend = async (p: OverviewRow) => {
     const suspending = p.status !== 'suspended';
@@ -266,6 +269,7 @@ export default function AdminV2Page() {
                 onSubscribe={onSubscribe}
                 onEdit={onEdit}
                 onToggleSuspend={onToggleSuspend}
+                onPassword={onPassword}
               />
             ))}
           </div>
@@ -281,6 +285,9 @@ export default function AdminV2Page() {
       )}
       {creating && (
         <CreatePharmacyModal onClose={() => setCreating(false)} onSaved={load} />
+      )}
+      {pwTarget && (
+        <PharmacyPasswordModal pharmacy={{ id: pwTarget.id, name: pwTarget.name }} onClose={() => setPwTarget(null)} />
       )}
       {confirmDialog}
       <Toast notice={notice} />

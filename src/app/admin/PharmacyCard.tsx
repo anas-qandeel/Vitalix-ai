@@ -43,6 +43,7 @@ interface PharmacyCardProps {
   onSubscribe: (p: OverviewRow) => void;
   onEdit: (p: OverviewRow) => void;
   onToggleSuspend: (p: OverviewRow) => void;
+  onPassword: (p: OverviewRow) => void;
 }
 
 const STATUS: Record<string, { label: string; cls: string }> = {
@@ -67,7 +68,7 @@ function fmtDate(x: string): string {
 
 const BTN_BASE = 'h-8 px-3 rounded-lg text-xs font-bold cursor-pointer';
 
-export default function PharmacyCard({ p, currency, canManage, onOpen, onSubscribe, onEdit, onToggleSuspend }: PharmacyCardProps) {
+export default function PharmacyCard({ p, currency, canManage, onOpen, onSubscribe, onEdit, onToggleSuspend, onPassword }: PharmacyCardProps) {
   const status = STATUS[p.status] ?? { label: p.status, cls: 'bg-slate-100 text-slate-600 border-slate-200' };
   const planLabel = p.sub_plan_name || (p.sub_status === 'trial' ? 'تجريبي' : 'بلا خطة');
   const daysText = p.days_left === null ? '—' : p.days_left < 0 ? `منتهٍ منذ ${-p.days_left} يوم` : `${p.days_left} يوم`;
@@ -188,7 +189,7 @@ export default function PharmacyCard({ p, currency, canManage, onOpen, onSubscri
       )}
 
       {/* الإجراءات */}
-      <div className="flex gap-2 pt-1 border-t border-slate-100">
+      <div className="flex flex-wrap gap-2 pt-1 border-t border-slate-100">
         <button onClick={() => onOpen(p.id)} className={`${BTN_BASE} bg-white border border-slate-200 text-slate-700 flex items-center gap-1`}>
           التفاصيل
           <CaretLeft size={12} weight="bold" aria-hidden="true" />
@@ -200,6 +201,9 @@ export default function PharmacyCard({ p, currency, canManage, onOpen, onSubscri
             </button>
             <button onClick={() => onEdit(p)} className={`${BTN_BASE} bg-white border border-slate-200 text-slate-700`}>
               تعديل
+            </button>
+            <button onClick={() => onPassword(p)} className={`${BTN_BASE} bg-white border border-slate-200 text-slate-700`}>
+              كلمة المرور
             </button>
             {p.status === 'suspended' ? (
               <button onClick={() => onToggleSuspend(p)} className={`${BTN_BASE} bg-emerald-600 text-white`}>

@@ -2,64 +2,32 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { verifyPlatformAdmin } from '@/lib/verify-admin';
 
-// يجلب بيانات صيدلية واحدة كاملة (مع البريد الإلكتروني) وإحصائيات مرتبطة بها —
-// بصلاحيات السيرفر لأن سياسات RLS الحالية لا تسمح لمسؤول المنصة بقراءة جدول
-// المرضى أو الزيارات مباشرة من المتصفح (هذه الجداول محصورة بالصيدلية المالكة فقط)
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+// تفاصيل صيدلية للوحة الإدارة (أي مسؤول): بيانات الصيدلية من pharmacies مباشرة + بريد حساب الدخول + الموظفون.
+// العدّادات والاشتراك تأتي من /api/admin/overview و /api/admin/subscriptions — لا تُكرَّر هنا.
+
+const UUID = /^[0-9a-f-]{36}$/i;
+const PHARMACY_COLS = 'id, user_id, name, pharmacist_name, phone_number, city_address, country, status, short_code, max_staff, must_change_password, created_at';
+const STAFF_COLS = 'id, name, role, is_active, login_slug, phone, last_login_at, created_at';
+
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await verifyPlatformAdmin(request);
   if (!auth.authorized) return auth.response;
 
-  try {
-    const { id } = await params;
+  const { id } = await params;
+  if (!UUID.test(id)) return NextResponse.json({ error: 'معرّف الصيدلية غير صالح' }, { status: 400 });
 
-    const { data: pharmacy, error: pharmError } = await supabaseAdmin
-      .from('admin_pharmacies_view')
-      .select('*')
-      .eq('id', id)
-      .single();
+  const { data: pharmacy, error } = await supabaseAdmin.from('pharmacies').select(PHARMACY_COLS).eq('id', id).maybeSingle();
+  if (error) { console.error('[admin/pharmacy-detail]', error.message); return NextResponse.json({ error: 'فشل جلب البيانات' }, { status: 500 }); }
+  if (!pharmacy) return NextResponse.json({ error: 'لم يتم العثور على الصيدلية' }, { status: 404 });
 
-    if (pharmError || !pharmacy) {
-      return NextResponse.json({ error: 'لم يتم العثور على الصيدلية' }, { status: 404 });
-    }
-
-    const { count: patientCount } = await supabaseAdmin
-      .from('patients')
-      .select('*', { count: 'exact', head: true })
-      .eq('pharmacy_id', id);
-
-    const { count: visitCount } = await supabaseAdmin
-      .from('visitations')
-      .select('*', { count: 'exact', head: true })
-      .eq('pharmacy_id', id);
-
-    const { data: lastVisitRows } = await supabaseAdmin
-      .from('visitations')
-      .select('created_at')
-      .eq('pharmacy_id', id)
-      .order('created_at', { ascending: false })
-      .limit(1);
-
-    // الكتالوج الموحّد pharmacy_products (يستبدل pharmacy_catalog) — المرفوض كدواء لا يُعدّ
-    const { count: catalogCount } = await supabaseAdmin
-      .from('pharmacy_products')
-      .select('*', { count: 'exact', head: true })
-      .eq('pharmacy_id', id)
-      .eq('is_active', true)
-      .neq('review_status', 'rejected_medicine');
-
-    return NextResponse.json({
-      pharmacy,
-      stats: {
-        patientCount: patientCount || 0,
-        visitCount: visitCount || 0,
-        lastVisitAt: lastVisitRows?.[0]?.created_at || null,
-        activeCatalogCount: catalogCount || 0,
-      },
-    });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message || 'حدث خطأ في الخادم' }, { status: 500 });
+  let email: string | null = null;
+  if (pharmacy.user_id) {
+    const { data: u } = await supabaseAdmin.auth.admin.getUserById(pharmacy.user_id);
+    email = u?.user?.email ?? null;
   }
+
+  const { data: staff, error: staffErr } = await supabaseAdmin.from('pharmacy_staff').select(STAFF_COLS).eq('pharmacy_id', id).order('role').order('created_at');
+  if (staffErr) console.error('[admin/pharmacy-detail] staff', staffErr.message);
+
+  return NextResponse.json({ pharmacy: { ...pharmacy, email }, staff: staff ?? [] });
 }

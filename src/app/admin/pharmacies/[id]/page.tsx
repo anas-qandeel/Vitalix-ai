@@ -1,396 +1,591 @@
 'use client';
 
-import { useEffect, useState, use } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { adminFetch } from '@/lib/admin-fetch';
-import AppFooter from '../../../components/AppFooter';
+import Toast, { useNotice } from '@/components/Toast';
+import { useConfirm } from '@/components/ConfirmDialog';
+import { ArrowRight, Star, Warning, Users } from '@phosphor-icons/react';
+import type { OverviewRow } from '../../PharmacyCard';
+import SubscriptionModal from '../../SubscriptionModal';
+import PaymentModal from '../../PaymentModal';
+import PharmacyPasswordModal from '../../PharmacyPasswordModal';
 
-interface PharmacyDetail {
+type PharmacyDetail = {
+  id: string;
+  user_id: string | null;
+  name: string;
+  pharmacist_name: string | null;
+  phone_number: string | null;
+  city_address: string | null;
+  country: string | null;
+  status: string;
+  short_code: string | null;
+  max_staff: number | null;
+  must_change_password: boolean;
+  created_at: string;
+  email: string | null;
+};
+
+type Staff = {
   id: string;
   name: string;
-  pharmacist_name: string;
-  phone_number: string;
-  country: string;
-  city_address: string;
-  status: string;
-  total_amount_due: number;
-  paid_amount: number;
-  expiry_date: string;
-  second_payment_date?: string | null;
+  role: string;
+  is_active: boolean;
+  login_slug: string | null;
+  phone: string | null;
+  last_login_at: string | null;
   created_at: string;
-  email?: string;
+};
+
+type Sub = {
+  id: string;
+  pharmacy_id: string;
+  plan_id: string | null;
+  promotion_id: string | null;
+  starts_on: string;
+  ends_on: string;
+  list_price: number;
+  discount: number;
+  final_price: number;
+  paid_amount: number;
+  status: string;
+  note: string | null;
+  created_at: string;
+  plans: { name: string } | null;
+  promotions: { name: string } | null;
+};
+
+// خريطة الحالات وfmtDate وdaysLeftColor منسوخة حرفياً من PharmacyCard.tsx — لا تُعدَّل هناك
+const STATUS: Record<string, { label: string; cls: string }> = {
+  trial: { label: 'تجريبي', cls: 'bg-amber-50 text-amber-700 border-amber-200' },
+  active: { label: 'نشط', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  grace: { label: 'مهلة', cls: 'bg-orange-50 text-orange-700 border-orange-200' },
+  expired: { label: 'قراءة فقط', cls: 'bg-rose-50 text-rose-700 border-rose-200' },
+  suspended: { label: 'معطّلة', cls: 'bg-slate-200 text-slate-700 border-slate-300' },
+};
+
+function daysLeftColor(days: number | null): string {
+  if (days === null) return 'text-slate-400';
+  if (days < 0) return 'text-rose-600';
+  if (days <= 7) return 'text-rose-600';
+  if (days <= 30) return 'text-amber-600';
+  return 'text-emerald-600';
 }
 
-interface Stats {
-  patientCount: number;
-  visitCount: number;
-  lastVisitAt: string | null;
-  activeCatalogCount: number;
+function fmtDate(x: string): string {
+  return new Date(x).toLocaleDateString('en-GB');
 }
 
-interface PageProps {
-  params: Promise<{ id: string }>;
-}
+const ROLE_LABELS: Record<string, string> = { owner: 'المالك', pharmacist: 'صيدلاني', assistant: 'مساعد', staff: 'موظف' };
 
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString('ar-EG', { numberingSystem: 'latn' });
-}
+const BTN_BASE = 'h-8 px-3 rounded-lg text-xs font-bold cursor-pointer';
 
-function getDaysLeft(expiryDateStr: string) {
-  const expiry = new Date(expiryDateStr);
-  const today = new Date();
-  return Math.ceil((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-}
-
-function pluralizeDays(days: number): string {
-  if (days === 1) return 'يوم واحد';
-  if (days === 2) return 'يومان';
-  if (days <= 10) return `${days} أيام`;
-  return `${days} يوماً`;
-}
-
-export default function PharmacyCardPage({ params }: PageProps) {
-  const resolvedParams = use(params);
-  const pharmacyId = resolvedParams.id;
+export default function PharmacyDetailPage() {
+  const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const { notice, setNotice } = useNotice();
+  const { confirm, dialog: confirmDialog } = useConfirm();
+
+  const [role, setRole] = useState<string>('support');
+  const canManage = role === 'owner' || role === 'support';
+  const isOwner = role === 'owner';
 
   const [loading, setLoading] = useState(true);
-  const [errorMsg, setErrorMsg] = useState('');
   const [pharmacy, setPharmacy] = useState<PharmacyDetail | null>(null);
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [formData, setFormData] = useState<any>(null);
-  const [saving, setSaving] = useState(false);
-  const [userRole, setUserRole] = useState('support_admin');
+  const [staff, setStaff] = useState<Staff[]>([]);
+  const [overview, setOverview] = useState<OverviewRow | null>(null);
+  const [subs, setSubs] = useState<Sub[]>([]);
+  const [currency, setCurrency] = useState('JOD');
 
-  const [showPasswordSection, setShowPasswordSection] = useState(false);
-  const [newPassword, setNewPassword] = useState('');
-  const [resettingPassword, setResettingPassword] = useState(false);
+  const [subModal, setSubModal] = useState(false);
+  const [paymentTarget, setPaymentTarget] = useState<Sub | null>(null);
+  const [pwModal, setPwModal] = useState(false);
+
+  const [form, setForm] = useState({ name: '', pharmacist_name: '', phone_number: '', email: '', city_address: '', country: '', max_staff: '' });
+  const [saving, setSaving] = useState(false);
+
+  const load = async (initial = false) => {
+    // شاشة التحميل الكاملة للفتح الأول فقط؛ إعادة الجلب بعد إجراء تحدّث البيانات في مكانها (وإلا يُمحى الـToast)
+    if (initial) setLoading(true);
+    const [detailRes, overviewRes, subsRes] = await Promise.all([
+      adminFetch(`/api/admin/pharmacy-detail/${id}`),
+      adminFetch('/api/admin/overview'),
+      adminFetch(`/api/admin/subscriptions?pharmacy_id=${id}`),
+    ]);
+    if (!detailRes.ok || !overviewRes.ok || !subsRes.ok) {
+      setNotice({ kind: 'err', text: 'تعذّر جلب البيانات' });
+      setLoading(false);
+      return;
+    }
+    const [detailJson, overviewJson, subsJson] = await Promise.all([
+      detailRes.json().catch(() => ({})),
+      overviewRes.json().catch(() => ({})),
+      subsRes.json().catch(() => ({})),
+    ]);
+
+    const p: PharmacyDetail | undefined = detailJson.pharmacy;
+    if (!p) { setPharmacy(null); setLoading(false); return; }
+
+    setPharmacy(p);
+    setStaff(detailJson.staff ?? []);
+    setOverview((overviewJson.pharmacies ?? []).find((r: OverviewRow) => r.id === id) ?? null);
+    setCurrency(overviewJson.totals?.currency ?? 'JOD');
+    setSubs(subsJson.data ?? []);
+    setForm({
+      name: p.name,
+      pharmacist_name: p.pharmacist_name ?? '',
+      phone_number: p.phone_number ?? '',
+      email: p.email ?? '',
+      city_address: p.city_address ?? '',
+      country: p.country ?? '',
+      max_staff: p.max_staff != null ? String(p.max_staff) : '',
+    });
+    setLoading(false);
+  };
 
   useEffect(() => {
     const init = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        router.push('/');
-        return;
-      }
+      if (!session) { router.push('/'); return; }
 
-      const { data: adminRecord } = await supabase
+      const { data: adminRecord, error } = await supabase
         .from('platform_admins')
-        .select('role')
+        .select('role, name')
         .eq('user_id', session.user.id)
         .single();
 
-      if (!adminRecord) {
-        router.push('/dashboard');
-        return;
-      }
+      if (error || !adminRecord) { router.push('/dashboard'); return; }
 
-      setUserRole(adminRecord.role);
-      await fetchData();
+      setRole(adminRecord.role);
+      load(true);
     };
     init();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pharmacyId]);
+  }, [id]);
 
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      const res = await adminFetch(`/api/admin/pharmacy-detail/${pharmacyId}`);
-      const data = await res.json();
+  const latestSub = subs[0] ?? null;
 
-      if (!res.ok) throw new Error(data.error || 'تعذر تحميل بيانات الصيدلية');
+  const handleSaveForm = async () => {
+    if (saving || !pharmacy) return;
+    const name = form.name.trim();
+    const mail = form.email.trim();
+    if (!name) { setNotice({ kind: 'err', text: 'اسم الصيدلية مطلوب' }); return; }
+    if (mail && !/^\S+@\S+\.\S+$/.test(mail)) { setNotice({ kind: 'err', text: 'صيغة البريد الإلكتروني غير صحيحة' }); return; }
+    const maxStaff = Number(form.max_staff);
+    if (!Number.isInteger(maxStaff) || maxStaff < 1 || maxStaff > 100) { setNotice({ kind: 'err', text: 'عدد الموظفين بين 1 و100' }); return; }
 
-      setPharmacy(data.pharmacy);
-      setStats(data.stats);
-      setFormData({
-        name: data.pharmacy.name,
-        pharmacist_name: data.pharmacy.pharmacist_name,
-        phone_number: data.pharmacy.phone_number,
-        email: data.pharmacy.email || '',
-        country: data.pharmacy.country,
-        city_address: data.pharmacy.city_address,
-        status: data.pharmacy.status,
-        total_amount_due: data.pharmacy.total_amount_due,
-        paid_amount: data.pharmacy.paid_amount,
-        expiry_date: data.pharmacy.expiry_date,
-        second_payment_date: data.pharmacy.second_payment_date || '',
-      });
-    } catch (err: any) {
-      setErrorMsg(err.message || 'حدث خطأ أثناء تحميل البيانات');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
     setSaving(true);
-    setErrorMsg('');
+    const payload: Record<string, unknown> = {
+      id: pharmacy.id,
+      name,
+      pharmacist_name: form.pharmacist_name.trim(),
+      phone_number: form.phone_number.trim(),
+      city_address: form.city_address.trim(),
+      country: form.country.trim(),
+      max_staff: maxStaff,
+    };
+    if (mail && mail !== (pharmacy.email ?? '')) payload.email = mail;
 
-    try {
-      const res = await adminFetch('/api/admin/manage-pharmacy', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: pharmacyId,
-          ...formData,
-          second_payment_date: formData.second_payment_date || null,
-        }),
-      });
-
-      const result = await res.json();
-      if (!res.ok) throw new Error(result.error || 'فشل حفظ التعديلات');
-
-      await fetchData();
-      alert('تم حفظ كل التعديلات بنجاح! ✅');
-    } catch (err: any) {
-      setErrorMsg(err.message || 'حدث خطأ أثناء الحفظ');
-    } finally {
+    const res = await adminFetch('/api/admin/manage-pharmacy', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setNotice({ kind: 'err', text: json.error || 'فشل حفظ التعديلات' });
       setSaving(false);
-    }
-  };
-
-  const handleResetPassword = async () => {
-    if (!newPassword || newPassword.length < 6) {
-      setErrorMsg('كلمة المرور يجب ألا تقل عن 6 خانات');
       return;
     }
-    setResettingPassword(true);
-    setErrorMsg('');
+    setNotice({ kind: 'ok', text: 'تم حفظ التعديلات' });
+    setSaving(false);
+    load();
+  };
 
-    try {
-      const res = await adminFetch('/api/admin/reset-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: pharmacyId, newPassword }),
-      });
+  const handleToggleSuspend = async () => {
+    if (!pharmacy) return;
+    const suspending = pharmacy.status !== 'suspended';
+    const ok = await confirm({
+      title: pharmacy.status === 'suspended' ? `تفعيل «${pharmacy.name}»؟` : `تعطيل «${pharmacy.name}»؟`,
+      message: pharmacy.status === 'suspended' ? 'ستعود الصيدلية للعمل فوراً.' : 'لن يستطيع أحد من الصيدلية الدخول حتى التفعيل. لا تُحذف أي بيانات.',
+      confirmText: pharmacy.status === 'suspended' ? 'تفعيل' : 'تعطيل',
+      destructive: suspending,
+    });
+    if (!ok) return;
 
-      const result = await res.json();
-      if (!res.ok) throw new Error(result.error || 'فشلت عملية إعادة تعيين كلمة المرور');
-
-      alert('تم تحديث كلمة مرور الصيدلية بنجاح! 🔑');
-      setNewPassword('');
-      setShowPasswordSection(false);
-    } catch (err: any) {
-      setErrorMsg(err.message || 'حدث خطأ أثناء تغيير كلمة المرور');
-    } finally {
-      setResettingPassword(false);
-    }
+    const res = await adminFetch('/api/admin/manage-pharmacy', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: pharmacy.id, status: pharmacy.status === 'suspended' ? 'active' : 'suspended' }),
+    });
+    setNotice(res.ok
+      ? { kind: 'ok', text: pharmacy.status === 'suspended' ? 'تم التفعيل' : 'تم التعطيل' }
+      : { kind: 'err', text: 'فشلت العملية' });
+    load();
   };
 
   const handleArchive = async () => {
     if (!pharmacy) return;
-    if (!confirm(`هل تريد أرشفة صيدلية "${pharmacy.name}"؟ سيتم حظر تسجيل دخولها فوراً، مع الاحتفاظ الكامل بسجلها المالي وبيانات مرضاها.`)) return;
+    const ok = await confirm({
+      title: `أرشفة «${pharmacy.name}»؟`,
+      message: 'تُخفى الصيدلية من القوائم ويُحظر دخول حسابها. تبقى بياناتها وسجلاتها المالية محفوظة. لا يمكن التراجع من اللوحة.',
+      confirmText: 'أرشفة',
+      destructive: true,
+    });
+    if (!ok) return;
 
-    try {
-      const res = await adminFetch(`/api/admin/manage-pharmacy?id=${pharmacyId}`, { method: 'DELETE' });
-      const result = await res.json();
-      if (!res.ok) throw new Error(result.error || 'فشلت عملية الأرشفة');
-
-      alert('تمت أرشفة الصيدلية بنجاح! 📦');
-      router.push('/admin');
-    } catch (err: any) {
-      alert(err.message || 'فشلت عملية الأرشفة');
+    const res = await adminFetch(`/api/admin/manage-pharmacy?id=${pharmacy.id}`, { method: 'DELETE' });
+    const json = await res.json().catch(() => ({}));
+    if (res.ok) {
+      setNotice({ kind: 'ok', text: json.message || 'تم أرشفة الصيدلية' });
+      router.push('/admin/v2');
+    } else {
+      setNotice({ kind: 'err', text: json.error || 'فشلت عملية الأرشفة' });
     }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center" dir="rtl">
-        <p className="text-sm font-bold text-slate-500 animate-pulse">جاري تحميل بيانات الصيدلية...</p>
+      <div dir="rtl" className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <p className="text-sm text-slate-400">جارٍ التحميل…</p>
       </div>
     );
   }
 
-  if (!pharmacy || !formData) {
+  if (!pharmacy) {
     return (
-      <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-4" dir="rtl">
-        <div className="bg-white border border-slate-200 p-6 rounded-2xl max-w-md w-full text-center space-y-3 shadow-sm">
-          <div className="text-3xl">⚠️</div>
-          <p className="text-sm text-rose-600 font-bold">{errorMsg || 'تعذر إيجاد هذه الصيدلية'}</p>
-          <button onClick={() => router.push('/admin')} className="text-xs text-blue-600 font-semibold cursor-pointer">← العودة للوحة الإدارة</button>
+      <div dir="rtl" className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl border border-slate-200 p-6 text-center space-y-3 max-w-sm w-full">
+          <p className="text-sm font-bold text-slate-900">الصيدلية غير موجودة</p>
+          <button onClick={() => router.push('/admin/v2')}
+            className="h-10 px-4 rounded-lg bg-slate-900 text-white text-sm font-bold cursor-pointer">
+            العودة
+          </button>
         </div>
       </div>
     );
   }
 
-  const statusLabels: Record<string, string> = { active: 'نشط', trial: 'تجريبي', suspended: 'موقوف', archived: 'مؤرشف' };
-  const statusColors: Record<string, string> = {
-    active: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    trial: 'bg-amber-50 text-amber-700 border-amber-200',
-    suspended: 'bg-rose-50 text-rose-700 border-rose-200',
-    archived: 'bg-slate-100 text-slate-500 border-slate-300',
-  };
+  const headerStatus = STATUS[pharmacy.status] ?? { label: pharmacy.status, cls: 'bg-slate-100 text-slate-600 border-slate-200' };
+  const isArchived = pharmacy.status === 'archived';
+  const canAct = canManage && !isArchived;
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] font-sans antialiased text-slate-800 pb-16" dir="rtl">
-      <header className="bg-[#0F172A] text-white border-b border-slate-800 sticky top-0 z-10">
-        <div className="max-w-5xl mx-auto px-6 py-4 flex flex-wrap items-center gap-4">
-          <button onClick={() => router.push('/admin')} className="text-slate-300 hover:text-white text-sm font-semibold flex items-center gap-1.5 cursor-pointer">
-            <span>→</span><span>رجوع للوحة الإدارة</span>
-          </button>
-          <div className="h-5 w-px bg-slate-700"></div>
-          <h1 className="text-base font-bold flex items-center gap-2 min-w-0 flex-1">
-            <span className="shrink-0">🏥 كرت الصيدلية:</span>
-            <span className="truncate">{pharmacy.name}</span>
-          </h1>
-          <span className={`text-[10px] px-2.5 py-1 rounded-md font-bold border ${statusColors[pharmacy.status] || ''}`}>
-            {statusLabels[pharmacy.status] || pharmacy.status}
-          </span>
-        </div>
+    <div dir="rtl" className="bg-slate-50 min-h-screen">
+      <header className="bg-white border-b border-slate-200 px-4 py-3 flex items-center gap-3 flex-wrap">
+        <button onClick={() => router.push('/admin/v2')}
+          className="flex items-center gap-1.5 text-slate-500 hover:text-slate-900 text-sm font-semibold cursor-pointer">
+          <ArrowRight size={14} weight="bold" aria-hidden="true" />
+          الصيدليات
+        </button>
+        <div className="h-5 w-px bg-slate-200" />
+        <h1 className="font-bold text-slate-900">{pharmacy.name}</h1>
+        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${headerStatus.cls}`}>{headerStatus.label}</span>
+        {pharmacy.short_code && <span className="font-mono text-[10px] text-slate-400">{pharmacy.short_code}</span>}
       </header>
 
-      <main className="max-w-5xl mx-auto px-6 py-8 space-y-6">
-        {errorMsg && (
-          <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-medium">{errorMsg}</div>
+      <div className="max-w-5xl mx-auto p-4 space-y-4">
+        {isArchived && (
+          <div className="bg-rose-50 border border-rose-200 text-rose-700 rounded-2xl p-3 text-sm font-bold">
+            هذه الصيدلية مؤرشفة — حسابها محظور والبيانات محفوظة للقراءة
+          </div>
         )}
 
-        {/* إحصائيات سريعة للسياق */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
-            <p className="text-[11px] text-slate-500 font-semibold">عدد المرضى المسجَّلين</p>
-            <p className="text-xl font-bold text-[#0F172A] mt-1">{stats?.patientCount ?? 0}</p>
-          </div>
-          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
-            <p className="text-[11px] text-slate-500 font-semibold">إجمالي الزيارات الموثَّقة</p>
-            <p className="text-xl font-bold text-[#0F172A] mt-1">{stats?.visitCount ?? 0}</p>
-          </div>
-          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
-            <p className="text-[11px] text-slate-500 font-semibold">آخر نشاط مسجَّل</p>
-            <p className="text-sm font-bold text-[#0F172A] mt-1.5">{stats?.lastVisitAt ? formatDate(stats.lastVisitAt) : 'لا يوجد بعد'}</p>
-          </div>
-          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
-            <p className="text-[11px] text-slate-500 font-semibold">منتجات الكتالوج الفعّالة</p>
-            <p className="text-xl font-bold text-[#0F172A] mt-1">{stats?.activeCatalogCount ?? 0}</p>
-          </div>
-        </div>
-
-        <form onSubmit={handleSave} className="space-y-6">
-          {/* البيانات الأساسية */}
-          <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
-            <h2 className="text-sm font-bold text-[#0F172A] border-b pb-2.5">📋 البيانات الأساسية</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-[#0F172A] mb-1">اسم الصيدلية</label>
-                <input required type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:border-[#0F172A]" />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-[#0F172A] mb-1">اسم الصيدلي المسؤول</label>
-                <input required type="text" value={formData.pharmacist_name} onChange={(e) => setFormData({ ...formData, pharmacist_name: e.target.value })} className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:border-[#0F172A]" />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-[#0F172A] mb-1">رقم الهاتف</label>
-                <input required type="text" dir="ltr" value={formData.phone_number} onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })} className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl font-mono focus:outline-none focus:border-[#0F172A]" />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-[#0F172A] mb-1">البريد الإلكتروني (حساب الدخول)</label>
-                <input
-                  type="email"
-                  dir="ltr"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl font-mono focus:outline-none focus:border-[#0F172A]"
-                />
-                <p className="text-[10px] text-slate-400 mt-1">تغييره يُحدِّث بريد حساب دخول الصيدلية مباشرة — تأكد من صحته قبل الحفظ.</p>
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-[#0F172A] mb-1">الدولة</label>
-                <input required type="text" value={formData.country} onChange={(e) => setFormData({ ...formData, country: e.target.value })} className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:border-[#0F172A]" />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-[#0F172A] mb-1">المدينة والعنوان</label>
-                <input required type="text" value={formData.city_address} onChange={(e) => setFormData({ ...formData, city_address: e.target.value })} className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:border-[#0F172A]" />
-              </div>
-            </div>
-            <p className="text-[10px] text-slate-400 pt-1">تاريخ الانضمام للمنصة: {formatDate(pharmacy.created_at)}</p>
-          </div>
-
-          {/* الاشتراك والمالية */}
-          <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
-            <h2 className="text-sm font-bold text-[#0F172A] border-b pb-2.5">💳 الاشتراك والمالية</h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-[#0F172A] mb-1">حالة الاشتراك</label>
-                <select value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })} className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl font-medium bg-slate-50/50">
-                  <option value="trial">تجريبي</option>
-                  <option value="active">نشط</option>
-                  <option value="suspended">موقوف</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-[#0F172A] mb-1">الإجمالي المطلوب (JOD)</label>
-                <input type="number" value={formData.total_amount_due} onChange={(e) => setFormData({ ...formData, total_amount_due: Number(e.target.value) })} className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:border-[#0F172A]" />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-[#0F172A] mb-1">المبلغ المدفوع (JOD)</label>
-                <input type="number" value={formData.paid_amount} onChange={(e) => setFormData({ ...formData, paid_amount: Number(e.target.value) })} className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:border-[#0F172A]" />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-[#0F172A] mb-1">تاريخ الانتهاء</label>
-                <input type="date" value={formData.expiry_date} onChange={(e) => setFormData({ ...formData, expiry_date: e.target.value })} className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:border-[#0F172A]" />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-[#0F172A] mb-1">📅 موعد الدفعة الثانية (إن وجد)</label>
-                <input type="date" value={formData.second_payment_date} onChange={(e) => setFormData({ ...formData, second_payment_date: e.target.value })} className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:border-[#0F172A]" />
-              </div>
-            </div>
-
-            {pharmacy.status === 'trial' && (
-              <div className="p-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-xs font-semibold">
-                ⏳ متبقي {pluralizeDays(Math.max(0, getDaysLeft(pharmacy.expiry_date)))} من الفترة التجريبية. عند تحويلها لـ"نشط" من هنا يدويًا،
-                تذكّر إضافة هذه الأيام لتاريخ الانتهاء الجديد — أو استخدم "⚡ تجديد سريع" من اللوحة الرئيسية لضمان الحساب الصحيح تلقائيًا.
-              </div>
-            )}
-          </div>
-
-          {/* إعادة تعيين كلمة المرور */}
-          <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-3">
-            <button
-              type="button"
-              onClick={() => setShowPasswordSection(!showPasswordSection)}
-              className="text-sm font-bold text-[#0F172A] flex items-center gap-2 cursor-pointer"
-            >
-              🔑 إعادة تعيين كلمة مرور الصيدلية {showPasswordSection ? '▲' : '▼'}
-            </button>
-            {showPasswordSection && (
-              <div className="flex gap-2.5 items-end pt-2 border-t border-slate-100">
-                <div className="flex-1">
-                  <label className="block text-xs font-semibold text-[#0F172A] mb-1">كلمة المرور الجديدة</label>
-                  <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:border-[#0F172A]" placeholder="••••••••" />
+        {/* الاشتراك */}
+        <section className="bg-white rounded-2xl border border-slate-200 p-4">
+          <h2 className="text-sm font-bold text-slate-900 mb-3">الاشتراك</h2>
+          {overview ? (
+            <>
+              <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${(STATUS[overview.sub_status ?? ''] ?? { cls: 'bg-slate-100 text-slate-600 border-slate-200' }).cls}`}>
+                    {(STATUS[overview.sub_status ?? ''] ?? { label: overview.sub_status ?? '—' }).label}
+                  </span>
+                  <span className="text-sm text-slate-700">{overview.sub_plan_name || 'بلا خطة (تجريبي)'}</span>
+                  {overview.sub_lifetime && (
+                    <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                      <Star size={12} weight="fill" aria-hidden="true" />
+                      مؤسس
+                    </span>
+                  )}
                 </div>
-                <button
-                  type="button"
-                  disabled={resettingPassword}
-                  onClick={handleResetPassword}
-                  className="px-4 py-2 text-xs font-semibold text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-60 rounded-xl transition cursor-pointer"
-                >
-                  {resettingPassword ? 'جاري...' : 'تأكيد'}
-                </button>
+                {canAct && (
+                  <div className="flex gap-2">
+                    <button onClick={() => setSubModal(true)} className={`${BTN_BASE} bg-slate-900 text-white hover:bg-slate-800`}>
+                      اشتراك / تجديد
+                    </button>
+                    <button
+                      onClick={() => latestSub && setPaymentTarget(latestSub)}
+                      disabled={!latestSub || overview.remaining <= 0}
+                      className={`${BTN_BASE} bg-white border border-slate-200 text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed`}
+                    >
+                      تسجيل دفعة
+                    </button>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+              <div className="bg-slate-50 rounded-xl p-3 text-xs flex flex-col gap-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-700">{overview.sub_ends_on && `ينتهي ${fmtDate(overview.sub_ends_on)}`}</span>
+                  <span className={`font-bold ${daysLeftColor(overview.days_left)}`}>
+                    {overview.days_left === null ? '—' : overview.days_left < 0 ? `منتهٍ منذ ${-overview.days_left} يوم` : `${overview.days_left} يوم`}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-slate-500">
+                  <span>مدفوع {(overview.sub_paid_amount ?? 0).toLocaleString('en-US')} / {(overview.sub_final_price ?? 0).toLocaleString('en-US')} {currency}</span>
+                  {overview.remaining > 0 && <span className="text-amber-700 font-bold">متبقٍ {overview.remaining.toLocaleString('en-US')}</span>}
+                </div>
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-slate-400">لا بيانات اشتراك متاحة</p>
+          )}
+        </section>
 
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex gap-3">
-              <button type="submit" disabled={saving} className="px-6 py-2.5 text-xs font-semibold text-white bg-[#0F172A] hover:bg-slate-800 disabled:opacity-60 rounded-xl shadow-md transition cursor-pointer">
-                {saving ? 'جاري الحفظ...' : '💾 حفظ كل التعديلات'}
-              </button>
-              <button type="button" onClick={() => router.push('/admin')} className="px-6 py-2.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition cursor-pointer">
-                إلغاء
-              </button>
+        {/* الإحصائيات */}
+        <section className="bg-white rounded-2xl border border-slate-200 p-4">
+          <h2 className="text-sm font-bold text-slate-900 mb-3">الإحصائيات</h2>
+          {overview ? (
+            <>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+                <div className="bg-slate-50 rounded-lg py-2">
+                  <p className="font-bold text-sm text-slate-900">{overview.patients_count.toLocaleString('en-US')}</p>
+                  <p className="text-[10px] text-slate-500">المرضى</p>
+                </div>
+                <div className="bg-slate-50 rounded-lg py-2">
+                  <p className="font-bold text-sm text-slate-900">{overview.chronic_count.toLocaleString('en-US')}</p>
+                  <p className="text-[10px] text-slate-500">مزمنون</p>
+                </div>
+                <div className="bg-slate-50 rounded-lg py-2">
+                  <p className="font-bold text-sm text-slate-900">{overview.visits_30d.toLocaleString('en-US')}</p>
+                  <p className="text-[10px] text-slate-500">زيارات 30 يوماً</p>
+                </div>
+                <div className="bg-slate-50 rounded-lg py-2">
+                  <p className="font-bold text-sm text-slate-900">{overview.last_visit_at ? fmtDate(overview.last_visit_at) : '—'}</p>
+                  <p className="text-[10px] text-slate-500">آخر زيارة</p>
+                </div>
+                <div className="bg-slate-50 rounded-lg py-2">
+                  <p className="font-bold text-sm text-slate-900 flex items-center justify-center gap-1">
+                    <Users size={12} weight="bold" aria-hidden="true" />
+                    {overview.staff_active}/{overview.max_staff ?? '—'}
+                  </p>
+                  <p className="text-[10px] text-slate-500">موظفون</p>
+                </div>
+                <div className="bg-slate-50 rounded-lg py-2">
+                  <p className="font-bold text-sm text-slate-900">{overview.last_activity_at ? fmtDate(overview.last_activity_at) : '—'}</p>
+                  <p className="text-[10px] text-slate-500">آخر نشاط</p>
+                </div>
+                <div className="bg-slate-50 rounded-lg py-2">
+                  <p className="font-bold text-sm text-slate-900">{overview.uncategorized_count.toLocaleString('en-US')}</p>
+                  <p className="text-[10px] text-slate-500">منتجات غير مصنّفة</p>
+                </div>
+                <div className="bg-slate-50 rounded-lg py-2">
+                  <p className="font-bold text-sm text-slate-900">{overview.ai_tokens_30d.toLocaleString('en-US')}</p>
+                  <p className="text-[10px] text-slate-500">توكن الذكاء 30 يوماً</p>
+                </div>
+              </div>
+              {(overview.idle_level === 'warning' || overview.idle_level === 'critical') && (
+                <div className={`flex items-center gap-1.5 text-[11px] mt-3 ${overview.idle_level === 'critical' ? 'text-rose-700' : 'text-amber-700'}`}>
+                  <Warning size={12} weight="bold" aria-hidden="true" />
+                  خاملة منذ {overview.idle_days} يوماً
+                </div>
+              )}
+            </>
+          ) : (
+            <p className="text-sm text-slate-400">لا بيانات إحصائية متاحة</p>
+          )}
+        </section>
+
+        {/* سجل الاشتراكات */}
+        <section className="bg-white rounded-2xl border border-slate-200 p-4">
+          <h2 className="text-sm font-bold text-slate-900 mb-3">سجل الاشتراكات</h2>
+          {subs.length === 0 ? (
+            <p className="text-sm text-slate-400">لا اشتراكات مسجّلة</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-right">
+                <thead>
+                  <tr className="text-slate-500 border-b border-slate-100">
+                    <th className="py-2 px-2 font-semibold">الخطة</th>
+                    <th className="py-2 px-2 font-semibold">العرض</th>
+                    <th className="py-2 px-2 font-semibold">من</th>
+                    <th className="py-2 px-2 font-semibold">إلى</th>
+                    <th className="py-2 px-2 font-semibold">الحالة</th>
+                    <th className="py-2 px-2 font-semibold">المستحق</th>
+                    <th className="py-2 px-2 font-semibold">المدفوع</th>
+                    <th className="py-2 px-2 font-semibold">المتبقي</th>
+                    <th className="py-2 px-2 font-semibold">ملاحظة</th>
+                    <th className="py-2 px-2 font-semibold"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {subs.map(s => {
+                    const remaining = Math.max(0, Math.round((Number(s.final_price) - Number(s.paid_amount)) * 100) / 100);
+                    const st = STATUS[s.status] ?? { label: s.status, cls: 'bg-slate-100 text-slate-600 border-slate-200' };
+                    return (
+                      <tr key={s.id} className="border-b border-slate-50 last:border-0">
+                        <td className="py-2 px-2 text-slate-700">{s.plans?.name ?? 'تجريبي'}</td>
+                        <td className="py-2 px-2 text-slate-500">{s.promotions?.name ?? '—'}</td>
+                        <td className="py-2 px-2 text-slate-500 tabular-nums">{fmtDate(s.starts_on)}</td>
+                        <td className="py-2 px-2 text-slate-500 tabular-nums">{fmtDate(s.ends_on)}</td>
+                        <td className="py-2 px-2">
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${st.cls}`}>{st.label}</span>
+                        </td>
+                        <td className="py-2 px-2 text-slate-700 tabular-nums">{s.final_price.toLocaleString('en-US')}</td>
+                        <td className="py-2 px-2 text-emerald-700 tabular-nums">{s.paid_amount.toLocaleString('en-US')}</td>
+                        <td className={`py-2 px-2 tabular-nums font-bold ${remaining > 0 ? 'text-amber-600' : 'text-slate-900'}`}>{remaining.toLocaleString('en-US')}</td>
+                        <td className="py-2 px-2 text-slate-500">{s.note ?? '—'}</td>
+                        <td className="py-2 px-2">
+                          {canAct && remaining > 0 && (
+                            <button onClick={() => setPaymentTarget(s)} className={`${BTN_BASE} bg-white border border-slate-200 text-slate-700`}>
+                              تسجيل دفعة
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+
+        {/* بيانات الصيدلية */}
+        {!isArchived && (
+          <section className="bg-white rounded-2xl border border-slate-200 p-4">
+            <h2 className="text-sm font-bold text-slate-900 mb-3">بيانات الصيدلية</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <label className="block">
+                <span className="block text-[11px] font-semibold text-slate-500 mb-1">اسم الصيدلية</span>
+                <input type="text" value={form.name} disabled={!canManage} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                  className="w-full h-9 px-3 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 transition text-slate-900 disabled:opacity-60 disabled:cursor-not-allowed" />
+              </label>
+              <label className="block">
+                <span className="block text-[11px] font-semibold text-slate-500 mb-1">الصيدلاني المسؤول</span>
+                <input type="text" value={form.pharmacist_name} disabled={!canManage} onChange={e => setForm(f => ({ ...f, pharmacist_name: e.target.value }))}
+                  className="w-full h-9 px-3 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 transition text-slate-900 disabled:opacity-60 disabled:cursor-not-allowed" />
+              </label>
+              <label className="block">
+                <span className="block text-[11px] font-semibold text-slate-500 mb-1">رقم الهاتف</span>
+                <input type="tel" inputMode="tel" value={form.phone_number} disabled={!canManage} onChange={e => setForm(f => ({ ...f, phone_number: e.target.value }))}
+                  className="w-full h-9 px-3 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 transition text-slate-900 disabled:opacity-60 disabled:cursor-not-allowed" />
+              </label>
+              <label className="block">
+                <span className="block text-[11px] font-semibold text-slate-500 mb-1">البريد الإلكتروني للدخول</span>
+                <input type="email" autoComplete="off" value={form.email} disabled={!canManage} onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                  className="w-full h-9 px-3 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 transition text-slate-900 disabled:opacity-60 disabled:cursor-not-allowed" />
+              </label>
+              <label className="block">
+                <span className="block text-[11px] font-semibold text-slate-500 mb-1">المدينة والعنوان</span>
+                <input type="text" value={form.city_address} disabled={!canManage} onChange={e => setForm(f => ({ ...f, city_address: e.target.value }))}
+                  className="w-full h-9 px-3 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 transition text-slate-900 disabled:opacity-60 disabled:cursor-not-allowed" />
+              </label>
+              <label className="block">
+                <span className="block text-[11px] font-semibold text-slate-500 mb-1">الدولة</span>
+                <input type="text" value={form.country} disabled={!canManage} onChange={e => setForm(f => ({ ...f, country: e.target.value }))}
+                  className="w-full h-9 px-3 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 transition text-slate-900 disabled:opacity-60 disabled:cursor-not-allowed" />
+              </label>
+              <label className="block">
+                <span className="block text-[11px] font-semibold text-slate-500 mb-1">الحد الأقصى للموظفين</span>
+                <input type="number" min={1} max={100} value={form.max_staff} disabled={!canManage} onChange={e => setForm(f => ({ ...f, max_staff: e.target.value }))}
+                  className="w-full h-9 px-3 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 transition text-slate-900 disabled:opacity-60 disabled:cursor-not-allowed" />
+              </label>
             </div>
 
-            {userRole === 'super_admin' && pharmacy.status === 'suspended' && (
-              <button type="button" onClick={handleArchive} className="px-4 py-2.5 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-xl transition cursor-pointer">
-                📦 أرشفة هذه الصيدلية
+            {pharmacy.must_change_password && (
+              <p className="text-[11px] text-amber-600 mt-3">كلمة مرور المالك مؤقتة — سيُطلب تغييرها عند الدخول</p>
+            )}
+
+            {canManage && (
+              <button onClick={handleSaveForm} disabled={saving}
+                className="h-10 px-5 mt-4 flex items-center justify-center rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-all">
+                حفظ التعديلات
               </button>
             )}
-          </div>
-        </form>
-      </main>
+          </section>
+        )}
 
-      <AppFooter className="max-w-5xl mx-auto px-6 py-8 border-t border-slate-200/60 mt-4" />
+        {/* الموظفون */}
+        <section className="bg-white rounded-2xl border border-slate-200 p-4">
+          <h2 className="text-sm font-bold text-slate-900 mb-3">
+            الموظفون <span className="text-slate-400 font-normal">({staff.filter(s => s.is_active).length}/{pharmacy.max_staff ?? '—'})</span>
+          </h2>
+          {staff.length === 0 ? (
+            <p className="text-sm text-slate-400">لا موظفون</p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {staff.map(s => (
+                <div key={s.id} className="flex items-center justify-between gap-2 flex-wrap bg-slate-50 rounded-xl p-3 text-xs">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-bold text-slate-900">{s.name}</span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">{ROLE_LABELS[s.role] ?? s.role}</span>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${s.is_active ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'}`}>
+                      {s.is_active ? 'نشط' : 'موقوف'}
+                    </span>
+                    {s.phone && <span className="text-slate-500">{s.phone}</span>}
+                  </div>
+                  <span className="text-slate-400">{s.last_login_at ? fmtDate(s.last_login_at) : 'لم يسجّل دخولاً'}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* إجراءات */}
+        {canAct && (
+          <section className="bg-white rounded-2xl border border-slate-200 p-4">
+            <h2 className="text-sm font-bold text-slate-900 mb-3">إجراءات</h2>
+            <div className="flex flex-wrap gap-2">
+              <button onClick={() => setPwModal(true)} className={`${BTN_BASE} bg-white border border-slate-200 text-slate-700`}>
+                كلمة المرور
+              </button>
+              {pharmacy.status === 'suspended' ? (
+                <button onClick={handleToggleSuspend} className={`${BTN_BASE} bg-emerald-600 text-white`}>
+                  تفعيل
+                </button>
+              ) : (
+                <button onClick={handleToggleSuspend} className={`${BTN_BASE} bg-white border border-rose-200 text-rose-600`}>
+                  تعطيل
+                </button>
+              )}
+              {isOwner && (
+                <button onClick={handleArchive} className={`${BTN_BASE} bg-rose-600 text-white`}>
+                  أرشفة الصيدلية
+                </button>
+              )}
+            </div>
+          </section>
+        )}
+      </div>
+
+      {subModal && (
+        <SubscriptionModal
+          pharmacy={{ id: pharmacy.id, name: pharmacy.name, expiry_date: overview?.sub_ends_on ?? null, status: pharmacy.status }}
+          onClose={() => setSubModal(false)}
+          onSaved={() => { setNotice({ kind: 'ok', text: 'تم تحديث الاشتراك' }); load(); }}
+        />
+      )}
+      {paymentTarget && (
+        <PaymentModal
+          subscription={{
+            id: paymentTarget.id,
+            final_price: paymentTarget.final_price,
+            paid_amount: paymentTarget.paid_amount,
+            label: `${paymentTarget.plans?.name ?? 'تجريبي'} · ${fmtDate(paymentTarget.starts_on)} – ${fmtDate(paymentTarget.ends_on)}`,
+          }}
+          currency={currency}
+          onClose={() => setPaymentTarget(null)}
+          onSaved={() => { setNotice({ kind: 'ok', text: 'تم تسجيل الدفعة' }); load(); }}
+        />
+      )}
+      {pwModal && (
+        <PharmacyPasswordModal pharmacy={{ id: pharmacy.id, name: pharmacy.name }} onClose={() => setPwModal(false)} />
+      )}
+      {confirmDialog}
+      <Toast notice={notice} />
     </div>
   );
 }

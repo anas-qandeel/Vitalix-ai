@@ -31,7 +31,14 @@ export async function PUT(request: Request) {
     }
     if (body.status !== undefined) {
       if (body.status !== 'active' && body.status !== 'suspended') return NextResponse.json({ error: 'الحالة المسموح بها من هنا: تفعيل أو تعطيل فقط' }, { status: 400 });
-      patch.status = body.status;
+      if (body.status === 'suspended') {
+        patch.status = 'suspended';
+      } else {
+        // "تفعيل" = رفع التعطيل فقط: تعود الحالة إلى ما يقوله أحدث اشتراك (trial/active/grace/expired) لا إلى active دائماً
+        const { data: latest } = await supabaseAdmin.from('subscriptions').select('status').eq('pharmacy_id', id).order('ends_on', { ascending: false }).limit(1).maybeSingle();
+        const restored = latest?.status;
+        patch.status = restored && ['trial', 'active', 'grace', 'expired'].includes(restored) ? restored : 'active';
+      }
     }
     if (typeof patch.name === 'string') {
       if (!patch.name) return NextResponse.json({ error: 'اسم الصيدلية مطلوب' }, { status: 400 });

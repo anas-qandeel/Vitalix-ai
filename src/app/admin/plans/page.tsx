@@ -10,6 +10,19 @@ type Settings = { default_trial_days: number; grace_days: number; warn_days_befo
 type Plan = { id: string; name: string; price: number; duration_months: number; free_months: number; seats_limit: number | null; lifetime_price: boolean; note: string | null; is_active: boolean; subscriptions_count: number };
 type Promo = { id: string; name: string; discount_type: 'percent' | 'amount'; discount_value: number; code: string | null; valid_from: string | null; valid_to: string | null; max_uses: number | null; used_count: number; is_active: boolean };
 
+// صياغة عدد الأشهر بالعربية الفصحى بدل رقم خام ملاصق لكلمة "شهر" — يمنع مشاكل ترتيب RTL عند وضعه في شارة مختلطة بالإنجليزية
+function monthsLabel(n: number): string {
+  if (n === 1) return 'شهر واحد';
+  if (n === 2) return 'شهران';
+  if (n >= 3 && n <= 10) return `${n} أشهر`;
+  return `${n} شهراً`;
+}
+
+// تاريخ العرض بصيغة dd/mm/yyyy (أرقام لاتينية) بدل شرطات ISO الخام
+function fmtPromoDate(x: string | null): string {
+  return x ? new Date(x).toLocaleDateString('en-GB') : '—';
+}
+
 export default function PlansPage() {
   const { notice, setNotice } = useNotice();
   const { confirm, dialog: confirmDialog } = useConfirm();
@@ -281,13 +294,13 @@ export default function PlansPage() {
                     <div className="flex items-center gap-2 flex-wrap min-w-0">
                       <span className="font-bold text-sm text-slate-900">{plan.name}</span>
                       <span className="text-[10px] rounded-full px-2 py-0.5 bg-slate-100 text-slate-600">
-                        {plan.price} {settings.currency} / {plan.duration_months} شهر
+                        <bdi>{plan.price} {settings.currency}</bdi> · {monthsLabel(plan.duration_months)}
                       </span>
                       {plan.free_months > 0 && (
-                        <span className="text-[10px] rounded-full px-2 py-0.5 bg-slate-100 text-slate-600">+{plan.free_months} مجاناً</span>
+                        <span className="text-[10px] rounded-full px-2 py-0.5 bg-slate-100 text-slate-600"><bdi>+{plan.free_months}</bdi> مجاناً</span>
                       )}
                       {plan.seats_limit && (
-                        <span className="text-[10px] rounded-full px-2 py-0.5 bg-slate-100 text-slate-600">{plan.subscriptions_count}/{plan.seats_limit} مقعد</span>
+                        <span className="text-[10px] rounded-full px-2 py-0.5 bg-slate-100 text-slate-600">المقاعد: <bdi>{plan.subscriptions_count}</bdi> من <bdi>{plan.seats_limit}</bdi></span>
                       )}
                       {plan.lifetime_price && (
                         <span className="text-[10px] rounded-full px-2 py-0.5 bg-amber-50 text-amber-700">مثبّت مدى الحياة</span>
@@ -405,17 +418,19 @@ export default function PlansPage() {
                     <div className="flex items-center gap-2 flex-wrap min-w-0">
                       <span className="font-bold text-sm text-slate-900">{promo.name}</span>
                       <span className="text-[10px] rounded-full px-2 py-0.5 bg-slate-100 text-slate-600">
-                        {promo.discount_type === 'percent' ? `${promo.discount_value}%` : `${promo.discount_value} ${settings.currency}`}
+                        <bdi>{promo.discount_type === 'percent' ? `${promo.discount_value}%` : `${promo.discount_value} ${settings.currency}`}</bdi>
                       </span>
                       {promo.code && (
                         <span dir="ltr" className="text-[10px] font-mono rounded-full px-2 py-0.5 bg-slate-100 text-slate-600">{promo.code}</span>
                       )}
                       <span className="text-[10px] rounded-full px-2 py-0.5 bg-slate-100 text-slate-600">
-                        {promo.used_count}/{promo.max_uses ?? '∞'} استخدام
+                        {promo.max_uses != null
+                          ? <>الاستخدام: <bdi>{promo.used_count}</bdi> من <bdi>{promo.max_uses}</bdi></>
+                          : <>الاستخدام: <bdi>{promo.used_count}</bdi> · بلا حد</>}
                       </span>
                       {(promo.valid_from || promo.valid_to) && (
                         <span className="text-[10px] rounded-full px-2 py-0.5 bg-slate-100 text-slate-600">
-                          من {promo.valid_from ?? '—'} إلى {promo.valid_to ?? '—'}
+                          من <bdi>{fmtPromoDate(promo.valid_from)}</bdi> إلى <bdi>{fmtPromoDate(promo.valid_to)}</bdi>
                         </span>
                       )}
                       {!promo.is_active && (

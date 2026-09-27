@@ -9,6 +9,16 @@ type Plan = { id: string; name: string; price: number; duration_months: number; 
 type Promo = { id: string; name: string; discount_type: 'percent' | 'amount'; discount_value: number; code: string | null; is_active: boolean };
 type Quote = { starts_on: string; ends_on: string; status: string; list_price: number; discount: number; final_price: number };
 
+// صياغة عدد الأشهر بالعربية الفصحى — <option> لا يدعم bdi، فتجنّب رقم خام ملاصق للعملة/الشهر هو ما يمنع انقلاب ترتيب RTL هنا
+function monthsLabel(n: number): string {
+  if (n === 1) return 'شهر واحد';
+  if (n === 2) return 'شهران';
+  if (n >= 3 && n <= 10) return `${n} أشهر`;
+  return `${n} شهراً`;
+}
+
+const STATUS_LABEL: Record<string, string> = { trial: 'تجريبي', active: 'نشط', grace: 'مهلة', expired: 'قراءة فقط', suspended: 'معطّلة', archived: 'مؤرشفة' };
+
 type Props = {
   pharmacy: { id: string; name: string; expiry_date: string | null; status: string };
   onClose: () => void;
@@ -117,7 +127,7 @@ export default function SubscriptionModal({ pharmacy, onClose, onSaved }: Props)
           <div>
             <h3 className="text-base font-bold text-slate-900">اشتراك / تجديد</h3>
             <p className="text-xs text-slate-400 mt-1">
-              {pharmacy.name} · الحالة الحالية: {pharmacy.status}
+              {pharmacy.name} · الحالة الحالية: {STATUS_LABEL[pharmacy.status] ?? pharmacy.status}
               {pharmacy.expiry_date && ` · ينتهي في ${pharmacy.expiry_date}`}
             </p>
           </div>
@@ -132,11 +142,11 @@ export default function SubscriptionModal({ pharmacy, onClose, onSaved }: Props)
             <span className="block text-[11px] font-semibold text-slate-500 mb-1">الخطة</span>
             <select value={planId} onChange={e => setPlanId(e.target.value)}
               className="w-full h-9 px-3 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 transition text-slate-900">
-              <option value="">تجريبي (بحسب إعدادات المنصة)</option>
+              <option value="">بلا خطة (تجريبي)</option>
               {plans.map(plan => (
                 <option key={plan.id} value={plan.id}>
-                  {plan.name} — {plan.price} {currency} / {plan.duration_months} شهر
-                  {plan.free_months > 0 ? ` +${plan.free_months} مجاناً` : ''}
+                  {plan.name} — {plan.price} {currency} · {monthsLabel(plan.duration_months)}
+                  {plan.free_months > 0 ? ` + ${monthsLabel(plan.free_months)} مجاناً` : ''}
                   {plan.seats_limit ? ` · ${plan.subscriptions_count}/${plan.seats_limit} مقعد` : ''}
                 </option>
               ))}

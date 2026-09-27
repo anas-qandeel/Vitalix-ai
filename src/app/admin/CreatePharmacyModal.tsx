@@ -123,7 +123,7 @@ export default function CreatePharmacyModal({ onClose, onSaved }: Props) {
         <div className="flex items-start justify-between mb-4">
           <div>
             <h3 className="text-base font-bold text-slate-900">إضافة صيدلية جديدة</h3>
-            <p className="text-xs text-slate-400 mt-1">تبدأ الصيدلية بفترة تجريبية، ويمكن إسناد خطة بعد الإنشاء مباشرة</p>
+            <p className="text-xs text-slate-400 mt-1">بعد الإنشاء يمكنك إسناد خطة مباشرة؛ مدة التجربة (إن وُجدت) من إعدادات المنصة</p>
           </div>
           <button type="button" onClick={onClose} aria-label="إغلاق"
             className="text-slate-400 hover:text-slate-700 cursor-pointer">
@@ -134,7 +134,7 @@ export default function CreatePharmacyModal({ onClose, onSaved }: Props) {
         {created ? (
           <>
             <h4 className="text-base font-bold text-slate-900 mb-1">تم إنشاء {displayName(pharmacyName)}</h4>
-            <p className="text-xs text-slate-500 mb-5">بدأت الفترة التجريبية. يمكنك إسناد خطة الآن أو لاحقاً من بطاقة الصيدلية.</p>
+            <p className="text-xs text-slate-500 mb-5">أسند لها خطة الآن ليبدأ اشتراكها. إن أجّلت، تبقى على مدة التجربة في إعدادات المنصة ثم تدخل المهلة.</p>
             <div className="grid grid-cols-2 gap-3">
               <button type="button" onClick={onClose}
                 className="h-10 flex items-center justify-center rounded-lg bg-white border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50 transition-all shadow-sm cursor-pointer">

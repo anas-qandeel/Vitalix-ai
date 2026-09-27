@@ -1,19 +1,16 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
 import { adminFetch } from '@/lib/admin-fetch';
 import Toast, { useNotice } from '@/components/Toast';
 import { useConfirm } from '@/components/ConfirmDialog';
-import { Plus, PencilSimple, Trash, ArrowRight } from '@phosphor-icons/react';
+import { Plus, PencilSimple, Trash } from '@phosphor-icons/react';
 
 type Settings = { default_trial_days: number; grace_days: number; warn_days_before: number; currency: string };
 type Plan = { id: string; name: string; price: number; duration_months: number; free_months: number; seats_limit: number | null; lifetime_price: boolean; note: string | null; is_active: boolean; subscriptions_count: number };
 type Promo = { id: string; name: string; discount_type: 'percent' | 'amount'; discount_value: number; code: string | null; valid_from: string | null; valid_to: string | null; max_uses: number | null; used_count: number; is_active: boolean };
 
 export default function PlansPage() {
-  const router = useRouter();
   const { notice, setNotice } = useNotice();
   const { confirm, dialog: confirmDialog } = useConfirm();
 
@@ -53,34 +50,9 @@ export default function PlansPage() {
   };
 
   useEffect(() => {
-    const checkAdminPermission = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-
-      if (!session) {
-        router.push('/');
-        return;
-      }
-
-      const { data: adminRecord, error } = await supabase
-        .from('platform_admins')
-        .select('role, name')
-        .eq('user_id', session.user.id)
-        .single();
-
-      if (error || !adminRecord) {
-        router.push('/dashboard');
-        return;
-      }
-      if (adminRecord.role !== 'owner') {
-        router.push('/admin');
-        return;
-      }
-
-      loadAll();
-    };
-
-    checkAdminPermission();
-  }, [router]);
+    loadAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const saveSettings = async () => {
     setSavingSettings(true);
@@ -176,17 +148,11 @@ export default function PlansPage() {
   };
 
   return (
-    <div dir="rtl" className="bg-slate-50 min-h-screen">
+    <div>
       <div className="max-w-4xl mx-auto p-4">
-        <div className="flex items-center gap-3 mb-4">
-          <button type="button" onClick={() => router.push('/admin')}
-            className="w-9 h-9 flex items-center justify-center rounded-lg bg-white border border-slate-200 text-slate-500 hover:bg-slate-100 cursor-pointer">
-            <ArrowRight size={16} weight="bold" aria-hidden="true" />
-          </button>
-          <div>
-            <h1 className="text-lg font-bold text-slate-900">الخطط والاشتراكات</h1>
-            <p className="text-xs text-slate-400">إصدار واحد للنظام بكل المميزات — الخطة تحدد شروط الدفع فقط</p>
-          </div>
+        <div className="mb-4">
+          <h1 className="text-lg font-bold text-slate-900">الخطط والاشتراكات</h1>
+          <p className="text-xs text-slate-400">إصدار واحد للنظام بكل المميزات — الخطة تحدد شروط الدفع فقط</p>
         </div>
 
         {loading ? (

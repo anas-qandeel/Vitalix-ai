@@ -1,17 +1,14 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
 import { adminFetch } from '@/lib/admin-fetch';
 import Toast, { useNotice } from '@/components/Toast';
 import { useConfirm } from '@/components/ConfirmDialog';
-import { Plus, Trash, ArrowRight } from '@phosphor-icons/react';
+import { Plus, Trash } from '@phosphor-icons/react';
 
 type Row = { id: string; term: string; term_type: 'generic' | 'brand'; is_active: boolean; note: string | null; created_at: string };
 
 export default function BlocklistPage() {
-  const router = useRouter();
   const { notice, setNotice } = useNotice();
   const { confirm, dialog: confirmDialog } = useConfirm();
 
@@ -36,34 +33,9 @@ export default function BlocklistPage() {
   };
 
   useEffect(() => {
-    const checkAdminPermission = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-
-      if (!session) {
-        router.push('/');
-        return;
-      }
-
-      const { data: adminRecord, error } = await supabase
-        .from('platform_admins')
-        .select('role, name')
-        .eq('user_id', session.user.id)
-        .single();
-
-      if (error || !adminRecord) {
-        router.push('/dashboard');
-        return;
-      }
-      if (adminRecord.role !== 'owner' && adminRecord.role !== 'pharmacist') {
-        router.push('/admin');
-        return;
-      }
-
-      load();
-    };
-
-    checkAdminPermission();
-  }, [router]);
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -113,17 +85,11 @@ export default function BlocklistPage() {
   };
 
   return (
-    <div dir="rtl" className="bg-slate-50 min-h-screen">
+    <div>
       <div className="max-w-3xl mx-auto p-4">
-        <div className="flex items-center gap-3 mb-4">
-          <button type="button" onClick={() => router.push('/admin')}
-            className="w-9 h-9 flex items-center justify-center rounded-lg bg-white border border-slate-200 text-slate-500 hover:bg-slate-100 cursor-pointer">
-            <ArrowRight size={16} weight="bold" aria-hidden="true" />
-          </button>
-          <div>
-            <h1 className="text-lg font-bold text-slate-900">قائمة حظر الأدوية</h1>
-            <p className="text-xs text-slate-400">{genericCount} اسم علمي · {brandCount} اسم تجاري · {rows.length} إجمالاً</p>
-          </div>
+        <div className="mb-4">
+          <h1 className="text-lg font-bold text-slate-900">قائمة حظر الأدوية</h1>
+          <p className="text-xs text-slate-400">{genericCount} اسم علمي · {brandCount} اسم تجاري · {rows.length} إجمالاً</p>
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-200 p-4 mb-4">

@@ -1,18 +1,14 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
 import { adminFetch } from '@/lib/admin-fetch';
 import Toast, { useNotice } from '@/components/Toast';
-import { ArrowRight } from '@phosphor-icons/react';
 
 type Row = { id: string; pharmacy_id: string; pharmacy_name: string; brand_name: string; ingredients: string[]; reason: string; source: 'blocklist' | 'ai' | 'both'; matched_terms: string[]; image_url: string | null; created_at: string };
 
 const SOURCE_LABELS: Record<Row['source'], string> = { blocklist: 'قائمة الحظر', ai: 'الذكاء الاصطناعي', both: 'كلاهما' };
 
 export default function RejectionsPage() {
-  const router = useRouter();
   const { notice, setNotice } = useNotice();
 
   const [rows, setRows] = useState<Row[]>([]);
@@ -32,34 +28,9 @@ export default function RejectionsPage() {
   };
 
   useEffect(() => {
-    const checkAdminPermission = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-
-      if (!session) {
-        router.push('/');
-        return;
-      }
-
-      const { data: adminRecord, error } = await supabase
-        .from('platform_admins')
-        .select('role, name')
-        .eq('user_id', session.user.id)
-        .single();
-
-      if (error || !adminRecord) {
-        router.push('/dashboard');
-        return;
-      }
-      if (adminRecord.role !== 'owner' && adminRecord.role !== 'pharmacist') {
-        router.push('/admin');
-        return;
-      }
-
-      load();
-    };
-
-    checkAdminPermission();
-  }, [router]);
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -73,17 +44,11 @@ export default function RejectionsPage() {
   }, [rows, search]);
 
   return (
-    <div dir="rtl" className="bg-slate-50 min-h-screen">
+    <div>
       <div className="max-w-3xl mx-auto p-4">
-        <div className="flex items-center gap-3 mb-4">
-          <button type="button" onClick={() => router.push('/admin')}
-            className="w-9 h-9 flex items-center justify-center rounded-lg bg-white border border-slate-200 text-slate-500 hover:bg-slate-100 cursor-pointer">
-            <ArrowRight size={16} weight="bold" aria-hidden="true" />
-          </button>
-          <div>
-            <h1 className="text-lg font-bold text-slate-900">المنتجات المرفوضة</h1>
-            <p className="text-xs text-slate-400">{rows.length} محاولة (آخر 200)</p>
-          </div>
+        <div className="mb-4">
+          <h1 className="text-lg font-bold text-slate-900">المنتجات المرفوضة</h1>
+          <p className="text-xs text-slate-400">{rows.length} محاولة (آخر 200)</p>
         </div>
 
         <p className="text-xs text-slate-400 mb-3">

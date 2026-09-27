@@ -80,7 +80,7 @@ export default function NotificationsBell({ isOwner, onPharmacyClick }: Notifica
       </button>
 
       {open && (
-        <div className="absolute mt-2 w-80 max-h-96 overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-2xl z-[80] p-2">
+        <div className="absolute left-0 mt-2 w-80 max-w-[calc(100vw-2rem)] max-h-96 overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-2xl z-[80] p-2">
           <div className="flex items-center justify-between px-2 py-1.5">
             <span className="font-bold text-sm text-slate-900">الإشعارات</span>
             <div className="flex items-center gap-2">

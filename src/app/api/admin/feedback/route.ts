@@ -13,6 +13,16 @@ export async function GET(request: Request) {
   const auth = await verifyPlatformAdmin(request);
   if (!auth.authorized) return auth.response;
 
+  // طلب خفيف للشريط: عدد غير المقروء غير المؤرشف فقط
+  if (new URL(request.url).searchParams.get('count') === 'unread') {
+    const { count, error: countErr } = await supabaseAdmin.from('feedback').select('id', { count: 'exact', head: true }).eq('is_read', false).eq('is_archived', false);
+    if (countErr) {
+      console.error('[admin/feedback GET count]', countErr.message);
+      return NextResponse.json({ error: 'فشل جلب العدد' }, { status: 500 });
+    }
+    return NextResponse.json({ unread: count ?? 0 });
+  }
+
   const { data, error } = await supabaseAdmin.from('feedback').select(COLS).order('created_at', { ascending: false });
   if (error) {
     console.error('[admin/feedback GET]', error.message);

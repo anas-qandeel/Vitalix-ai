@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { AdminProvider, ROLE_LABEL, canAccess, NAV, type AdminInfo } from './admin-context';
+import { adminFetch } from '@/lib/admin-fetch';
+import { AdminProvider, ROLE_LABEL, canAccess, NAV, FEEDBACK_CHANGED_EVENT, type AdminInfo } from './admin-context';
 import NotificationsBell from './NotificationsBell';
 import MyPasswordModal from './MyPasswordModal';
 import { Key, SignOut } from '@phosphor-icons/react';
@@ -14,6 +15,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const [admin, setAdmin] = useState<AdminInfo | null>(null);
   const [changingPassword, setChangingPassword] = useState(false);
+  const [unread, setUnread] = useState(0);
 
   useEffect(() => {
     const init = async () => {
@@ -38,6 +40,26 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     if (!admin) return;
     if (!canAccess(pathname, admin.role)) router.replace('/admin');
   }, [admin, pathname, router]);
+
+  const loadUnread = async () => {
+    const res = await adminFetch('/api/admin/feedback?count=unread');
+    if (res.ok) {
+      const json = await res.json();
+      setUnread(json.unread);
+    }
+  };
+
+  useEffect(() => {
+    if (admin) loadUnread();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [admin, pathname]);
+
+  useEffect(() => {
+    if (!admin) return;
+    window.addEventListener(FEEDBACK_CHANGED_EVENT, loadUnread);
+    return () => window.removeEventListener(FEEDBACK_CHANGED_EVENT, loadUnread);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [admin]);
 
   const allowed = admin && canAccess(pathname, admin.role);
 
@@ -85,8 +107,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             : pathname.startsWith(item.href);
           return (
             <button key={item.href} onClick={() => router.push(item.href)}
-              className={`py-3 border-b-2 cursor-pointer whitespace-nowrap ${isActive ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-900'}`}>
+              className={`py-3 border-b-2 cursor-pointer whitespace-nowrap inline-flex items-center gap-1.5 ${isActive ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-900'}`}>
               {item.label}
+              {item.href === '/admin/feedback' && unread > 0 && (
+                <span className="relative inline-flex" aria-label={`${unread} اقتراح غير مقروء`}>
+                  <span className="absolute inset-0 rounded-full bg-teal-400 opacity-60 animate-ping motion-reduce:animate-none" aria-hidden="true" />
+                  <span className="relative min-w-[18px] h-[18px] px-1 rounded-full bg-teal-600 text-white text-[10px] font-bold flex items-center justify-center">{unread}</span>
+                </span>
+              )}
             </button>
           );
         })}

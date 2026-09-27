@@ -47,3 +47,6 @@ export const NAV: Array<{ href: string; label: string }> = [
   { href: '/admin/admins', label: 'المسؤولون' },
   { href: '/admin/feedback', label: 'الاقتراحات' },
 ];
+
+// يُطلق بعد أي تغيير على الاقتراحات ليُحدّث الشريط عدد غير المقروء فوراً
+export const FEEDBACK_CHANGED_EVENT = 'vitalix:feedback-changed';

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { adminFetch } from '@/lib/admin-fetch';
 import Toast, { useNotice } from '@/components/Toast';
 import { useConfirm } from '@/components/ConfirmDialog';
+import { FEEDBACK_CHANGED_EVENT } from './admin-context';
 import type { Icon } from '@phosphor-icons/react';
 import {
   Lightbulb, Checks, Archive, Sparkle, Bug, Lightning, ChatCircle, Star,
@@ -177,6 +178,7 @@ export default function FeedbackList({ isOwner }: { isOwner: boolean }) {
       body: JSON.stringify(body),
     });
     const json = await res.json().catch(() => ({}));
+    if (res.ok) window.dispatchEvent(new Event(FEEDBACK_CHANGED_EVENT));
     return { ok: res.ok, json };
   };
 
@@ -229,7 +231,7 @@ export default function FeedbackList({ isOwner }: { isOwner: boolean }) {
 
     const res = await adminFetch(`/api/admin/feedback?id=${item.id}`, { method: 'DELETE' });
     const json = await res.json().catch(() => ({}));
-    if (res.ok) { setItems(prev => prev.filter(f => f.id !== item.id)); setNotice({ kind: 'ok', text: 'تم الحذف' }); }
+    if (res.ok) { window.dispatchEvent(new Event(FEEDBACK_CHANGED_EVENT)); setItems(prev => prev.filter(f => f.id !== item.id)); setNotice({ kind: 'ok', text: 'تم الحذف' }); }
     else setNotice({ kind: 'err', text: json.error || 'فشل الحذف' });
   };
 

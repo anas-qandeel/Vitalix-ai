@@ -90,7 +90,7 @@ export default function AdminV2Page() {
       }
       if (statusFilter !== 'all' && p.status !== statusFilter) return false;
       if (onlyAlerts) {
-        const hasAlert = p.expiring_soon || p.idle_level === 'warning' || p.idle_level === 'critical' || p.uncategorized_count > 0 || p.remaining > 0;
+        const hasAlert = p.expiring_soon || p.status === 'grace' || p.status === 'expired' || p.idle_level === 'warning' || p.idle_level === 'critical' || p.uncategorized_count > 0 || p.remaining > 0;
         if (!hasAlert) return false;
       }
       return true;
@@ -240,7 +240,7 @@ export default function AdminV2Page() {
             onClick={() => setOnlyAlerts(o => !o)}
             className={`h-9 px-3 rounded-xl text-xs font-bold cursor-pointer border ${onlyAlerts ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-700 border-slate-200'}`}
           >
-            التنبيهات فقط
+            تحتاج متابعة
           </button>
           {canManage && (
             <button

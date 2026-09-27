@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
 import { adminFetch } from '@/lib/admin-fetch';
 import Toast, { useNotice } from '@/components/Toast';
 import { useConfirm } from '@/components/ConfirmDialog';
@@ -10,8 +9,8 @@ import PharmacyCard, { type OverviewRow } from './PharmacyCard';
 import SubscriptionModal from './SubscriptionModal';
 import CreatePharmacyModal from './CreatePharmacyModal';
 import PharmacyPasswordModal from './PharmacyPasswordModal';
-import NotificationsBell from './NotificationsBell';
-import { MagnifyingGlass, Plus, SignOut } from '@phosphor-icons/react';
+import { useAdmin } from './admin-context';
+import { MagnifyingGlass, Plus } from '@phosphor-icons/react';
 
 type Totals = {
   pharmacies: number;
@@ -31,9 +30,7 @@ export default function AdminV2Page() {
   const router = useRouter();
   const { notice, setNotice } = useNotice();
   const { confirm, dialog: confirmDialog } = useConfirm();
-
-  const [role, setRole] = useState<string>('support');
-  const [userName, setUserName] = useState('');
+  const { role } = useAdmin();
 
   const [rows, setRows] = useState<OverviewRow[]>([]);
   const [totals, setTotals] = useState<Totals | null>(null);
@@ -61,25 +58,9 @@ export default function AdminV2Page() {
   };
 
   useEffect(() => {
-    const init = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { router.push('/'); return; }
-
-      const { data: adminRecord, error } = await supabase
-        .from('platform_admins')
-        .select('role, name')
-        .eq('user_id', session.user.id)
-        .single();
-
-      if (error || !adminRecord) { router.push('/dashboard'); return; }
-
-      setRole(adminRecord.role);
-      setUserName(adminRecord.name || session.user.email || '');
-      load();
-    };
-    init();
+    load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router]);
+  }, []);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -123,58 +104,8 @@ export default function AdminV2Page() {
     load();
   };
 
-  const roleLabel = role === 'owner' ? 'المالك' : role === 'pharmacist' ? 'صيدلاني المنصة' : 'دعم فني';
-
   return (
     <div dir="rtl" className="bg-slate-50 min-h-screen">
-      <header className="bg-slate-900 text-white px-4 py-3 flex items-center justify-between">
-        <div>
-          <p className="font-bold">Vitalix-ai</p>
-          <p className="text-[11px] text-slate-400">لوحة إدارة المنصة</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <NotificationsBell isOwner={role === 'owner'} onPharmacyClick={(id) => router.push(`/admin/pharmacies/${id}`)} />
-          <span className="text-xs">{userName}</span>
-          <span className="text-[10px] bg-slate-700 px-2 py-0.5 rounded-full">{roleLabel}</span>
-          <button
-            onClick={() => supabase.auth.signOut().then(() => router.push('/'))}
-            aria-label="تسجيل الخروج"
-            className="text-slate-300 hover:text-white cursor-pointer"
-          >
-            <SignOut size={16} weight="bold" aria-hidden="true" />
-          </button>
-        </div>
-      </header>
-
-      <nav className="bg-white border-b border-slate-200 px-4 flex gap-4 overflow-x-auto text-sm font-semibold">
-        <button onClick={() => router.push('/admin')} className="py-3 border-b-2 border-slate-900 text-slate-900 cursor-pointer whitespace-nowrap">
-          الصيدليات
-        </button>
-        {(role === 'owner' || role === 'support') && (
-          <button onClick={() => router.push('/admin/plans')} className="py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-900 cursor-pointer whitespace-nowrap">
-            الخطط والاشتراكات
-          </button>
-        )}
-        {(role === 'owner' || role === 'pharmacist') && (
-          <button onClick={() => router.push('/admin/blocklist')} className="py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-900 cursor-pointer whitespace-nowrap">
-            قائمة الحظر
-          </button>
-        )}
-        {(role === 'owner' || role === 'pharmacist') && (
-          <button onClick={() => router.push('/admin/rejections')} className="py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-900 cursor-pointer whitespace-nowrap">
-            المرفوضات
-          </button>
-        )}
-        {role === 'owner' && (
-          <button onClick={() => router.push('/admin/admins')} className="py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-900 cursor-pointer whitespace-nowrap">
-            المسؤولون
-          </button>
-        )}
-        <button onClick={() => router.push('/admin/feedback')} className="py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-900 cursor-pointer whitespace-nowrap">
-          الاقتراحات
-        </button>
-      </nav>
-
       <div className="max-w-6xl mx-auto p-4">
         {totals && (
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 mb-4">

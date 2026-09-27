@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
 import { adminFetch } from '@/lib/admin-fetch';
 import Toast, { useNotice } from '@/components/Toast';
 import { useConfirm } from '@/components/ConfirmDialog';
-import { ArrowRight, Star, Warning, Users, WhatsappLogo } from '@phosphor-icons/react';
+import { useAdmin } from '../../admin-context';
+import { Star, Warning, Users, WhatsappLogo } from '@phosphor-icons/react';
 import type { OverviewRow } from '../../PharmacyCard';
 import SubscriptionModal from '../../SubscriptionModal';
 import PaymentModal from '../../PaymentModal';
@@ -89,7 +89,7 @@ export default function PharmacyDetailPage() {
   const { notice, setNotice } = useNotice();
   const { confirm, dialog: confirmDialog } = useConfirm();
 
-  const [role, setRole] = useState<string>('support');
+  const { role } = useAdmin();
   const canManage = role === 'owner' || role === 'support';
   const isOwner = role === 'owner';
 
@@ -147,22 +147,7 @@ export default function PharmacyDetailPage() {
   };
 
   useEffect(() => {
-    const init = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { router.push('/'); return; }
-
-      const { data: adminRecord, error } = await supabase
-        .from('platform_admins')
-        .select('role, name')
-        .eq('user_id', session.user.id)
-        .single();
-
-      if (error || !adminRecord) { router.push('/dashboard'); return; }
-
-      setRole(adminRecord.role);
-      load(true);
-    };
-    init();
+    load(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
@@ -249,7 +234,7 @@ export default function PharmacyDetailPage() {
 
   if (loading) {
     return (
-      <div dir="rtl" className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="py-20 flex items-center justify-center">
         <p className="text-sm text-slate-400">جارٍ التحميل…</p>
       </div>
     );
@@ -257,7 +242,7 @@ export default function PharmacyDetailPage() {
 
   if (!pharmacy) {
     return (
-      <div dir="rtl" className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+      <div className="py-20 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl border border-slate-200 p-6 text-center space-y-3 max-w-sm w-full">
           <p className="text-sm font-bold text-slate-900">الصيدلية غير موجودة</p>
           <button onClick={() => router.push('/admin')}
@@ -274,14 +259,8 @@ export default function PharmacyDetailPage() {
   const canAct = canManage && !isArchived;
 
   return (
-    <div dir="rtl" className="bg-slate-50 min-h-screen">
-      <header className="bg-white border-b border-slate-200 px-4 py-3 flex items-center gap-3 flex-wrap">
-        <button onClick={() => router.push('/admin')}
-          className="flex items-center gap-1.5 text-slate-500 hover:text-slate-900 text-sm font-semibold cursor-pointer">
-          <ArrowRight size={14} weight="bold" aria-hidden="true" />
-          الصيدليات
-        </button>
-        <div className="h-5 w-px bg-slate-200" />
+    <div>
+      <header className="max-w-5xl mx-auto px-4 pt-4 flex items-center gap-3 flex-wrap">
         <h1 className="font-bold text-slate-900">{pharmacy.name}</h1>
         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${headerStatus.cls}`}>{headerStatus.label}</span>
         {pharmacy.short_code && <span className="font-mono text-[10px] text-slate-400">{pharmacy.short_code}</span>}

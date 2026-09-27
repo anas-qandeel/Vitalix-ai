@@ -1,12 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
 import { adminFetch } from '@/lib/admin-fetch';
 import Toast, { useNotice } from '@/components/Toast';
 import { useConfirm } from '@/components/ConfirmDialog';
-import { ArrowRight, Plus, Key, PencilSimple, Trash, Lock, X } from '@phosphor-icons/react';
+import { useAdmin } from '../admin-context';
+import { Plus, Key, PencilSimple, Trash, Lock, X } from '@phosphor-icons/react';
 
 type PlatformAdmin = {
   id: string;
@@ -36,11 +35,10 @@ function fmtDate(x: string): string {
 type FormState = { mode: 'create' } | { mode: 'edit'; admin: PlatformAdmin };
 
 export default function PlatformAdminsPage() {
-  const router = useRouter();
   const { notice, setNotice } = useNotice();
   const { confirm, dialog: confirmDialog } = useConfirm();
+  const { userId: currentUserId } = useAdmin();
 
-  const [currentUserId, setCurrentUserId] = useState('');
   const [admins, setAdmins] = useState<PlatformAdmin[]>([]);
   const [loading, setLoading] = useState(true);
   const [formState, setFormState] = useState<FormState | null>(null);
@@ -59,25 +57,9 @@ export default function PlatformAdminsPage() {
   };
 
   useEffect(() => {
-    const init = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { router.push('/'); return; }
-
-      const { data: adminRecord, error } = await supabase
-        .from('platform_admins')
-        .select('role, name')
-        .eq('user_id', session.user.id)
-        .single();
-
-      if (error || !adminRecord) { router.push('/dashboard'); return; }
-      if (adminRecord.role !== 'owner') { router.push('/admin'); return; }
-
-      setCurrentUserId(session.user.id);
-      load();
-    };
-    init();
+    load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router]);
+  }, []);
 
   const onDelete = async (a: PlatformAdmin) => {
     const ok = await confirm({
@@ -95,18 +77,9 @@ export default function PlatformAdminsPage() {
   };
 
   return (
-    <div dir="rtl" className="bg-slate-50 min-h-screen">
-      <header className="bg-white border-b border-slate-200 px-4 py-3 flex items-center gap-3 flex-wrap">
-        <button onClick={() => router.push('/admin')}
-          className="flex items-center gap-1.5 text-slate-500 hover:text-slate-900 text-sm font-semibold cursor-pointer">
-          <ArrowRight size={14} weight="bold" aria-hidden="true" />
-          الصيدليات
-        </button>
-        <div className="h-5 w-px bg-slate-200" />
-        <h1 className="font-bold text-slate-900">مسؤولو المنصة</h1>
-      </header>
-
+    <div>
       <div className="max-w-4xl mx-auto p-4">
+        <h1 className="text-lg font-bold text-slate-900 mb-4">مسؤولو المنصة</h1>
         <div className="bg-white rounded-2xl border border-slate-200 p-4">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
             <p className="text-xs text-slate-500">إدارة حسابات المسؤولين وصلاحياتهم على لوحة الإدارة</p>

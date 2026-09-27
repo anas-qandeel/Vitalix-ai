@@ -63,3 +63,9 @@ export function buildQuote(opts: { plan: PlanRow | null; promo: PromoRow | null;
     plan_id: plan.id, promotion_id: promo?.id ?? null,
   };
 }
+
+export const PAYMENT_METHODS = ['cash', 'cliq', 'bank_transfer', 'other'] as const;
+export type PaymentMethod = typeof PAYMENT_METHODS[number];
+export const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = { cash: 'نقداً', cliq: 'CliQ', bank_transfer: 'تحويل بنكي', other: 'أخرى' };
+// تاريخ اليوم بتوقيت عمّان (YYYY-MM-DD) — الخادم يعمل بتوقيت UTC
+export const ammanTodayISO = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Amman' }).format(new Date());

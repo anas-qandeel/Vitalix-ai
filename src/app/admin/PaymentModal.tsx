@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { adminFetch } from '@/lib/admin-fetch';
 import Toast, { useNotice } from '@/components/Toast';
 import { X } from '@phosphor-icons/react';
+import { PAYMENT_METHODS, PAYMENT_METHOD_LABEL, ammanTodayISO } from '@/lib/subscriptions';
 
 type Props = {
   subscription: { id: string; final_price: number; paid_amount: number; label: string };
@@ -12,11 +13,14 @@ type Props = {
   onSaved: () => void;
 };
 
-// تسجيل دفعة على اشتراك واحد — PATCH /api/admin/subscriptions { subscription_id, amount }.
+// تسجيل دفعة على اشتراك واحد — PATCH /api/admin/subscriptions { subscription_id, amount, method, paid_on, note }.
 // الخادم يرفض ما يتجاوز المتبقي؛ الفحص هنا للتجربة الفورية فقط.
 export default function PaymentModal({ subscription, currency, onClose, onSaved }: Props) {
   const { notice, setNotice } = useNotice();
   const [amount, setAmount] = useState('');
+  const [paidOn, setPaidOn] = useState(ammanTodayISO());
+  const [method, setMethod] = useState('');
+  const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
 
   const remaining = Math.round((Number(subscription.final_price) - Number(subscription.paid_amount)) * 100) / 100;
@@ -26,12 +30,14 @@ export default function PaymentModal({ subscription, currency, onClose, onSaved 
     const n = Number(amount);
     if (!Number.isFinite(n) || n <= 0) { setNotice({ kind: 'err', text: 'مبلغ الدفعة غير صالح' }); return; }
     if (n > remaining) { setNotice({ kind: 'err', text: `الدفعة تتجاوز المتبقي (${remaining} ${currency})` }); return; }
+    if (!method) { setNotice({ kind: 'err', text: 'اختر طريقة الدفع' }); return; }
+    if (!paidOn || paidOn > ammanTodayISO()) { setNotice({ kind: 'err', text: 'تاريخ الدفعة لا يكون في المستقبل' }); return; }
 
     setSaving(true);
     const res = await adminFetch('/api/admin/subscriptions', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ subscription_id: subscription.id, amount: n }),
+      body: JSON.stringify({ subscription_id: subscription.id, amount: n, method, paid_on: paidOn, note }),
     });
     const json = await res.json().catch(() => ({}));
     if (!res.ok) {
@@ -75,6 +81,29 @@ export default function PaymentModal({ subscription, currency, onClose, onSaved 
         <label className="block">
           <span className="block text-[11px] font-semibold text-slate-500 mb-1">{`مبلغ الدفعة (${currency})`}</span>
           <input type="number" min={0} step="0.01" inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value)}
+            className="w-full h-9 px-3 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 transition text-slate-900" />
+        </label>
+
+        <label className="block mt-3">
+          <span className="block text-[11px] font-semibold text-slate-500 mb-1">تاريخ الدفعة</span>
+          <input type="date" value={paidOn} max={ammanTodayISO()} onChange={e => setPaidOn(e.target.value)}
+            className="w-full h-9 px-3 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 transition text-slate-900" />
+        </label>
+
+        <label className="block mt-3">
+          <span className="block text-[11px] font-semibold text-slate-500 mb-1">طريقة الدفع</span>
+          <select value={method} onChange={e => setMethod(e.target.value)}
+            className="w-full h-9 px-3 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 transition text-slate-900">
+            <option value="" disabled>اختر الطريقة…</option>
+            {PAYMENT_METHODS.map(m => (
+              <option key={m} value={m}>{PAYMENT_METHOD_LABEL[m]}</option>
+            ))}
+          </select>
+        </label>
+
+        <label className="block mt-3">
+          <span className="block text-[11px] font-semibold text-slate-500 mb-1">ملاحظة (اختياري)</span>
+          <input type="text" value={note} maxLength={200} onChange={e => setNote(e.target.value)}
             className="w-full h-9 px-3 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 transition text-slate-900" />
         </label>
 

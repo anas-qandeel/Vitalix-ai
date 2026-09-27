@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { adminFetch } from '@/lib/admin-fetch';
 import Toast, { useNotice } from '@/components/Toast';
 import { X } from '@phosphor-icons/react';
+import { PAYMENT_METHODS, PAYMENT_METHOD_LABEL, ammanTodayISO } from '@/lib/subscriptions';
 
 type Plan = { id: string; name: string; price: number; duration_months: number; free_months: number; seats_limit: number | null; lifetime_price: boolean; is_active: boolean; subscriptions_count: number };
 type Promo = { id: string; name: string; discount_type: 'percent' | 'amount'; discount_value: number; code: string | null; is_active: boolean };
@@ -36,6 +37,8 @@ export default function SubscriptionModal({ pharmacy, onClose, onSaved }: Props)
   const [promoId, setPromoId] = useState('');
   const [startsOn, setStartsOn] = useState('');
   const [paidNow, setPaidNow] = useState('');
+  const [payMethod, setPayMethod] = useState('');
+  const [payDate, setPayDate] = useState(ammanTodayISO());
   const [note, setNote] = useState('');
 
   const [quote, setQuote] = useState<Quote | null>(null);
@@ -114,6 +117,7 @@ export default function SubscriptionModal({ pharmacy, onClose, onSaved }: Props)
         starts_on: startsOn || null,
         paid_now: Number(paidNow || 0),
         note,
+        ...(Number(paidNow) > 0 ? { method: payMethod, paid_on: payDate } : {}),
       }),
     });
     const json = await res.json().catch(() => ({}));
@@ -187,6 +191,27 @@ export default function SubscriptionModal({ pharmacy, onClose, onSaved }: Props)
               className="w-full h-9 px-3 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 transition text-slate-900" />
           </label>
 
+          {Number(paidNow) > 0 && (
+            <>
+              <label className="block">
+                <span className="block text-[11px] font-semibold text-slate-500 mb-1">طريقة الدفع</span>
+                <select value={payMethod} onChange={e => setPayMethod(e.target.value)}
+                  className="w-full h-9 px-3 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 transition text-slate-900">
+                  <option value="" disabled>اختر الطريقة…</option>
+                  {PAYMENT_METHODS.map(m => (
+                    <option key={m} value={m}>{PAYMENT_METHOD_LABEL[m]}</option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="block">
+                <span className="block text-[11px] font-semibold text-slate-500 mb-1">تاريخ الدفعة</span>
+                <input type="date" value={payDate} max={ammanTodayISO()} onChange={e => setPayDate(e.target.value)}
+                  className="w-full h-9 px-3 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 transition text-slate-900" />
+              </label>
+            </>
+          )}
+
           <label className="block">
             <span className="block text-[11px] font-semibold text-slate-500 mb-1">ملاحظة</span>
             <input type="text" value={note} onChange={e => setNote(e.target.value)}
@@ -220,7 +245,7 @@ export default function SubscriptionModal({ pharmacy, onClose, onSaved }: Props)
             className="h-10 flex items-center justify-center rounded-lg bg-white border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50 transition-all shadow-sm cursor-pointer">
             إلغاء
           </button>
-          <button type="button" onClick={handleConfirm} disabled={!quote || saving || !planId}
+          <button type="button" onClick={handleConfirm} disabled={!quote || saving || !planId || (Number(paidNow) > 0 && !payMethod)}
             className="h-10 flex items-center justify-center rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-all">
             تأكيد الاشتراك
           </button>

@@ -1,20 +1,40 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { verifyPlatformAdmin } from '@/lib/verify-admin';
-import { buildQuote, nextStart, promoError, type PlanRow, type PromoRow } from '@/lib/subscriptions';
+import { buildQuote, nextStart, promoError, type PlanRow, type PromoRow, PAYMENT_METHODS, ammanTodayISO, type PaymentMethod } from '@/lib/subscriptions';
 
 // اشتراكات الصيدليات — الخادم يحسب كل شيء (السعر، الخصم، النهاية). owner + support.
 // كل إنشاء يكتب سجل subscriptions ويحدّث أعمدة pharmacies القديمة من السجل نفسه (توافق مع الشاشة القديمة والحارس).
+// الدفعات تُسجَّل عبر record_payment/void_payment (هجرة payments_ledger) — ذرّية وتُبقي paid_amount = مجموع الدفعات.
 const ROLES = ['owner', 'support'] as const;
 const UUID = /^[0-9a-f-]{36}$/i;
 const COLS = 'id, pharmacy_id, plan_id, promotion_id, starts_on, ends_on, list_price, discount, final_price, paid_amount, status, note, created_at';
+
+// ترجمة أخطاء دالتي record_payment/void_payment (raise exception بالإنجليزية) لرسائل عربية للواجهة
+function paymentError(message: string, fallback: string): { status: number; error: string } {
+  if (message === 'INVALID_AMOUNT') return { status: 400, error: 'مبلغ الدفعة غير صالح' };
+  if (message === 'INVALID_DATE') return { status: 400, error: 'تاريخ الدفعة لا يكون في المستقبل' };
+  if (message === 'SUBSCRIPTION_NOT_FOUND') return { status: 404, error: 'الاشتراك غير موجود' };
+  if (message === 'EXCEEDS_REMAINING') return { status: 400, error: 'الدفعة تتجاوز المبلغ المتبقي' };
+  if (message === 'PAYMENT_NOT_FOUND') return { status: 404, error: 'الدفعة غير موجودة' };
+  if (message.includes('payments_method_check')) return { status: 400, error: 'طريقة الدفع غير صالحة' };
+  return { status: 500, error: fallback };
+}
+
+// طريقة الدفع وتاريخه من جسم الطلب — مشتركة بين POST (دفعة أولى) و PATCH (دفعة لاحقة)
+function readPaymentInput(body: any): { error: string } | { method: PaymentMethod; paidOn: string } {
+  const method = body?.method;
+  if (!(PAYMENT_METHODS as readonly string[]).includes(method)) return { error: 'طريقة الدفع غير صالحة' };
+  const paidOn = typeof body?.paid_on === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.paid_on) ? body.paid_on : ammanTodayISO();
+  return { method: method as PaymentMethod, paidOn };
+}
 
 export async function GET(request: Request) {
   const auth = await verifyPlatformAdmin(request, ROLES);
   if (!auth.authorized) return auth.response;
   const pid = new URL(request.url).searchParams.get('pharmacy_id') || '';
   if (!UUID.test(pid)) return NextResponse.json({ error: 'معرّف غير صالح' }, { status: 400 });
-  const { data, error } = await supabaseAdmin.from('subscriptions').select(COLS + ', plans(name), promotions(name)').eq('pharmacy_id', pid).order('starts_on', { ascending: false });
+  const { data, error } = await supabaseAdmin.from('subscriptions').select(COLS + ', plans(name), promotions(name), payments(id, amount, paid_on, method, note, created_at)').eq('pharmacy_id', pid).order('starts_on', { ascending: false });
   if (error) return NextResponse.json({ error: 'فشل جلب الاشتراكات' }, { status: 500 });
   return NextResponse.json({ data });
 }
@@ -36,6 +56,15 @@ export async function POST(request: Request) {
   if (promoId && !UUID.test(promoId)) return NextResponse.json({ error: 'معرّف العرض غير صالح' }, { status: 400 });
   if (!Number.isFinite(paidNow) || paidNow < 0) return NextResponse.json({ error: 'المبلغ المدفوع غير صالح' }, { status: 400 });
   if (promoId && !planId) return NextResponse.json({ error: 'لا عرض على اشتراك تجريبي' }, { status: 400 });
+
+  let paymentMethod: PaymentMethod | null = null;
+  let paidOn = ammanTodayISO();
+  if (!dryRun && paidNow > 0) {
+    const input = readPaymentInput(body);
+    if ('error' in input) return NextResponse.json({ error: input.error }, { status: 400 });
+    paymentMethod = input.method;
+    paidOn = input.paidOn;
+  }
 
   const { data: pharmacy } = await supabaseAdmin.from('pharmacies').select('id, name, status').eq('id', pharmacyId).maybeSingle();
   if (!pharmacy) return NextResponse.json({ error: 'الصيدلية غير موجودة' }, { status: 404 });
@@ -72,9 +101,21 @@ export async function POST(request: Request) {
   const { data: sub, error: subErr } = await supabaseAdmin.from('subscriptions').insert({
     pharmacy_id: pharmacyId, plan_id: quote.plan_id, promotion_id: quote.promotion_id,
     starts_on: quote.starts_on, ends_on: quote.ends_on, list_price: quote.list_price, discount: quote.discount,
-    final_price: quote.final_price, paid_amount: paidNow, status: quote.status, note, created_by: auth.user.id,
+    final_price: quote.final_price, paid_amount: 0, status: quote.status, note, created_by: auth.user.id,
   }).select(COLS).single();
   if (subErr) { console.error('[admin/subscriptions POST]', subErr.message); return NextResponse.json({ error: 'فشل إنشاء الاشتراك' }, { status: 500 }); }
+
+  if (paidNow > 0) {
+    const { error: payErr } = await supabaseAdmin.rpc('record_payment', {
+      p_subscription_id: sub.id, p_amount: paidNow, p_paid_on: paidOn, p_method: paymentMethod, p_note: note, p_actor: auth.user.id,
+    });
+    if (payErr) {
+      console.error('[admin/subscriptions POST] record_payment', payErr.message);
+      await supabaseAdmin.from('subscriptions').delete().eq('id', sub.id);
+      const { status, error: errMsg } = paymentError(payErr.message, 'فشل تسجيل الدفعة — لم يُنشأ الاشتراك');
+      return NextResponse.json({ error: errMsg }, { status });
+    }
+  }
 
   // توافق: الأعمدة القديمة تعكس الاشتراك الجديد (الشاشة القديمة والحارس يقرآنها)
   const { error: phErr } = await supabaseAdmin.from('pharmacies').update({
@@ -83,7 +124,8 @@ export async function POST(request: Request) {
   if (phErr) console.error('[admin/subscriptions POST] pharmacies sync', phErr.message);
   if (promo) await supabaseAdmin.from('promotions').update({ used_count: promo.used_count + 1 }).eq('id', promo.id);
 
-  return NextResponse.json({ data: sub });
+  const { data: finalSub } = await supabaseAdmin.from('subscriptions').select(COLS).eq('id', sub.id).single();
+  return NextResponse.json({ data: finalSub ?? sub });
 }
 
 export async function PATCH(request: Request) {
@@ -95,13 +137,45 @@ export async function PATCH(request: Request) {
   if (!UUID.test(id)) return NextResponse.json({ error: 'معرّف غير صالح' }, { status: 400 });
   if (!Number.isFinite(amount) || amount <= 0) return NextResponse.json({ error: 'مبلغ الدفعة غير صالح' }, { status: 400 });
 
-  const { data: sub } = await supabaseAdmin.from('subscriptions').select('id, pharmacy_id, final_price, paid_amount').eq('id', id).maybeSingle();
-  if (!sub) return NextResponse.json({ error: 'الاشتراك غير موجود' }, { status: 404 });
-  const newPaid = Math.round((Number(sub.paid_amount) + amount) * 100) / 100;
-  if (newPaid > Number(sub.final_price)) return NextResponse.json({ error: `الدفعة تتجاوز المتبقي (${(Number(sub.final_price) - Number(sub.paid_amount)).toFixed(2)})` }, { status: 400 });
+  const input = readPaymentInput(body);
+  if ('error' in input) return NextResponse.json({ error: input.error }, { status: 400 });
+  const note = typeof body.note === 'string' && body.note.trim() ? body.note.trim().slice(0, 200) : null;
 
-  const { data, error } = await supabaseAdmin.from('subscriptions').update({ paid_amount: newPaid }).eq('id', id).select(COLS).single();
-  if (error) return NextResponse.json({ error: 'فشل تسجيل الدفعة' }, { status: 500 });
-  await supabaseAdmin.from('pharmacies').update({ paid_amount: newPaid }).eq('id', sub.pharmacy_id);
-  return NextResponse.json({ data });
+  // record_payment تقفل الاشتراك وتتولى pharmacies (توافق الأعمدة القديمة) داخلياً — لا تحديث يدوي هنا
+  const { data: payment, error: payErr } = await supabaseAdmin.rpc('record_payment', {
+    p_subscription_id: id, p_amount: amount, p_paid_on: input.paidOn, p_method: input.method, p_note: note, p_actor: auth.user.id,
+  });
+  if (payErr) {
+    console.error('[admin/subscriptions PATCH]', payErr.message);
+    const { status, error: errMsg } = paymentError(payErr.message, 'فشل تسجيل الدفعة');
+    return NextResponse.json({ error: errMsg }, { status });
+  }
+
+  const { data, error } = await supabaseAdmin.from('subscriptions').select(COLS).eq('id', id).single();
+  if (error) { console.error('[admin/subscriptions PATCH] refetch', error.message); return NextResponse.json({ error: 'فشل تسجيل الدفعة' }, { status: 500 }); }
+  return NextResponse.json({ data, payment });
+}
+
+export async function DELETE(request: Request) {
+  const auth = await verifyPlatformAdmin(request, ['owner']);
+  if (!auth.authorized) return auth.response;
+  const paymentId = new URL(request.url).searchParams.get('payment_id') || '';
+  if (!UUID.test(paymentId)) return NextResponse.json({ error: 'معرّف غير صالح' }, { status: 400 });
+
+  const { data: voided, error } = await supabaseAdmin.rpc('void_payment', { p_payment_id: paymentId });
+  if (error) {
+    console.error('[admin/subscriptions DELETE]', error.message);
+    const { status, error: errMsg } = paymentError(error.message, 'فشل إلغاء الدفعة');
+    return NextResponse.json({ error: errMsg }, { status });
+  }
+
+  const { error: auditErr } = await supabaseAdmin.from('admin_audit_log').insert({
+    actor_id: auth.user.id,
+    action: 'void_payment',
+    pharmacy_id: voided.pharmacy_id,
+    details: { payment_id: voided.id, subscription_id: voided.subscription_id, amount: voided.amount, paid_on: voided.paid_on, method: voided.method, note: voided.note, actor_role: auth.role },
+  });
+  if (auditErr) console.error('[admin/subscriptions DELETE] audit log failed:', auditErr.message);
+
+  return NextResponse.json({ success: true });
 }

@@ -6,7 +6,8 @@ import { adminFetch } from '@/lib/admin-fetch';
 import Toast, { useNotice } from '@/components/Toast';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { useAdmin } from '../../admin-context';
-import { Star, Warning, Users, WhatsappLogo } from '@phosphor-icons/react';
+import { Star, Warning, Users, WhatsappLogo, Trash } from '@phosphor-icons/react';
+import { PAYMENT_METHOD_LABEL } from '@/lib/subscriptions';
 import type { OverviewRow } from '../../PharmacyCard';
 import SubscriptionModal from '../../SubscriptionModal';
 import PaymentModal from '../../PaymentModal';
@@ -57,6 +58,7 @@ type Sub = {
   created_at: string;
   plans: { name: string } | null;
   promotions: { name: string } | null;
+  payments: Array<{ id: string; amount: number; paid_on: string; method: string; note: string | null; created_at: string }>;
 };
 
 // خريطة الحالات وfmtDate وdaysLeftColor منسوخة حرفياً من PharmacyCard.tsx — لا تُعدَّل هناك
@@ -157,6 +159,9 @@ export default function PharmacyDetailPage() {
   }, [id]);
 
   const latestSub = subs[0] ?? null;
+  const allPayments = subs
+    .flatMap(s => (s.payments ?? []).map(p => ({ ...p, sub: s })))
+    .sort((a, b) => b.paid_on.localeCompare(a.paid_on) || new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
   const handleSaveForm = async () => {
     if (saving || !pharmacy) return;
@@ -215,6 +220,24 @@ export default function PharmacyDetailPage() {
       ? { kind: 'ok', text: pharmacy.status === 'suspended' ? 'تم التفعيل' : 'تم التعطيل' }
       : { kind: 'err', text: 'فشلت العملية' });
     load();
+  };
+
+  const handleVoidPayment = async (p: { id: string; amount: number; paid_on: string }) => {
+    const ok = await confirm({
+      title: 'إلغاء هذه الدفعة؟',
+      message: `ستُحذف دفعة ${p.amount} ${currency} بتاريخ ${fmtDate(p.paid_on)} ويُعاد حساب المدفوع. يبقى أثر الإلغاء في سجل التدقيق.`,
+      confirmText: 'إلغاء الدفعة',
+      destructive: true,
+    });
+    if (!ok) return;
+    const res = await adminFetch(`/api/admin/subscriptions?payment_id=${p.id}`, { method: 'DELETE' });
+    const json = await res.json().catch(() => ({}));
+    if (res.ok) {
+      setNotice({ kind: 'ok', text: 'أُلغيت الدفعة' });
+      load();
+    } else {
+      setNotice({ kind: 'err', text: json.error || 'فشل إلغاء الدفعة' });
+    }
   };
 
   const handleArchive = async () => {
@@ -438,6 +461,48 @@ export default function PharmacyDetailPage() {
                       </tr>
                     );
                   })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+
+        {/* سجل الدفعات */}
+        <section className="bg-white rounded-2xl border border-slate-200 p-4">
+          <h2 className="text-sm font-bold text-slate-900 mb-3">سجل الدفعات</h2>
+          {allPayments.length === 0 ? (
+            <p className="text-sm text-slate-400">لا دفعات مسجّلة</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-right">
+                <thead>
+                  <tr className="text-slate-500 border-b border-slate-100">
+                    <th className="py-2 px-2 font-semibold">التاريخ</th>
+                    <th className="py-2 px-2 font-semibold">المبلغ</th>
+                    <th className="py-2 px-2 font-semibold">الطريقة</th>
+                    <th className="py-2 px-2 font-semibold">الاشتراك</th>
+                    <th className="py-2 px-2 font-semibold">الملاحظة</th>
+                    <th className="py-2 px-2 font-semibold"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {allPayments.map(p => (
+                    <tr key={p.id} className="border-b border-slate-50 last:border-0">
+                      <td className="py-2 px-2 text-slate-500 tabular-nums">{fmtDate(p.paid_on)}</td>
+                      <td className="py-2 px-2 text-emerald-700 tabular-nums">{p.amount.toLocaleString('en-US')} {currency}</td>
+                      <td className="py-2 px-2 text-slate-700">{(PAYMENT_METHOD_LABEL as Record<string, string>)[p.method] ?? p.method}</td>
+                      <td className="py-2 px-2 text-slate-500">{`${p.sub.plans?.name ?? 'تجريبي'} · ${fmtDate(p.sub.starts_on)} – ${fmtDate(p.sub.ends_on)}`}</td>
+                      <td className="py-2 px-2 text-slate-500">{p.note ?? '—'}</td>
+                      <td className="py-2 px-2">
+                        {isOwner && !isArchived && (
+                          <button onClick={() => handleVoidPayment(p)} aria-label="إلغاء"
+                            className="text-rose-500 hover:text-rose-700 cursor-pointer">
+                            <Trash size={14} weight="bold" aria-hidden="true" />
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>

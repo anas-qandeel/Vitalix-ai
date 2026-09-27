@@ -166,11 +166,11 @@ export default function AdminV2Page() {
           </button>
         )}
         {role === 'owner' && (
-          <button onClick={() => router.push('/admin')} className="py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-900 cursor-pointer whitespace-nowrap">
+          <button onClick={() => router.push('/admin/admins')} className="py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-900 cursor-pointer whitespace-nowrap">
             المسؤولون
           </button>
         )}
-        <button onClick={() => router.push('/admin')} className="py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-900 cursor-pointer whitespace-nowrap">
+        <button onClick={() => router.push('/admin/feedback')} className="py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-900 cursor-pointer whitespace-nowrap">
           الاقتراحات
         </button>
       </nav>

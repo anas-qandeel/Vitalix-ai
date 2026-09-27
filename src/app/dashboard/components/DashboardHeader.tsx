@@ -7,7 +7,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { getPharmacyId, getStaffName, getUserRole } from '@/lib/tenant';
 import { formatPharmacistName } from '@/lib/name-format';
-import { Lightbulb, PlusCircle, Lightning, Bug, ChatCircleDots, CheckCircle, Megaphone } from '@phosphor-icons/react';
+import { Lightbulb, PlusCircle, Lightning, Bug, ChatCircleDots, CheckCircle, Megaphone, X } from '@phosphor-icons/react';
 
 const ROLE_LABELS: Record<string, string> = { owner: 'مالك', pharmacist: 'صيدلاني', assistant: 'مساعد', staff: 'موظف' };
 
@@ -147,6 +147,7 @@ export default function DashboardHeader({ breadcrumb, onBack }: DashboardHeaderP
   const [feedbackRating, setFeedbackRating] = useState(0);
   const [feedbackSending, setFeedbackSending] = useState(false);
   const [feedbackDone, setFeedbackDone] = useState(false);
+  const [feedbackError, setFeedbackError] = useState('');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [staffName, setStaffName] = useState<string | null>(null);
   const [userRole, setUserRole] = useState('');
@@ -178,16 +179,17 @@ export default function DashboardHeader({ breadcrumb, onBack }: DashboardHeaderP
 
   const handleSendFeedback = async () => {
     if (!feedbackMsg.trim()) return;
+    setFeedbackError('');
     setFeedbackSending(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
+      if (!session) { setFeedbackError('تعذّر إرسال الملاحظة — تحقق من الاتصال وحاول مرة أخرى'); return; }
       const pid2 = await getPharmacyId();
-      if (!pid2) return;
+      if (!pid2) { setFeedbackError('تعذّر إرسال الملاحظة — تحقق من الاتصال وحاول مرة أخرى'); return; }
       const { data: phData } = await supabase
         .from('pharmacies').select('name, pharmacy_name').eq('id', pid2).single();
       const pharmacyName = phData?.name || phData?.pharmacy_name || '';
-      await supabase.from('feedback').insert({
+      const { error: insertError } = await supabase.from('feedback').insert({
         pharmacy_id: pid2,
         pharmacy_name: pharmacyName,
         pharmacist_name: (await getStaffName()) || null,
@@ -195,12 +197,20 @@ export default function DashboardHeader({ breadcrumb, onBack }: DashboardHeaderP
         message: feedbackMsg.trim(),
         rating: feedbackRating || null,
       });
+      if (insertError) {
+        console.error('[feedback] insert failed', insertError.message);
+        setFeedbackError('تعذّر إرسال الملاحظة — تحقق من الاتصال وحاول مرة أخرى');
+        return;
+      }
       setFeedbackDone(true);
       setTimeout(() => {
         setFeedbackOpen(false);
         setFeedbackMsg(''); setFeedbackType('feature'); setFeedbackRating(0); setFeedbackDone(false);
       }, 2000);
-    } catch { }
+    } catch (e) {
+      console.error('[feedback] send failed', e);
+      setFeedbackError('تعذّر إرسال الملاحظة — تحقق من الاتصال وحاول مرة أخرى');
+    }
     finally { setFeedbackSending(false); }
   };
 
@@ -508,7 +518,7 @@ export default function DashboardHeader({ breadcrumb, onBack }: DashboardHeaderP
       {/* ════ Feedback Modal ════ */}
       {feedbackOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center sm:p-4"
-          onClick={() => setFeedbackOpen(false)}>
+          onClick={() => { setFeedbackOpen(false); setFeedbackError(''); }}>
           <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md shadow-2xl border border-slate-200"
             onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
@@ -516,8 +526,8 @@ export default function DashboardHeader({ breadcrumb, onBack }: DashboardHeaderP
                 <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5"><Lightbulb size={16} weight="bold" className="text-amber-500 shrink-0" aria-hidden="true" />اقتراح أو ملاحظة</h3>
                 <p className="text-[11px] text-slate-400 mt-0.5">ساعدنا في تطوير Vitalix بملاحظاتك</p>
               </div>
-              <button onClick={() => setFeedbackOpen(false)}
-                className="w-8 h-8 rounded-full bg-slate-50 hover:bg-slate-100 text-slate-400 flex items-center justify-center transition">✕</button>
+              <button onClick={() => { setFeedbackOpen(false); setFeedbackError(''); }} aria-label="إغلاق"
+                className="w-8 h-8 rounded-full bg-slate-50 hover:bg-slate-100 text-slate-400 flex items-center justify-center transition"><X size={14} weight="bold" aria-hidden="true" /></button>
             </div>
 
             {feedbackDone ? (
@@ -575,6 +585,10 @@ export default function DashboardHeader({ breadcrumb, onBack }: DashboardHeaderP
                     rows={4}
                     className="w-full px-4 py-3 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-slate-900 transition resize-none text-slate-900" />
                 </div>
+
+                {feedbackError && (
+                  <p className="text-xs font-semibold text-rose-600 mb-2" role="alert">{feedbackError}</p>
+                )}
 
                 <button onClick={handleSendFeedback}
                   disabled={feedbackSending || !feedbackMsg.trim()}

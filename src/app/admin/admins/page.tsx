@@ -70,7 +70,7 @@ export default function PlatformAdminsPage() {
         .single();
 
       if (error || !adminRecord) { router.push('/dashboard'); return; }
-      if (adminRecord.role !== 'owner') { router.push('/admin/v2'); return; }
+      if (adminRecord.role !== 'owner') { router.push('/admin'); return; }
 
       setCurrentUserId(session.user.id);
       load();
@@ -97,7 +97,7 @@ export default function PlatformAdminsPage() {
   return (
     <div dir="rtl" className="bg-slate-50 min-h-screen">
       <header className="bg-white border-b border-slate-200 px-4 py-3 flex items-center gap-3 flex-wrap">
-        <button onClick={() => router.push('/admin/v2')}
+        <button onClick={() => router.push('/admin')}
           className="flex items-center gap-1.5 text-slate-500 hover:text-slate-900 text-sm font-semibold cursor-pointer">
           <ArrowRight size={14} weight="bold" aria-hidden="true" />
           الصيدليات

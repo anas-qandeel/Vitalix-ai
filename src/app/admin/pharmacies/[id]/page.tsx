@@ -241,7 +241,7 @@ export default function PharmacyDetailPage() {
     const json = await res.json().catch(() => ({}));
     if (res.ok) {
       setNotice({ kind: 'ok', text: json.message || 'تم أرشفة الصيدلية' });
-      router.push('/admin/v2');
+      router.push('/admin');
     } else {
       setNotice({ kind: 'err', text: json.error || 'فشلت عملية الأرشفة' });
     }
@@ -260,7 +260,7 @@ export default function PharmacyDetailPage() {
       <div dir="rtl" className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl border border-slate-200 p-6 text-center space-y-3 max-w-sm w-full">
           <p className="text-sm font-bold text-slate-900">الصيدلية غير موجودة</p>
-          <button onClick={() => router.push('/admin/v2')}
+          <button onClick={() => router.push('/admin')}
             className="h-10 px-4 rounded-lg bg-slate-900 text-white text-sm font-bold cursor-pointer">
             العودة
           </button>
@@ -276,7 +276,7 @@ export default function PharmacyDetailPage() {
   return (
     <div dir="rtl" className="bg-slate-50 min-h-screen">
       <header className="bg-white border-b border-slate-200 px-4 py-3 flex items-center gap-3 flex-wrap">
-        <button onClick={() => router.push('/admin/v2')}
+        <button onClick={() => router.push('/admin')}
           className="flex items-center gap-1.5 text-slate-500 hover:text-slate-900 text-sm font-semibold cursor-pointer">
           <ArrowRight size={14} weight="bold" aria-hidden="true" />
           الصيدليات

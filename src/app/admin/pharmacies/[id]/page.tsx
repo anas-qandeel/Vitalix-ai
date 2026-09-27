@@ -6,11 +6,12 @@ import { supabase } from '@/lib/supabase';
 import { adminFetch } from '@/lib/admin-fetch';
 import Toast, { useNotice } from '@/components/Toast';
 import { useConfirm } from '@/components/ConfirmDialog';
-import { ArrowRight, Star, Warning, Users } from '@phosphor-icons/react';
+import { ArrowRight, Star, Warning, Users, WhatsappLogo } from '@phosphor-icons/react';
 import type { OverviewRow } from '../../PharmacyCard';
 import SubscriptionModal from '../../SubscriptionModal';
 import PaymentModal from '../../PaymentModal';
 import PharmacyPasswordModal from '../../PharmacyPasswordModal';
+import { needsRenewalReminder, renewalWhatsAppUrl } from '../../renewal';
 
 type PharmacyDetail = {
   id: string;
@@ -323,6 +324,12 @@ export default function PharmacyDetailPage() {
                     >
                       تسجيل دفعة
                     </button>
+                    {overview && needsRenewalReminder(overview) && (
+                      <a href={renewalWhatsAppUrl(overview)} target="_blank" rel="noreferrer" className={`${BTN_BASE} bg-white border border-emerald-200 text-emerald-700 hover:bg-emerald-50 inline-flex items-center gap-1.5`}>
+                        <WhatsappLogo size={14} weight="bold" aria-hidden="true" />
+                        تذكير واتساب
+                      </a>
+                    )}
                   </div>
                 )}
               </div>

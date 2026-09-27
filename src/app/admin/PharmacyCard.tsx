@@ -1,6 +1,7 @@
 'use client';
 
-import { Phone, EnvelopeSimple, MapPin, Users, Pulse, Package, Star, Warning, CaretLeft } from '@phosphor-icons/react';
+import { Phone, EnvelopeSimple, MapPin, Users, Pulse, Package, Star, Warning, CaretLeft, WhatsappLogo } from '@phosphor-icons/react';
+import { needsRenewalReminder, renewalWhatsAppUrl } from './renewal';
 
 export type OverviewRow = {
   id: string;
@@ -130,6 +131,12 @@ export default function PharmacyCard({ p, currency, canManage, onOpen, onSubscri
           <span>مدفوع {(p.sub_paid_amount ?? 0).toLocaleString('en-US')} / {(p.sub_final_price ?? 0).toLocaleString('en-US')} {currency}</span>
           {p.remaining > 0 && <span className="text-amber-700 font-bold">متبقٍ {p.remaining.toLocaleString('en-US')}</span>}
         </div>
+        {needsRenewalReminder(p) && (
+          <a href={renewalWhatsAppUrl(p)} target="_blank" rel="noreferrer" className={`${BTN_BASE} mt-2 bg-white border border-emerald-200 text-emerald-700 hover:bg-emerald-50 inline-flex items-center gap-1.5`}>
+            <WhatsappLogo size={14} weight="bold" aria-hidden="true" />
+            تذكير واتساب
+          </a>
+        )}
       </div>
 
       {/* الإحصائيات */}

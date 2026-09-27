@@ -37,6 +37,7 @@ type Staff = {
   login_slug: string | null;
   phone: string | null;
   last_login_at: string | null;
+  last_activity_at: string | null;
   created_at: string;
 };
 
@@ -517,7 +518,7 @@ export default function PharmacyDetailPage() {
                     </span>
                     {s.phone && <span className="text-slate-500">{s.phone}</span>}
                   </div>
-                  <span className="text-slate-400">{s.last_login_at ? `آخر دخول: ${fmtDateTime(s.last_login_at)}` : 'لم يسجّل دخولاً'}</span>
+                  <span className="text-slate-400">{s.last_login_at ? `آخر دخول: ${fmtDateTime(s.last_login_at)}` : 'لم يسجّل دخولاً'}{s.last_activity_at ? ` · آخر نشاط: ${fmtDateTime(s.last_activity_at)}` : ''}</span>
                 </div>
               ))}
             </div>

@@ -32,27 +32,23 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const { data: staff, error: staffErr } = await supabaseAdmin.from('pharmacy_staff').select(`${STAFF_COLS}, user_id`).eq('pharmacy_id', id).order('role').order('created_at');
   if (staffErr) console.error('[admin/pharmacy-detail] staff', staffErr.message);
 
-  // last_login_at في pharmacy_staff لا يُكتَب من أي مسار حالياً — المصدر الفعلي لدخول الموظفين
-  // هو activity_log (action='login' يُسجَّل في /api/staff/login)، ولدخول المالك هو
-  // auth.users.last_sign_in_at (يُحدَّثه Supabase Auth تلقائياً عبر البريد). لهذا نأخذ الأحدث من الثلاثة.
+  // آخر دخول = آخر إدخال رمز/بريد صحيح (الجلسة قد تبقى مفتوحة أياماً بعدها) — من activity_log
+  // (action='login' يُسجَّل في /api/staff/login) أو auth.users.last_sign_in_at للمالك (يُحدَّثه
+  // Supabase Auth تلقائياً عبر البريد). آخر نشاط = آخر حركة عمل غير الدخول لنفس الموظف. الاستعلام
+  // لكل موظف على حدة (لا فرز مشترك بحد واحد) حتى لا تُخفي حركات موظف نشط تواريخ زملائه.
   const loginMap = new Map<string, string>();
+  const activityMap = new Map<string, string>();
   if (staff && staff.length > 0) {
-    const staffIds = staff.map(s => s.id);
-    const { data: logins, error: loginsErr } = await supabaseAdmin
-      .from('activity_log')
-      .select('staff_id, created_at')
-      .eq('pharmacy_id', id)
-      .eq('action', 'login')
-      .in('staff_id', staffIds)
-      .order('created_at', { ascending: false })
-      .limit(1000);
-    if (loginsErr) {
-      console.error('[admin/pharmacy-detail] logins', loginsErr.message);
-    } else {
-      for (const row of logins ?? []) {
-        if (row.staff_id && !loginMap.has(row.staff_id)) loginMap.set(row.staff_id, row.created_at);
-      }
-    }
+    await Promise.all(staff.map(async (s) => {
+      const [loginRes, activityRes] = await Promise.all([
+        supabaseAdmin.from('activity_log').select('created_at').eq('pharmacy_id', id).eq('staff_id', s.id).eq('action', 'login').order('created_at', { ascending: false }).limit(1).maybeSingle(),
+        supabaseAdmin.from('activity_log').select('created_at').eq('pharmacy_id', id).eq('staff_id', s.id).neq('action', 'login').order('created_at', { ascending: false }).limit(1).maybeSingle(),
+      ]);
+      if (loginRes.error) console.error('[admin/pharmacy-detail] login', s.id, loginRes.error.message);
+      else if (loginRes.data) loginMap.set(s.id, loginRes.data.created_at);
+      if (activityRes.error) console.error('[admin/pharmacy-detail] activity', s.id, activityRes.error.message);
+      else if (activityRes.data) activityMap.set(s.id, activityRes.data.created_at);
+    }));
   }
 
   const staffWithLogin = (staff ?? []).map(({ user_id, ...s }) => {
@@ -61,7 +57,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const latest = candidates
       .filter((v): v is string => !!v)
       .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] ?? null;
-    return { ...s, last_login_at: latest };
+    return { ...s, last_login_at: latest, last_activity_at: activityMap.get(s.id) ?? null };
   });
 
   return NextResponse.json({ pharmacy: { ...pharmacy, email }, staff: staffWithLogin });

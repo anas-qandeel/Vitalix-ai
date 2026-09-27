@@ -79,6 +79,10 @@ function fmtDate(x: string): string {
   return new Date(x).toLocaleDateString('en-GB');
 }
 
+function fmtDateTime(x: string): string {
+  return new Date(x).toLocaleString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }).replace(',', '');
+}
+
 const ROLE_LABELS: Record<string, string> = { owner: 'المالك', pharmacist: 'صيدلاني', assistant: 'مساعد', staff: 'موظف' };
 
 const BTN_BASE = 'h-8 px-3 rounded-lg text-xs font-bold cursor-pointer';
@@ -513,7 +517,7 @@ export default function PharmacyDetailPage() {
                     </span>
                     {s.phone && <span className="text-slate-500">{s.phone}</span>}
                   </div>
-                  <span className="text-slate-400">{s.last_login_at ? fmtDate(s.last_login_at) : 'لم يسجّل دخولاً'}</span>
+                  <span className="text-slate-400">{s.last_login_at ? `آخر دخول: ${fmtDateTime(s.last_login_at)}` : 'لم يسجّل دخولاً'}</span>
                 </div>
               ))}
             </div>

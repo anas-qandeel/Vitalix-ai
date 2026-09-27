@@ -7,7 +7,8 @@ const OWNER = ['owner'] as const;
 const COLS = 'default_trial_days, grace_days, warn_days_before, currency, updated_at';
 
 export async function GET(request: Request) {
-  const auth = await verifyPlatformAdmin(request, OWNER);
+  // القراءة للمالك والدعم (نافذة الاشتراك تحتاجها)؛ الكتابة للمالك وحده
+  const auth = await verifyPlatformAdmin(request, ['owner', 'support']);
   if (!auth.authorized) return auth.response;
   const { data, error } = await supabaseAdmin.from('platform_settings').select(COLS).eq('id', true).single();
   if (error) return NextResponse.json({ error: 'فشل جلب الإعدادات' }, { status: 500 });

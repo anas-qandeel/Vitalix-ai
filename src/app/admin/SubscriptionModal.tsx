@@ -67,7 +67,13 @@ export default function SubscriptionModal({ pharmacy, onClose, onSaved }: Props)
   }, []);
 
   // معاينة حية عبر dry_run — كل الحسابات (التواريخ، الخصم، المستحق) تأتي من الخادم حصراً
+  // '' تعني لم تُختر خطة بعد — لا تُرسل معاينة حتى لا يُنشئ سطراً تجريبياً بطول صفر يوم بالخطأ
   useEffect(() => {
+    if (!planId) {
+      setQuote(null);
+      setQuoting(false);
+      return;
+    }
     setQuoting(true);
     const t = setTimeout(async () => {
       const res = await adminFetch('/api/admin/subscriptions', {
@@ -75,7 +81,7 @@ export default function SubscriptionModal({ pharmacy, onClose, onSaved }: Props)
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           pharmacy_id: pharmacy.id,
-          plan_id: planId || null,
+          plan_id: planId === 'trial' ? null : planId,
           promotion_id: promoId || null,
           starts_on: startsOn || null,
           paid_now: 0,
@@ -96,14 +102,14 @@ export default function SubscriptionModal({ pharmacy, onClose, onSaved }: Props)
   }, [planId, promoId, startsOn]);
 
   const handleConfirm = async () => {
-    if (!quote || saving) return;
+    if (!quote || saving || !planId) return;
     setSaving(true);
     const res = await adminFetch('/api/admin/subscriptions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         pharmacy_id: pharmacy.id,
-        plan_id: planId || null,
+        plan_id: planId === 'trial' ? null : planId,
         promotion_id: promoId || null,
         starts_on: startsOn || null,
         paid_now: Number(paidNow || 0),
@@ -140,9 +146,10 @@ export default function SubscriptionModal({ pharmacy, onClose, onSaved }: Props)
         <div className="space-y-3">
           <label className="block">
             <span className="block text-[11px] font-semibold text-slate-500 mb-1">الخطة</span>
-            <select value={planId} onChange={e => setPlanId(e.target.value)}
+            <select value={planId} onChange={e => { setPlanId(e.target.value); if (e.target.value === 'trial') setPromoId(''); }}
               className="w-full h-9 px-3 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 transition text-slate-900">
-              <option value="">بلا خطة (تجريبي)</option>
+              <option value="" disabled>اختر خطة…</option>
+              <option value="trial">بلا خطة (تجريبي)</option>
               {plans.map(plan => (
                 <option key={plan.id} value={plan.id}>
                   {plan.name} — {plan.price} {currency} · {monthsLabel(plan.duration_months)}
@@ -155,7 +162,7 @@ export default function SubscriptionModal({ pharmacy, onClose, onSaved }: Props)
 
           <label className="block">
             <span className="block text-[11px] font-semibold text-slate-500 mb-1">العرض (اختياري)</span>
-            <select value={promoId} onChange={e => setPromoId(e.target.value)} disabled={!planId}
+            <select value={promoId} onChange={e => setPromoId(e.target.value)} disabled={!planId || planId === 'trial'}
               className="w-full h-9 px-3 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 transition text-slate-900 disabled:opacity-50 disabled:cursor-not-allowed">
               <option value="">بدون عرض</option>
               {promos.map(promo => (
@@ -187,7 +194,9 @@ export default function SubscriptionModal({ pharmacy, onClose, onSaved }: Props)
           </label>
 
           <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 text-sm">
-            {quoting ? (
+            {!planId ? (
+              <p className="text-slate-400">اختر خطة لعرض المعاينة</p>
+            ) : quoting ? (
               <p className="text-slate-400">جارٍ الحساب…</p>
             ) : quote ? (
               <div className="space-y-1.5">
@@ -211,7 +220,7 @@ export default function SubscriptionModal({ pharmacy, onClose, onSaved }: Props)
             className="h-10 flex items-center justify-center rounded-lg bg-white border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50 transition-all shadow-sm cursor-pointer">
             إلغاء
           </button>
-          <button type="button" onClick={handleConfirm} disabled={!quote || saving}
+          <button type="button" onClick={handleConfirm} disabled={!quote || saving || !planId}
             className="h-10 flex items-center justify-center rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-all">
             تأكيد الاشتراك
           </button>

@@ -28,7 +28,8 @@ function parsePlan(body: any): { ok: true; plan: PlanInput } | { ok: false; erro
 }
 
 export async function GET(request: Request) {
-  const auth = await verifyPlatformAdmin(request, OWNER);
+  // القراءة للمالك والدعم (نافذة الاشتراك تحتاجها)؛ الكتابة للمالك وحده
+  const auth = await verifyPlatformAdmin(request, ['owner', 'support']);
   if (!auth.authorized) return auth.response;
   const { data: plans, error } = await supabaseAdmin.from('plans').select(COLS).order('created_at');
   if (error) return NextResponse.json({ error: 'فشل جلب الخطط' }, { status: 500 });

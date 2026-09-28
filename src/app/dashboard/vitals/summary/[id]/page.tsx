@@ -45,7 +45,7 @@ interface VisitationRecord {
   performed_by: string | null;
   created_at: string;
 }
-interface Patient { id: string; name: string; }
+interface Patient { id: string; name: string; diagnosed_conditions?: string[] | null; }
 interface WeightPlan {
   id: string;
   weight_kg: number;
@@ -97,7 +97,7 @@ export default function VitalsSummaryPage({ params }: { params: Promise<{ id: st
           .from('visitations').select('*').eq('id', id).eq('pharmacy_id', pid).single();
         if (vErr || !v) { setError('لم يتم العثور على هذه الزيارة.'); setLoading(false); return; }
         setVisit(v as VisitationRecord);
-        const { data: p } = await supabase.from('patients').select('id, name').eq('id', v.patient_id).single();
+        const { data: p } = await supabase.from('patients').select('id, name, diagnosed_conditions').eq('id', v.patient_id).single();
         if (p) setPatient(p as Patient);
         const { data: hist } = await supabase
           .from('visitations').select('*').eq('patient_id', v.patient_id).eq('pharmacy_id', pid)
@@ -246,14 +246,18 @@ export default function VitalsSummaryPage({ params }: { params: Promise<{ id: st
                         <span>{visit.bp_systolic}/{visit.bp_diastolic} مم{visit.heart_rate ? ` · نبض ${visit.heart_rate}` : ''}</span>
                       </div>
                     )}
-                    {visit.took_bp_medication != null && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-[11px] font-bold text-slate-500">دواء الضغط:</span>
-                        <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${visit.took_bp_medication ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-500'}`}>
-                          {visit.took_bp_medication ? 'أخذه ✓' : 'لم يأخذه'}
-                        </span>
-                      </div>
-                    )}
+                    {patient && ((patient.diagnosed_conditions ?? []).includes('hypertension') ? (
+                      visit.took_bp_medication != null && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] font-bold text-slate-500">دواء الضغط:</span>
+                          <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${visit.took_bp_medication ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-500'}`}>
+                            {visit.took_bp_medication ? 'أخذه ✓' : 'لم يأخذه'}
+                          </span>
+                        </div>
+                      )
+                    ) : (
+                      <p className="text-[11px] font-bold text-slate-500">غير مشخّص بالضغط</p>
+                    ))}
                     {symptoms.filter(s => bpSymptomsList.includes(s)).length > 0 && (
                       <div>
                         <p className="text-[11px] font-bold text-slate-500 mb-1">أعراض مصاحبة</p>
@@ -284,14 +288,18 @@ export default function VitalsSummaryPage({ params }: { params: Promise<{ id: st
                       <span className="text-slate-400 mr-1"> mg/dL</span>
                       <span className="mr-2"> · {visit.sugar_test_type === 'fasting' ? 'صائم' : visit.sugar_test_type === 'postprandial' ? 'بعد الأكل' : 'عشوائي'}</span>
                     </div>
-                    {visit.took_sugar_medication != null && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-[11px] font-bold text-slate-500">دواء السكري:</span>
-                        <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${visit.took_sugar_medication ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-500'}`}>
-                          {visit.took_sugar_medication ? 'أخذه ✓' : 'لم يأخذه'}
-                        </span>
-                      </div>
-                    )}
+                    {patient && ((patient.diagnosed_conditions ?? []).includes('diabetes') ? (
+                      visit.took_sugar_medication != null && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] font-bold text-slate-500">دواء السكري:</span>
+                          <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${visit.took_sugar_medication ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-500'}`}>
+                            {visit.took_sugar_medication ? 'أخذه ✓' : 'لم يأخذه'}
+                          </span>
+                        </div>
+                      )
+                    ) : (
+                      <p className="text-[11px] font-bold text-slate-500">غير مشخّص بالسكري</p>
+                    ))}
                     {symptoms.filter(s => sugarSymptomsList.includes(s)).length > 0 && (
                       <div>
                         <p className="text-[11px] font-bold text-slate-500 mb-1">أعراض مصاحبة</p>

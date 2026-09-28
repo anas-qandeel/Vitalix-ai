@@ -97,7 +97,7 @@ export async function GET(
     // 4. تقييم القياسات لتحديد الفئات ذات الصلة بهذه الزيارة تحديداً —
     // منطق طبي بحت، لا علاقة له بملف المريض (ذلك يأتي في خطوة الملاءمة التالية)
     // العتبات في وحدة مشتركة (src/lib/visit-categories.ts) — نفس المنطق، يستخدمه تقرير الذكاء أيضاً
-    const dueCategories = dueVisitCategories(visit);
+    const dueCategories = dueVisitCategories(visit, patient?.is_pregnant === true);
     const activeCategories: string[] = [...dueCategories];
     // سبب/إرشاد لكل فئة: ما كتبه الذكاء وقت التقرير (product_notes) أو قالب حتمي احتياطي
     const productNotes = resolveProductNotes(visit.product_notes, dueCategories, visit, {

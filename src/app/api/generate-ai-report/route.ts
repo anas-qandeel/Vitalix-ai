@@ -284,7 +284,7 @@ export async function POST(req: Request) {
         const ageCategory = ageNum ? (ageNum > 60 ? 'فوق 60 سنة' : '60 سنة أو أقل') : 'غير محدد';
 
         // الفئات المستحقة قرار الكود بالعتبات (src/lib/visit-categories.ts) — النموذج يكتب سبباً لها فقط ولا يقترح فئة
-        const dueCategories = dueVisitCategories(currentVisit || {});
+        const dueCategories = dueVisitCategories(currentVisit || {}, patient?.is_pregnant === true);
         const dueLine = dueCategories.length > 0
           ? `فئات المنتجات المستحقة (قرار النظام — اكتب لها product_notes ولا تغيّرها): ${dueCategories.map(c => `${c} = ${VISIT_CATEGORY_LABELS_AR[c]}`).join('، ')}`
           : 'فئات المنتجات المستحقة: لا شيء (اجعل product_notes كائناً فارغاً {})';

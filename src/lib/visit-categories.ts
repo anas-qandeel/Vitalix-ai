@@ -16,10 +16,28 @@ export interface VisitReadings {
   sugar_value?: number | null;
   bp_systolic?: number | null;
   bp_diastolic?: number | null;
+  symptoms?: string[] | null;
 }
 
-/** العتبات نفسها التي كانت في GET /api/visit: سكر ≥ 180 ← جهاز + شرائح؛ ضغط ≥ 140/90 ← جهاز ضغط */
-export function dueVisitCategories(v: VisitReadings): VisitProductCategory[] {
+/**
+ * زيارة لا تُقترح فيها منتجات إطلاقاً — مبنية على حالات الطوارئ في تعليمات رسالة المريض:
+ * ألم بالصدر أو ضيق تنفس | ضغط أعلى من 180/120 مع صداع أو زغللة عين | حامل مع صداع أو زغللة عين بأي قراءة ضغط.
+ * حالة الحمل أوسع عمداً من تعليمات الرسالة (بقرار المالك): يوم شكوى الحامل ليس يوم اقتراح منتجات.
+ */
+export function isEmergencyVisit(v: VisitReadings, isPregnant: boolean): boolean {
+  const s = v.symptoms ?? [];
+  const has = (x: string) => s.includes(x);
+  if (has('ألم بالصدر') || has('ضيق تنفس')) return true;
+  const headacheOrVision = has('صداع') || has('زغللة عين');
+  const crisis = (v.bp_systolic != null && v.bp_systolic > 180) || (v.bp_diastolic != null && v.bp_diastolic > 120);
+  if (crisis && headacheOrVision) return true;
+  if (isPregnant && headacheOrVision) return true;
+  return false;
+}
+
+/** العتبات نفسها التي كانت في GET /api/visit: سكر ≥ 180 ← جهاز + شرائح؛ ضغط ≥ 140/90 ← جهاز ضغط. زيارة الطوارئ ← لا شيء */
+export function dueVisitCategories(v: VisitReadings, isPregnant = false): VisitProductCategory[] {
+  if (isEmergencyVisit(v, isPregnant)) return [];
   const due: VisitProductCategory[] = [];
   if (v.sugar_value && v.sugar_value >= 180) due.push('sugar_device', 'sugar_strips');
   if ((v.bp_systolic && v.bp_systolic >= 140) || (v.bp_diastolic && v.bp_diastolic >= 90)) due.push('bp_device');

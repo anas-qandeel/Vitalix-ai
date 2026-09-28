@@ -17,6 +17,8 @@ interface Patient {
   birth_date: string;
   height?: number | null;
   diagnosed_conditions?: string[] | null;
+  drug_allergies?: string[] | null;
+  food_allergies?: string[] | null;
 }
 
 interface VisitationRecord {
@@ -496,6 +498,44 @@ export default function SingleVitalViewPage({ params }: PageProps) {
               </div>
             )}
           </div>
+
+          {/* ─── الحساسية المسجّلة — ليتحقق منها المريض ويبلّغ الصيدلية إن كانت خاطئة أو ناقصة ─── */}
+          {(() => {
+            const p = currentVisit.patient;
+            if (!p) return null;
+            const drugs = p.drug_allergies ?? [];
+            const foods = p.food_allergies ?? [];
+            const hasAny = drugs.length > 0 || foods.length > 0;
+            const chip = { background: '#fffbeb', border: '1px solid #fde68a', color: '#92400e', borderRadius: 20, padding: '2px 9px', fontSize: 11, fontWeight: 600 };
+            return (
+              <div style={{ padding: '12px 20px', borderTop: '1px solid #f1f5f9' }}>
+                <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: '#475569' }}>الحساسية المسجّلة لدى الصيدلية</p>
+                {hasAny ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+                    {drugs.length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 5 }}>
+                        <span style={{ fontSize: 11, color: '#64748b' }}>دوائية:</span>
+                        {drugs.map((a, i) => <span key={i} style={chip}>{a}</span>)}
+                      </div>
+                    )}
+                    {foods.length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 5 }}>
+                        <span style={{ fontSize: 11, color: '#64748b' }}>غذائية:</span>
+                        {foods.map((a, i) => <span key={i} style={chip}>{a}</span>)}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p style={{ margin: '6px 0 0', fontSize: 12, color: '#0f172a' }}>لا توجد حساسية مسجّلة.</p>
+                )}
+                <p style={{ margin: '8px 0 0', fontSize: 10, color: '#94a3b8' }}>
+                  {hasAny
+                    ? 'إن كانت هذه المعلومات غير صحيحة أو ناقصة، يُرجى إبلاغ الصيدلية.'
+                    : 'إن كانت لديك حساسية من دواء أو طعام، يُرجى إبلاغ الصيدلية.'}
+                </p>
+              </div>
+            );
+          })()}
 
           {/* ─── صف القراءات الموحد ─── */}
           {(currentVisit.bp_systolic != null || currentVisit.sugar_value != null) && (

@@ -50,7 +50,7 @@ export async function GET(
     }
 
     const patient = visit.patient as unknown as {
-      name: string; phone_number: string; height: number | null; birth_date: string | null;
+      name: string; phone_number: string; height: number | null; gender: string | null; birth_date: string | null;
       diagnosed_conditions: string[] | null; drug_allergies: string[] | null; food_allergies: string[] | null;
       is_pregnant: boolean | null; is_lactating: boolean | null;
     } | null;
@@ -197,7 +197,17 @@ export async function GET(
         recent_exertion: visit.recent_exertion,
         recent_heavy_meal: visit.recent_heavy_meal,
         is_stressed: visit.is_stressed,
-        patient: patient || undefined,
+        // قائمة سماح: ما تعرضه صفحة المريض فقط — الحمل والرضاعة لا يغادران الخادم
+        patient: patient ? {
+          name: patient.name,
+          phone_number: patient.phone_number,
+          height: patient.height,
+          gender: patient.gender,
+          birth_date: patient.birth_date,
+          diagnosed_conditions: patient.diagnosed_conditions,
+          drug_allergies: patient.drug_allergies,
+          food_allergies: patient.food_allergies,
+        } : undefined,
       },
       pharmacyName,
       pharmacyPhone,

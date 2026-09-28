@@ -2111,12 +2111,16 @@ ${planUrl}
                                 <span>{bpSys1}/{bpDia1} مم{heartRate ? ` · نبض ${heartRate}` : ''}</span>
                               </div>
                             )}
-                            <div className="flex items-center gap-2">
-                              <span className="text-[11px] font-bold text-slate-500">دواء الضغط:</span>
-                              <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${tookBpMed ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-500'}`}>
-                                {tookBpMed ? 'أخذه ✓' : 'لم يأخذه'}
-                              </span>
-                            </div>
+                            {currentPatient && ((currentPatient.diagnosed_conditions ?? []).includes('hypertension') ? (
+                              <div className="flex items-center gap-2">
+                                <span className="text-[11px] font-bold text-slate-500">دواء الضغط:</span>
+                                <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${tookBpMed ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-500'}`}>
+                                  {tookBpMed ? 'أخذه ✓' : 'لم يأخذه'}
+                                </span>
+                              </div>
+                            ) : (
+                              <p className="text-[11px] font-bold text-slate-500">غير مشخّص بالضغط</p>
+                            ))}
                             {selectedSymptoms.filter(s => bpSymptomsList.includes(s)).length > 0 && (
                               <div>
                                 <p className="text-[11px] font-bold text-slate-500 mb-1">أعراض مصاحبة</p>
@@ -2150,12 +2154,16 @@ ${planUrl}
                               <span className="text-slate-400 mr-1"> mg/dL</span>
                               {sugarType && <span className="mr-2"> · {sugarType === 'fasting' ? 'صائم' : sugarType === 'postprandial' ? 'بعد الأكل' : 'عشوائي'}</span>}
                             </div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-[11px] font-bold text-slate-500">دواء السكري:</span>
-                              <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${tookSugarMed ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-500'}`}>
-                                {tookSugarMed ? 'أخذه ✓' : 'لم يأخذه'}
-                              </span>
-                            </div>
+                            {currentPatient && ((currentPatient.diagnosed_conditions ?? []).includes('diabetes') ? (
+                              <div className="flex items-center gap-2">
+                                <span className="text-[11px] font-bold text-slate-500">دواء السكري:</span>
+                                <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${tookSugarMed ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-500'}`}>
+                                  {tookSugarMed ? 'أخذه ✓' : 'لم يأخذه'}
+                                </span>
+                              </div>
+                            ) : (
+                              <p className="text-[11px] font-bold text-slate-500">غير مشخّص بالسكري</p>
+                            ))}
                             {selectedSymptoms.filter(s => sugarSymptomsList.includes(s)).length > 0 && (
                               <div>
                                 <p className="text-[11px] font-bold text-slate-500 mb-1">أعراض مصاحبة</p>
@@ -2908,13 +2916,23 @@ ${weightPlanUrl}
                           <p style={{ margin: '2px 0 0', fontSize: 11, color: '#94a3b8' }}>تصنيف الضغط</p>
                         </div>
                       </div>
-                      {latest.took_bp_medication != null && (
-                        <p style={{ margin: '12px 0 0', fontSize: 11, color: '#94a3b8' }}>
-                          دواء الضغط اليوم: <span style={{ fontWeight: 600, color: latest.took_bp_medication ? '#0f766e' : '#94a3b8' }}>
-                            {latest.took_bp_medication ? 'أُخذ' : 'لم يُؤخذ'}
-                          </span>
-                        </p>
-                      )}
+                      {(() => {
+                        const p = currentPatient;
+                        if (!p) return null;
+                        const diagnosed = (p.diagnosed_conditions ?? []).includes('hypertension');
+                        const took = latest.took_bp_medication;
+                        return (
+                          <p style={{ margin: '12px 0 0', fontSize: 11, color: '#94a3b8' }}>
+                            {!diagnosed ? 'غير مشخّص بالضغط' : took == null ? 'مشخّص بالضغط' : (
+                              <>
+                                مشخّص بالضغط — دواء اليوم: <span style={{ fontWeight: 600, color: took ? '#0f766e' : '#94a3b8' }}>
+                                  {took ? 'أُخذ' : 'لم يُؤخذ'}
+                                </span>
+                              </>
+                            )}
+                          </p>
+                        );
+                      })()}
                       {(() => {
                         const bpSymptomsList = ['صداع', 'دوخة', 'زغللة عين', 'طنين أذن', 'ألم بالصدر', 'ضيق تنفس'];
                         const bpSymptoms = (latest.symptoms || []).filter(s => bpSymptomsList.includes(s));
@@ -2972,13 +2990,23 @@ ${weightPlanUrl}
                           <p style={{ margin: '2px 0 0', fontSize: 11, color: '#94a3b8' }}>تصنيف السكري</p>
                         </div>
                       </div>
-                      {latest.took_sugar_medication != null && (
-                        <p style={{ margin: '12px 0 0', fontSize: 11, color: '#94a3b8' }}>
-                          دواء السكري اليوم: <span style={{ fontWeight: 600, color: latest.took_sugar_medication ? '#0f766e' : '#94a3b8' }}>
-                            {latest.took_sugar_medication ? 'أُخذ' : 'لم يُؤخذ'}
-                          </span>
-                        </p>
-                      )}
+                      {(() => {
+                        const p = currentPatient;
+                        if (!p) return null;
+                        const diagnosed = (p.diagnosed_conditions ?? []).includes('diabetes');
+                        const took = latest.took_sugar_medication;
+                        return (
+                          <p style={{ margin: '12px 0 0', fontSize: 11, color: '#94a3b8' }}>
+                            {!diagnosed ? 'غير مشخّص بالسكري' : took == null ? 'مشخّص بالسكري' : (
+                              <>
+                                مشخّص بالسكري — دواء اليوم: <span style={{ fontWeight: 600, color: took ? '#0f766e' : '#94a3b8' }}>
+                                  {took ? 'أُخذ' : 'لم يُؤخذ'}
+                                </span>
+                              </>
+                            )}
+                          </p>
+                        );
+                      })()}
                       {(() => {
                         const sugarSymptomsList = ['عطش شديد', 'تبول متكرر', 'جفاف فم', 'خدران أطراف', 'تعرق بارد', 'جوع مفاجئ'];
                         const sugarSymptoms = (latest.symptoms || []).filter(s => sugarSymptomsList.includes(s));

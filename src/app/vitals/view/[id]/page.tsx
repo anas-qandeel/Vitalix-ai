@@ -16,6 +16,7 @@ interface Patient {
   gender: string;
   birth_date: string;
   height?: number | null;
+  diagnosed_conditions?: string[] | null;
 }
 
 interface VisitationRecord {
@@ -534,13 +535,23 @@ export default function SingleVitalViewPage({ params }: PageProps) {
                       <p style={{ margin: '2px 0 0', fontSize: 11, color: '#94a3b8' }}>تصنيف الضغط</p>
                     </div>
                   </div>
-                  {currentVisit.took_bp_medication != null && (
-                    <p style={{ margin: '12px 0 0', fontSize: 11, color: '#94a3b8' }}>
-                      دواء الضغط اليوم: <span style={{ fontWeight: 600, color: currentVisit.took_bp_medication ? '#0f766e' : '#94a3b8' }}>
-                        {currentVisit.took_bp_medication ? 'أُخذ' : 'لم يُؤخذ'}
-                      </span>
-                    </p>
-                  )}
+                  {(() => {
+                    const p = currentVisit.patient;
+                    if (!p) return null;
+                    const diagnosed = (p.diagnosed_conditions ?? []).includes('hypertension');
+                    const took = currentVisit.took_bp_medication;
+                    return (
+                      <p style={{ margin: '12px 0 0', fontSize: 11, color: '#94a3b8' }}>
+                        {!diagnosed ? 'غير مشخّص بالضغط' : took == null ? 'مشخّص بالضغط' : (
+                          <>
+                            مشخّص بالضغط — دواء اليوم: <span style={{ fontWeight: 600, color: took ? '#0f766e' : '#94a3b8' }}>
+                              {took ? 'أُخذ' : 'لم يُؤخذ'}
+                            </span>
+                          </>
+                        )}
+                      </p>
+                    );
+                  })()}
                   {(() => {
                     const bpSymptomsList = ['صداع', 'دوخة', 'زغللة عين', 'طنين أذن', 'ألم بالصدر', 'ضيق تنفس'];
                     const bpSymptoms = (currentVisit.symptoms || []).filter(s => bpSymptomsList.includes(s));
@@ -598,13 +609,23 @@ export default function SingleVitalViewPage({ params }: PageProps) {
                       <p style={{ margin: '2px 0 0', fontSize: 11, color: '#94a3b8' }}>تصنيف السكري</p>
                     </div>
                   </div>
-                  {currentVisit.took_sugar_medication != null && (
-                    <p style={{ margin: '12px 0 0', fontSize: 11, color: '#94a3b8' }}>
-                      دواء السكري اليوم: <span style={{ fontWeight: 600, color: currentVisit.took_sugar_medication ? '#0f766e' : '#94a3b8' }}>
-                        {currentVisit.took_sugar_medication ? 'أُخذ' : 'لم يُؤخذ'}
-                      </span>
-                    </p>
-                  )}
+                  {(() => {
+                    const p = currentVisit.patient;
+                    if (!p) return null;
+                    const diagnosed = (p.diagnosed_conditions ?? []).includes('diabetes');
+                    const took = currentVisit.took_sugar_medication;
+                    return (
+                      <p style={{ margin: '12px 0 0', fontSize: 11, color: '#94a3b8' }}>
+                        {!diagnosed ? 'غير مشخّص بالسكري' : took == null ? 'مشخّص بالسكري' : (
+                          <>
+                            مشخّص بالسكري — دواء اليوم: <span style={{ fontWeight: 600, color: took ? '#0f766e' : '#94a3b8' }}>
+                              {took ? 'أُخذ' : 'لم يُؤخذ'}
+                            </span>
+                          </>
+                        )}
+                      </p>
+                    );
+                  })()}
                   {(() => {
                     const sugarSymptomsList = ['عطش شديد', 'تبول متكرر', 'جفاف فم', 'خدران أطراف', 'تعرق بارد', 'جوع مفاجئ'];
                     const sugarSymptoms = (currentVisit.symptoms || []).filter(s => sugarSymptomsList.includes(s));

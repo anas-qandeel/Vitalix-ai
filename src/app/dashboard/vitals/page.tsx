@@ -391,6 +391,7 @@ export default function VitalsPage() {
   const [weightSaveError,  setWeightSaveError]  = useState('');
   const [weightWaMsg, setWeightWaMsg] = useState<string>('');
   const [weightDataSuspect, setWeightDataSuspect] = useState(false);
+  const [weightIsFallback, setWeightIsFallback] = useState(false);
   const [weightSafetyNotes, setWeightSafetyNotes] = useState<{ reason: string | null; conflicts: string[] }>({ reason: null, conflicts: [] });
   const [pendingDiagnosis, setPendingDiagnosis] = useState<{ key: string; label: string; willAdd: boolean } | null>(null);
   const generalPdfRef = useRef<HTMLDivElement>(null);
@@ -998,6 +999,7 @@ ${planUrl}
               .eq('status', 'active');
             const medications = (meds || []).map((m: any) => m.medication_name);
 
+            setWeightIsFallback(false);
             const { data: { session: patchSession } } = await supabase.auth.getSession();
             fetch('/api/weight-plan', {
               method: 'PATCH',
@@ -1017,7 +1019,7 @@ ${planUrl}
               }),
             })
               .then(r => r.json())
-              .then(d => { if (d.success) { setWeightStatus('sent'); setWeightDataSuspect(!!d.dataSuspect); setWeightSummary(d.pharmacistSummary ?? null); setWeightSafetyNotes({ reason: d.productsSuppressedReason ?? null, conflicts: Array.isArray(d.allergenConflicts) ? d.allergenConflicts : [] }); } })
+              .then(d => { if (d.success) { setWeightStatus('sent'); setWeightDataSuspect(!!d.dataSuspect); setWeightIsFallback(d.fallback === true); setWeightSummary(d.pharmacistSummary ?? null); setWeightSafetyNotes({ reason: d.productsSuppressedReason ?? null, conflicts: Array.isArray(d.allergenConflicts) ? d.allergenConflicts : [] }); } })
               .catch(() => setWeightStatus('error'));
 
             // الخطوة 3: فتح WhatsApp فوراً بعد إنشاء الـ plan_id
@@ -2685,6 +2687,12 @@ ${planUrl}
                           معاينة خطة الوزن
                         </button>
 
+                        {weightIsFallback && (
+                          <div className="flex items-start gap-1.5 px-4 py-2.5 text-xs font-semibold text-amber-800 bg-amber-50">
+                            <Warning size={14} weight="bold" className="shrink-0 mt-0.5" aria-hidden="true" />
+                            <span>تعذّرت خطة الوزن الذكية — هذه خطة عامة مبنية على القياسات مباشرة. راجعها قبل الإرسال.</span>
+                          </div>
+                        )}
                         <label className="flex items-start gap-2.5 px-4 py-3 bg-slate-50 cursor-pointer">
                           <input
                             type="checkbox"

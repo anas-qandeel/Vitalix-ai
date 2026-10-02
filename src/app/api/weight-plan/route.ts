@@ -677,6 +677,7 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
     const geminiApiKey = process.env.GEMINI_API_KEY;
 
     let weightFallbackReason: { status: number; message: string } = { status: 0, message: geminiApiKey ? 'invalid or empty model response' : 'GEMINI_API_KEY missing' };
+    let usedFallback = false;
     if (geminiApiKey && !nutritionData) {
       const ai = new GoogleGenAI({ apiKey: geminiApiKey });
 
@@ -741,6 +742,7 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
       // خطة احتياطية للمريض: تُسجَّل وتُنبِّه المالك والدعم في الجرس
       await logAiUsage({ pharmacyId: auth.pharmacyId, userId: auth.userId, staffId: auth.staffId, feature: 'weight_plan', step: 'final', model: 'local-fallback', response: null, outcome: 'fallback', errorStatus: weightFallbackReason.status, errorMessage: weightFallbackReason.message });
       await notifyAiFallback(auth.pharmacyId, pharmacy_name, 'weight_plan');
+      usedFallback = true;
       const sugarOpt    = hasDiabetes     ? 'مع بديل سكر طبيعي' : 'مع ملعقة عسل طبيعي';
       const saltTag     = hasHypertension ? ' — قليل الملح' : '';
       const hasMetform  = matchedDrugs.some((d) => d.generic === 'metformin');
@@ -1025,6 +1027,7 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
 
     return NextResponse.json({
       success: true,
+      fallback: usedFallback,
       dataSuspect: progressData?.dataSuspect ?? false,
       productsSuppressedReason: null as string | null,
       allergenConflicts,

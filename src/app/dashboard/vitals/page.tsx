@@ -885,6 +885,8 @@ ${planUrl}
           if (res.ok) {
             const d = await res.json();
             if (d.report) report = d.report;
+            // النص احتياطي من الخادم (فشل Gemini) — تظهر الشارة كي يراجعه الصيدلاني قبل الإرسال
+            if (d.fallback === true) setIsFallbackReport(true);
             pharmacistSummaryLocal = d.pharmacistSummary || null;
             medicationsAlertLocal = d.medicationsAlert || null;
             productNotesLocal = d.productNotes || null;
@@ -1987,11 +1989,6 @@ ${planUrl}
                 {/* بطاقة التقرير الطبي الذكي — تُخفى في مسار الوزن وحده لتفادي التكرار مع بطاقة خطة الوزن */}
                 {!(activeTests.weight && !activeTests.bp && !activeTests.sugar) && (
                   <>
-                    {isFallbackReport && (
-                      <div className="mb-3 text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 px-4 py-2.5 rounded-lg">
-                        <Warning size={14} weight="bold" className="inline-block ml-1 align-[-2px]" aria-hidden="true" /> تعذّر توليد الملخّص الذكي — هذا ملخّص مختصر مبني على القراءات مباشرة. القراءة محفوظة.
-                      </div>
-                    )}
                     <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
                   <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50 flex flex-col items-start gap-3">
                     <div className="flex items-center gap-3">
@@ -2303,6 +2300,12 @@ ${planUrl}
                       </svg>
                       عرض صفحة المريض
                     </button>
+                    {isFallbackReport && (
+                      <div className="flex items-start gap-1.5 px-4 py-2.5 text-xs font-semibold text-amber-800 bg-amber-50">
+                        <Warning size={14} weight="bold" className="shrink-0 mt-0.5" aria-hidden="true" />
+                        <span>تعذّر توليد الملخّص الذكي — هذا ملخّص مختصر مبني على القراءات مباشرة. القراءة محفوظة.</span>
+                      </div>
+                    )}
                     <label className="flex items-start gap-2.5 px-4 py-3 bg-slate-50 cursor-pointer">
                       <input
                         type="checkbox"

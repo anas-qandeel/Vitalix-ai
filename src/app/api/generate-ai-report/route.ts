@@ -4,7 +4,7 @@ import { classifySugar, classifyBp, classifyHeartRate } from '@/lib/vitals-class
 import { getBMICategory } from '@/lib/weight-math';
 import { requireStaff } from '@/lib/api-auth';
 import { dueVisitCategories, VISIT_CATEGORY_LABELS_AR, resolveProductNotes } from '@/lib/visit-categories';
-import { logAiUsage } from '@/lib/ai-usage';
+import { logAiUsage, notifyAiFallback } from '@/lib/ai-usage';
 
 export const maxDuration = 60;
 
@@ -183,6 +183,7 @@ export async function POST(req: Request) {
 
     const geminiApiKey = process.env.GEMINI_API_KEY;
 
+    let fallbackReason: { status: number; message: string } = { status: 0, message: 'GEMINI_API_KEY missing' };
     if (geminiApiKey) {
       try {
         const ai = new GoogleGenAI({ apiKey: geminiApiKey });
@@ -347,6 +348,7 @@ ${recentVisitsLine}${sameDayLine ? `\n${sameDayLine}` : ''}`;
           : COMPRESS_INSTRUCTION;
 
         for (const modelName of GEMINI_MODELS_FALLBACK) {
+          let callStep = 'raw';
           try {
             // ── الطلب الأول: توليد خام ──
             const rawResponse = await ai.models.generateContent({
@@ -372,6 +374,7 @@ ${recentVisitsLine}${sameDayLine ? `\n${sameDayLine}` : ''}`;
               finalText = rawTxt;
             } else {
               // ── الطلب الثاني: ضغط وتنقية (فقط عند الحاجة) ──
+              callStep = 'compress';
               console.log(`[Gemini] compressing (reason: ${finishReason}, len: ${rawTxt.length})`);
               const compressResponse = await ai.models.generateContent({
                 model: modelName,
@@ -406,7 +409,9 @@ ${recentVisitsLine}${sameDayLine ? `\n${sameDayLine}` : ''}`;
             lastModelErr = modelErr;
             const status = getErrStatus(modelErr);
             console.warn(`[Gemini] ${modelName} → ${status || 'err'}:`, modelErr?.message || modelErr);
-            if (status === 404 || status === 429 || status === 500 || status === 503) continue;
+            await logAiUsage({ pharmacyId: auth.pharmacyId, userId: auth.userId, staffId: auth.staffId, feature: 'vitals_report', step: callStep, model: modelName, response: null, outcome: 'failed', errorStatus: status, errorMessage: String(modelErr?.message || modelErr) });
+            // 504 (انتهاء المهلة) و0 (خطأ شبكة بلا رمز) يستحقان تجربة النموذج البديل أيضاً
+            if (status === 404 || status === 429 || status === 500 || status === 503 || status === 504 || status === 0) continue;
             break;
           }
         }
@@ -468,15 +473,17 @@ ${recentVisitsLine}${sameDayLine ? `\n${sameDayLine}` : ''}`;
                 console.warn('[Gemini] pharmacist summary rescued from truncated JSON');
               }
             }
-          } catch (summaryErr) {
+          } catch (summaryErr: any) {
             console.warn('[Gemini] pharmacist summary failed (non-blocking):', summaryErr);
+            await logAiUsage({ pharmacyId: auth.pharmacyId, userId: auth.userId, staffId: auth.staffId, feature: 'vitals_report', step: 'summary', model: successModel ?? GEMINI_MODELS_FALLBACK[0], response: null, outcome: 'failed', errorStatus: getErrStatus(summaryErr), errorMessage: String(summaryErr?.message || summaryErr) });
           }
           console.log('[Gemini] returning — pharmacistSummary:', pharmacistSummary ? `${pharmacistSummary.length} chars` : 'NULL');
           return NextResponse.json({ report, pharmacistSummary, medicationsAlert, productNotes });
         }
         throw lastModelErr || new Error('no model returned a response');
-      } catch (aiErr) {
+      } catch (aiErr: any) {
         console.warn('[Gemini] all models failed, using local fallback:', aiErr);
+        fallbackReason = { status: getErrStatus(aiErr), message: String(aiErr?.message || aiErr) };
       }
     }
 
@@ -490,7 +497,10 @@ ${recentVisitsLine}${sameDayLine ? `\n${sameDayLine}` : ''}`;
         : null,
       tookBpMed, tookSugarMed
     );
-    return NextResponse.json({ report: fallbackReport, pharmacistSummary: null, medicationsAlert: null });
+    // رسالة احتياطية: تُسجَّل، وتُنبِّه المالك والدعم في الجرس، وتُعلِم الواجهة لتُظهر الشارة للصيدلاني
+    await logAiUsage({ pharmacyId: auth.pharmacyId, userId: auth.userId, staffId: auth.staffId, feature: 'vitals_report', step: 'final', model: 'local-fallback', response: null, outcome: 'fallback', errorStatus: fallbackReason.status, errorMessage: fallbackReason.message });
+    await notifyAiFallback(auth.pharmacyId, pharmacyDisplayName);
+    return NextResponse.json({ report: fallbackReport, pharmacistSummary: null, medicationsAlert: null, fallback: true });
 
   } catch (error: any) {
     return NextResponse.json({ error: error.message || 'خطأ في السيرفر' }, { status: 500 });

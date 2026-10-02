@@ -67,15 +67,16 @@ export async function logAiUsage(entry: AiUsageEntry): Promise<void> {
 }
 
 /**
- * إشعار الجرس عند خروج رسالة احتياطية في الملخّص الذكي — مرة لكل صيدلية في اليوم
+ * إشعار الجرس عند خروج رسالة احتياطية (الملخّص الذكي أو خطة الوزن) — مرة لكل صيدلية في اليوم
  * (الدالة notify_ai_fallback في القاعدة تتجاهل التكرار). لا يرمي خطأ أبداً.
  */
-export async function notifyAiFallback(pharmacyId: string, pharmacyName: string): Promise<void> {
+export async function notifyAiFallback(pharmacyId: string, pharmacyName: string, feature: 'vitals_report' | 'weight_plan' = 'vitals_report'): Promise<void> {
   try {
     if (!pharmacyId) return;
+    const what = feature === 'weight_plan' ? 'تعذّرت خطة الوزن الذكية اليوم' : 'تعذّر الملخّص الذكي اليوم';
     const { error } = await supabaseAdmin.rpc('notify_ai_fallback', {
       p_pharmacy_id: pharmacyId,
-      p_message: `رسالة احتياطية في ${pharmacyName}: تعذّر الملخّص الذكي اليوم — راجع مراقبة الذكاء.`,
+      p_message: `رسالة احتياطية في ${pharmacyName}: ${what} — راجع مراقبة الذكاء.`,
     });
     if (error) console.warn('[ai-usage] notify failed:', error.message);
   } catch (e) {

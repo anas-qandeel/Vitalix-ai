@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
-import { logAiUsage } from '@/lib/ai-usage';
+import { logAiUsage, notifyAiFallback } from '@/lib/ai-usage';
 import { GoogleGenAI, Type } from '@google/genai';
 import { calcWeightGoals, getBMICategory, LACTATION_FIRST_GOAL_CAP_KG } from '@/lib/weight-math';
 import { SUPPLEMENT_CATEGORIES, isValidCategory } from '@/lib/supplement-categories';
@@ -676,6 +676,7 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
 
     const geminiApiKey = process.env.GEMINI_API_KEY;
 
+    let weightFallbackReason: { status: number; message: string } = { status: 0, message: geminiApiKey ? 'invalid or empty model response' : 'GEMINI_API_KEY missing' };
     if (geminiApiKey && !nutritionData) {
       const ai = new GoogleGenAI({ apiKey: geminiApiKey });
 
@@ -726,7 +727,10 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
         } catch (e: any) {
           const status = getErrStatus(e);
           console.warn(`[weight-plan PATCH] ${modelName} → ${status || 'err'}:`, e?.message);
-          if (status === 404 || status === 429 || status === 500 || status === 503) continue;
+          await logAiUsage({ pharmacyId: auth.pharmacyId, userId: auth.userId, staffId: auth.staffId, feature: 'weight_plan', step: 'plan', model: modelName, response: null, outcome: 'failed', errorStatus: status, errorMessage: String(e?.message || e) });
+          weightFallbackReason = { status, message: String(e?.message || e) };
+          // 504 (انتهاء المهلة) و0 (خطأ بلا رمز) يستحقان تجربة النموذج البديل أيضاً
+          if (status === 404 || status === 429 || status === 500 || status === 503 || status === 504 || status === 0) continue;
           break;
         }
       }
@@ -734,6 +738,9 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
 
     // ── Fallback محلي ─────────────────────────────────────────────────
     if (!nutritionData) {
+      // خطة احتياطية للمريض: تُسجَّل وتُنبِّه المالك والدعم في الجرس
+      await logAiUsage({ pharmacyId: auth.pharmacyId, userId: auth.userId, staffId: auth.staffId, feature: 'weight_plan', step: 'final', model: 'local-fallback', response: null, outcome: 'fallback', errorStatus: weightFallbackReason.status, errorMessage: weightFallbackReason.message });
+      await notifyAiFallback(auth.pharmacyId, pharmacy_name, 'weight_plan');
       const sugarOpt    = hasDiabetes     ? 'مع بديل سكر طبيعي' : 'مع ملعقة عسل طبيعي';
       const saltTag     = hasHypertension ? ' — قليل الملح' : '';
       const hasMetform  = matchedDrugs.some((d) => d.generic === 'metformin');

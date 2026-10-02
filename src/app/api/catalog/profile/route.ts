@@ -163,8 +163,11 @@ export async function POST(req: NextRequest) {
         break;
       } catch (e) {
         lastErr = e;
-        console.warn(`[catalog/profile] ${modelName} → ${getErrStatus(e) || 'err'}:`, (e as Error)?.message || e);
-        if (getErrStatus(e) === 404) continue;
+        const status = getErrStatus(e);
+        console.warn(`[catalog/profile] ${modelName} → ${status || 'err'}:`, (e as Error)?.message || e);
+        await logAiUsage({ pharmacyId: auth.pharmacyId, userId: auth.userId, feature: 'catalog_profile', step: 'profile', model: modelName, response: null, outcome: 'failed', errorStatus: status, errorMessage: String((e as Error)?.message || e) });
+        // 404 و429 و500 و503 و504 و0 (خطأ بلا رمز) يستحقون تجربة النموذج البديل — كبقية الميزات
+        if (status === 404 || status === 429 || status === 500 || status === 503 || status === 504 || status === 0) continue;
         break;
       }
     }

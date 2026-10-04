@@ -9,9 +9,10 @@ type Notice = { id: string; kind: string; pharmacy_id: string | null; message: s
 interface NotificationsBellProps {
   isOwner: boolean;
   onPharmacyClick?: (pharmacyId: string) => void;
+  onAiMonitorClick?: () => void;
 }
 
-export default function NotificationsBell({ isOwner, onPharmacyClick }: NotificationsBellProps) {
+export default function NotificationsBell({ isOwner, onPharmacyClick, onAiMonitorClick }: NotificationsBellProps) {
   const [items, setItems] = useState<Notice[]>([]);
   const [unread, setUnread] = useState(0);
   const [open, setOpen] = useState(false);
@@ -108,8 +109,10 @@ export default function NotificationsBell({ isOwner, onPharmacyClick }: Notifica
             items.map(n => (
               <div
                 key={n.id}
-                onClick={n.pharmacy_id && onPharmacyClick ? () => onPharmacyClick(n.pharmacy_id as string) : undefined}
-                className={`px-3 py-2 rounded-lg mb-1 text-xs ${n.pharmacy_id && onPharmacyClick ? 'cursor-pointer' : ''} ${n.is_read ? 'bg-slate-50' : 'bg-amber-50 border border-amber-100'}`}
+                onClick={n.kind === 'ai_fallback' && onAiMonitorClick
+                  ? () => onAiMonitorClick()
+                  : n.pharmacy_id && onPharmacyClick ? () => onPharmacyClick(n.pharmacy_id as string) : undefined}
+                className={`px-3 py-2 rounded-lg mb-1 text-xs ${(n.kind === 'ai_fallback' && onAiMonitorClick) || (n.pharmacy_id && onPharmacyClick) ? 'cursor-pointer' : ''} ${n.is_read ? 'bg-slate-50' : 'bg-amber-50 border border-amber-100'}`}
               >
                 <p className="text-slate-700">{n.message}</p>
                 <p className="text-[10px] text-slate-400 mt-0.5">{new Date(n.created_at).toLocaleDateString('en-GB')}</p>

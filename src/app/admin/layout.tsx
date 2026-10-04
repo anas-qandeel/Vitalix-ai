@@ -79,7 +79,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <p className="text-[11px] text-slate-400">لوحة إدارة المنصة</p>
         </div>
         <div className="flex items-center gap-3">
-          <NotificationsBell isOwner={admin.role === 'owner'} onPharmacyClick={(id) => router.push(`/admin/pharmacies/${id}`)} />
+          <NotificationsBell
+            isOwner={admin.role === 'owner'}
+            onPharmacyClick={(id) => router.push(`/admin/pharmacies/${id}`)}
+            onAiMonitorClick={canAccess('/admin/ai-monitor', admin.role) ? () => router.push('/admin/ai-monitor') : undefined}
+          />
           <span className="text-xs">{admin.userName}</span>
           <span className="text-[10px] bg-slate-700 px-2 py-0.5 rounded-full">{ROLE_LABEL[admin.role]}</span>
           <button

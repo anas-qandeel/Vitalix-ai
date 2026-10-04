@@ -7,7 +7,7 @@ import { X } from '@phosphor-icons/react';
 import { PAYMENT_METHODS, PAYMENT_METHOD_LABEL, ammanTodayISO } from '@/lib/subscriptions';
 
 type Props = {
-  subscription: { id: string; final_price: number; paid_amount: number; label: string };
+  subscription: { id: string; final_price: number; paid_amount: number; next_due_on: string | null; label: string };
   currency: string;
   onClose: () => void;
   onSaved: () => void;
@@ -21,6 +21,7 @@ export default function PaymentModal({ subscription, currency, onClose, onSaved 
   const [paidOn, setPaidOn] = useState(ammanTodayISO());
   const [method, setMethod] = useState('');
   const [note, setNote] = useState('');
+  const [dueOn, setDueOn] = useState(subscription.next_due_on && subscription.next_due_on >= ammanTodayISO() ? subscription.next_due_on : '');
   const [saving, setSaving] = useState(false);
 
   const remaining = Math.round((Number(subscription.final_price) - Number(subscription.paid_amount)) * 100) / 100;
@@ -32,12 +33,14 @@ export default function PaymentModal({ subscription, currency, onClose, onSaved 
     if (n > remaining) { setNotice({ kind: 'err', text: `الدفعة تتجاوز المتبقي (${remaining} ${currency})` }); return; }
     if (!method) { setNotice({ kind: 'err', text: 'اختر طريقة الدفع' }); return; }
     if (!paidOn || paidOn > ammanTodayISO()) { setNotice({ kind: 'err', text: 'تاريخ الدفعة لا يكون في المستقبل' }); return; }
+    const leftAfter = Math.round((remaining - n) * 100) / 100;
+    if (leftAfter > 0 && dueOn && dueOn < ammanTodayISO()) { setNotice({ kind: 'err', text: 'موعد الدفعة التالية لا يكون في الماضي' }); return; }
 
     setSaving(true);
     const res = await adminFetch('/api/admin/subscriptions', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ subscription_id: subscription.id, amount: n, method, paid_on: paidOn, note }),
+      body: JSON.stringify({ subscription_id: subscription.id, amount: n, method, paid_on: paidOn, note, ...(leftAfter > 0 && dueOn ? { next_due_on: dueOn } : {}) }),
     });
     const json = await res.json().catch(() => ({}));
     if (!res.ok) {
@@ -83,6 +86,17 @@ export default function PaymentModal({ subscription, currency, onClose, onSaved 
           <input type="number" min={0} step="0.01" inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value)}
             className="w-full h-9 px-3 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 transition text-slate-900" />
         </label>
+
+        {Number(amount) > 0 && Math.round((remaining - Number(amount)) * 100) / 100 > 0 && (
+          <label className="block mt-3">
+            <span className="block text-[11px] font-semibold text-slate-500 mb-1">تاريخ استحقاق الدفعة التالية</span>
+            <input type="date" value={dueOn} min={ammanTodayISO()} onChange={e => setDueOn(e.target.value)}
+              className="w-full h-9 px-3 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 transition text-slate-900" />
+            {!dueOn && (
+              <span className="block text-[11px] text-slate-400 mt-1">{`المتبقي بعد الدفعة ${(remaining - Number(amount)).toFixed(2)} ${currency} — حدّد موعد سداده`}</span>
+            )}
+          </label>
+        )}
 
         <label className="block mt-3">
           <span className="block text-[11px] font-semibold text-slate-500 mb-1">تاريخ الدفعة</span>

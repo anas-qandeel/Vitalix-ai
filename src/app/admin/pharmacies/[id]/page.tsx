@@ -646,6 +646,7 @@ export default function PharmacyDetailPage() {
             id: paymentTarget.id,
             final_price: paymentTarget.final_price,
             paid_amount: paymentTarget.paid_amount,
+            next_due_on: paymentTarget.next_due_on,
             label: `${paymentTarget.plans?.name ?? 'تجريبي'} · ${fmtDate(paymentTarget.starts_on)} – ${fmtDate(paymentTarget.ends_on)}`,
           }}
           currency={currency}

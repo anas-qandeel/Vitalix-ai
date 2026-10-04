@@ -248,7 +248,8 @@ export default function SingleVitalViewPage({ params }: PageProps) {
         keepalive: true,
       }).catch(() => {});
     }
-    const rawPhone = pharmacyPhone || currentVisit?.patient?.phone_number || '';
+    const rawPhone = pharmacyPhone || '';
+    if (!rawPhone) return;
     const formattedPhone = rawPhone.replace(/[^0-9]/g, '');
     const cleanPhone = formattedPhone.startsWith('0') ? '962' + formattedPhone.substring(1) : formattedPhone;
     const patientName = currentVisit?.patient?.name || 'المريض';

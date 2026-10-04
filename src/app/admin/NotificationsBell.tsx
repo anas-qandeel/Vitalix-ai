@@ -55,6 +55,16 @@ export default function NotificationsBell({ isOwner, onPharmacyClick, onAiMonito
     await load();
   };
 
+  // تعليم إشعار واحد كمقروء عند الضغط عليه — لا يُنتظر قبل الانتقال، وفشله لا يمنع شيئاً
+  const markOneRead = (n: Notice) => {
+    if (n.is_read) return;
+    adminFetch('/api/admin/notifications', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: [n.id] }),
+    }).then(() => load()).catch(() => {});
+  };
+
   const runNow = async () => {
     setRunning(true);
     try {
@@ -109,10 +119,12 @@ export default function NotificationsBell({ isOwner, onPharmacyClick, onAiMonito
             items.map(n => (
               <div
                 key={n.id}
-                onClick={n.kind === 'ai_fallback' && onAiMonitorClick
-                  ? () => onAiMonitorClick()
-                  : n.pharmacy_id && onPharmacyClick ? () => onPharmacyClick(n.pharmacy_id as string) : undefined}
-                className={`px-3 py-2 rounded-lg mb-1 text-xs ${(n.kind === 'ai_fallback' && onAiMonitorClick) || (n.pharmacy_id && onPharmacyClick) ? 'cursor-pointer' : ''} ${n.is_read ? 'bg-slate-50' : 'bg-amber-50 border border-amber-100'}`}
+                onClick={() => {
+                  markOneRead(n);
+                  if (n.kind === 'ai_fallback' && onAiMonitorClick) onAiMonitorClick();
+                  else if (n.pharmacy_id && onPharmacyClick) onPharmacyClick(n.pharmacy_id);
+                }}
+                className={`px-3 py-2 rounded-lg mb-1 text-xs ${(n.kind === 'ai_fallback' && onAiMonitorClick) || (n.pharmacy_id && onPharmacyClick) || !n.is_read ? 'cursor-pointer' : ''} ${n.is_read ? 'bg-slate-50' : 'bg-amber-50 border border-amber-100'}`}
               >
                 <p className="text-slate-700">{n.message}</p>
                 <p className="text-[10px] text-slate-400 mt-0.5">{new Date(n.created_at).toLocaleDateString('en-GB')}</p>

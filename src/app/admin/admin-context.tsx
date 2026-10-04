@@ -31,6 +31,7 @@ export const ROUTE_ROLES: Array<{ prefix: string; roles: AdminRole[] }> = [
   { prefix: '/admin/plans', roles: ['owner'] },
   { prefix: '/admin/blocklist', roles: ['owner', 'pharmacist'] },
   { prefix: '/admin/rejections', roles: ['owner', 'pharmacist'] },
+  { prefix: '/admin/ai-monitor', roles: ['owner', 'support'] },
 ];
 
 export function canAccess(pathname: string, role: AdminRole): boolean {
@@ -46,6 +47,7 @@ export const NAV: Array<{ href: string; label: string }> = [
   { href: '/admin/rejections', label: 'المرفوضات' },
   { href: '/admin/admins', label: 'المسؤولون' },
   { href: '/admin/feedback', label: 'الاقتراحات' },
+  { href: '/admin/ai-monitor', label: 'مراقبة الذكاء' },
 ];
 
 // يُطلق بعد أي تغيير على الاقتراحات ليُحدّث الشريط عدد غير المقروء فوراً

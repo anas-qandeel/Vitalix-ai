@@ -7,10 +7,11 @@ import Toast, { useNotice } from '@/components/Toast';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { useAdmin } from '../../admin-context';
 import { Star, Warning, Users, WhatsappLogo, Trash } from '@phosphor-icons/react';
-import { PAYMENT_METHOD_LABEL } from '@/lib/subscriptions';
+import { PAYMENT_METHOD_LABEL, ammanTodayISO } from '@/lib/subscriptions';
 import type { OverviewRow } from '../../PharmacyCard';
 import SubscriptionModal from '../../SubscriptionModal';
 import PaymentModal from '../../PaymentModal';
+import DueDateModal from '../../DueDateModal';
 import PharmacyPasswordModal from '../../PharmacyPasswordModal';
 import { needsRenewalReminder, renewalWhatsAppUrl } from '../../renewal';
 
@@ -53,6 +54,7 @@ type Sub = {
   discount: number;
   final_price: number;
   paid_amount: number;
+  next_due_on: string | null;
   status: string;
   note: string | null;
   created_at: string;
@@ -109,6 +111,7 @@ export default function PharmacyDetailPage() {
 
   const [subModal, setSubModal] = useState(false);
   const [paymentTarget, setPaymentTarget] = useState<Sub | null>(null);
+  const [dueTarget, setDueTarget] = useState<Sub | null>(null);
   const [pwModal, setPwModal] = useState(false);
 
   const [form, setForm] = useState({ name: '', pharmacist_name: '', phone_number: '', email: '', city_address: '', country: '', max_staff: '' });
@@ -430,6 +433,7 @@ export default function PharmacyDetailPage() {
                     <th className="py-2 px-2 font-semibold">المستحق</th>
                     <th className="py-2 px-2 font-semibold">المدفوع</th>
                     <th className="py-2 px-2 font-semibold">المتبقي</th>
+                    <th className="py-2 px-2 font-semibold">الاستحقاق التالي</th>
                     <th className="py-2 px-2 font-semibold">ملاحظة</th>
                     <th className="py-2 px-2 font-semibold"></th>
                   </tr>
@@ -450,12 +454,24 @@ export default function PharmacyDetailPage() {
                         <td className="py-2 px-2 text-slate-700 tabular-nums">{s.final_price.toLocaleString('en-US')}</td>
                         <td className="py-2 px-2 text-emerald-700 tabular-nums">{s.paid_amount.toLocaleString('en-US')}</td>
                         <td className={`py-2 px-2 tabular-nums font-bold ${remaining > 0 ? 'text-amber-600' : 'text-slate-900'}`}>{remaining.toLocaleString('en-US')}</td>
+                        <td className="py-2 px-2 tabular-nums">
+                          {remaining <= 0 ? '—' : s.next_due_on ? (
+                            <span className={s.next_due_on < ammanTodayISO() ? 'text-rose-600 font-bold' : 'text-slate-700'}>
+                              <bdi>{fmtDate(s.next_due_on)}</bdi>{s.next_due_on < ammanTodayISO() ? ' متأخر' : ''}
+                            </span>
+                          ) : <span className="text-slate-400">بلا موعد</span>}
+                        </td>
                         <td className="py-2 px-2 text-slate-500">{s.note ?? '—'}</td>
                         <td className="py-2 px-2">
                           {canAct && remaining > 0 && (
-                            <button onClick={() => setPaymentTarget(s)} className={`${BTN_BASE} bg-white border border-slate-200 text-slate-700`}>
-                              تسجيل دفعة
-                            </button>
+                            <div className="flex gap-1.5">
+                              <button onClick={() => setPaymentTarget(s)} className={`${BTN_BASE} bg-white border border-slate-200 text-slate-700`}>
+                                تسجيل دفعة
+                              </button>
+                              <button onClick={() => setDueTarget(s)} className={`${BTN_BASE} bg-white border border-slate-200 text-slate-700`}>
+                                تعديل الموعد
+                              </button>
+                            </div>
                           )}
                         </td>
                       </tr>
@@ -635,6 +651,17 @@ export default function PharmacyDetailPage() {
           currency={currency}
           onClose={() => setPaymentTarget(null)}
           onSaved={() => { setNotice({ kind: 'ok', text: 'تم تسجيل الدفعة' }); load(); }}
+        />
+      )}
+      {dueTarget && (
+        <DueDateModal
+          subscription={{
+            id: dueTarget.id,
+            next_due_on: dueTarget.next_due_on,
+            label: `${dueTarget.plans?.name ?? 'تجريبي'} · ${fmtDate(dueTarget.starts_on)} – ${fmtDate(dueTarget.ends_on)}`,
+          }}
+          onClose={() => setDueTarget(null)}
+          onSaved={() => { setNotice({ kind: 'ok', text: 'تم تحديث الموعد' }); load(); }}
         />
       )}
       {pwModal && (

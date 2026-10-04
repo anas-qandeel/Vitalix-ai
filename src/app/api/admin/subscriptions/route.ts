@@ -8,7 +8,7 @@ import { buildQuote, nextStart, promoError, type PlanRow, type PromoRow, PAYMENT
 // الدفعات تُسجَّل عبر record_payment/void_payment (هجرة payments_ledger) — ذرّية وتُبقي paid_amount = مجموع الدفعات.
 const ROLES = ['owner', 'support'] as const;
 const UUID = /^[0-9a-f-]{36}$/i;
-const COLS = 'id, pharmacy_id, plan_id, promotion_id, starts_on, ends_on, list_price, discount, final_price, paid_amount, status, note, created_at';
+const COLS = 'id, pharmacy_id, plan_id, promotion_id, starts_on, ends_on, list_price, discount, final_price, paid_amount, next_due_on, status, note, created_at';
 
 // ترجمة أخطاء دالتي record_payment/void_payment (raise exception بالإنجليزية) لرسائل عربية للواجهة
 function paymentError(message: string, fallback: string): { status: number; error: string } {
@@ -96,12 +96,24 @@ export async function POST(request: Request) {
 
   const quote = buildQuote({ plan, promo, startsOn, trialDays: settings?.default_trial_days ?? 60 });
   if (paidNow > quote.final_price) return NextResponse.json({ error: 'المدفوع أكبر من المبلغ المستحق' }, { status: 400 });
+
+  // موعد استحقاق الدفعة التالية: اختياري في الخادم؛ يُتحقق منه إن وُجد، ويُهمل إن سُدِّد كل المستحق
+  let nextDueOn: string | null = null;
+  if (body.next_due_on != null && body.next_due_on !== '') {
+    const d = body.next_due_on;
+    if (typeof d !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(d) || Number.isNaN(Date.parse(d))) {
+      return NextResponse.json({ error: 'تاريخ استحقاق الدفعة التالية غير صالح' }, { status: 400 });
+    }
+    if (d < ammanTodayISO()) return NextResponse.json({ error: 'تاريخ استحقاق الدفعة التالية لا يكون في الماضي' }, { status: 400 });
+    if (d < quote.starts_on) return NextResponse.json({ error: 'تاريخ الاستحقاق لا يسبق بداية الاشتراك' }, { status: 400 });
+    if (paidNow < quote.final_price) nextDueOn = d;
+  }
   if (dryRun) return NextResponse.json({ quote, plan_name: plan?.name ?? null, promo_name: promo?.name ?? null });
 
   const { data: sub, error: subErr } = await supabaseAdmin.from('subscriptions').insert({
     pharmacy_id: pharmacyId, plan_id: quote.plan_id, promotion_id: quote.promotion_id,
     starts_on: quote.starts_on, ends_on: quote.ends_on, list_price: quote.list_price, discount: quote.discount,
-    final_price: quote.final_price, paid_amount: 0, status: quote.status, note, created_by: auth.user.id,
+    final_price: quote.final_price, paid_amount: 0, next_due_on: nextDueOn, status: quote.status, note, created_by: auth.user.id,
   }).select(COLS).single();
   if (subErr) { console.error('[admin/subscriptions POST]', subErr.message); return NextResponse.json({ error: 'فشل إنشاء الاشتراك' }, { status: 500 }); }
 
@@ -119,7 +131,7 @@ export async function POST(request: Request) {
 
   // توافق: الأعمدة القديمة تعكس الاشتراك الجديد (الشاشة القديمة والحارس يقرآنها)
   const { error: phErr } = await supabaseAdmin.from('pharmacies').update({
-    status: quote.status, expiry_date: quote.ends_on, total_amount_due: quote.final_price, paid_amount: paidNow, second_payment_date: null,
+    status: quote.status, expiry_date: quote.ends_on, total_amount_due: quote.final_price, paid_amount: paidNow, second_payment_date: nextDueOn,
   }).eq('id', pharmacyId);
   if (phErr) console.error('[admin/subscriptions POST] pharmacies sync', phErr.message);
   if (promo) await supabaseAdmin.from('promotions').update({ used_count: promo.used_count + 1 }).eq('id', promo.id);

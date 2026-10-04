@@ -29,6 +29,27 @@ function readPaymentInput(body: any): { error: string } | { method: PaymentMetho
   return { method: method as PaymentMethod, paidOn };
 }
 
+// موعد استحقاق الدفعة التالية: yyyy-mm-dd صحيح، ليس في الماضي (بتوقيت عمّان)، وليس قبل بداية الاشتراك
+function validateDueDate(d: unknown, startsOn: string): { date: string | null; error: string | null } {
+  if (typeof d !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(d) || Number.isNaN(Date.parse(d))) return { date: null, error: 'تاريخ استحقاق الدفعة التالية غير صالح' };
+  if (d < ammanTodayISO()) return { date: null, error: 'تاريخ استحقاق الدفعة التالية لا يكون في الماضي' };
+  if (d < startsOn) return { date: null, error: 'تاريخ الاستحقاق لا يسبق بداية الاشتراك' };
+  return { date: d, error: null };
+}
+
+// يحفظ الموعد (أو يمسحه بـnull) ويعكسه على العمود القديم pharmacies.second_payment_date إن كان هذا أحدث اشتراك للصيدلية
+async function setDueOn(subscriptionId: string, pharmacyId: string, due: string | null): Promise<boolean> {
+  const { error } = await supabaseAdmin.from('subscriptions').update({ next_due_on: due }).eq('id', subscriptionId);
+  if (error) { console.error('[admin/subscriptions] next_due_on update', error.message); return false; }
+  const { data: self } = await supabaseAdmin.from('subscriptions').select('ends_on').eq('id', subscriptionId).single();
+  const { data: later } = await supabaseAdmin.from('subscriptions').select('id').eq('pharmacy_id', pharmacyId).gt('ends_on', self?.ends_on ?? '').limit(1);
+  if (self && (later ?? []).length === 0) {
+    const { error: phErr } = await supabaseAdmin.from('pharmacies').update({ second_payment_date: due }).eq('id', pharmacyId);
+    if (phErr) console.error('[admin/subscriptions] second_payment_date sync', phErr.message);
+  }
+  return true;
+}
+
 export async function GET(request: Request) {
   const auth = await verifyPlatformAdmin(request, ROLES);
   if (!auth.authorized) return auth.response;
@@ -153,6 +174,16 @@ export async function PATCH(request: Request) {
   if ('error' in input) return NextResponse.json({ error: input.error }, { status: 400 });
   const note = typeof body.note === 'string' && body.note.trim() ? body.note.trim().slice(0, 200) : null;
 
+  // موعد الدفعة التالية (اختياري): يُتحقق منه قبل تسجيل الدفعة كي لا تُحفظ الدفعة ثم يُرفض الطلب
+  const { data: before, error: beforeErr } = await supabaseAdmin.from('subscriptions').select('starts_on, final_price, paid_amount, pharmacy_id, next_due_on').eq('id', id).single();
+  if (beforeErr || !before) return NextResponse.json({ error: 'الاشتراك غير موجود' }, { status: 404 });
+  let requestedDue: string | null = null;
+  if (body.next_due_on != null && body.next_due_on !== '') {
+    const v = validateDueDate(body.next_due_on, before.starts_on);
+    if (v.error) return NextResponse.json({ error: v.error }, { status: 400 });
+    requestedDue = v.date;
+  }
+
   // record_payment تقفل الاشتراك وتتولى pharmacies (توافق الأعمدة القديمة) داخلياً — لا تحديث يدوي هنا
   const { data: payment, error: payErr } = await supabaseAdmin.rpc('record_payment', {
     p_subscription_id: id, p_amount: amount, p_paid_on: input.paidOn, p_method: input.method, p_note: note, p_actor: auth.user.id,
@@ -163,9 +194,51 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: errMsg }, { status });
   }
 
+  // بعد الدفعة: إن سُدِّد كل المستحق يُمسح الموعد؛ وإن بقي متبقٍ وأُرسل موعد جديد يُحفظ
+  const remainingAfter = Math.round((Number(before.final_price) - Number(before.paid_amount) - amount) * 100) / 100;
+  if (remainingAfter <= 0) {
+    if (before.next_due_on) await setDueOn(id, before.pharmacy_id, null);
+  } else if (requestedDue) {
+    await setDueOn(id, before.pharmacy_id, requestedDue);
+  }
+
   const { data, error } = await supabaseAdmin.from('subscriptions').select(COLS).eq('id', id).single();
   if (error) { console.error('[admin/subscriptions PATCH] refetch', error.message); return NextResponse.json({ error: 'فشل تسجيل الدفعة' }, { status: 500 }); }
   return NextResponse.json({ data, payment });
+}
+
+// تعديل موعد استحقاق الدفعة التالية وحده (تأجيل باتفاق) أو مسحه — owner + support، مع أثر في سجل التدقيق
+export async function PUT(request: Request) {
+  const auth = await verifyPlatformAdmin(request, ROLES);
+  if (!auth.authorized) return auth.response;
+  let body: any; try { body = await request.json(); } catch { return NextResponse.json({ error: 'طلب غير صالح' }, { status: 400 }); }
+  const id = typeof body.subscription_id === 'string' ? body.subscription_id : '';
+  if (!UUID.test(id)) return NextResponse.json({ error: 'معرّف غير صالح' }, { status: 400 });
+
+  const { data: sub, error: subErr } = await supabaseAdmin.from('subscriptions').select('id, pharmacy_id, starts_on, final_price, paid_amount, next_due_on').eq('id', id).single();
+  if (subErr || !sub) return NextResponse.json({ error: 'الاشتراك غير موجود' }, { status: 404 });
+
+  let due: string | null = null;
+  if (body.next_due_on != null && body.next_due_on !== '') {
+    const v = validateDueDate(body.next_due_on, sub.starts_on);
+    if (v.error) return NextResponse.json({ error: v.error }, { status: 400 });
+    due = v.date;
+  }
+  const left = Math.round((Number(sub.final_price) - Number(sub.paid_amount)) * 100) / 100;
+  if (due && left <= 0) return NextResponse.json({ error: 'لا متبقي على هذا الاشتراك — لا موعد له' }, { status: 400 });
+
+  if (!(await setDueOn(id, sub.pharmacy_id, due))) return NextResponse.json({ error: 'فشل تحديث الموعد' }, { status: 500 });
+
+  const { error: auditErr } = await supabaseAdmin.from('admin_audit_log').insert({
+    actor_id: auth.user.id,
+    action: 'set_next_due_on',
+    pharmacy_id: sub.pharmacy_id,
+    details: { subscription_id: id, from: sub.next_due_on, to: due, actor_role: auth.role },
+  });
+  if (auditErr) console.error('[admin/subscriptions PUT] audit log failed:', auditErr.message);
+
+  const { data } = await supabaseAdmin.from('subscriptions').select(COLS).eq('id', id).single();
+  return NextResponse.json({ data });
 }
 
 export async function DELETE(request: Request) {

@@ -12,6 +12,8 @@ import { getPharmacyId, getStaffId, getStaffName, getUserRole } from '@/lib/tena
 import { logActivity } from '@/lib/activity';
 import { normalizePhone } from '@/lib/phone';
 import { formatPharmacistName } from '@/lib/name-format';
+import StatCard from './components/StatCard';
+import { ammanTodayISO } from '@/lib/subscriptions';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -26,6 +28,7 @@ interface RealStats {
   totalPatients: number;
   totalVisits: number;
   visitsThisMonth: number;
+  visitsToday: number;
   patientsWithVisits: number;
   chronicPatientsActive: number;
 }
@@ -200,7 +203,7 @@ function BirthdayModal({ patients, pharmacyName, onClose, greetedToday, onGreet 
 export default function PharmacistDashboard() {
   const [pharmacy, setPharmacy]       = useState<PharmacyDetails | null>(null);
   const [loading, setLoading]         = useState(true);
-  const [stats, setStats]             = useState<RealStats>({ totalPatients: 0, totalVisits: 0, visitsThisMonth: 0, patientsWithVisits: 0, chronicPatientsActive: 0 });
+  const [stats, setStats]             = useState<RealStats>({ totalPatients: 0, totalVisits: 0, visitsThisMonth: 0, visitsToday: 0, patientsWithVisits: 0, chronicPatientsActive: 0 });
   const [todayAlerts, setTodayAlerts] = useState<QuickAlert[]>([]);
   const [pharmacyId, setPharmacyId]   = useState('');
   const [confirmSent, setConfirmSent] = useState<{ patientId: string; patientName: string } | null>(null);
@@ -232,13 +235,16 @@ export default function PharmacistDashboard() {
       const todayMM  = today.getMonth() + 1;
       const todayDD  = today.getDate();
 
-      const [pharmRes, patientsRes, allPatientsRes, visitsRes, monthVisitsRes, alertsRes, chronicMedsRes] = await Promise.all([
+      const [pharmRes, patientsRes, allPatientsRes, visitsRes, monthVisitsRes, todayVisitsRes, alertsRes, chronicMedsRes] = await Promise.all([
         supabase.from('pharmacies').select('id, pharmacist_name, expiry_date, status').eq('id', uid).single(),
         supabase.from('patients').select('id', { count: 'exact', head: true }).eq('pharmacy_id', uid),
         supabase.from('patients').select('id, name, phone_number, birth_date').eq('pharmacy_id', uid),
         supabase.from('visitations').select('id, patient_id', { count: 'exact' }).eq('pharmacy_id', uid),
         supabase.from('visitations').select('id', { count: 'exact', head: true }).eq('pharmacy_id', uid)
           .gte('created_at', new Date(today.getFullYear(), today.getMonth(), 1).toISOString()),
+        // فحوصات اليوم: بداية اليوم بتوقيت عمّان (الأردن على UTC+3 ثابت)، لا بتوقيت الجهاز
+        supabase.from('visitations').select('id', { count: 'exact', head: true }).eq('pharmacy_id', uid)
+          .gte('created_at', new Date(`${ammanTodayISO()}T00:00:00+03:00`).toISOString()),
         supabase.from('chronic_medications')
           .select('id, medication_name, next_refill_date, patient_id, patients!inner(name, phone_number)')
           .eq('pharmacy_id', uid).eq('status', 'active')
@@ -256,6 +262,7 @@ export default function PharmacistDashboard() {
         totalPatients:      patientsRes.count    || 0,
         totalVisits:        visitsRes.count      || 0,
         visitsThisMonth:    monthVisitsRes.count || 0,
+        visitsToday:        todayVisitsRes.count || 0,
         patientsWithVisits: uniquePatients.size,
         chronicPatientsActive: uniqueChronicPatients.size,
       });
@@ -390,6 +397,7 @@ export default function PharmacistDashboard() {
   const displayName    = staffName || pharmacy?.pharmacist_name || 'الصيدلي';
   // بادئة "د." تليق بمن يمارس الصيدلة فعلاً (مالك، صيدلاني، أو مساعد) — لا تصح على موظف
   const withPharmacistTitle = userRole === 'owner' || userRole === 'pharmacist' || userRole === 'assistant';
+  const isOwner = userRole === 'owner';
   const formattedDisplayName = formatPharmacistName(displayName, withPharmacistTitle);
 
   if (loading) return (
@@ -549,51 +557,13 @@ export default function PharmacistDashboard() {
         </div>
 
         {/* ═══ 1. لوحة الإحصائيات ═══ */}
-        <div className="fu2 grid grid-cols-2 lg:grid-cols-5 gap-px bg-slate-200 border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-
-          <div className="bg-white p-4 sm:p-5">
-            <div className="flex items-center gap-2 mb-3.5">
-              <IconUsers className="w-3.5 h-3.5 text-slate-400" />
-              <span className="text-slate-600 text-[11.5px]">إجمالي المرضى</span>
-            </div>
-            <p className="text-[28px] font-medium text-slate-900 leading-none tabular-nums">{stats.totalPatients}</p>
-          </div>
-
-          <div className="bg-white p-4 sm:p-5">
-            <div className="flex items-center gap-2 mb-3.5">
-              <IconClipboard className="w-3.5 h-3.5 text-slate-400" />
-              <span className="text-slate-600 text-[11.5px]">لهم فحوصات</span>
-            </div>
-            <div className="flex items-baseline gap-1.5">
-              <p className="text-[28px] font-medium text-slate-900 leading-none tabular-nums">{stats.patientsWithVisits}</p>
-              <span className="text-[11px] text-slate-400">من {stats.totalPatients}</span>
-            </div>
-          </div>
-
-          <div className="bg-white p-4 sm:p-5">
-            <div className="flex items-center gap-2 mb-3.5">
-              <IconVitals className="w-3.5 h-3.5 text-slate-400" />
-              <span className="text-slate-600 text-[11.5px]">فحوصات الشهر</span>
-            </div>
-            <p className="text-[28px] font-medium text-slate-900 leading-none tabular-nums">{stats.visitsThisMonth}</p>
-          </div>
-
-          <div className="bg-white p-4 sm:p-5">
-            <div className="flex items-center gap-2 mb-3.5">
-              <IconChronic className="w-3.5 h-3.5 text-slate-400" />
-              <span className="text-slate-600 text-[11.5px]">إجمالي الفحوصات</span>
-            </div>
-            <p className="text-[28px] font-medium text-slate-900 leading-none tabular-nums">{stats.totalVisits}</p>
-          </div>
-
-          <div className="bg-white p-4 sm:p-5">
-            <div className="flex items-center gap-2 mb-3.5">
-              <IconBeaker className="w-3.5 h-3.5 text-slate-400" />
-              <span className="text-slate-600 text-[11.5px]">مزمنون متابَعون</span>
-            </div>
-            <p className="text-[28px] font-medium text-slate-900 leading-none tabular-nums">{stats.chronicPatientsActive}</p>
-          </div>
-
+        <div className={`fu2 grid grid-cols-2 ${isOwner ? 'sm:grid-cols-3 lg:grid-cols-6' : ''} gap-px bg-slate-200 border border-slate-200 rounded-2xl overflow-hidden shadow-sm`}>
+          {isOwner && <StatCard href="/dashboard/patients" icon={<IconUsers className="w-3.5 h-3.5 text-slate-400" />} label="إجمالي المرضى" value={stats.totalPatients} />}
+          {isOwner && <StatCard href="/dashboard/patients" icon={<IconClipboard className="w-3.5 h-3.5 text-slate-400" />} label="لهم فحوصات" value={stats.patientsWithVisits} hint={`من ${stats.totalPatients}`} />}
+          <StatCard icon={<IconVitals className="w-3.5 h-3.5 text-slate-400" />} label="فحوصات اليوم" value={stats.visitsToday} />
+          {isOwner && <StatCard icon={<IconVitals className="w-3.5 h-3.5 text-slate-400" />} label="فحوصات الشهر" value={stats.visitsThisMonth} />}
+          {isOwner && <StatCard icon={<IconChronic className="w-3.5 h-3.5 text-slate-400" />} label="إجمالي الفحوصات" value={stats.totalVisits} />}
+          <StatCard href="/dashboard/chronic" icon={<IconBeaker className="w-3.5 h-3.5 text-slate-400" />} label="مزمنون متابَعون" value={stats.chronicPatientsActive} />
         </div>
 
         {/* ═══ 3. بطاقات التنقل ═══ */}

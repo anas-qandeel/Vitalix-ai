@@ -235,7 +235,7 @@ function AdminFormModal({ state, currentUserId, onClose, onSaved }: {
 
   return (
     <div dir="rtl" className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[70] flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl border border-slate-200 p-6" onClick={e => e.stopPropagation()}>
+      <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto overscroll-contain shadow-2xl border border-slate-200 p-6" onClick={e => e.stopPropagation()}>
         <div className="flex items-start justify-between mb-4">
           <h3 className="text-base font-bold text-slate-900">{editing ? 'تعديل المسؤول' : 'إضافة مسؤول جديد'}</h3>
           <button type="button" onClick={onClose} aria-label="إغلاق"
@@ -327,7 +327,7 @@ function AdminPasswordModal({ admin, onClose, onSaved }: {
 
   return (
     <div dir="rtl" className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[70] flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl border border-slate-200 p-6" onClick={e => e.stopPropagation()}>
+      <div className="bg-white rounded-2xl w-full max-w-sm max-h-[90vh] overflow-y-auto overscroll-contain shadow-2xl border border-slate-200 p-6" onClick={e => e.stopPropagation()}>
         <div className="flex items-start justify-between mb-4">
           <div>
             <h3 className="text-base font-bold text-slate-900">إعادة تعيين كلمة المرور</h3>

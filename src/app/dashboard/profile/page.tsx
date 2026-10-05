@@ -96,7 +96,7 @@ function StaffPinModal({ name, pin, pharmacyCode, loginSlug, phone, onClose }: {
   const waLink = phone ? `https://wa.me/${phone.replace('+', '')}?text=${encodeURIComponent(instructions)}` : null;
   return (
     <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[9999] flex items-end sm:items-center justify-center sm:p-4" onClick={onClose}>
-      <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-sm shadow-2xl border border-slate-200" onClick={e => e.stopPropagation()}>
+      <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-sm max-h-[90vh] overflow-y-auto overscroll-contain shadow-2xl border border-slate-200" onClick={e => e.stopPropagation()}>
         <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between gap-3">
           <h3 className="text-base font-semibold text-slate-900">رمز الدخول لـ {name}</h3>
           <button onClick={onClose} className="w-8 h-8 rounded-full bg-slate-50 hover:bg-slate-100 text-slate-500 flex items-center justify-center transition-colors shrink-0">✕</button>
@@ -193,7 +193,7 @@ function StaffRow({
 function RotateCodeConfirmModal({ rotating, onConfirm, onCancel }: { rotating: boolean; onConfirm: () => void; onCancel: () => void }) {
   return (
     <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[9999] flex items-end sm:items-center justify-center sm:p-4" onClick={onCancel}>
-      <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-sm shadow-2xl border border-slate-200" onClick={e => e.stopPropagation()}>
+      <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-sm max-h-[90vh] overflow-y-auto overscroll-contain shadow-2xl border border-slate-200" onClick={e => e.stopPropagation()}>
         <div className="px-6 py-5 border-b border-slate-100">
           <h3 className="text-base font-semibold text-slate-900">تبديل كود الصيدلية</h3>
         </div>
@@ -218,7 +218,7 @@ function RotateCodeConfirmModal({ rotating, onConfirm, onCancel }: { rotating: b
 function DeleteStaffModal({ name, deleting, onConfirm, onCancel }: { name: string; deleting: boolean; onConfirm: () => void; onCancel: () => void }) {
   return (
     <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[9999] flex items-end sm:items-center justify-center sm:p-4" onClick={onCancel}>
-      <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-sm shadow-2xl border border-slate-200" onClick={e => e.stopPropagation()}>
+      <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-sm max-h-[90vh] overflow-y-auto overscroll-contain shadow-2xl border border-slate-200" onClick={e => e.stopPropagation()}>
         <div className="px-6 py-5 border-b border-slate-100">
           <h3 className="text-base font-semibold text-slate-900">تأكيد الحذف</h3>
         </div>

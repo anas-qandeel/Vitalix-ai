@@ -6,6 +6,7 @@ import AppFooter from '../../components/AppFooter';
 import Disclaimer from '@/components/Disclaimer';
 import { SUPPLEMENT_CATEGORIES } from '@/lib/supplement-categories';
 import WeightPlanReport, { type WeightPlan, parseNutrition } from '@/components/WeightPlanReport';
+import ProductThumb from '@/components/ProductThumb';
 
 const CATEGORY_LABELS: Record<string, string> = Object.fromEntries(
   SUPPLEMENT_CATEGORIES.map(c => [c.code, c.labelAr])
@@ -248,6 +249,7 @@ export default function WeightPlanPage({ params }: PageProps) {
                         <div className="w-7 h-7 rounded-lg bg-slate-50 flex items-center justify-center shrink-0 mt-0.5">
                           <span className="text-[10px] font-black text-slate-400">{i + 1}</span>
                         </div>
+                        {prod.product && <ProductThumb url={prod.product.image_url} name={prod.product.product_name} />}
                         <div className="flex-1">
                           {prod.product ? (
                             <div className="flex items-center gap-2 flex-wrap">

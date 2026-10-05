@@ -10,6 +10,7 @@ import { getPharmacyId, getUserRole } from '@/lib/tenant';
 import { normalizeAr } from '@/lib/arabic';
 import { normalizePhone, displayPhone } from '@/lib/phone';
 import { useSubscriptionState, READ_ONLY_MESSAGE } from '@/lib/subscription-state';
+import { ammanTodayISO } from '@/lib/subscriptions';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -70,6 +71,20 @@ function IconArrow({ className = 'w-4 h-4' }: { className?: string }) {
 // ═══════════════════════════════════════════════════════
 const PAGE_SIZE = 30;
 
+// تصنيفات قائمة المرضى — للمالك وحده. الفلترة في الاستعلام لا في المتصفح.
+type PatientFilter = 'all' | 'with_visits' | 'month' | 'today' | 'chronic' | 'no_visits' | 'htn' | 'dm';
+const FILTERS: Array<{ v: PatientFilter; label: string }> = [
+  { v: 'all', label: 'الكل' },
+  { v: 'with_visits', label: 'لهم فحوصات' },
+  { v: 'month', label: 'فحوصات الشهر' },
+  { v: 'today', label: 'فحوصات اليوم' },
+  { v: 'chronic', label: 'مزمنون متابَعون' },
+  { v: 'no_visits', label: 'بلا فحوصات' },
+  { v: 'htn', label: 'مشخّصون بالضغط' },
+  { v: 'dm', label: 'مشخّصون بالسكري' },
+];
+const isPatientFilter = (x: string): x is PatientFilter => FILTERS.some(f => f.v === x);
+
 export default function PatientsListPage() {
   const router = useRouter();
   const { readOnly } = useSubscriptionState();
@@ -83,6 +98,8 @@ export default function PatientsListPage() {
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [filter, setFilter] = useState<PatientFilter>('all');
+  const [filterCount, setFilterCount] = useState<number | null>(null);
 
   // جلسة الصيدلية + الدور أولاً
   useEffect(() => {
@@ -91,6 +108,8 @@ export default function PatientsListPage() {
       if (!session) { router.push('/'); return; }
       const [pid, r] = await Promise.all([getPharmacyId(), getUserRole()]);
       if (!pid) return;
+      const urlFilter = new URLSearchParams(window.location.search).get('filter');
+      if (r === 'owner' && urlFilter && isPatientFilter(urlFilter)) setFilter(urlFilter);
       setPharmacyId(pid);
       setRole(r);
     })();
@@ -114,17 +133,35 @@ export default function PatientsListPage() {
     }
     fetchPatients(pharmacyId, debouncedQuery, 0, false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pharmacyId, role, debouncedQuery]);
+  }, [pharmacyId, role, debouncedQuery, filter]);
 
   // نجلب دفعة محدودة (PAGE_SIZE) فقط في كل استدعاء بدل كل المرضى دفعة واحدة
   const fetchPatients = async (pid: string, searchTerm: string, offset: number, append: boolean) => {
     append ? setLoadingMore(true) : setLoading(true);
 
+    // التصنيف للمالك وحده؛ لغيره يبقى «الكل» مهما كان الرابط
+    const f: PatientFilter = role === 'owner' ? filter : 'all';
+    const COLS = 'id, name, phone_number, birth_date, gender';
+    const dayStart = `${ammanTodayISO()}T00:00:00+03:00`;
+    const monthStart = `${ammanTodayISO().slice(0, 8)}01T00:00:00+03:00`;
+    const selectCols = (f === 'with_visits' || f === 'month' || f === 'today') ? `${COLS}, visitations!inner(id)`
+      : f === 'chronic' ? `${COLS}, chronic_medications!inner(id)`
+      : f === 'no_visits' ? `${COLS}, visitations(id)`
+      : COLS;
     let q = supabase.from('patients')
-      .select('id, name, phone_number, birth_date, gender')
+      .select(selectCols, { count: 'exact' })
       .eq('pharmacy_id', pid)
       .order('name', { ascending: true })
       .range(offset, offset + PAGE_SIZE - 1);
+    if (f === 'month') q = q.gte('visitations.created_at', monthStart);
+    if (f === 'today') q = q.gte('visitations.created_at', dayStart);
+    if (f === 'chronic') q = q.eq('chronic_medications.status', 'active');
+    if (f === 'no_visits') q = q.is('visitations', null);
+    if (f === 'htn') q = q.contains('diagnosed_conditions', ['hypertension']);
+    if (f === 'dm') q = q.contains('diagnosed_conditions', ['diabetes']);
+    // لا نحتاج من الفحوصات المرتبطة إلا وجودها: نقتصر على واحد منها لكل مريض
+    if (f === 'with_visits' || f === 'month' || f === 'today') q = q.limit(1, { referencedTable: 'visitations' });
+    if (f === 'chronic') q = q.limit(1, { referencedTable: 'chronic_medications' });
 
     const digits = searchTerm.replace(/[^0-9]/g, '');
     // بعض الأرقام مخزّنة بالصيغة المحلية القديمة (07...) وبعضها بصيغة E.164 الجديدة (962...)
@@ -138,8 +175,10 @@ export default function PatientsListPage() {
         : q.ilike('name_normalized', `%${normTerm}%`);
     }
 
-    const { data } = await q;
-    const rows = (data as PatientRow[]) || [];
+    const { data, count: matchCount, error: listErr } = await q;
+    if (listErr) console.error('[patients] list query failed:', listErr.message);
+    const rows = (data as unknown as PatientRow[]) || [];
+    setFilterCount(matchCount ?? null);
     setPatients(prev => append ? [...prev, ...rows] : rows);
     setHasMore(rows.length === PAGE_SIZE);
 
@@ -152,6 +191,13 @@ export default function PatientsListPage() {
     }
 
     append ? setLoadingMore(false) : setLoading(false);
+  };
+
+  const changeFilter = (f: PatientFilter) => {
+    setFilter(f);
+    const url = new URL(window.location.href);
+    if (f === 'all') url.searchParams.delete('filter'); else url.searchParams.set('filter', f);
+    window.history.replaceState(null, '', url.toString());
   };
 
   const handleLoadMore = () => {
@@ -189,6 +235,25 @@ export default function PatientsListPage() {
           />
         </div>
 
+        {role === 'owner' && (
+          <div className="mb-5">
+            <div className="flex flex-wrap gap-1.5">
+              {FILTERS.map(f => (
+                <button key={f.v} type="button" onClick={() => changeFilter(f.v)}
+                  className={`h-8 px-3 rounded-lg text-xs font-bold cursor-pointer ${filter === f.v ? 'bg-slate-900 text-white' : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'}`}>
+                  {f.label}
+                </button>
+              ))}
+            </div>
+            {filter !== 'all' && (
+              <p className="text-xs text-slate-500 mt-2">
+                <bdi>{filterCount ?? '...'}</bdi> مريض
+                {(filter === 'with_visits' || filter === 'month' || filter === 'today') ? ' — يظهر كل مريض مرة واحدة مهما تكرر فحصه' : ''}
+              </p>
+            )}
+          </div>
+        )}
+
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <div className="w-6 h-6 border-2 border-slate-300 border-t-slate-900 rounded-full animate-spin" />
@@ -205,7 +270,7 @@ export default function PatientsListPage() {
             <p className="text-sm font-semibold text-slate-700">
               {role !== 'owner' && !debouncedQuery
                 ? 'ابحث باسم المريض أو رقم هاتفه للوصول إلى ملفه'
-                : debouncedQuery ? 'لا نتائج مطابقة للبحث' : 'لا يوجد مرضى مسجّلون بعد'}
+                : debouncedQuery ? 'لا نتائج مطابقة للبحث' : filter !== 'all' ? 'لا مرضى في هذا التصنيف' : 'لا يوجد مرضى مسجّلون بعد'}
             </p>
           </div>
         ) : (

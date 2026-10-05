@@ -2588,6 +2588,11 @@ ${planUrl}
                                     <input type="checkbox" className="mt-0.5 accent-purple-600 shrink-0"
                                       checked={!excludedProducts.has(i)}
                                       onChange={() => setExcludedProducts(prev => { const n = new Set(prev); n.has(i) ? n.delete(i) : n.add(i); return n; })} />
+                                    {p.product?.image_url && (
+                                      <img src={p.product.image_url} alt={p.product.product_name} loading="lazy"
+                                        onError={e => { e.currentTarget.style.display = 'none'; }}
+                                        className={`w-9 h-9 rounded-lg object-cover border border-slate-200 bg-white shrink-0 ${excludedProducts.has(i) ? 'opacity-40' : ''}`} />
+                                    )}
                                     <span className={`text-xs leading-relaxed ${excludedProducts.has(i) ? 'text-slate-400 line-through' : 'text-slate-700'}`}>
                                       <span className="font-bold">{p.product?.product_name ?? CATEGORY_LABELS[p.category_code] ?? p.category_code}</span>
                                       {p.product?.price != null && <span className="text-slate-400"> · {p.product.price} د.أ</span>}

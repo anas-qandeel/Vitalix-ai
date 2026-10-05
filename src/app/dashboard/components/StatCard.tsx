@@ -10,11 +10,12 @@ type Props = {
   label: string;
   value: number | string;
   hint?: string; // نص صغير بجانب الرقم
+  note?: string; // سطر ملاحظة صغير تحت الرقم
 };
 
 const BASE = 'bg-white p-4 sm:p-5';
 
-export default function StatCard({ href, icon, label, value, hint }: Props) {
+export default function StatCard({ href, icon, label, value, hint, note }: Props) {
   const body = (
     <>
       <div className="flex items-center gap-2 mb-3.5">
@@ -26,6 +27,7 @@ export default function StatCard({ href, icon, label, value, hint }: Props) {
         <p className="text-[28px] font-medium text-slate-900 leading-none tabular-nums">{value}</p>
         {hint && <span className="text-[11px] text-slate-400">{hint}</span>}
       </div>
+      {note && <p className="text-[10px] text-slate-400 mt-1.5 leading-snug">{note}</p>}
     </>
   );
   if (!href) return <div className={BASE}>{body}</div>;

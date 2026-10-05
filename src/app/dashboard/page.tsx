@@ -559,9 +559,9 @@ export default function PharmacistDashboard() {
         {/* ═══ 1. لوحة الإحصائيات ═══ */}
         <div className={`fu2 grid grid-cols-2 ${isOwner ? 'sm:grid-cols-3 lg:grid-cols-6' : ''} gap-px bg-slate-200 border border-slate-200 rounded-2xl overflow-hidden shadow-sm`}>
           {isOwner && <StatCard href="/dashboard/patients" icon={<IconUsers className="w-3.5 h-3.5 text-slate-400" />} label="إجمالي المرضى" value={stats.totalPatients} />}
-          {isOwner && <StatCard href="/dashboard/patients" icon={<IconClipboard className="w-3.5 h-3.5 text-slate-400" />} label="لهم فحوصات" value={stats.patientsWithVisits} hint={`من ${stats.totalPatients}`} />}
-          <StatCard icon={<IconVitals className="w-3.5 h-3.5 text-slate-400" />} label="فحوصات اليوم" value={stats.visitsToday} />
-          {isOwner && <StatCard icon={<IconVitals className="w-3.5 h-3.5 text-slate-400" />} label="فحوصات الشهر" value={stats.visitsThisMonth} />}
+          {isOwner && <StatCard href="/dashboard/patients?filter=with_visits" icon={<IconClipboard className="w-3.5 h-3.5 text-slate-400" />} label="لهم فحوصات" value={stats.patientsWithVisits} hint={`من ${stats.totalPatients}`} />}
+          <StatCard href={isOwner ? '/dashboard/patients?filter=today' : undefined} note={isOwner ? 'يُعرض كل مريض مرة واحدة' : undefined} icon={<IconVitals className="w-3.5 h-3.5 text-slate-400" />} label="فحوصات اليوم" value={stats.visitsToday} />
+          {isOwner && <StatCard href="/dashboard/patients?filter=month" note="يُعرض كل مريض مرة واحدة" icon={<IconVitals className="w-3.5 h-3.5 text-slate-400" />} label="فحوصات الشهر" value={stats.visitsThisMonth} />}
           {isOwner && <StatCard icon={<IconChronic className="w-3.5 h-3.5 text-slate-400" />} label="إجمالي الفحوصات" value={stats.totalVisits} />}
           <StatCard href="/dashboard/chronic" icon={<IconBeaker className="w-3.5 h-3.5 text-slate-400" />} label="مزمنون متابَعون" value={stats.chronicPatientsActive} />
         </div>

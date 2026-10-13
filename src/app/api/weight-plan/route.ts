@@ -702,7 +702,21 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
                 // نضمن وجود كل الحقول
                 if (!parsed.personal_message)  parsed.personal_message  = '';
                 if (!parsed.smart_habits)      parsed.smart_habits      = [];
-                if (!parsed.medications_alert) parsed.medications_alert = '';
+                // تنبيه الأدوية يُبنى من الجدول المعتمد لا من النموذج: سطر لكل دواء مطابق بنصوصه المعتمدة،
+                // وفارغ حين لا يوجد تطابق. ما يعيده النموذج في هذا الحقل يُتجاهل. الجملة الختامية باسم الصيدلية.
+                {
+                  const alertLines: string[] = matchedDrugs
+                    .map(d => ({ name: d.genericAr, text: d.foods.map(f => f.patientText).filter(Boolean).join(' ') }))
+                    .filter(x => x.text)
+                    .map(x => `${x.name}: ${x.text}`);
+                  if (alertLines.length > 0) {
+                    const { data: pharmForAlert } = await supabaseAdmin.from('pharmacies').select('name, pharmacy_name').eq('id', plan.pharmacy_id).maybeSingle();
+                    const alertRawName = (pharmForAlert?.name || pharmForAlert?.pharmacy_name || '').trim();
+                    const alertPharmName = alertRawName.startsWith('صيدلية') ? alertRawName : alertRawName ? `صيدلية ${alertRawName}` : 'صيدليتك';
+                    alertLines.push(`لأي استفسار عن أدويتك اسأل ${alertPharmName}.`);
+                  }
+                  parsed.medications_alert = alertLines.join('\n');
+                }
                 if (!parsed.lab_alerts)        parsed.lab_alerts        = [];
                 if (!parsed.clinical_reasoning) parsed.clinical_reasoning = '';
 

@@ -45,3 +45,6 @@ supabase/.temp/
 recorder/
 demo-data/
 promo-tools-backup.zip
+
+# أدوات محلية لصيدلية العرض (تكتب على الإنتاج)
+scripts/copy-demo-data.mjs

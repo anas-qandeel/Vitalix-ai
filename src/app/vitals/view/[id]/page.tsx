@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState, use } from 'react';
-import { useRouter } from 'next/navigation';
-import { Storefront, HeartStraight, Drop, Barbell, WhatsappLogo, Warning, Info, Scales, ClipboardText, ArrowRight } from '@phosphor-icons/react';
+import { Storefront, HeartStraight, Drop, Barbell, WhatsappLogo, Warning, Info, Scales, ClipboardText } from '@phosphor-icons/react';
+import BackToPharmacyBar, { useFromPharmacy } from '@/components/BackToPharmacyBar';
 import AppFooter from '../../../components/AppFooter';
 import Disclaimer from '@/components/Disclaimer';
 import { detectTextDir } from '@/lib/text-direction';
@@ -175,23 +175,7 @@ export default function SingleVitalViewPage({ params }: PageProps) {
   const [recommendations, setRecommendations] = useState<RecommendationItem[]>([]);
   const [relatedWeightPlanId, setRelatedWeightPlanId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
-  const router = useRouter();
-  // الزر للصيدلاني فقط: يظهر عند الفتح من شاشة الفحوصات (?from=pharmacy)، أما رابط المريض فلا يحمل المعامل
-  const [fromPharmacy, setFromPharmacy] = useState(false);
-  useEffect(() => {
-    setFromPharmacy(new URLSearchParams(window.location.search).get('from') === 'pharmacy');
-  }, []);
-
-  const handleBackToPharmacy = () => {
-    // وصول بالتنقل الداخلي: نعود للخلف لتبقى شاشة الفحوصات بحالتها
-    if (window.history.length > 1) {
-      router.back();
-      return;
-    }
-    // نافذة/تبويب جديد بلا سجل: نحاول الإغلاق، وإن بقيت الصفحة مفتوحة ننتقل للوحة الصيدلية
-    window.close();
-    setTimeout(() => router.push('/dashboard'), 300);
-  };
+  const fromPharmacy = useFromPharmacy();
 
   const fetchVisitDetails = async () => {
     try {
@@ -294,6 +278,8 @@ export default function SingleVitalViewPage({ params }: PageProps) {
   /* ─── شاشة التحميل ─── */
   if (loading) {
     return (
+      <>
+      <BackToPharmacyBar />
       <div
         className="min-h-screen flex flex-col items-center justify-center gap-4 p-4"
         dir="rtl"
@@ -305,12 +291,15 @@ export default function SingleVitalViewPage({ params }: PageProps) {
         />
         <p style={{ color: '#64748b', fontSize: 14, fontWeight: 600 }}>جاري تحميل السجل الطبي الموثق...</p>
       </div>
+      </>
     );
   }
 
   /* ─── شاشة الخطأ ─── */
   if (errorMsg || !currentVisit) {
     return (
+      <>
+      <BackToPharmacyBar />
       <div
         className="min-h-screen flex items-center justify-center p-4"
         dir="rtl"
@@ -325,6 +314,7 @@ export default function SingleVitalViewPage({ params }: PageProps) {
           <p style={{ fontSize: 13, color: '#64748b', lineHeight: 1.6 }}>{errorMsg || 'الملخّص المطلوب غير موجود'}</p>
         </div>
       </div>
+      </>
     );
   }
 
@@ -436,24 +426,7 @@ export default function SingleVitalViewPage({ params }: PageProps) {
         .btn-whatsapp:active { transform: scale(0.97); }
       `}</style>
 
-      {fromPharmacy && (
-        <div style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-          <div style={{ maxWidth: 860, margin: '0 auto', padding: '8px 16px' }}>
-            <button
-              type="button"
-              onClick={handleBackToPharmacy}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 8, minHeight: 48, padding: '0 18px',
-                background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, cursor: 'pointer',
-                fontSize: 14, fontWeight: 700, color: '#0f172a', fontFamily: 'inherit',
-              }}
-            >
-              <ArrowRight size={18} weight="bold" aria-hidden="true" />
-              رجوع للصيدلية
-            </button>
-          </div>
-        </div>
-      )}
+      <BackToPharmacyBar />
 
       {/* ══════════════════════════════════════════════
           HEADER — gradient مع هيكل واضح الأولويات
@@ -976,7 +949,7 @@ export default function SingleVitalViewPage({ params }: PageProps) {
         </section>
 
         {relatedWeightPlanId && (
-          <a href={`/weight/${relatedWeightPlanId}`}
+          <a href={`/weight/${relatedWeightPlanId}${fromPharmacy ? '?from=pharmacy' : ''}`}
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               background: '#eff6ff', border: '1px solid #dbeafe', borderRadius: 16,

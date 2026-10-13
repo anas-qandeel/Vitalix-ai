@@ -358,7 +358,7 @@ export default function VitalsSummaryPage({ params }: { params: Promise<{ id: st
             </div>
           )}
           <div className="px-5 pb-5 pt-2">
-            <button onClick={() => window.open(`/vitals/view/${visit.id}`, '_blank')}
+            <button onClick={() => window.open(`/vitals/view/${visit.id}?from=pharmacy`, '_blank')}
               className="w-full flex items-center justify-center gap-2 py-3 bg-white border border-slate-200 text-teal-700 rounded-xl text-xs font-bold transition hover:bg-teal-50">
               عرض صفحة المريض الكاملة
             </button>
@@ -415,7 +415,7 @@ export default function VitalsSummaryPage({ params }: { params: Promise<{ id: st
               </div>
             )}
             <div className="px-5 pb-5 pt-2">
-              <button onClick={() => window.open(`/weight/${weightPlan.id}`, '_blank')}
+              <button onClick={() => window.open(`/weight/${weightPlan.id}?from=pharmacy`, '_blank')}
                 className="w-full flex items-center justify-center gap-2 py-3 bg-white border border-slate-200 text-purple-700 rounded-xl text-xs font-bold transition hover:bg-purple-50">
                 عرض خطة الوزن الكاملة
               </button>

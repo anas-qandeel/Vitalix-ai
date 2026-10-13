@@ -1004,7 +1004,7 @@ export default function PatientCardPage({ params }: PageProps) {
                                 {(v.bp_systolic || v.sugar_value) && (
                                   <>
                                     <button
-                                      onClick={(e) => { e.stopPropagation(); window.open(`/vitals/view/${v.id}`, '_blank'); }}
+                                      onClick={(e) => { e.stopPropagation(); window.open(`/vitals/view/${v.id}?from=pharmacy`, '_blank'); }}
                                       className="text-[10px] font-bold text-teal-700 bg-teal-50 border border-teal-200 px-2.5 py-1 rounded-lg hover:bg-teal-100 transition cursor-pointer">
                                       عرض القراءات
                                     </button>
@@ -1019,7 +1019,7 @@ export default function PatientCardPage({ params }: PageProps) {
                                 {matchedWeightPlan && (
                                   <>
                                     <button
-                                      onClick={(e) => { e.stopPropagation(); window.open(`/weight/${matchedWeightPlan.id}`, '_blank'); }}
+                                      onClick={(e) => { e.stopPropagation(); window.open(`/weight/${matchedWeightPlan.id}?from=pharmacy`, '_blank'); }}
                                       className="text-[10px] font-bold text-purple-700 bg-purple-50 border border-purple-200 px-2.5 py-1 rounded-lg hover:bg-purple-100 transition cursor-pointer">
                                       خطة إدارة الوزن
                                     </button>

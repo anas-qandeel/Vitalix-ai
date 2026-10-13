@@ -72,13 +72,14 @@ function IconArrow({ className = 'w-4 h-4' }: { className?: string }) {
 const PAGE_SIZE = 30;
 
 // تصنيفات قائمة المرضى — للمالك وحده. الفلترة في الاستعلام لا في المتصفح.
-type PatientFilter = 'all' | 'with_visits' | 'month' | 'today' | 'chronic' | 'no_visits' | 'htn' | 'dm';
+type PatientFilter = 'all' | 'with_visits' | 'month' | 'today' | 'chronic' | 'lost' | 'no_visits' | 'htn' | 'dm';
 const FILTERS: Array<{ v: PatientFilter; label: string }> = [
   { v: 'all', label: 'الكل' },
   { v: 'with_visits', label: 'لهم فحوصات' },
   { v: 'month', label: 'فحوصات الشهر' },
   { v: 'today', label: 'فحوصات اليوم' },
   { v: 'chronic', label: 'مزمنون متابَعون' },
+  { v: 'lost', label: 'فقدنا تواصلهم' },
   { v: 'no_visits', label: 'بلا فحوصات' },
   { v: 'htn', label: 'مشخّصون بالضغط' },
   { v: 'dm', label: 'مشخّصون بالسكري' },
@@ -146,6 +147,7 @@ export default function PatientsListPage() {
     const monthStart = `${ammanTodayISO().slice(0, 8)}01T00:00:00+03:00`;
     const selectCols = (f === 'with_visits' || f === 'month' || f === 'today') ? `${COLS}, visitations!inner(id)`
       : f === 'chronic' ? `${COLS}, chronic_medications!inner(id)`
+      : f === 'lost' ? `${COLS}, chronic_medications!inner(id), refill_tracking_pipeline!inner(id)`
       : f === 'no_visits' ? `${COLS}, visitations(id)`
       : COLS;
     let q = supabase.from('patients')
@@ -156,12 +158,21 @@ export default function PatientsListPage() {
     if (f === 'month') q = q.gte('visitations.created_at', monthStart);
     if (f === 'today') q = q.gte('visitations.created_at', dayStart);
     if (f === 'chronic') q = q.eq('chronic_medications.status', 'active');
+    // «فقدنا تواصلهم» كما في صفحة المزمنين: مرحلة archived بسطر الدفع النقدي، ولهم أدوية نشطة
+    if (f === 'lost') {
+      q = q.eq('chronic_medications.status', 'active')
+        .eq('refill_tracking_pipeline.pipeline_stage', 'archived')
+        .eq('refill_tracking_pipeline.payment_type', 'cash');
+    }
     if (f === 'no_visits') q = q.is('visitations', null);
     if (f === 'htn') q = q.contains('diagnosed_conditions', ['hypertension']);
     if (f === 'dm') q = q.contains('diagnosed_conditions', ['diabetes']);
     // لا نحتاج من الفحوصات المرتبطة إلا وجودها: نقتصر على واحد منها لكل مريض
     if (f === 'with_visits' || f === 'month' || f === 'today') q = q.limit(1, { referencedTable: 'visitations' });
     if (f === 'chronic') q = q.limit(1, { referencedTable: 'chronic_medications' });
+    if (f === 'lost') {
+      q = q.limit(1, { referencedTable: 'chronic_medications' }).limit(1, { referencedTable: 'refill_tracking_pipeline' });
+    }
 
     const digits = searchTerm.replace(/[^0-9]/g, '');
     // بعض الأرقام مخزّنة بالصيغة المحلية القديمة (07...) وبعضها بصيغة E.164 الجديدة (962...)

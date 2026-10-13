@@ -163,7 +163,7 @@ ${CATEGORY_LIST_TEXT}
     }
   ],
 
-  "medications_alert": "تنبيه غذائي دوائي يقرؤه المريض بعد مراجعة الصيدلاني. اكتب سطراً قصيراً بعربية مبسطة لكل دواء مذكور صراحة في أدويته المزمنة وله تفاعل غذائي معروف، بصيغة «اسم الدواء: ما يحدث غذائياً — ما ينفعه أن يأكله أو يتجنبه». اكتب توصية غذائية فقط، ولا تذكر تغيير جرعة ولا إيقاف دواء ولا مكمّلاً دوائياً. تجاهل أي دواء ليس له تفاعل غذائي معروف ولا تخترع تفاعلاً، ولا تعلّق على كون الدواء مزمناً أو غير مزمن. إن وُجد سطر واحد على الأقل فاختم بجملة: لأي استفسار عن أدويتك اسأل صيدليتك. وإن لم يوجد أي تفاعل غذائي معروف فاكتب نصاً فارغاً تماماً.",
+  "medications_alert": ["تنبيه غذائي دوائي يقرؤه المريض بعد مراجعة الصيدلاني: عنصر مستقل لكل دواء مذكور صراحة في أدويته المزمنة وله تفاعل غذائي معروف، بعربية مبسطة وموجزة وبصيغة «اسم الدواء: ما يحدث غذائياً — ما ينفعه أن يأكله أو يتجنبه» — توصية غذائية فقط بلا ذكر لتغيير جرعة أو إيقاف دواء أو مكمّل دوائي، وتجاهل أي دواء ليس له تفاعل غذائي معروف ولا تخترع تفاعلاً ولا تعلّق على كون الدواء مزمناً أو غير مزمن — أو مصفوفة فارغة [] إن لم يوجد أي تفاعل"],
 
   "lab_alerts": ["فحص مطلوب 1 إذا وُجد مؤشر — أو مصفوفة فارغة []"],
 
@@ -205,7 +205,7 @@ const NUTRITION_RESPONSE_SCHEMA = {
         required: ['category_code', 'reason', 'instruction'],
       },
     },
-    medications_alert:  { type: Type.STRING },
+    medications_alert:  { type: Type.ARRAY, items: { type: Type.STRING } },
     lab_alerts:         { type: Type.ARRAY, items: { type: Type.STRING } },
     clinical_reasoning: { type: Type.STRING },
   },
@@ -702,7 +702,23 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
                 // نضمن وجود كل الحقول
                 if (!parsed.personal_message)  parsed.personal_message  = '';
                 if (!parsed.smart_habits)      parsed.smart_habits      = [];
-                if (!parsed.medications_alert) parsed.medications_alert = '';
+                // الذكاء يعيد قائمة نصوص (عنصر لكل دواء): يدمجها الكود بسطر جديد ثابت فيُضمن الفصل بين الأدوية،
+                // وتُضاف الجملة الختامية من الكود لا من النموذج: مرة واحدة وفقط حين يوجد سطر دواء، وباسم الصيدلية.
+                // ويُقبل النص الواحد أيضاً إن عاد بالشكل القديم
+                {
+                  const rawAlert: unknown = (parsed as { medications_alert?: unknown }).medications_alert;
+                  const alertLines: string[] = Array.isArray(rawAlert)
+                    ? rawAlert.filter((s): s is string => typeof s === 'string' && s.trim().length > 0).map(s => s.trim())
+                    : (typeof rawAlert === 'string' && rawAlert.trim() ? [rawAlert.trim()] : []);
+                  if (alertLines.length > 0 && !alertLines.some(l => l.includes('اسأل صيدلي'))) {
+                    // اسم الصيدلية من القاعدة بقاعدة التسمية نفسها في مسار الجلب (يُترك إن بدأ بكلمة صيدلية، وإلا تُضاف)
+                    const { data: pharmForAlert } = await supabaseAdmin.from('pharmacies').select('name, pharmacy_name').eq('id', plan.pharmacy_id).maybeSingle();
+                    const alertRawName = (pharmForAlert?.name || pharmForAlert?.pharmacy_name || '').trim();
+                    const alertPharmName = alertRawName.startsWith('صيدلية') ? alertRawName : alertRawName ? `صيدلية ${alertRawName}` : 'صيدليتك';
+                    alertLines.push(`لأي استفسار عن أدويتك اسأل ${alertPharmName}.`);
+                  }
+                  parsed.medications_alert = alertLines.join('\n');
+                }
                 if (!parsed.lab_alerts)        parsed.lab_alerts        = [];
                 if (!parsed.clinical_reasoning) parsed.clinical_reasoning = '';
 

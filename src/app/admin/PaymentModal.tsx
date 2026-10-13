@@ -5,6 +5,7 @@ import { adminFetch } from '@/lib/admin-fetch';
 import Toast, { useNotice } from '@/components/Toast';
 import { X } from '@phosphor-icons/react';
 import { PAYMENT_METHODS, PAYMENT_METHOD_LABEL, ammanTodayISO } from '@/lib/subscriptions';
+import DateField from '@/components/DateField';
 
 type Props = {
   subscription: { id: string; final_price: number; paid_amount: number; next_due_on: string | null; label: string };
@@ -90,8 +91,7 @@ export default function PaymentModal({ subscription, currency, onClose, onSaved 
         {Number(amount) > 0 && Math.round((remaining - Number(amount)) * 100) / 100 > 0 && (
           <label className="block mt-3">
             <span className="block text-[11px] font-semibold text-slate-500 mb-1">تاريخ استحقاق الدفعة التالية</span>
-            <input type="date" value={dueOn} min={ammanTodayISO()} onChange={e => setDueOn(e.target.value)}
-              className="w-full h-9 px-3 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 transition text-slate-900" />
+            <DateField value={dueOn} min={ammanTodayISO()} onChange={setDueOn} />
             {!dueOn && (
               <span className="block text-[11px] text-slate-400 mt-1">{`المتبقي بعد الدفعة ${(remaining - Number(amount)).toFixed(2)} ${currency} — حدّد موعد سداده`}</span>
             )}
@@ -100,8 +100,7 @@ export default function PaymentModal({ subscription, currency, onClose, onSaved 
 
         <label className="block mt-3">
           <span className="block text-[11px] font-semibold text-slate-500 mb-1">تاريخ الدفعة</span>
-          <input type="date" value={paidOn} max={ammanTodayISO()} onChange={e => setPaidOn(e.target.value)}
-            className="w-full h-9 px-3 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 transition text-slate-900" />
+          <DateField value={paidOn} max={ammanTodayISO()} onChange={setPaidOn} />
         </label>
 
         <label className="block mt-3">

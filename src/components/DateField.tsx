@@ -20,6 +20,7 @@ const DEFAULT_CLASS =
 export default function DateField({ value, onChange, min, max, className, placeholder = 'DD/MM/YYYY' }: Props) {
   const [text, setText] = useState(() => formatIsoAsDmy(value));
   const pickerRef = useRef<HTMLInputElement>(null);
+  const [touched, setTouched] = useState(false);
 
   // قيمة تغيّرت من الخارج (تحميل بيانات، تفريغ نموذج): تُعرض. أما ما كتبه المستخدم نفسه فلا يُستبدل.
   // تُضبط الحالة أثناء الرسم لا داخل effect (النمط الموصى به في React، ويتفادى رسماً ثانياً).
@@ -31,11 +32,13 @@ export default function DateField({ value, onChange, min, max, className, placeh
 
   const iso = parseDmyToIso(text);
   const impossible = text.length === 10 && !iso;
+  const incomplete = touched && text.length > 0 && text.length < 10;
   const outOfRange = !!iso && ((!!min && iso < min) || (!!max && iso > max));
 
   const handleText = (raw: string) => {
     const next = maskTypedDate(text, raw);
     setText(next);
+    setTouched(false);
     onChange(parseDmyToIso(next));
   };
 
@@ -46,7 +49,7 @@ export default function DateField({ value, onChange, min, max, className, placeh
   };
 
   return (
-    <>
+    <div>
       <div className="relative flex items-stretch gap-1.5">
         <input
           type="text"
@@ -57,6 +60,7 @@ export default function DateField({ value, onChange, min, max, className, placeh
           value={text}
           placeholder={placeholder}
           onChange={e => handleText(e.target.value)}
+          onBlur={() => setTouched(true)}
           className={`${className ?? DEFAULT_CLASS} flex-1 min-w-0 text-right tabular-nums ${impossible || outOfRange ? 'ring-1 ring-rose-400' : ''}`}
         />
         <button
@@ -81,6 +85,7 @@ export default function DateField({ value, onChange, min, max, className, placeh
         />
       </div>
       {impossible && <p className="text-[11px] text-rose-600 mt-1">تاريخ غير صالح</p>}
-    </>
+      {incomplete && <p className="text-[11px] text-slate-400 mt-1">أكمل التاريخ: يوم/شهر/سنة</p>}
+    </div>
   );
 }

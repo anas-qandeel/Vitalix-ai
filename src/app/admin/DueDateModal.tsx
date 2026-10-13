@@ -5,6 +5,7 @@ import { adminFetch } from '@/lib/admin-fetch';
 import Toast, { useNotice } from '@/components/Toast';
 import { X } from '@phosphor-icons/react';
 import { ammanTodayISO } from '@/lib/subscriptions';
+import DateField from '@/components/DateField';
 
 type Props = {
   subscription: { id: string; next_due_on: string | null; label: string };
@@ -59,8 +60,7 @@ export default function DueDateModal({ subscription, onClose, onSaved }: Props) 
 
         <label className="block">
           <span className="block text-[11px] font-semibold text-slate-500 mb-1">تاريخ استحقاق الدفعة التالية</span>
-          <input type="date" value={dueOn} min={ammanTodayISO()} onChange={e => setDueOn(e.target.value)}
-            className="w-full h-9 px-3 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 transition text-slate-900" />
+          <DateField value={dueOn} min={ammanTodayISO()} onChange={setDueOn} />
         </label>
 
         <div className="grid grid-cols-2 gap-3 mt-5">

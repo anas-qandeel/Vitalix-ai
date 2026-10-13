@@ -5,6 +5,7 @@ import { adminFetch } from '@/lib/admin-fetch';
 import Toast, { useNotice } from '@/components/Toast';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { Plus, PencilSimple, Trash } from '@phosphor-icons/react';
+import DateField from '@/components/DateField';
 
 type Settings = { default_trial_days: number; grace_days: number; warn_days_before: number; currency: string };
 type Plan = { id: string; name: string; price: number; duration_months: number; free_months: number; seats_limit: number | null; lifetime_price: boolean; note: string | null; is_active: boolean; subscriptions_count: number };
@@ -372,14 +373,12 @@ export default function PlansPage() {
                     </label>
                     <label className="block">
                       <span className="block text-[11px] font-semibold text-slate-500 mb-1">صالح من</span>
-                      <input type="date" value={editingPromo.valid_from ?? ''} placeholder="من تاريخ"
-                        onChange={e => setEditingPromo({ ...editingPromo, valid_from: e.target.value })}
+                      <DateField value={editingPromo.valid_from ?? ''} onChange={iso => setEditingPromo({ ...editingPromo, valid_from: iso })}
                         className="h-9 px-3 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 transition text-slate-900 w-full" />
                     </label>
                     <label className="block">
                       <span className="block text-[11px] font-semibold text-slate-500 mb-1">صالح إلى</span>
-                      <input type="date" value={editingPromo.valid_to ?? ''} placeholder="إلى تاريخ"
-                        onChange={e => setEditingPromo({ ...editingPromo, valid_to: e.target.value })}
+                      <DateField value={editingPromo.valid_to ?? ''} onChange={iso => setEditingPromo({ ...editingPromo, valid_to: iso })}
                         className="h-9 px-3 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 transition text-slate-900 w-full" />
                     </label>
                     <label className="block">

@@ -5,6 +5,7 @@ import { adminFetch } from '@/lib/admin-fetch';
 import Toast, { useNotice } from '@/components/Toast';
 import { X } from '@phosphor-icons/react';
 import { PAYMENT_METHODS, PAYMENT_METHOD_LABEL, ammanTodayISO } from '@/lib/subscriptions';
+import DateField from '@/components/DateField';
 
 type Plan = { id: string; name: string; price: number; duration_months: number; free_months: number; seats_limit: number | null; lifetime_price: boolean; is_active: boolean; subscriptions_count: number };
 type Promo = { id: string; name: string; discount_type: 'percent' | 'amount'; discount_value: number; code: string | null; is_active: boolean };
@@ -111,6 +112,9 @@ export default function SubscriptionModal({ pharmacy, onClose, onSaved }: Props)
   const handleConfirm = async () => {
     if (!quote || saving || !planId) return;
     if (needsDue && !dueOn) return;
+    if (needsDue && dueOn < ammanTodayISO()) { setNotice({ kind: 'err', text: 'موعد الدفعة التالية لا يكون في الماضي' }); return; }
+    if (Number(paidNow) > 0 && payDate > ammanTodayISO()) { setNotice({ kind: 'err', text: 'تاريخ الدفعة لا يكون في المستقبل' }); return; }
+    if (Number(paidNow) > 0 && !payDate) { setNotice({ kind: 'err', text: 'حدّد تاريخ الدفعة' }); return; }
     setSaving(true);
     const res = await adminFetch('/api/admin/subscriptions', {
       method: 'POST',
@@ -186,8 +190,7 @@ export default function SubscriptionModal({ pharmacy, onClose, onSaved }: Props)
 
           <label className="block">
             <span className="block text-[11px] font-semibold text-slate-500 mb-1">تاريخ البداية</span>
-            <input type="date" value={startsOn} onChange={e => setStartsOn(e.target.value)}
-              className="w-full h-9 px-3 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 transition text-slate-900" />
+            <DateField value={startsOn} onChange={setStartsOn} />
             <span className="block text-[11px] text-slate-400 mt-1">اتركه فارغاً ليبدأ من اليوم أو من نهاية الاشتراك الحالي</span>
           </label>
 
@@ -200,8 +203,7 @@ export default function SubscriptionModal({ pharmacy, onClose, onSaved }: Props)
           {needsDue && (
             <label className="block">
               <span className="block text-[11px] font-semibold text-slate-500 mb-1">تاريخ استحقاق الدفعة التالية</span>
-              <input type="date" value={dueOn} min={ammanTodayISO()} onChange={e => setDueOn(e.target.value)}
-                className="w-full h-9 px-3 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 transition text-slate-900" />
+              <DateField value={dueOn} min={ammanTodayISO()} onChange={setDueOn} />
               {!dueOn && quote && (
                 <span className="block text-[11px] text-slate-400 mt-1">{`المتبقي بعد الدفعة ${(quote.final_price - Number(paidNow || 0)).toFixed(2)} ${currency} — حدّد موعد سداده`}</span>
               )}
@@ -223,8 +225,7 @@ export default function SubscriptionModal({ pharmacy, onClose, onSaved }: Props)
 
               <label className="block">
                 <span className="block text-[11px] font-semibold text-slate-500 mb-1">تاريخ الدفعة</span>
-                <input type="date" value={payDate} max={ammanTodayISO()} onChange={e => setPayDate(e.target.value)}
-                  className="w-full h-9 px-3 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 transition text-slate-900" />
+                <DateField value={payDate} max={ammanTodayISO()} onChange={setPayDate} />
               </label>
             </>
           )}
@@ -262,7 +263,7 @@ export default function SubscriptionModal({ pharmacy, onClose, onSaved }: Props)
             className="h-10 flex items-center justify-center rounded-lg bg-white border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50 transition-all shadow-sm cursor-pointer">
             إلغاء
           </button>
-          <button type="button" onClick={handleConfirm} disabled={!quote || saving || !planId || (Number(paidNow) > 0 && !payMethod) || (needsDue && !dueOn)}
+          <button type="button" onClick={handleConfirm} disabled={!quote || saving || !planId || (Number(paidNow) > 0 && !payMethod) || (needsDue && !dueOn) || (Number(paidNow) > 0 && !payDate)}
             className="h-10 flex items-center justify-center rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-all">
             تأكيد الاشتراك
           </button>

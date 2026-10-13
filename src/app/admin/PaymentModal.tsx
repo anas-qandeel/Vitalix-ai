@@ -24,6 +24,8 @@ export default function PaymentModal({ subscription, currency, onClose, onSaved 
   const [note, setNote] = useState('');
   const [dueOn, setDueOn] = useState(subscription.next_due_on && subscription.next_due_on >= ammanTodayISO() ? subscription.next_due_on : '');
   const [saving, setSaving] = useState(false);
+  const [paidInvalid, setPaidInvalid] = useState(false);
+  const [dueInvalid, setDueInvalid] = useState(false);
 
   const remaining = Math.round((Number(subscription.final_price) - Number(subscription.paid_amount)) * 100) / 100;
 
@@ -33,8 +35,11 @@ export default function PaymentModal({ subscription, currency, onClose, onSaved 
     if (!Number.isFinite(n) || n <= 0) { setNotice({ kind: 'err', text: 'مبلغ الدفعة غير صالح' }); return; }
     if (n > remaining) { setNotice({ kind: 'err', text: `الدفعة تتجاوز المتبقي (${remaining} ${currency})` }); return; }
     if (!method) { setNotice({ kind: 'err', text: 'اختر طريقة الدفع' }); return; }
-    if (!paidOn || paidOn > ammanTodayISO()) { setNotice({ kind: 'err', text: 'تاريخ الدفعة لا يكون في المستقبل' }); return; }
+    if (paidInvalid) { setNotice({ kind: 'err', text: 'أكمل تاريخ الدفعة (يوم/شهر/سنة)' }); return; }
+    if (!paidOn) { setNotice({ kind: 'err', text: 'حدّد تاريخ الدفعة' }); return; }
+    if (paidOn > ammanTodayISO()) { setNotice({ kind: 'err', text: 'تاريخ الدفعة لا يكون في المستقبل' }); return; }
     const leftAfter = Math.round((remaining - n) * 100) / 100;
+    if (leftAfter > 0 && dueInvalid) { setNotice({ kind: 'err', text: 'أكمل موعد الدفعة التالية (يوم/شهر/سنة) أو امسحه' }); return; }
     if (leftAfter > 0 && dueOn && dueOn < ammanTodayISO()) { setNotice({ kind: 'err', text: 'موعد الدفعة التالية لا يكون في الماضي' }); return; }
 
     setSaving(true);
@@ -91,7 +96,7 @@ export default function PaymentModal({ subscription, currency, onClose, onSaved 
         {Number(amount) > 0 && Math.round((remaining - Number(amount)) * 100) / 100 > 0 && (
           <label className="block mt-3">
             <span className="block text-[11px] font-semibold text-slate-500 mb-1">تاريخ استحقاق الدفعة التالية</span>
-            <DateField value={dueOn} min={ammanTodayISO()} onChange={setDueOn} />
+            <DateField value={dueOn} min={ammanTodayISO()} onChange={setDueOn} onInvalidChange={setDueInvalid} />
             {!dueOn && (
               <span className="block text-[11px] text-slate-400 mt-1">{`المتبقي بعد الدفعة ${(remaining - Number(amount)).toFixed(2)} ${currency} — حدّد موعد سداده`}</span>
             )}
@@ -100,7 +105,7 @@ export default function PaymentModal({ subscription, currency, onClose, onSaved 
 
         <label className="block mt-3">
           <span className="block text-[11px] font-semibold text-slate-500 mb-1">تاريخ الدفعة</span>
-          <DateField value={paidOn} max={ammanTodayISO()} onChange={setPaidOn} />
+          <DateField value={paidOn} max={ammanTodayISO()} onChange={setPaidOn} onInvalidChange={setPaidInvalid} />
         </label>
 
         <label className="block mt-3">

@@ -42,6 +42,8 @@ export default function SubscriptionModal({ pharmacy, onClose, onSaved }: Props)
   const [payDate, setPayDate] = useState(ammanTodayISO());
   const [note, setNote] = useState('');
   const [dueOn, setDueOn] = useState('');
+  const [payInvalid, setPayInvalid] = useState(false);
+  const [dueInvalid, setDueInvalid] = useState(false);
 
   const [quote, setQuote] = useState<Quote | null>(null);
   const [quoting, setQuoting] = useState(false);
@@ -112,6 +114,8 @@ export default function SubscriptionModal({ pharmacy, onClose, onSaved }: Props)
   const handleConfirm = async () => {
     if (!quote || saving || !planId) return;
     if (needsDue && !dueOn) return;
+    if (needsDue && dueInvalid) { setNotice({ kind: 'err', text: 'أكمل موعد الدفعة التالية (يوم/شهر/سنة)' }); return; }
+    if (Number(paidNow) > 0 && payInvalid) { setNotice({ kind: 'err', text: 'أكمل تاريخ الدفعة (يوم/شهر/سنة)' }); return; }
     if (needsDue && dueOn < ammanTodayISO()) { setNotice({ kind: 'err', text: 'موعد الدفعة التالية لا يكون في الماضي' }); return; }
     if (Number(paidNow) > 0 && payDate > ammanTodayISO()) { setNotice({ kind: 'err', text: 'تاريخ الدفعة لا يكون في المستقبل' }); return; }
     if (Number(paidNow) > 0 && !payDate) { setNotice({ kind: 'err', text: 'حدّد تاريخ الدفعة' }); return; }
@@ -203,7 +207,7 @@ export default function SubscriptionModal({ pharmacy, onClose, onSaved }: Props)
           {needsDue && (
             <label className="block">
               <span className="block text-[11px] font-semibold text-slate-500 mb-1">تاريخ استحقاق الدفعة التالية</span>
-              <DateField value={dueOn} min={ammanTodayISO()} onChange={setDueOn} />
+              <DateField value={dueOn} min={ammanTodayISO()} onChange={setDueOn} onInvalidChange={setDueInvalid} />
               {!dueOn && quote && (
                 <span className="block text-[11px] text-slate-400 mt-1">{`المتبقي بعد الدفعة ${(quote.final_price - Number(paidNow || 0)).toFixed(2)} ${currency} — حدّد موعد سداده`}</span>
               )}
@@ -225,7 +229,7 @@ export default function SubscriptionModal({ pharmacy, onClose, onSaved }: Props)
 
               <label className="block">
                 <span className="block text-[11px] font-semibold text-slate-500 mb-1">تاريخ الدفعة</span>
-                <DateField value={payDate} max={ammanTodayISO()} onChange={setPayDate} />
+                <DateField value={payDate} max={ammanTodayISO()} onChange={setPayDate} onInvalidChange={setPayInvalid} />
               </label>
             </>
           )}
@@ -263,7 +267,7 @@ export default function SubscriptionModal({ pharmacy, onClose, onSaved }: Props)
             className="h-10 flex items-center justify-center rounded-lg bg-white border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50 transition-all shadow-sm cursor-pointer">
             إلغاء
           </button>
-          <button type="button" onClick={handleConfirm} disabled={!quote || saving || !planId || (Number(paidNow) > 0 && !payMethod) || (needsDue && !dueOn) || (Number(paidNow) > 0 && !payDate)}
+          <button type="button" onClick={handleConfirm} disabled={!quote || saving || !planId || (Number(paidNow) > 0 && !payMethod) || (needsDue && !dueOn) || (Number(paidNow) > 0 && !payDate) || (needsDue && dueInvalid) || (Number(paidNow) > 0 && payInvalid)}
             className="h-10 flex items-center justify-center rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-all">
             تأكيد الاشتراك
           </button>

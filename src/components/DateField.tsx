@@ -11,13 +11,14 @@ type Props = {
   max?: string;
   className?: string; // أصناف حقل النص (نفس أصناف الحقول القديمة)
   placeholder?: string;
+  onInvalidChange?: (invalid: boolean) => void; // true حين يكون الإدخال غير فارغ وغير صالح (ناقص أو مستحيل)
 };
 
 const DEFAULT_CLASS =
   'w-full h-9 px-3 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 transition text-slate-900';
 
 // حقل تاريخ يوم/شهر/سنة: الكتابة dd/mm/yyyy بشرطات تلقائية وأرقام عربية مقبولة، والقيمة المُرجعة yyyy-mm-dd.
-export default function DateField({ value, onChange, min, max, className, placeholder = 'DD/MM/YYYY' }: Props) {
+export default function DateField({ value, onChange, min, max, className, placeholder = 'DD/MM/YYYY', onInvalidChange }: Props) {
   const [text, setText] = useState(() => formatIsoAsDmy(value));
   const pickerRef = useRef<HTMLInputElement>(null);
   const [touched, setTouched] = useState(false);
@@ -38,6 +39,7 @@ export default function DateField({ value, onChange, min, max, className, placeh
   const handleText = (raw: string) => {
     const next = maskTypedDate(text, raw);
     setText(next);
+    onInvalidChange?.(next.length > 0 && !parseDmyToIso(next));
     setTouched(false);
     onChange(parseDmyToIso(next));
   };
@@ -80,7 +82,7 @@ export default function DateField({ value, onChange, min, max, className, placeh
           value={formatIsoAsDmy(value) ? value.slice(0, 10) : ''}
           min={min}
           max={max}
-          onChange={e => { onChange(e.target.value); setText(formatIsoAsDmy(e.target.value)); }}
+          onChange={e => { onChange(e.target.value); setText(formatIsoAsDmy(e.target.value)); onInvalidChange?.(false); }}
           className="absolute inset-0 opacity-0 pointer-events-none"
         />
       </div>

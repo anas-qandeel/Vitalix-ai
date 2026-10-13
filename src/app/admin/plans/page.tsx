@@ -40,6 +40,7 @@ export default function PlansPage() {
   const [promos, setPromos] = useState<Promo[]>([]);
   const [editingPromo, setEditingPromo] = useState<Partial<Promo> | null>(null);
   const [savingPromo, setSavingPromo] = useState(false);
+  const [promoDateInvalid, setPromoDateInvalid] = useState({ from: false, to: false });
 
   const loadAll = async () => {
     setLoading(true);
@@ -125,6 +126,7 @@ export default function PlansPage() {
 
   const savePromo = async () => {
     if (!editingPromo || savingPromo) return;
+    if (promoDateInvalid.from || promoDateInvalid.to) { setNotice({ kind: 'err', text: 'أكمل تاريخ العرض (يوم/شهر/سنة) أو امسحه' }); return; }
     setSavingPromo(true);
     const isEdit = !!editingPromo.id;
     const res = await adminFetch('/api/admin/promotions', {
@@ -330,7 +332,7 @@ export default function PlansPage() {
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-sm font-bold text-slate-900">العروض</h2>
                 <button type="button"
-                  onClick={() => setEditingPromo({ name: '', discount_type: 'percent', discount_value: 0, code: '', valid_from: '', valid_to: '', max_uses: null, is_active: true })}
+                  onClick={() => { setPromoDateInvalid({ from: false, to: false }); setEditingPromo({ name: '', discount_type: 'percent', discount_value: 0, code: '', valid_from: '', valid_to: '', max_uses: null, is_active: true }); }}
                   className="h-8 px-3 flex items-center gap-1.5 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold cursor-pointer transition-all">
                   <Plus size={14} weight="bold" aria-hidden="true" />
                   عرض جديد
@@ -373,12 +375,12 @@ export default function PlansPage() {
                     </label>
                     <label className="block">
                       <span className="block text-[11px] font-semibold text-slate-500 mb-1">صالح من</span>
-                      <DateField value={editingPromo.valid_from ?? ''} onChange={iso => setEditingPromo({ ...editingPromo, valid_from: iso })}
+                      <DateField value={editingPromo.valid_from ?? ''} onChange={iso => setEditingPromo({ ...editingPromo, valid_from: iso })} onInvalidChange={v => setPromoDateInvalid(p => ({ ...p, from: v }))}
                         className="h-9 px-3 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 transition text-slate-900 w-full" />
                     </label>
                     <label className="block">
                       <span className="block text-[11px] font-semibold text-slate-500 mb-1">صالح إلى</span>
-                      <DateField value={editingPromo.valid_to ?? ''} onChange={iso => setEditingPromo({ ...editingPromo, valid_to: iso })}
+                      <DateField value={editingPromo.valid_to ?? ''} onChange={iso => setEditingPromo({ ...editingPromo, valid_to: iso })} onInvalidChange={v => setPromoDateInvalid(p => ({ ...p, to: v }))}
                         className="h-9 px-3 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 transition text-slate-900 w-full" />
                     </label>
                     <label className="block">
@@ -437,7 +439,7 @@ export default function PlansPage() {
                       )}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <button type="button" onClick={() => setEditingPromo(promo)} aria-label="تعديل"
+                      <button type="button" onClick={() => { setPromoDateInvalid({ from: false, to: false }); setEditingPromo(promo); }} aria-label="تعديل"
                         className="text-slate-500 hover:text-slate-900 cursor-pointer">
                         <PencilSimple size={14} weight="bold" aria-hidden="true" />
                       </button>

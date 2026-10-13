@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState, use } from 'react';
-import { Storefront, HeartStraight, Drop, Barbell, WhatsappLogo, Warning, Info, Scales, ClipboardText } from '@phosphor-icons/react';
+import { useRouter } from 'next/navigation';
+import { Storefront, HeartStraight, Drop, Barbell, WhatsappLogo, Warning, Info, Scales, ClipboardText, ArrowRight } from '@phosphor-icons/react';
 import AppFooter from '../../../components/AppFooter';
 import Disclaimer from '@/components/Disclaimer';
 import { detectTextDir } from '@/lib/text-direction';
@@ -174,6 +175,23 @@ export default function SingleVitalViewPage({ params }: PageProps) {
   const [recommendations, setRecommendations] = useState<RecommendationItem[]>([]);
   const [relatedWeightPlanId, setRelatedWeightPlanId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
+  const router = useRouter();
+  // الزر للصيدلاني فقط: يظهر عند الفتح من شاشة الفحوصات (?from=pharmacy)، أما رابط المريض فلا يحمل المعامل
+  const [fromPharmacy, setFromPharmacy] = useState(false);
+  useEffect(() => {
+    setFromPharmacy(new URLSearchParams(window.location.search).get('from') === 'pharmacy');
+  }, []);
+
+  const handleBackToPharmacy = () => {
+    // وصول بالتنقل الداخلي: نعود للخلف لتبقى شاشة الفحوصات بحالتها
+    if (window.history.length > 1) {
+      router.back();
+      return;
+    }
+    // نافذة/تبويب جديد بلا سجل: نحاول الإغلاق، وإن بقيت الصفحة مفتوحة ننتقل للوحة الصيدلية
+    window.close();
+    setTimeout(() => router.push('/dashboard'), 300);
+  };
 
   const fetchVisitDetails = async () => {
     try {
@@ -417,6 +435,25 @@ export default function SingleVitalViewPage({ params }: PageProps) {
         .btn-whatsapp:hover { background: #15803d; }
         .btn-whatsapp:active { transform: scale(0.97); }
       `}</style>
+
+      {fromPharmacy && (
+        <div style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+          <div style={{ maxWidth: 860, margin: '0 auto', padding: '8px 16px' }}>
+            <button
+              type="button"
+              onClick={handleBackToPharmacy}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 8, minHeight: 48, padding: '0 18px',
+                background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, cursor: 'pointer',
+                fontSize: 14, fontWeight: 700, color: '#0f172a', fontFamily: 'inherit',
+              }}
+            >
+              <ArrowRight size={18} weight="bold" aria-hidden="true" />
+              رجوع للصيدلية
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ══════════════════════════════════════════════
           HEADER — gradient مع هيكل واضح الأولويات

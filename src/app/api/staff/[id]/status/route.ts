@@ -48,7 +48,7 @@ export async function PATCH(
 
   const { data: staff } = await supabaseAdmin
     .from('pharmacy_staff')
-    .select('id, name, role, pharmacy_id, user_id')
+    .select('id, name, role, pharmacy_id, user_id, is_active')
     .eq('id', id)
     .single();
 
@@ -70,6 +70,27 @@ export async function PATCH(
     if (banErr) {
       console.error('[staff-status] ban failed:', banErr);
       return NextResponse.json({ error: 'تعذّر إبطال جلسة الموظف' }, { status: 500 });
+    }
+  }
+
+  // فرض الحد الأقصى عند التفعيل كما عند الإضافة (عدّ غير المالك المفعَّلين) — قبل رفع الحظر عن الحساب
+  if (isActive === true && staff.is_active !== true) {
+    const { data: phLimit } = await supabaseAdmin
+      .from('pharmacies')
+      .select('max_staff')
+      .eq('id', auth.pharmacyId)
+      .single();
+    const { count: activeNow } = await supabaseAdmin
+      .from('pharmacy_staff')
+      .select('id', { count: 'exact', head: true })
+      .eq('pharmacy_id', auth.pharmacyId)
+      .eq('is_active', true)
+      .neq('role', 'owner');
+    if (phLimit && (activeNow || 0) >= phLimit.max_staff) {
+      return NextResponse.json(
+        { error: `بلغتَ الحد الأقصى (${phLimit.max_staff} موظفين). عطّل موظفاً آخر أولاً ثم أعد التفعيل.` },
+        { status: 409 }
+      );
     }
   }
 

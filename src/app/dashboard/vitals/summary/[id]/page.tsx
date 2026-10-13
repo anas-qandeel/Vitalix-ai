@@ -329,7 +329,7 @@ export default function VitalsSummaryPage({ params }: { params: Promise<{ id: st
               {visit.medications_alert && (
                 <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                   <p className="text-[11px] font-bold text-amber-700 mb-0.5">تنبيه الأدوية</p>
-                  <p className="text-[13px] text-amber-800 leading-relaxed">{visit.medications_alert}</p>
+                  <p className="text-[13px] text-amber-800 leading-relaxed whitespace-pre-line">{visit.medications_alert}</p>
                 </div>
               )}
               {visit.recommendations_snapshot && visit.recommendations_snapshot.length > 0 && (

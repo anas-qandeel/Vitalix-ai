@@ -287,7 +287,7 @@ export default function WeightPlanReport({ plan, nutrition, formatDate, animate 
                 <p className="text-sm font-bold text-slate-900">تنبيه مهم بخصوص أدويتك</p>
               </div>
               <div className="px-5 py-4">
-                <p className="text-sm text-slate-700 leading-relaxed">{nutrition.medications_alert}</p>
+                <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">{nutrition.medications_alert}</p>
               </div>
             </div>
           )}

@@ -555,6 +555,15 @@ ${planUrl}
       try {
         const { patient, history, searchQuery: savedQuery, weightPlanId: savedWeightPlanId, weightValue: savedWeightValue, latestVisitId: savedVisitId } = JSON.parse(saved);
         setCurrentPatient(patient);
+        // الأدوية المزمنة لا تُحفظ في الذاكرة المؤقتة: تُجلب من جديد عند الاستعادة (كما في اختيار المريض)
+        (async () => {
+          try {
+            const pidRestore = await getPharmacyId();
+            if (!pidRestore) return;
+            const { data: medsRestore } = await supabase.from('chronic_medications').select('id, medication_name, daily_dosage, dosage_unit').eq('pharmacy_id', pidRestore).eq('patient_id', patient.id).eq('status', 'active');
+            setPatientMedications(medsRestore || []);
+          } catch { }
+        })();
         setPatientHistory(history || []);
         if (savedVisitId) {
           setLatestVisitId(savedVisitId);
@@ -2203,7 +2212,7 @@ ${planUrl}
                         {latestMedicationsAlert && (
                           <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                             <p className="text-[11px] font-bold text-amber-700 mb-0.5">تنبيه الأدوية</p>
-                            <p className="text-[13px] text-amber-800 leading-relaxed">{latestMedicationsAlert}</p>
+                            <p className="text-[13px] text-amber-800 leading-relaxed whitespace-pre-line">{latestMedicationsAlert}</p>
                           </div>
                         )}
                         {patientSafetyLine && (
@@ -2570,7 +2579,7 @@ ${planUrl}
                           {weightSummary.medications_alert && (
                             <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                               <p className="text-[9px] font-bold text-amber-700 mb-0.5">تنبيه الأدوية</p>
-                              <p className="text-xs text-amber-800 leading-relaxed">{weightSummary.medications_alert}</p>
+                              <p className="text-xs text-amber-800 leading-relaxed whitespace-pre-line">{weightSummary.medications_alert}</p>
                             </div>
                           )}
 
@@ -2852,7 +2861,7 @@ ${weightPlanUrl}
                     <p className="text-[11px] text-slate-600 leading-relaxed bg-slate-50 border border-slate-100 p-3 rounded-lg">{v.pharmacist_summary}</p>
                   )}
                   {v.medications_alert && (
-                    <p className="text-[11px] text-amber-800 leading-relaxed bg-amber-50 border border-amber-200 p-3 rounded-lg"><Warning size={14} weight="bold" className="inline-block ml-1 align-[-2px]" aria-hidden="true" /> {v.medications_alert}</p>
+                    <p className="text-[11px] text-amber-800 leading-relaxed whitespace-pre-line bg-amber-50 border border-amber-200 p-3 rounded-lg"><Warning size={14} weight="bold" className="inline-block ml-1 align-[-2px]" aria-hidden="true" /> {v.medications_alert}</p>
                   )}
                 </div>
               ))}

@@ -22,6 +22,7 @@ import VitalsThinkingOverlay from '@/components/VitalsThinkingOverlay';
 import { classifyBp, classifySugar, classifyHeartRate, overallVisitStatus } from '@/lib/vitals-classify';
 import AddPatientForm from '@/components/AddPatientForm';
 import { useSubscriptionState, READ_ONLY_MESSAGE } from '@/lib/subscription-state';
+import ProductThumb from '@/components/ProductThumb';
 
 const CATEGORY_LABELS: Record<string, string> = Object.fromEntries(SUPPLEMENT_CATEGORIES.map(c => [c.code, c.labelAr]));
 
@@ -2607,9 +2608,9 @@ ${planUrl}
                                       checked={!excludedProducts.has(i)}
                                       onChange={() => setExcludedProducts(prev => { const n = new Set(prev); n.has(i) ? n.delete(i) : n.add(i); return n; })} />
                                     {p.product?.image_url && (
-                                      <img src={p.product.image_url} alt={p.product.product_name} loading="lazy"
-                                        onError={e => { e.currentTarget.style.display = 'none'; }}
-                                        className={`w-9 h-9 rounded-lg object-cover border border-slate-200 bg-white shrink-0 ${excludedProducts.has(i) ? 'opacity-40' : ''}`} />
+                                      <span className={`shrink-0 ${excludedProducts.has(i) ? 'opacity-40' : ''}`}>
+                                        <ProductThumb url={p.product.image_url} name={p.product.product_name} size="sm" />
+                                      </span>
                                     )}
                                     <span className={`text-xs leading-relaxed ${excludedProducts.has(i) ? 'text-slate-400 line-through' : 'text-slate-700'}`}>
                                       <span className="font-bold">{p.product?.product_name ?? CATEGORY_LABELS[p.category_code] ?? p.category_code}</span>

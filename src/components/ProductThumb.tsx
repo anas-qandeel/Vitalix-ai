@@ -1,14 +1,18 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Package, X } from '@phosphor-icons/react';
 
 // صورة منتج صغيرة: تظهر الصورة إن وُجدت ونجح تحميلها، وإلا أيقونة عامة — فلا يبقى مربع مكسور.
 // الضغط على الصورة يفتحها مكبّرة، وتُغلق بالضغط خارجها أو على زر الإغلاق أو بمفتاح Esc.
-export default function ProductThumb({ url, name }: { url: string | null | undefined; name: string }) {
+// size="sm" للقوائم المدمجة. والصورة المكبّرة تُرسم في document.body لا داخل مكان الاستعمال:
+// فإن وُضع المكوّن داخل label (قائمة اختيار) لا يقلب الضغط عليها مربع الاختيار.
+export default function ProductThumb({ url, name, size = 'md' }: { url: string | null | undefined; name: string; size?: 'sm' | 'md' }) {
   const [broken, setBroken] = useState(false);
   const [open, setOpen] = useState(false);
   const hasImage = !!url && !broken;
+  const box = size === 'sm' ? 'w-9 h-9 rounded-lg' : 'w-16 h-16 rounded-xl';
 
   // أثناء فتح الصورة المكبّرة: لا تتحرك الصفحة خلفها، ومفتاح Esc يغلقها
   useEffect(() => {
@@ -25,8 +29,8 @@ export default function ProductThumb({ url, name }: { url: string | null | undef
 
   if (!hasImage) {
     return (
-      <div className="w-16 h-16 rounded-xl bg-slate-50 border border-slate-100 overflow-hidden flex items-center justify-center shrink-0">
-        <Package size={24} weight="bold" className="text-slate-300" aria-hidden="true" />
+      <div className={`${box} bg-slate-50 border border-slate-100 overflow-hidden flex items-center justify-center shrink-0`}>
+        <Package size={size === 'sm' ? 16 : 24} weight="bold" className="text-slate-300" aria-hidden="true" />
       </div>
     );
   }
@@ -37,22 +41,22 @@ export default function ProductThumb({ url, name }: { url: string | null | undef
         type="button"
         onClick={() => setOpen(true)}
         aria-label={`تكبير صورة ${name}`}
-        className="w-16 h-16 rounded-xl bg-slate-50 border border-slate-100 overflow-hidden shrink-0 cursor-zoom-in"
+        className={`${box} bg-slate-50 border border-slate-100 overflow-hidden shrink-0 cursor-zoom-in`}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={url as string} alt={name} loading="lazy" onError={() => { setBroken(true); setOpen(false); }} className="w-full h-full object-cover" />
       </button>
-      {open && (
+      {open && createPortal(
         <div
           role="dialog"
           aria-modal="true"
           aria-label={name}
           className="fixed inset-0 z-[80] bg-slate-900/80 flex flex-col items-center justify-center gap-3 p-4"
-          onClick={() => setOpen(false)}
+          onClick={e => { e.stopPropagation(); setOpen(false); }}
         >
           <button
             type="button"
-            onClick={() => setOpen(false)}
+            onClick={e => { e.stopPropagation(); setOpen(false); }}
             aria-label="إغلاق"
             className="absolute top-4 left-4 w-9 h-9 rounded-full bg-white/90 hover:bg-white text-slate-700 flex items-center justify-center cursor-pointer"
           >
@@ -66,7 +70,8 @@ export default function ProductThumb({ url, name }: { url: string | null | undef
             onClick={e => e.stopPropagation()}
           />
           <p className="text-sm font-bold text-white text-center" dir="auto">{name}</p>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );

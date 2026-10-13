@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { upsertPipeline } from '@/lib/pipeline';
 import { getPharmacyId } from '@/lib/tenant';
-import { normalizePhone, validatePhone } from '@/lib/phone';
+import { normalizePhone, validatePhone, toLatinDigits } from '@/lib/phone';
 import PatientSafetyFields, { EMPTY_PATIENT_SAFETY, PatientSafetyValues, safetyForSave } from '@/components/PatientSafetyFields';
 import { useSubscriptionState, READ_ONLY_MESSAGE } from '@/lib/subscription-state';
 
@@ -130,7 +130,7 @@ export default function AddPatientForm({
 
           <div>
             <label className="block text-xs font-bold text-slate-600 mb-1.5">رقم الهاتف</label>
-            <input type="tel" dir="ltr" value={phone} onChange={e => setPhone(e.target.value)} placeholder="07XXXXXXXX"
+            <input type="tel" dir="ltr" value={phone} onChange={e => setPhone(toLatinDigits(e.target.value))} placeholder="07XXXXXXXX"
               readOnly={lockPhone}
               className={`w-full px-4 py-3 text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-slate-900 transition text-slate-900 font-mono text-left ${lockPhone ? 'bg-slate-100 text-slate-500' : 'bg-slate-50'}`} />
             <p className="text-[11px] text-slate-400 mt-1.5">للأرقام خارج الأردن ابدأ بمفتاح الدولة — مثال: 00966501234567</p>

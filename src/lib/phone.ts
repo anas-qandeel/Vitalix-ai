@@ -3,9 +3,16 @@
 // في روابط wa.me / api.whatsapp.com. أما العرض للصيدلاني فيبقى بالصيغة الأردنية المألوفة
 // (07XXXXXXXX) عبر displayPhone — لا تخزّن الصيغة المحلية مباشرة في القاعدة.
 
+// كيبورد الآيباد العربي يكتب أرقاماً هندية (٠-٩) أو فارسية (۰-۹)، و\D يحذفها فيصير الرقم فارغاً
+export function toLatinDigits(input: string): string {
+  return input
+    .replace(/[٠-٩]/g, d => String(d.charCodeAt(0) - 0x0660))
+    .replace(/[۰-۹]/g, d => String(d.charCodeAt(0) - 0x06f0));
+}
+
 // يحوّل أي إدخال (محلي 07..، دولي 962.. أو 00962.., أو رقم أجنبي) إلى E.164 بلا +
 export function normalizePhone(input: string): string {
-  const digits = input.replace(/\D/g, '');
+  const digits = toLatinDigits(input).replace(/\D/g, '');
 
   // 00962XXXXXXXXX — رقم أردني مسبوق بمفتاح دولي كامل
   if (digits.startsWith('00962')) {
@@ -35,7 +42,7 @@ export function displayPhone(stored: string): string {
 }
 
 export function validatePhone(input: string): { valid: boolean; message?: string } {
-  const trimmed = input.trim();
+  const trimmed = toLatinDigits(input).trim();
   if (!trimmed) {
     return { valid: false, message: 'أدخل رقم الهاتف' };
   }

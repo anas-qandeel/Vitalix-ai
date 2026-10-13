@@ -11,7 +11,7 @@ import { getPharmacyId, getStaffId, getStaffName } from '@/lib/tenant';
 import { normalizeAr } from '@/lib/arabic';
 import { calcWeightGoals, getBMICategory, LACTATION_FIRST_GOAL_CAP_KG } from '@/lib/weight-math';
 import { detectTextDir } from '@/lib/text-direction';
-import { normalizePhone, displayPhone } from '@/lib/phone';
+import { normalizePhone, displayPhone, toLatinDigits } from '@/lib/phone';
 import { SUPPLEMENT_CATEGORIES } from '@/lib/supplement-categories';
 import WeightHistoryChart from '@/components/WeightHistoryChart';
 import BpHistoryChart from '@/components/BpHistoryChart';
@@ -101,7 +101,7 @@ function formatTime(dateStr: string) {
   return new Date(dateStr).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', hour12: true, numberingSystem: 'latn' });
 }
 function detectInputType(q: string): 'phone' | 'name' {
-  const t = q.trim();
+  const t = toLatinDigits(q).trim();
   if (!t) return 'phone';
   return /^[0-9+]/.test(t) ? 'phone' : 'name';
 }
@@ -293,6 +293,7 @@ export default function VitalsPage() {
   const { readOnly } = useSubscriptionState();
   const { pharmacyName, pharmacyNameEn } = usePharmacyInfo();
   const searchRef = useRef<HTMLDivElement>(null);
+  const newPatientBtnRef = useRef<HTMLButtonElement>(null);
   const reportRef = useRef<HTMLDivElement>(null);
   const thinkingRef = useRef<HTMLDivElement>(null);
   const weightThinkingRef = useRef<HTMLDivElement>(null);
@@ -638,7 +639,10 @@ ${planUrl}
   };
 
   // ── البحث الموحّد ──
-  const handleSearch = async (value: string) => {
+  const handleSearch = async (raw: string) => {
+    // توحيد الأرقام العربية/الفارسية إلى لاتينية، وحذف المسافات والشرطات من الأرقام فقط، قبل التصنيف والبحث
+    let value = toLatinDigits(raw);
+    if (detectInputType(value) === 'phone') value = value.replace(/[\s\-]/g, '');
     setSearchQuery(value);
     setErrorMsg('');
     setNameResults([]);
@@ -1160,6 +1164,11 @@ ${planUrl}
   const canShowNewPatient = isPhoneInput && phoneDigits.length >= 8 && !currentPatient && nameResults.length === 0 && !searchingPatient;
   const showNoResults = !isPhoneInput && searchQuery.trim().length >= 1 && !currentPatient && nameResults.length === 0 && !searchingPatient;
 
+  // كيبورد الآيباد قد يغطي زر التسجيل عند ظهوره، فنمرّر الشاشة إليه
+  useEffect(() => {
+    if (canShowNewPatient) newPatientBtnRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }, [canShowNewPatient]);
+
   const status = getStatus();
 
   const exclusionsKey = JSON.stringify({ p: [...excludedProducts].sort(), l: [...excludedLabs].sort() });
@@ -1293,7 +1302,7 @@ ${planUrl}
 
                 {/* زر تسجيل مريض جديد (رقم هاتف غير موجود) */}
                 {canShowNewPatient && (
-                  <button onClick={() => setShowNewPatientModal(true)}
+                  <button ref={newPatientBtnRef} onClick={() => setShowNewPatientModal(true)}
                     disabled={readOnly}
                     title={readOnly ? READ_ONLY_MESSAGE : undefined}
                     className="w-full flex items-center justify-between gap-3 px-4 py-3 bg-slate-50 border border-dashed border-slate-300 hover:border-slate-900 hover:bg-white rounded-xl transition-all group disabled:opacity-50 disabled:cursor-not-allowed">

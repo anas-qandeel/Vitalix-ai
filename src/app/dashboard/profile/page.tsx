@@ -8,9 +8,10 @@ import AppFooter from '../../components/AppFooter';
 import { getPharmacyId } from '@/lib/tenant';
 import { formatPharmacistName } from '@/lib/name-format';
 import { authedFetch } from '@/lib/authed-fetch';
-import { Storefront, PencilSimple, FloppyDisk, Key, Warning } from '@phosphor-icons/react';
+import { Storefront, PencilSimple, FloppyDisk, Key, Warning, X } from '@phosphor-icons/react';
 import Toast, { useNotice } from '@/components/Toast';
 import { useSubscriptionState, READ_ONLY_MESSAGE } from '@/lib/subscription-state';
+import { normalizeAr } from '@/lib/arabic';
 
 interface PharmacyProfile {
   id: string;
@@ -133,8 +134,110 @@ function StaffPinModal({ name, pin, pharmacyCode, loginSlug, phone, onClose }: {
   );
 }
 
+function EditStaffModal({ member, takenNames, onClose, onSave }: {
+  member: StaffMember;
+  takenNames: string[]; // أسماء بقية الموظفين لمنع التكرار
+  onClose: () => void;
+  onSave: (name: string, phone: string) => Promise<string | null>; // يرجع نص الخطأ أو null عند النجاح
+}) {
+  const [name, setName] = useState(member.name);
+  const [phone, setPhone] = useState(member.phone ?? '');
+  const [step, setStep] = useState<'form' | 'confirm'>('form');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const newName = name.trim();
+  const newPhone = phone.trim();
+  const nameChanged = newName !== member.name;
+  // مقارنة آخر 9 أرقام فلا يُعدّ تغيير الصيغة (07… مقابل +9627…) تغييراً
+  const phoneChanged = (member.phone ?? '').replace(/\D/g, '').slice(-9) !== newPhone.replace(/\D/g, '').slice(-9);
+  const phoneCleared = phoneChanged && !newPhone;
+  const phoneValid = !newPhone || /^(\+9627\d{8}|9627\d{8}|07\d{8}|7\d{8})$/.test(newPhone.replace(/[^\d+]/g, ''));
+
+  const handleNext = () => {
+    setError('');
+    if (newName.length < 2) { setError('الاسم قصير جداً'); return; }
+    if (nameChanged && takenNames.some(n => normalizeAr(n) === normalizeAr(newName))) { setError('هذا الاسم مسجّل مسبقاً'); return; }
+    if (!phoneValid) { setError('رقم الهاتف غير صالح'); return; }
+    if (!nameChanged && !phoneChanged) { onClose(); return; }
+    setStep('confirm');
+  };
+
+  const handleConfirm = async () => {
+    setSaving(true);
+    const err = await onSave(newName, newPhone);
+    setSaving(false);
+    if (err) { setError(err); setStep('form'); }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[9999] flex items-end sm:items-center justify-center sm:p-4" onClick={saving ? undefined : onClose}>
+      <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-sm max-h-[90vh] overflow-y-auto overscroll-contain shadow-2xl border border-slate-200" onClick={e => e.stopPropagation()}>
+        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between gap-3">
+          <h3 className="text-base font-semibold text-slate-900">{step === 'form' ? 'تعديل بيانات الموظف' : 'تأكيد تعديل الموظف'}</h3>
+          <button onClick={onClose} disabled={saving} aria-label="إغلاق"
+            className="w-8 h-8 rounded-full bg-slate-50 hover:bg-slate-100 text-slate-500 flex items-center justify-center transition-colors shrink-0 cursor-pointer disabled:opacity-50">
+            <X size={14} weight="bold" aria-hidden="true" />
+          </button>
+        </div>
+        {step === 'form' ? (
+          <div className="px-6 py-5 space-y-4">
+            <label className="block">
+              <span className="block text-[11px] font-semibold text-slate-500 mb-1">الاسم</span>
+              <input type="text" value={name} onChange={e => setName(e.target.value)} maxLength={80}
+                className="w-full h-10 px-3 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 transition text-slate-900" />
+            </label>
+            <label className="block">
+              <span className="block text-[11px] font-semibold text-slate-500 mb-1">رقم الهاتف (اختياري)</span>
+              <input type="tel" dir="ltr" value={phone} onChange={e => setPhone(e.target.value)} placeholder="07XXXXXXXX"
+                className="w-full h-10 px-3 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 transition text-slate-900 text-right" />
+              <span className="block text-[11px] text-slate-400 mt-1">امسح الحقل لإزالة الرقم</span>
+            </label>
+            {error && <p className="text-xs font-bold text-rose-600">{error}</p>}
+            <div className="flex gap-2">
+              <button onClick={onClose}
+                className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer">
+                إلغاء
+              </button>
+              <button onClick={handleNext}
+                className="flex-1 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition cursor-pointer">
+                حفظ
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="px-6 py-5 space-y-3">
+            {nameChanged && (
+              <>
+                <p className="text-sm text-slate-700 leading-relaxed">سيتغيّر اسم الموظف من «{member.name}» إلى «{newName}» في قائمة الموظفين وفي كل ما يُسجَّل بعد الآن.</p>
+                <p className="text-sm text-slate-700 leading-relaxed">الزيارات وسجل النشاط المسجَّلة سابقاً تبقى باسمه القديم «{member.name}»، لأنها سجلّ لمن أجراها وقتها ولا تُعدَّل بأثر رجعي.</p>
+                <p className="text-sm text-slate-700 leading-relaxed">طريقة دخوله ورمزه لا يتغيّران.</p>
+              </>
+            )}
+            {phoneChanged && (
+              <p className="text-sm text-slate-700 leading-relaxed">
+                {phoneCleared ? 'سيُمسح الرقم، ولن يظهر زر إرسال واتساب لهذا الموظف.' : 'سيُحفظ رقم الهاتف الجديد، ولا يتغيّر شيء في السجلات.'}
+              </p>
+            )}
+            <div className="flex gap-2 pt-1">
+              <button onClick={() => setStep('form')} disabled={saving}
+                className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer disabled:opacity-50">
+                رجوع
+              </button>
+              <button onClick={handleConfirm} disabled={saving}
+                className="flex-1 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition cursor-pointer disabled:opacity-50">
+                {saving ? 'جاري الحفظ...' : 'تأكيد التعديل'}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function StaffRow({
-  member, shortCode, isMenuOpen, onToggleMenu, onResetPin, onToggleStatus, onDeleteRequest,
+  member, shortCode, isMenuOpen, onToggleMenu, onEditRequest, onResetPin, onToggleStatus, onDeleteRequest,
 }: {
   member: StaffMember;
   shortCode?: string;
@@ -142,6 +245,7 @@ function StaffRow({
   onToggleMenu: () => void;
   onResetPin: () => void;
   onToggleStatus: () => void;
+  onEditRequest: () => void;
   onDeleteRequest: () => void;
 }) {
   return (
@@ -171,8 +275,12 @@ function StaffRow({
         </button>
         {isMenuOpen && (
           <div className="absolute left-0 top-9 z-20 w-40 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden" onClick={e => e.stopPropagation()}>
-            <button onClick={onResetPin}
+            <button onClick={onEditRequest}
               className="w-full text-right px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors">
+              تعديل البيانات
+            </button>
+            <button onClick={onResetPin}
+              className="w-full text-right px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors border-t border-slate-100">
               تصفير الرمز
             </button>
             <button onClick={onToggleStatus}
@@ -267,6 +375,7 @@ export default function ProfilePage() {
   const { notice, setNotice } = useNotice();
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [pinModal, setPinModal] = useState<{ name: string; pin: string; pharmacyCode: string; loginSlug: string; phone: string | null } | null>(null);
+  const [editTarget, setEditTarget] = useState<StaffMember | null>(null);
   const [codeCopied, setCodeCopied] = useState(false);
   const [showRotateConfirm, setShowRotateConfirm] = useState(false);
   const [rotating, setRotating] = useState(false);
@@ -359,7 +468,7 @@ export default function ProfilePage() {
     if (!name) return;
     const activeCount = staff.filter(s => s.is_active).length;
     if (profile && activeCount >= profile.max_staff) { setStaffError(`الحد الأقصى ${profile.max_staff} صيادلة`); return; }
-    if (staff.some(s => s.name === name)) { setStaffError('هذا الاسم مسجّل مسبقاً'); return; }
+    if (staff.some(s => normalizeAr(s.name) === normalizeAr(name))) { setStaffError('هذا الاسم مسجّل مسبقاً'); return; }
     setAddingStaff(true); setStaffError('');
     try {
       const token = await getAuthToken();
@@ -394,6 +503,26 @@ export default function ProfilePage() {
       await fetchStaffList();
       setPinModal({ name: json.staff.name, pin: json.pin, pharmacyCode: json.pharmacy_code, loginSlug: json.staff.login_slug, phone: member.phone });
     } catch (e: any) { setNotice({ kind: 'err', text: e.message || 'حدث خطأ' }); }
+  };
+
+  const handleSaveStaffEdit = async (member: StaffMember, name: string, phone: string): Promise<string | null> => {
+    try {
+      const token = await getAuthToken();
+      if (!token) return 'انتهت الجلسة';
+      const res = await fetch(`/api/staff/${member.id}`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, phone }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) return json.error || 'تعذّر حفظ التعديل';
+      await fetchStaffList();
+      setEditTarget(null);
+      setNotice({ kind: 'ok', text: 'تم تحديث بيانات الموظف' });
+      return null;
+    } catch {
+      return 'حدث خطأ';
+    }
   };
 
   const handleToggleStatus = async (member: StaffMember) => {
@@ -816,6 +945,7 @@ export default function ProfilePage() {
                 onToggleMenu={() => setOpenMenuId(openMenuId === member.id ? null : member.id)}
                 onResetPin={() => handleResetPin(member)}
                 onToggleStatus={() => handleToggleStatus(member)}
+                onEditRequest={() => { setOpenMenuId(null); setEditTarget(member); }}
                 onDeleteRequest={() => { setOpenMenuId(null); setDeleteTarget({ id: member.id, name: member.name }); }}
               />
             ))}
@@ -839,6 +969,7 @@ export default function ProfilePage() {
                         onToggleMenu={() => setOpenMenuId(openMenuId === member.id ? null : member.id)}
                         onResetPin={() => handleResetPin(member)}
                         onToggleStatus={() => handleToggleStatus(member)}
+                        onEditRequest={() => { setOpenMenuId(null); setEditTarget(member); }}
                         onDeleteRequest={() => { setOpenMenuId(null); setDeleteTarget({ id: member.id, name: member.name }); }}
                       />
                     ))}
@@ -931,6 +1062,15 @@ export default function ProfilePage() {
 
       {deleteTarget && (
         <DeleteStaffModal name={deleteTarget.name} deleting={deleting} onConfirm={handleDeleteStaff} onCancel={() => setDeleteTarget(null)} />
+      )}
+
+      {editTarget && (
+        <EditStaffModal
+          member={editTarget}
+          takenNames={staff.filter(s => s.id !== editTarget.id).map(s => s.name)}
+          onClose={() => setEditTarget(null)}
+          onSave={(name, phone) => handleSaveStaffEdit(editTarget, name, phone)}
+        />
       )}
 
       {showRotateConfirm && (

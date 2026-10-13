@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { generatePin, buildStaffEmail, normalizeJordanPhone, pinToPassword } from '@/lib/staff-auth';
+import { normalizeAr } from '@/lib/arabic';
 
 /** يتحقّق أن المستدعي مالك، ويُرجع pharmacy_id من التوكن */
 async function verifyOwner(req: NextRequest) {
@@ -41,6 +42,17 @@ export async function POST(req: NextRequest) {
   }
   if (!['pharmacist', 'assistant', 'staff'].includes(role)) {
     return NextResponse.json({ error: 'دور غير صالح' }, { status: 400 });
+  }
+
+  // منع تكرار الاسم داخل الصيدلية بعد التطبيع (أ/إ/آ وهمزات وتاء مربوطة تُعدّ متطابقة) — القائمة صغيرة بحد أقصى للموظفين
+  {
+    const { data: existingStaff } = await supabaseAdmin
+      .from('pharmacy_staff')
+      .select('name')
+      .eq('pharmacy_id', auth.pharmacyId);
+    if ((existingStaff || []).some(s => normalizeAr(s.name) === normalizeAr(name))) {
+      return NextResponse.json({ error: 'هذا الاسم مسجّل مسبقاً' }, { status: 409 });
+    }
   }
 
   // الهاتف اختياري — يُطبَّع فقط إن أُرسل وكان غير فارغ

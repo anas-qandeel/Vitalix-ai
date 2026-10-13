@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { normalizeJordanPhone } from '@/lib/staff-auth';
+import { normalizeAr } from '@/lib/arabic';
 
 /** يتحقّق أن المستدعي مالك، ويُرجع pharmacy_id من التوكن */
 async function verifyOwner(req: NextRequest) {
@@ -92,4 +94,101 @@ export async function DELETE(
   });
 
   return NextResponse.json({ ok: true });
+}
+
+/** تعديل اسم الموظف وهاتفه فقط — للمالك. لا يمسّ الدور ولا الرمز ولا التفعيل ولا اسم الدخول (login_slug) */
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const auth = await verifyOwner(req);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+
+  const { id } = await params;
+  const body = await req.json().catch(() => null);
+  if (!body || typeof body !== 'object') {
+    return NextResponse.json({ error: 'طلب غير صالح' }, { status: 400 });
+  }
+
+  const { data: staff } = await supabaseAdmin
+    .from('pharmacy_staff')
+    .select('id, name, role, login_slug, phone, pharmacy_id')
+    .eq('id', id)
+    .single();
+
+  if (!staff) {
+    return NextResponse.json({ error: 'الموظف غير موجود' }, { status: 404 });
+  }
+  // نفس رسالة 404 عمداً: لا نكشف وجود موظف في صيدلية أخرى
+  if (staff.pharmacy_id !== auth.pharmacyId) {
+    return NextResponse.json({ error: 'الموظف غير موجود' }, { status: 404 });
+  }
+  if (staff.role === 'owner') {
+    return NextResponse.json({ error: 'لا يمكن تعديل بيانات المالك من هنا' }, { status: 403 });
+  }
+
+  const updates: { name?: string; phone?: string | null } = {};
+
+  if ('name' in body) {
+    const name = String(body.name ?? '').trim();
+    if (name.length < 2) return NextResponse.json({ error: 'الاسم قصير جداً' }, { status: 400 });
+    if (name.length > 80) return NextResponse.json({ error: 'الاسم طويل جداً' }, { status: 400 });
+    if (name !== staff.name) {
+      const { data: others } = await supabaseAdmin
+        .from('pharmacy_staff')
+        .select('id, name')
+        .eq('pharmacy_id', auth.pharmacyId)
+        .neq('id', staff.id);
+      if ((others || []).some(o => normalizeAr(o.name) === normalizeAr(name))) {
+        return NextResponse.json({ error: 'هذا الاسم مسجّل مسبقاً' }, { status: 409 });
+      }
+      updates.name = name;
+    }
+  }
+
+  if ('phone' in body) {
+    const rawPhone = String(body.phone ?? '').trim();
+    let phone: string | null = null;
+    if (rawPhone) {
+      phone = normalizeJordanPhone(rawPhone);
+      if (!phone) return NextResponse.json({ error: 'رقم الهاتف غير صالح' }, { status: 400 });
+    }
+    if (phone !== (staff.phone ?? null)) updates.phone = phone;
+  }
+
+  if (Object.keys(updates).length === 0) {
+    return NextResponse.json({
+      staff: { id: staff.id, name: staff.name, role: staff.role, login_slug: staff.login_slug, phone: staff.phone ?? null },
+      changed: false,
+    });
+  }
+
+  const { data: updated, error: updErr } = await supabaseAdmin
+    .from('pharmacy_staff')
+    .update(updates)
+    .eq('id', staff.id)
+    .eq('pharmacy_id', auth.pharmacyId)
+    .select('id, name, role, login_slug, phone')
+    .single();
+
+  if (updErr || !updated) {
+    console.error('[staff PATCH] update failed:', updErr?.message);
+    return NextResponse.json({ error: 'تعذّر حفظ التعديل' }, { status: 500 });
+  }
+
+  const phoneChange = 'phone' in updates
+    ? (updates.phone === null ? 'removed' : (staff.phone ? 'changed' : 'added'))
+    : null;
+  await supabaseAdmin.from('staff_audit_log').insert({
+    pharmacy_id: auth.pharmacyId,
+    actor_id: auth.userId,
+    action: 'update_staff',
+    target_id: staff.id,
+    // لا نخزّن أرقام الهواتف في سجل التدقيق: نوع التغيير فقط
+    details: { name_from: updates.name ? staff.name : null, name_to: updates.name ?? null, phone: phoneChange },
+  });
+
+  return NextResponse.json({ staff: updated, changed: true });
 }

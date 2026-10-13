@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { getPharmacyId, getUserRole } from '@/lib/tenant';
 import { SubscriptionContext } from '@/lib/subscription-state';
+import DateFormatNotice from '@/components/DateFormatNotice';
 
 /**
  * طبقة حماية موحّدة تُطبَّق تلقائياً على كل الصفحات ضمن /dashboard/* (بما فيها الصفحات
@@ -17,6 +18,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [checking, setChecking] = useState(true);
   const [subBanner, setSubBanner] = useState<{ status: 'grace' | 'expired'; until: string | null; name: string } | null>(null);
   const [subStatus, setSubStatus] = useState<string>('');
+  const [noticeUser, setNoticeUser] = useState<{ id: string; login: string } | null>(null);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -28,6 +30,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         router.push('/');
         return;
       }
+
+      setNoticeUser({ id: session.user.id, login: session.user.last_sign_in_at ?? '' });
 
       // معرّف الصيدلية عبر tenant.ts لا session.user.id مباشرة — لموظف مسجّل دخوله بحساب
       // مصادقة مستقل، session.user.id هو هوية الموظف نفسه لا هوية الصيدلية
@@ -118,6 +122,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           )}
         </div>
       )}
+      {noticeUser && <DateFormatNotice key={noticeUser.id} userId={noticeUser.id} loginStamp={noticeUser.login} />}
       <SubscriptionContext.Provider value={{ status: subStatus, readOnly: subStatus === 'expired' }}>
         {children}
       </SubscriptionContext.Provider>

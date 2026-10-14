@@ -17,6 +17,8 @@ export type MarketingPatient = {
 export const BANNED_CLAIM_STEMS: readonly string[] = [
   'يعالج', 'علاج', 'يشفي', 'شفاء', 'يضمن', 'ضمان', 'مضمون', 'يمنع', 'وقاية', 'وقاي',
   'يخفض', 'يزيل', 'يحارب', 'معجز', 'يذيب', 'يحرق', 'توقف', 'تخلص',
+  'آمن', 'نقي', 'فعال', 'أفضل', 'مثبت', 'مجرب',
+  'أمان', 'نقاء', 'دراس', 'أثبت', 'علمي',
 ];
 // رموز تُطابَق تماماً لا كبادئة: لو كانت «يقي» بادئة لالتقطت «يقيس» وهي كلمة سليمة
 export const BANNED_CLAIM_EXACT: readonly string[] = ['يقي', 'ويقي'];
@@ -83,6 +85,7 @@ export function validateMarketingText(
   if (t.length > MARKETING_MAX_CHARS) return { ok: false, reason: 'too_long' };
   if (!/[؀-ۿ]/.test(t)) return { ok: false, reason: 'no_arabic' };
   if (/[0-9٠-٩۰-۹]/.test(t)) return { ok: false, reason: 'has_digit' };
+  if (/[A-Za-z]/.test(t)) return { ok: false, reason: 'has_latin' };
   if (sentenceCount(t) > 2) return { ok: false, reason: 'too_many_sentences' };
   if (hasBannedClaim(t)) return { ok: false, reason: 'banned_claim' };
   if (mentionsAllergen(t, opts.allergens)) return { ok: false, reason: 'allergen' };
@@ -117,6 +120,10 @@ ${goalLine}
 - لا أرقام أبداً: لا أرقام لاتينية ولا عربية-هندية، ولا مدة ولا كمية ولا نسبة.
 - لا تذكر أدوية، ولا تقارن المنتج بدواء، ولا تقل ما يوحي بالاستغناء عن دواء.
 - لا تذكر أي مكوّن غير مذكور في معلومات العنصر.
+- اكتب بعربية بسيطة سليمة التركيب، بجمل قصيرة واضحة، دون مصطلحات تقنية.
+- لا تستعمل أي حرف لاتيني: إن كان اسم مكوّن إنجليزياً فاذكره بالعربية الشائعة أو احذفه.
+- لا ادعاء جودة أو أمان أو فعالية أو تفوّق: لا «آمن» ولا «نقي» ولا «فعّال» ولا «الأفضل» ولا «مثبت علمياً».
+- لا تصف المنتج بصفة غير مذكورة صراحة في معلومات العنصر.
 - صِفه بأنه «مكمّل غذائي يدعم نمط حياة صحي»، ولا تصفه بأنه «علاج».
 - تنتهي الجملة الثانية (أو الأولى إن كتبتَ جملة واحدة) بدعوة لطيفة لسؤال الصيدلاني عند الحاجة.
 - لا يزيد النص عن ${MARKETING_MAX_CHARS} حرفاً.

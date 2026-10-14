@@ -87,7 +87,7 @@ export function validateMarketingText(
   if (/[0-9٠-٩۰-۹]/.test(t)) return { ok: false, reason: 'has_digit' };
   if (/[A-Za-z]/.test(t)) return { ok: false, reason: 'has_latin' };
   if (sentenceCount(t) > 2) return { ok: false, reason: 'too_many_sentences' };
-  if (hasBannedClaim(t)) return { ok: false, reason: 'banned_claim' };
+  if (hasBannedClaim(t) || hasReasonClaim(t)) return { ok: false, reason: 'banned_claim' };
   if (mentionsAllergen(t, opts.allergens)) return { ok: false, reason: 'allergen' };
   return { ok: true, text: t };
 }
@@ -167,4 +167,29 @@ export function parseMarketingResponse(
     if (v.ok) out.set(id, v.text);
   }
   return out;
+}
+
+// سبب المنتج (reason) يكتبه النموذج في الخطة نفسها، ولا يمرّ على validateMarketingText. قائمته أضيق من قائمة النص التسويقي
+// عمداً: «علاج» (علاج الميتفورمين، الخطة العلاجية) و«ضمان» (لضمان الاستمرارية) و«تحسين/تحسن» ترد كثيراً بمعنى بريء.
+export const NEUTRAL_REASON = 'منتج مقترح من الصيدلية ضمن خطتك — اسأل الصيدلاني عن طريقة الاستخدام المناسبة لك.';
+
+export const REASON_BANNED_STEMS: readonly string[] = [
+  'يعالج', 'تعالج', 'يشفي', 'تشفي', 'شفاء', 'يضمن', 'مضمون', 'يمنع', 'وقاي', 'يخفض', 'تخفض', 'يزيل', 'يحارب',
+  'معجز', 'يذيب', 'يحرق', 'آمن', 'أمان', 'نقي', 'فعال', 'أفضل', 'مثبت', 'مجرب', 'دراس', 'أثبت', 'علمي', 'التهاب',
+];
+const REASON_STEMS_N = REASON_BANNED_STEMS.map(norm);
+
+// المنطق نفسه في hasBannedClaim (بادئة للجذور، تامة للرموز، كتلة للعبارات) لكن بجذور السبب
+function hasReasonClaim(text: string): boolean {
+  const toks = tokens(text);
+  const spaced = ` ${toks.join(' ')} `;
+  if (PHRASES_N.some(p => spaced.includes(` ${p} `))) return true;
+  return toks.some(tok => variants(tok).some(v => EXACT_N.includes(v) || REASON_STEMS_N.some(s => v.startsWith(s))));
+}
+
+// يحوّل سبباً فيه ادعاء إلى النص المحايد؛ الفارغ أو غير النص يُستبدل أيضاً
+export function sanitizeReason(reason: unknown): { text: string; replaced: boolean } {
+  if (typeof reason !== 'string' || !reason.trim()) return { text: NEUTRAL_REASON, replaced: true };
+  if (hasReasonClaim(reason)) return { text: NEUTRAL_REASON, replaced: true };
+  return { text: reason.trim(), replaced: false };
 }

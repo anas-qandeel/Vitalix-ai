@@ -10,7 +10,7 @@ import { assessProductForPatient, type PatientForSuitability, type ProductForSui
 import { fetchProductScores, rankSuitable } from '@/lib/product-ranking';
 import { requireStaff } from '@/lib/api-auth';
 import { generateMarketingTexts } from '@/lib/product-marketing-ai';
-import type { MarketingFacts } from '@/lib/product-marketing';
+import { sanitizeReason, type MarketingFacts } from '@/lib/product-marketing';
 import { CATEGORY_LABELS_AR, CATEGORIES_FOR_KIND } from '@/lib/catalog-taxonomy';
 
 export const maxDuration = 60;
@@ -186,6 +186,7 @@ ${CATEGORY_LIST_TEXT}
 - كل فئة مرتبطة فعلياً بحالة هذا المريض أو بدواء مذكور صراحة في بياناته — لا تقترح فئة لا علاقة لها بحالته
 - ممنوع اقتراح أي فئة واردة ضمن "فئات مكملات ممنوع اقتراحها لهذا المريض" في بيانات الأدوية أدناه، حتى لو بدت مفيدة نظرياً لحالته
 - الـ reason يجب أن يكون مقنعاً وشخصياً
+- الـ reason: وصف وظيفي فقط («يدعم، يساعد على»)؛ لا ادعاء علاجياً أو وقائياً، ولا ضمان نتيجة، ولا ذكر أمان في الحمل أو الرضاعة، ولا «الأفضل» ولا «مثبت علمياً».
 - ممنوع قطعاً أي اسم منتج أو ماركة تجارية أو مثال محدد — الرمز وحده
 `;
 
@@ -1022,6 +1023,18 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
       return { ...p, product: { ...matched, marketing: text } };
     });
 
+    // أسباب النموذج (reason) لا تمرّ على فلتر النص التسويقي: ما فيه ادعاء يُستبدل بنص محايد قبل الحفظ والعرض
+    const replacedCategories: string[] = [];
+    const cleanedProducts = enrichedProducts.map(p => {
+      const r = sanitizeReason(p.reason);
+      if (!r.replaced) return p;
+      replacedCategories.push(p.category_code);
+      return { ...p, reason: r.text };
+    });
+    if (replacedCategories.length > 0) {
+      console.warn(`[weight-plan PATCH] reasons replaced with neutral text: ${replacedCategories.length} (${[...new Set(replacedCategories)].join(', ')})`);
+    }
+
     // ── فحص النص الحر ضد الحساسية المسجّلة — خط دفاع ثانٍ: علم مراجعة للصيدلاني لا حكم ──
     // المنطق في src/lib/allergen-scan.ts (مختبَر حتمياً)
     const allergenConflicts = findAllergenMentions(
@@ -1039,11 +1052,11 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
 
     const finalNutritionData: NutritionData = {
       ...nutritionData,
-      pharmacy_products: enrichedProducts,
+      pharmacy_products: cleanedProducts,
       progress: progressData,
       drug_matching: { matched: matchedDrugs.map(d => d.genericAr), unknown: unknownDrugs },
       // نسخة كاملة أصلية — يقرأها PUT عند بناء الاستبعادات (راجع تعليق PUT)
-      _all_products: enrichedProducts,
+      _all_products: cleanedProducts,
       _all_labs: nutritionData.lab_alerts,
       safety_review: { products_suppressed_reason: null, allergen_conflicts: allergenConflicts },
     };

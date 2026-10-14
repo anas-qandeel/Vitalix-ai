@@ -811,6 +811,7 @@ function MedModal({ patientId, pharmacyId, existingMeds, patientName, onClose, o
            dosage_unit: 'pill', last_refill_date: today, next_refill_date: '', selected: true,
            original_next_refill: '', remaining_pills: null as number | null }]
   );
+  const [refillBad, setRefillBad] = useState<Record<number, boolean>>({});
   const isRenewal = meds.some(m => m.id);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
@@ -890,6 +891,7 @@ function MedModal({ patientId, pharmacyId, existingMeds, patientName, onClose, o
     if (selectedMeds.length === 0 && isRenewal) { setErr('اختر دواءً واحداً على الأقل لتجديده'); return; }
     if (meds.some(m => !m.medication_name.trim())) { setErr('أدخل اسم كل دواء'); return; }
     if (meds.some(m => Number(m.daily_dosage) <= 0)) { setErr('الجرعة يجب أن تكون أكبر من صفر'); return; }
+    if (!isRenewal && Object.values(refillBad).some(Boolean)) { setErr('أكمل تاريخ الصرف (يوم/شهر/سنة)'); return; }
     setSaving(true);
     try {
       if (isRenewal) {
@@ -1112,7 +1114,10 @@ function MedModal({ patientId, pharmacyId, existingMeds, patientName, onClose, o
                       <div className="flex items-center justify-between">
                         <p className="text-xs font-semibold text-slate-500">الدواء {idx + 1}</p>
                         {meds.length > 1 && (
-                          <button onClick={() => setMeds(p => p.filter((_,i) => i !== idx))}
+                          <button onClick={() => {
+                            setMeds(p => p.filter((_,i) => i !== idx));
+                            setRefillBad(b => { const n: Record<number, boolean> = {}; Object.entries(b).forEach(([k, v]) => { const i = Number(k); if (i < idx) n[i] = v; else if (i > idx) n[i - 1] = v; }); return n; });
+                          }}
                             className="text-xs text-rose-500 hover:text-rose-700 font-medium transition-colors">إزالة</button>
                         )}
                       </div>
@@ -1180,7 +1185,10 @@ function MedModal({ patientId, pharmacyId, existingMeds, patientName, onClose, o
                     {!isRenewal && (
                       <div>
                         <label className="block text-xs font-medium text-slate-500 mb-2">تاريخ الصرف</label>
-                        <input type="date" value={m.last_refill_date} onChange={e => update(idx, 'last_refill_date', e.target.value)}
+                        <DateField value={m.last_refill_date} onChange={iso => {
+                          if (iso) { update(idx, 'last_refill_date', iso); setRefillBad(p => ({ ...p, [idx]: false })); }
+                          else setRefillBad(p => ({ ...p, [idx]: true }));
+                        }}
                           className="w-full px-4 py-2.5 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 transition-all shadow-sm text-slate-900" />
                       </div>
                     )}

@@ -17,6 +17,7 @@ import PatientSafetyFields, { EMPTY_PATIENT_SAFETY, PatientSafetyValues, safetyF
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { ChartBar, Package, Lightning, User, LightbulbFilament, CheckCircle, Check, FilePdf, WarningCircle, Hourglass, PaperPlaneTilt, Star, ClipboardText, Bell, Alarm, EnvelopeSimple, CalendarBlank, Clock, BellSlash, PhoneX, Phone, Heart, Pill, ArrowsClockwise, Warning, Info } from '@phosphor-icons/react';
 import { useConfirm } from '@/components/ConfirmDialog';
+import DateField from '@/components/DateField';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -336,6 +337,7 @@ function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill }: {
   const [name, setName]     = useState(prefill?.patient.name || '');
   const [gender, setGender] = useState('male');
   const [dob, setDob]       = useState('');
+  const [dobInvalid, setDobInvalid] = useState(false);
   const [conditions, setConditions] = useState<string[]>([]);
   const [safety, setSafety] = useState<PatientSafetyValues>(EMPTY_PATIENT_SAFETY);
   const [searching, setSearching] = useState(false);
@@ -484,6 +486,7 @@ function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill }: {
     if (!name.trim()) { setErr('يجب إدخال اسم المريض قبل المتابعة'); return; }
     const phoneCheck = validatePhone(query);
     if (!phoneCheck.valid) { setErr(phoneCheck.message || 'رقم الهاتف غير صحيح'); return; }
+    if (dobInvalid) { setErr('أكمل تاريخ الميلاد (يوم/شهر/سنة)'); return; }
     if (!dob) { setErr('يرجى إدخال تاريخ الميلاد'); return; }
     setSaving(true);
     try {
@@ -668,7 +671,7 @@ function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill }: {
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-600 mb-1.5">تاريخ الميلاد</label>
-                  <input type="date" value={dob} onChange={e => setDob(e.target.value)}
+                  <DateField value={dob} onChange={setDob} onInvalidChange={setDobInvalid}
                     className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 transition text-slate-900" />
                 </div>
               </div>

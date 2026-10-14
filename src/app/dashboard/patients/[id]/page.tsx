@@ -12,6 +12,7 @@ import { FilePdf } from '@phosphor-icons/react';
 import Toast, { useNotice } from '@/components/Toast';
 import PatientSafetyFields, { EMPTY_PATIENT_SAFETY, PatientSafetyValues, safetyForSave } from '@/components/PatientSafetyFields';
 import { useSubscriptionState, READ_ONLY_MESSAGE } from '@/lib/subscription-state';
+import DateField from '@/components/DateField';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -410,6 +411,7 @@ export default function PatientCardPage({ params }: PageProps) {
   const [editPhone, setEditPhone] = useState('');
   const [editGender, setEditGender] = useState('male');
   const [editDob, setEditDob] = useState('');
+  const [editDobInvalid, setEditDobInvalid] = useState(false);
   const [editSafety, setEditSafety] = useState<PatientSafetyValues>(EMPTY_PATIENT_SAFETY);
   const [editConditions, setEditConditions] = useState<string[]>([]);
   const [savingInfo, setSavingInfo] = useState(false);
@@ -477,6 +479,7 @@ export default function PatientCardPage({ params }: PageProps) {
     setEditPhone(patient.phone_number);
     setEditGender(patient.gender);
     setEditDob(patient.birth_date);
+    setEditDobInvalid(false);
     setEditSafety({
       drug_allergies: patient.drug_allergies || [],
       food_allergies: patient.food_allergies || [],
@@ -493,6 +496,8 @@ export default function PatientCardPage({ params }: PageProps) {
     if (!editName.trim()) { setInfoErr('يرجى إدخال اسم المريض'); return; }
     const phoneCheck = validatePhone(editPhone);
     if (!phoneCheck.valid) { setInfoErr(phoneCheck.message || 'رقم الهاتف غير صحيح'); return; }
+    if (editDobInvalid) { setInfoErr('أكمل تاريخ الميلاد (يوم/شهر/سنة)'); return; }
+    if (!editDob) { setInfoErr('يرجى إدخال تاريخ الميلاد'); return; }
     setSavingInfo(true); setInfoErr('');
     try {
       const updated = {
@@ -635,7 +640,7 @@ export default function PatientCardPage({ params }: PageProps) {
                       </button>
                     ))}
                   </div>
-                  <input type="date" value={editDob} onChange={e => setEditDob(e.target.value)}
+                  <DateField value={editDob} onChange={setEditDob} onInvalidChange={setEditDobInvalid}
                     className="px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 transition text-slate-900" />
                 </div>
                 <div>

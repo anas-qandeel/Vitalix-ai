@@ -43,6 +43,7 @@ export default function SubscriptionModal({ pharmacy, onClose, onSaved }: Props)
   const [note, setNote] = useState('');
   const [dueOn, setDueOn] = useState('');
   const [payInvalid, setPayInvalid] = useState(false);
+  const [startsInvalid, setStartsInvalid] = useState(false);
   const [dueInvalid, setDueInvalid] = useState(false);
 
   const [quote, setQuote] = useState<Quote | null>(null);
@@ -113,6 +114,7 @@ export default function SubscriptionModal({ pharmacy, onClose, onSaved }: Props)
 
   const handleConfirm = async () => {
     if (!quote || saving || !planId) return;
+    if (startsInvalid) { setNotice({ kind: 'err', text: 'أكمل تاريخ بداية الاشتراك (يوم/شهر/سنة)' }); return; }
     if (needsDue && !dueOn) return;
     if (needsDue && dueInvalid) { setNotice({ kind: 'err', text: 'أكمل موعد الدفعة التالية (يوم/شهر/سنة)' }); return; }
     if (Number(paidNow) > 0 && payInvalid) { setNotice({ kind: 'err', text: 'أكمل تاريخ الدفعة (يوم/شهر/سنة)' }); return; }
@@ -194,7 +196,7 @@ export default function SubscriptionModal({ pharmacy, onClose, onSaved }: Props)
 
           <label className="block">
             <span className="block text-[11px] font-semibold text-slate-500 mb-1">تاريخ البداية</span>
-            <DateField value={startsOn} onChange={setStartsOn} />
+            <DateField value={startsOn} onChange={setStartsOn} onInvalidChange={setStartsInvalid} />
             <span className="block text-[11px] text-slate-400 mt-1">اتركه فارغاً ليبدأ من اليوم أو من نهاية الاشتراك الحالي</span>
           </label>
 
@@ -267,7 +269,7 @@ export default function SubscriptionModal({ pharmacy, onClose, onSaved }: Props)
             className="h-10 flex items-center justify-center rounded-lg bg-white border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50 transition-all shadow-sm cursor-pointer">
             إلغاء
           </button>
-          <button type="button" onClick={handleConfirm} disabled={!quote || saving || !planId || (Number(paidNow) > 0 && !payMethod) || (needsDue && !dueOn) || (Number(paidNow) > 0 && !payDate) || (needsDue && dueInvalid) || (Number(paidNow) > 0 && payInvalid)}
+          <button type="button" onClick={handleConfirm} disabled={!quote || saving || !planId || (Number(paidNow) > 0 && !payMethod) || (needsDue && !dueOn) || (Number(paidNow) > 0 && !payDate) || (needsDue && dueInvalid) || (Number(paidNow) > 0 && payInvalid) || startsInvalid}
             className="h-10 flex items-center justify-center rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-all">
             تأكيد الاشتراك
           </button>

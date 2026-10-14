@@ -7,6 +7,7 @@ import { getPharmacyId } from '@/lib/tenant';
 import { normalizePhone, validatePhone, toLatinDigits } from '@/lib/phone';
 import PatientSafetyFields, { EMPTY_PATIENT_SAFETY, PatientSafetyValues, safetyForSave } from '@/components/PatientSafetyFields';
 import { useSubscriptionState, READ_ONLY_MESSAGE } from '@/lib/subscription-state';
+import DateField from '@/components/DateField';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -69,6 +70,7 @@ export default function AddPatientForm({
   const [phone, setPhone] = useState(prefill?.phone_number || '');
   const [gender, setGender] = useState(prefill?.gender || 'male');
   const [dob, setDob] = useState(prefill?.birth_date || '');
+  const [dobInvalid, setDobInvalid] = useState(false);
   const [conditions, setConditions] = useState<string[]>([]);
   const [safety, setSafety] = useState<PatientSafetyValues>(EMPTY_PATIENT_SAFETY);
   const [note, setNote] = useState('');
@@ -83,6 +85,7 @@ export default function AddPatientForm({
     if (!name.trim()) { setErr('يرجى إدخال اسم المريض'); return; }
     const phoneCheck = validatePhone(phone);
     if (!phoneCheck.valid) { setErr(phoneCheck.message || 'رقم الهاتف غير صحيح'); return; }
+    if (dobInvalid) { setErr('أكمل تاريخ الميلاد (يوم/شهر/سنة)'); return; }
     if (!dob) { setErr('يرجى إدخال تاريخ الميلاد'); return; }
     setSaving(true); setErr('');
     try {
@@ -150,7 +153,7 @@ export default function AddPatientForm({
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-600 mb-1.5">تاريخ الميلاد</label>
-              <input type="date" value={dob} onChange={e => setDob(e.target.value)}
+              <DateField value={dob} onChange={setDob} onInvalidChange={setDobInvalid}
                 className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-900 transition text-slate-900" />
             </div>
           </div>

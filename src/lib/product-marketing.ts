@@ -126,3 +126,38 @@ ${itemLines}
 
 أخرج JSON فقط، بلا أي نص خارجه ولا علامات تنسيق، بالشكل: [{ "id": "...", "text": "..." }] — عنصر لكل id بالمعرّف نفسه حرفياً.`;
 }
+
+// يحلّل ردّ النموذج إلى خريطة id → نص مقبول. كل عنصر لا يجتاز الفحص يُهمل وحده دون التأثير في غيره،
+// ولا ترمي الدالة استثناءً أبداً: الردّ المعطوب أو غير المتوقع يعني خريطة فارغة، أي لا نص تسويقي لأحد.
+export function parseMarketingResponse(
+  raw: unknown,
+  items: { id: string }[],
+  opts: { allergens: string[] },
+): Map<string, string> {
+  const out = new Map<string, string>();
+  if (typeof raw !== 'string') return out;
+
+  const cleaned = raw.replace(/```(?:json)?/gi, '').trim();
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(cleaned);
+  } catch {
+    // نص تمهيدي أو ختامي حول المصفوفة: نجرّب ما بين أول '[' وآخر ']'
+    const start = cleaned.indexOf('[');
+    const end = cleaned.lastIndexOf(']');
+    if (start === -1 || end <= start) return out;
+    try { parsed = JSON.parse(cleaned.slice(start, end + 1)); } catch { return out; }
+  }
+  if (!Array.isArray(parsed)) return out;
+
+  const allowed = new Set(items.map(i => i.id));
+  for (const el of parsed) {
+    if (!el || typeof el !== 'object') continue;
+    const { id, text } = el as { id?: unknown; text?: unknown };
+    // id خارج القائمة المسموحة أو مقبول سابقاً (يبقى الأول) يُتجاهل
+    if (typeof id !== 'string' || !allowed.has(id) || out.has(id)) continue;
+    const v = validateMarketingText(text, { allergens: opts.allergens });
+    if (v.ok) out.set(id, v.text);
+  }
+  return out;
+}

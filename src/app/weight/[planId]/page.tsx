@@ -275,6 +275,7 @@ export default function WeightPlanPage({ params }: PageProps) {
                             </div>
                           )}
                           <p className="text-sm text-slate-600 mt-1.5 leading-relaxed">{prod.reason}</p>
+                          {prod.product?.marketing && (<p className="text-sm text-slate-800 mt-1.5 leading-relaxed">{prod.product.marketing}</p>)}
                           <p className="text-xs font-bold text-teal-700 mt-2 bg-teal-50 border border-teal-100 rounded-lg px-3 py-1.5 inline-block">
                             {prod.instruction}
                           </p>

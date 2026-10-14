@@ -9,6 +9,9 @@ import { findAllergenMentions } from '@/lib/allergen-scan';
 import { assessProductForPatient, type PatientForSuitability, type ProductForSuitability } from '@/lib/product-suitability';
 import { fetchProductScores, rankSuitable } from '@/lib/product-ranking';
 import { requireStaff } from '@/lib/api-auth';
+import { generateMarketingTexts } from '@/lib/product-marketing-ai';
+import type { MarketingFacts } from '@/lib/product-marketing';
+import { CATEGORY_LABELS_AR, CATEGORIES_FOR_KIND } from '@/lib/catalog-taxonomy';
 
 export const maxDuration = 60;
 
@@ -20,6 +23,12 @@ const GEMINI_MODELS_FALLBACK = [
   'gemini-3.6-flash',
   'gemini-3.5-flash-lite',
 ].filter(Boolean) as string[];
+
+// نص الصلة الثابت عند إضافة فئة لأن بطاقة المنتج وسمته الصيدلاني مفيداً للحالة؛ يُستبدل بنص مفحوص إن توفر
+const FIXED_RELEVANCE_REASON = 'اختيار الصيدلية لحالتك — منتج وسمه الصيدلاني كمفيد لحالة مسجّلة في ملفك.';
+
+// فئات المكمّلات فقط (دون الأجهزة والشرائح): البرومبت يصف المنتج بأنه «مكمّل غذائي»، وهذا خطأ لجهاز قياس
+const SUPPLEMENT_CODES = new Set<string>(CATEGORIES_FOR_KIND.supplement.filter(c => c !== 'uncategorized'));
 
 // عتبة اعتبار بيانات تقدّم الوزن مشكوكاً فيها — تخصّ حالات النقصان فقط، ولا
 // علاقة لها بمعدل الإنقاص الصحي الموصى به (5% المستخدمة في rateWarning أدناه)؛
@@ -360,6 +369,7 @@ export async function POST(req: Request) {
 // ═══════════════════════════════════════════════════════════════════════
 export async function PATCH(req: Request) {
   try {
+    const patchStartedAt = Date.now();
     // ── حارس: موظف نشط؛ مطابقة صيدلية الخطة بعد جلبها أدناه ──
     const auth = await requireStaff(req);
     if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -616,7 +626,7 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
     };
     type EnrichedPharmacyProduct = PharmacyProductSuggestion & {
       // suitability_note: أسباب «بحذر» بالعربية من محرك الملاءمة — فارغة إن كان المنتج ملائماً تماماً
-      product: { id?: string; product_name: string; price: number; image_url: string | null; suitability_note: string[] } | null;
+      product: { id?: string; product_name: string; price: number; image_url: string | null; suitability_note: string[]; marketing?: string } | null;
     };
     type NutritionData = {
       personal_message:   string;        // رسالة شخصية تحفيزية
@@ -910,7 +920,7 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
         already.add(row.category);
         productSuggestions.push({
           category_code: row.category,
-          reason:        'اختيار الصيدلية لحالتك — منتج وسمه الصيدلاني كمفيد لحالة مسجّلة في ملفك.',
+          reason:        FIXED_RELEVANCE_REASON,
           instruction:   'اسأل الصيدلاني عن طريقة الاستخدام المناسبة لك.',
         });
         console.log(`[weight-plan PATCH] relevance: added category ${row.category} (tags ${tags.join(',')})`);
@@ -918,8 +928,9 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
     }
 
     const suggestedCodes = productSuggestions.map(p => p.category_code);
-    type MatchedProduct = { id: string; product_name: string; price: number; image_url: string | null; suitability_note: string[] };
+    type MatchedProduct = { id: string; product_name: string; price: number; image_url: string | null; suitability_note: string[]; marketing?: string };
     const recommendationsByCategory = new Map<string, MatchedProduct>();
+    const marketingSource = new Map<string, MarketingFacts>();
 
     if (suggestedCodes.length > 0) {
       const { data: recData } = await supabaseAdmin
@@ -962,14 +973,54 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
           image_url:        c.rec.image_url,
           suitability_note: c.status === 'caution' ? c.reasons : [],
         });
+        if (c.status === 'ok' && c.rec.profile_confirmed_at && SUPPLEMENT_CODES.has(c.rec.category)) {
+          const ing = c.rec.clinical_profile?.active_ingredients;
+          marketingSource.set(c.rec.id, {
+            categoryLabel: CATEGORY_LABELS_AR[c.rec.category as keyof typeof CATEGORY_LABELS_AR] ?? c.rec.category,
+            ingredients: Array.isArray(ing) ? ing.filter(x => typeof x === 'string' && x.trim().length > 0) : [],
+            relevantTo: c.rec.clinical_profile?.relevant_to_conditions ?? [],
+          });
+        }
         console.log(`[weight-plan PATCH] learning: ${c.rec.category} ← ${c.rec.brand_name} (${c.status}, score ${scores.get(c.rec.id) ?? 0})`);
       }
     }
 
-    const enrichedProducts = productSuggestions.map(p => ({
-      ...p,
-      product: recommendationsByCategory.get(p.category_code) || null,
-    }));
+    // ── نصوص تسويقية قصيرة لمنتجات الكتالوج المؤكدة: تُفحص بالكود قبل أن تصل للمريض، وفشلها لا يعطّل الخطة ──
+    let marketingTexts = new Map<string, string>();
+    try {
+      // الميزانية: maxDuration = 60، فنترك نحو 10 ثوانٍ للحفظ بعد التوليد
+      const remainingMs = 50000 - (Date.now() - patchStartedAt);
+      const skipMarketing = isPregnant || isLactating || plan.bmi_category === 'underweight' || (age !== null && age < 18) || remainingMs < 6000;
+      if (!skipMarketing && marketingSource.size > 0 && geminiApiKey) {
+        marketingTexts = await generateMarketingTexts({
+          apiKey: geminiApiKey,
+          models: GEMINI_MODELS_FALLBACK,
+          items: [...marketingSource].map(([id, facts]) => ({ id, facts })),
+          patient: {
+            ageBand: age !== null && age >= 60 ? 'senior' : 'adult',
+            conditions: diagnosed_conditions.filter(c => c === 'diabetes' || c === 'hypertension'),
+            goal: 'weight_loss',
+          },
+          allergens: [...drugAllergyList, ...foodAllergyList],
+          timeoutMs: Math.min(15000, remainingMs),
+          onUsage: (model, response, outcome) => logAiUsage({
+            pharmacyId: auth.pharmacyId, userId: auth.userId, staffId: auth.staffId,
+            feature: 'weight_plan', step: 'product_marketing', model, response, outcome,
+          }),
+        });
+      }
+    } catch (e) {
+      console.warn('[weight-plan PATCH] product marketing skipped:', e);
+    }
+
+    const enrichedProducts = productSuggestions.map(p => {
+      const matched = recommendationsByCategory.get(p.category_code) || null;
+      const text = matched?.id ? marketingTexts.get(matched.id) : undefined;
+      if (!matched || !text) return { ...p, product: matched };
+      // الصلة الثابتة تُستبدل بالنص المفحوص نفسه (لا تكرار)، وغيرها يُحفظ النص بجانب منتجه
+      if (p.reason === FIXED_RELEVANCE_REASON) return { ...p, reason: text, product: matched };
+      return { ...p, product: { ...matched, marketing: text } };
+    });
 
     // ── فحص النص الحر ضد الحساسية المسجّلة — خط دفاع ثانٍ: علم مراجعة للصيدلاني لا حكم ──
     // المنطق في src/lib/allergen-scan.ts (مختبَر حتمياً)

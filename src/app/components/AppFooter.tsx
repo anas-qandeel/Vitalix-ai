@@ -7,7 +7,7 @@ export default function AppFooter({ className = '', hidePrivacy = false }: { cla
     <footer className={`text-center flex flex-col items-center justify-center gap-2 ${className}`}>
       <p className="text-[11px] text-slate-400 font-medium flex items-center justify-center gap-1.5 flex-wrap">
         <span style={{ direction: 'ltr', unicodeBidi: 'bidi-override' }}>
-          Vitalix<span className="text-slate-900">-ai</span> — v1.0.0
+          Vitalix<span className="text-slate-900">-ai</span> — v1.1.0
         </span>
         <span>· © {new Date().getFullYear()} جميع الحقوق محفوظة</span>
         {!hidePrivacy && (

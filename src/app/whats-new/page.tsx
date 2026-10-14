@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import AppFooter from '@/app/components/AppFooter';
 import type { Icon } from '@phosphor-icons/react';
-import { Palette, Pill, Package, Users, DeviceMobile, ShieldCheck } from '@phosphor-icons/react';
+import { Palette, Pill, Package, Users, DeviceMobile, ShieldCheck, CalendarBlank } from '@phosphor-icons/react';
 
 // نفس شعار Vitalix المستخدم في src/app/help/page.tsx — لا يُعاد رسمه من الصفر
 function VitalixMark() {
@@ -32,6 +32,24 @@ interface Release {
 
 // الإصدارات كبيانات فقط والصفحة ترسمها — الأحدث أولاً، ولإضافة إصدار جديد يكفي إضافة عنصر واحد في أعلى المصفوفة
 const RELEASES: Release[] = [
+  {
+    version: 'v1.1.0',
+    date: 'أكتوبر 2026',
+    title: 'توحيد كتابة التواريخ',
+    sections: [
+      {
+        heading: 'التواريخ',
+        icon: CalendarBlank,
+        items: [
+          'كل التواريخ تُكتب الآن بصيغة واحدة: يوم/شهر/سنة، مثل 05/10/2026.',
+          'اكتب الأرقام فقط وتُضاف الشرطة المائلة تلقائياً، ويمكنك لصق التاريخ كما هو.',
+          'أيقونة التقويم بجانب الحقل تفتح اختيار التاريخ من التقويم.',
+          'التاريخ الناقص أو غير الموجود (مثل 31/02) يُرفض برسالة واضحة بدل أن يُحفظ خطأً.',
+          'يشمل ذلك تاريخ الميلاد وتاريخ صرف الدواء.',
+        ],
+      },
+    ],
+  },
   {
     version: 'v1.0.0',
     date: 'سبتمبر 2026',

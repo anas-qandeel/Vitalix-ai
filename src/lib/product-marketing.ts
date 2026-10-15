@@ -199,3 +199,56 @@ export const FIXED_SUPPLEMENT_INSTRUCTION = 'اتبع تعليمات العبو�
 export function safeInstruction(categoryCode: string, instruction: string, supplementCodes: ReadonlySet<string>): string {
   return supplementCodes.has(categoryCode) ? FIXED_SUPPLEMENT_INSTRUCTION : instruction;
 }
+
+// lab_alerts يكتبها النموذج وتصل للمريض في صفحة عامة: نُبقي اسم الفحص ونقصّ سبب فيه ادعاء وقاية/ضمان/جرعة/مكمّل/حرق
+export const LAB_ALERT_CLAIM_STEMS: readonly string[] = [
+  'وقاي', 'ضمان', 'يضمن', 'جرع', 'مكمل', 'حرق', 'يرتبط', 'ارتباط', 'يعالج', 'تعالج', 'يشفي', 'تشفي', 'شفاء', 'يزيل', 'يحارب', 'معجز',
+];
+const LAB_STEMS_N = LAB_ALERT_CLAIM_STEMS.map(normalizeAr);
+export const NEUTRAL_LAB_ALERT = 'استشر طبيبك أو صيدلانيك عن الفحوصات المناسبة لحالتك.';
+// كلمات تُمسح من ذيل النص المقطوع حتى لا يبقى تعليق مبتور («...نظراً» أو «...وبدء»)
+const LAB_TRAILING_WORDS_N = new Set(
+  ['و', 'في', 'من', 'على', 'مع', 'عن', 'إلى', 'حسب', 'بدء', 'وبدء', 'نظرا', 'نظراً', 'تعديل', 'وتعديل', 'بسبب'].map(normalizeAr),
+);
+// كلمات تصلح نقطة قطع حتى لو لم تبدأ بـ«ل» (مثل «نظراً لأن نقصه يرتبط...»)
+const LAB_CUT_MARKERS_N = new Set(['نظرا', 'لان', 'حيث'].map(normalizeAr));
+const LAB_TRAILING_PUNCT_RE = /[\s.,،؛;:!؟?\-–—]+$/;
+
+// نص بلا جذع ممنوع يعود حرفياً. وإلا نقطع عند أقرب كلمة سبب (تبدأ بـ«ل») قبل أول كلمة فيها جذع، فيبقى اسم الفحص فقط
+export function sanitizeLabAlert(text: string): string {
+  const words = [...text.matchAll(/\S+/g)].map(m => ({ w: m[0], at: m.index ?? 0 }));
+  const i = words.findIndex(({ w }) => { const n = normalizeAr(w); return LAB_STEMS_N.some(s => n.includes(s)); });
+  if (i === -1) return text;
+  let cutAt = words[i].at;
+  for (let k = i; k >= 0; k--) {
+    const n = normalizeAr(words[k].w.replace(/^و/, ''));
+    const isReasonWord = n.length >= 4 && n.startsWith('ل') && !n.startsWith('لوح');
+    if (isReasonWord || LAB_CUT_MARKERS_N.has(normalizeAr(words[k].w))) { cutAt = words[k].at; break; }
+  }
+  let out = text.slice(0, cutAt);
+  for (;;) {
+    const before = out;
+    out = out.replace(LAB_TRAILING_PUNCT_RE, '');
+    const open = out.lastIndexOf('(');
+    if (open !== -1 && out.indexOf(')', open) === -1) out = out.slice(0, open);
+    const last = out.match(/\S+$/)?.[0];
+    if (last && LAB_TRAILING_WORDS_N.has(normalizeAr(last))) out = out.slice(0, out.length - last.length);
+    if (out === before) break;
+  }
+  return out.length < 8 ? NEUTRAL_LAB_ALERT : out;
+}
+
+export function sanitizeLabAlerts(input: unknown): string[] {
+  if (!Array.isArray(input)) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of input) {
+    if (typeof raw !== 'string' || !raw.trim()) continue;
+    const clean = sanitizeLabAlert(raw.trim());
+    const key = normalizeAr(clean);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(clean);
+  }
+  return out;
+}

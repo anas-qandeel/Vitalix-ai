@@ -10,7 +10,7 @@ import { assessProductForPatient, type PatientForSuitability, type ProductForSui
 import { fetchProductScores, rankSuitable } from '@/lib/product-ranking';
 import { requireStaff } from '@/lib/api-auth';
 import { generateMarketingTexts } from '@/lib/product-marketing-ai';
-import { sanitizeReason, safeInstruction, type MarketingFacts } from '@/lib/product-marketing';
+import { sanitizeReason, safeInstruction, sanitizeLabAlerts, type MarketingFacts } from '@/lib/product-marketing';
 import { CATEGORY_LABELS_AR, CATEGORIES_FOR_KIND } from '@/lib/catalog-taxonomy';
 
 export const maxDuration = 60;
@@ -188,6 +188,7 @@ ${CATEGORY_LIST_TEXT}
 - الـ reason يجب أن يكون مقنعاً وشخصياً
 - الـ reason: وصف وظيفي فقط («يدعم، يساعد على»)؛ لا ادعاء علاجياً أو وقائياً، ولا ضمان نتيجة، ولا ذكر أمان في الحمل أو الرضاعة، ولا «الأفضل» ولا «مثبت علمياً».
 - الـ instruction: وصف عام فقط؛ لا جرعة ولا عدد أقراص أو كبسولات ولا توقيت ولا كمية ماء ولا مدة.
+- الـ lab_alerts: اسم الفحص وسببه باختصار فقط؛ ممنوع «للوقاية» و«لضمان» وأي جرعة أو مكمّل أو ادعاء عن الحرق أو تأثير فيتامين على الوزن.
 - ممنوع قطعاً أي اسم منتج أو ماركة تجارية أو مثال محدد — الرمز وحده
 `;
 
@@ -729,7 +730,7 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
                   }
                   parsed.medications_alert = alertLines.join('\n');
                 }
-                if (!parsed.lab_alerts)        parsed.lab_alerts        = [];
+                parsed.lab_alerts = sanitizeLabAlerts(parsed.lab_alerts);
                 if (!parsed.clinical_reasoning) parsed.clinical_reasoning = '';
 
                 // نرفض أي فئة غير موجودة في القائمة المغلقة
@@ -1269,7 +1270,10 @@ export async function GET(req: Request) {
     const nutritionPlanForPatient = rawNutritionPlan
       ? (() => {
           const { clinical_reasoning, drug_matching, _all_products, _all_labs, safety_review, ...safeNutritionPlan } = rawNutritionPlan;
-          return safeNutritionPlan;
+          // تُنقّى وقت العرض أيضاً لتشمل الخطط المحفوظة قبل التنقية؛ لا يُكتب شيء في القاعدة
+          return Array.isArray(safeNutritionPlan.lab_alerts)
+            ? { ...safeNutritionPlan, lab_alerts: sanitizeLabAlerts(safeNutritionPlan.lab_alerts) }
+            : safeNutritionPlan;
         })()
       : rawNutritionPlan;
 

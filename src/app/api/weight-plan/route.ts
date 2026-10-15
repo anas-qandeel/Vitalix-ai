@@ -10,7 +10,7 @@ import { assessProductForPatient, type PatientForSuitability, type ProductForSui
 import { fetchProductScores, rankSuitable } from '@/lib/product-ranking';
 import { requireStaff } from '@/lib/api-auth';
 import { generateMarketingTexts } from '@/lib/product-marketing-ai';
-import { sanitizeReason, safeInstruction, sanitizeLabAlerts, type MarketingFacts } from '@/lib/product-marketing';
+import { sanitizeReason, safeInstruction, sanitizeLabAlerts, NEUTRAL_REASON, type MarketingFacts } from '@/lib/product-marketing';
 import { CATEGORY_LABELS_AR, CATEGORIES_FOR_KIND } from '@/lib/catalog-taxonomy';
 
 export const maxDuration = 60;
@@ -764,6 +764,9 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
       }
     }
 
+    // من لا يناسبه إنقاص الوزن: لا منتجات وزن تلقائية في الخطة الاحتياطية ولا في الصلة الحتمية
+    const weightLossNotSuitable = isPregnant || isLactating || plan.bmi_category === 'underweight' || (age !== null && age < 18);
+
     // ── Fallback محلي ─────────────────────────────────────────────────
     if (!nutritionData) {
       // خطة احتياطية للمريض: تُسجَّل وتُنبِّه المالك والدعم في الجرس
@@ -817,25 +820,25 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
           `كوب لبن قليل الدسم — بروتين خفيف يمنع الجوع ليلاً`,
         ],
         pharmacy_products: [
-          {
+          ...(!weightLossNotSuitable ? [{
             category_code: 'sugar_substitute',
             reason: hasDiabetes
               ? 'يُعطيك حلاوة الطعام دون أي تأثير على مستوى السكر في الدم — مناسب جداً لحالتك'
               : 'يُخفض السعرات الحرارية من المشروبات والحلويات دون الشعور بالحرمان',
             instruction: 'استخدمه بديلاً عن السكر في المشروبات والطهي يومياً',
-          },
+          }] : []),
           {
             category_code: hasMetform ? 'b12' : hasDiabetes ? 'blood_sugar_support' : 'fiber',
             reason: hasMetform
               ? 'ميتفورمين يُقلل امتصاص B12 تدريجياً مما قد يُسبب تنميلاً وإرهاقاً — استكماله ضروري لحالتك'
               : hasDiabetes
               ? 'يساعد على ضبط السكر بعد الوجبات بشكل طبيعي'
-              : 'الألياف تُبطئ هضم الطعام وتُطيل الشعور بالشبع — مثالية لتقليل الكميات المتناولة',
+              : weightLossNotSuitable ? NEUTRAL_REASON : 'الألياف تُبطئ هضم الطعام وتُطيل الشعور بالشبع — مثالية لتقليل الكميات المتناولة',
             instruction: 'استشر صيدليانك للجرعة المناسبة لحالتك',
           },
           {
             category_code: 'vitamin_d',
-            reason: 'نقص فيتامين D شائع جداً ويُعيق إنقاص الوزن ويؤثر على الطاقة والمناعة — خصوصاً في البيئة الأردنية',
+            reason: weightLossNotSuitable ? NEUTRAL_REASON : 'نقص فيتامين D شائع جداً ويُعيق إنقاص الوزن ويؤثر على الطاقة والمناعة — خصوصاً في البيئة الأردنية',
             instruction: 'يُؤخذ مع وجبة تحتوي على دهون لتحسين الامتصاص',
           },
           ...(hasDiuretic ? [{
@@ -905,9 +908,7 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
     // حتى لو لم يطلبها النموذج. حارسان: بطاقة مؤكَّدة من الصيدلاني، وفئة غير uncategorized.
     // كل خطة وزن = weight؛ السكري/الضغط بحسب التشخيص. تمرّ بعدها بمحرك الملاءمة والترتيب كالمعتاد.
     {
-      // منتجات «الوزن» لا تُضاف تلقائياً لمن لا يناسبها إنقاص الوزن (نفس شروط تخطي النص التسويقي)
-      const skipWeightTag = isPregnant || isLactating || plan.bmi_category === 'underweight' || (age !== null && age < 18);
-      const relevanceTags: string[] = skipWeightTag ? [] : ['weight'];
+      const relevanceTags: string[] = weightLossNotSuitable ? [] : ['weight'];
       if (patientForSuitability.diagnosed_conditions.includes('diabetes'))     relevanceTags.push('diabetes');
       if (patientForSuitability.diagnosed_conditions.includes('hypertension')) relevanceTags.push('hypertension');
       const { data: relRows } = await supabaseAdmin

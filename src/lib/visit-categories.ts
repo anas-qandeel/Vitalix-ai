@@ -3,6 +3,8 @@
  * (الملاءمة تأتي بعده عبر product-suitability). مصدر واحد يستخدمه مسار الزيارة وتقرير الذكاء.
  * كما يحوي القوالب الاحتياطية الحتمية للسبب/الإرشاد لكل فئة، تُستخدم إن لم يكتب الذكاء نصاً.
  */
+import { normalizeAr } from '@/lib/arabic';
+
 export const VISIT_PRODUCT_CATEGORIES = ['bp_device', 'sugar_device', 'sugar_strips'] as const;
 export type VisitProductCategory = typeof VISIT_PRODUCT_CATEGORIES[number];
 
@@ -68,9 +70,21 @@ export function fallbackProductNote(category: VisitProductCategory, v: VisitRead
     case 'sugar_strips':
       return {
         reason: 'شرائح الفحص تُكمّل جهازك المنزلي — بدون مخزون كافٍ منها تتوقف المتابعة.',
-        instruction: 'تأكد من توافق الشرائح مع طراز جهازك ومن تاريخ الصلاحية.',
+        instruction: 'تأكد من توافق الشرائح مع طراز جهازك.',
       };
   }
+}
+
+// نصائح التخزين والحفظ والصلاحية ممنوعة على أي منتج: النموذج لا يرى العبوة ولا يعرف شروط حفظها.
+// الأجزاء تُطابَق كسلاسل فرعية بعد normalizeAr على الطرفين، فتعمل بتهجئتي ة/ه وأ/ا
+export const BANNED_NOTE_FRAGMENTS: readonly string[] = [
+  'صلاحي', 'حفظ', 'تخزين', 'تخزن', 'خزن', 'جاف', 'مغلق', 'عبوه', 'عبوة', 'ثلاج', 'تبريد', 'حراره',
+];
+const BANNED_NOTE_FRAGMENTS_N = BANNED_NOTE_FRAGMENTS.map(normalizeAr);
+
+export function hasBannedNoteText(text: string): boolean {
+  const n = normalizeAr(text);
+  return BANNED_NOTE_FRAGMENTS_N.some(f => n.includes(f));
 }
 
 /** يُنقّي ما كتبه الذكاء: فئات مستحقة فقط، نصوص غير فارغة بحد أقصى، وإلا القالب الاحتياطي */
@@ -86,7 +100,8 @@ export function resolveProductNotes(
     const n = obj[c] as { reason?: unknown; instruction?: unknown } | undefined;
     const reason = typeof n?.reason === 'string' ? n.reason.trim().slice(0, 300) : '';
     const instruction = typeof n?.instruction === 'string' ? n.instruction.trim().slice(0, 200) : '';
-    if (reason.length >= 15 && instruction.length >= 8) out[c] = { reason, instruction, source: 'ai' };
+    // إرشاد فيه تخزين/صلاحية يُسقَط كله إلى القالب الحتمي، وهذا يشمل الزيارات القديمة المحفوظة عند القراءة
+    if (reason.length >= 15 && instruction.length >= 8 && !hasBannedNoteText(instruction)) out[c] = { reason, instruction, source: 'ai' };
     else out[c] = { ...fallbackProductNote(c, v, p), source: 'fallback' };
   }
   return out;

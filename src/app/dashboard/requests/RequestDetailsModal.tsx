@@ -81,6 +81,8 @@ function mapActionError(err: { message?: string; details?: string } | null | und
   if (/REMAINING_NOT_SETTLED/.test(text)) return 'المتبقي على المريض لا يساوي صفراً. عدّل السعر الإجمالي أولاً ثم أعد المحاولة.';
   if (/REQUEST_NOT_CANCELLED/.test(text)) return 'الطلب ليس ملغى. أعد فتحه لرؤية آخر حالة.';
   if (/DEPOSIT_ALREADY_RETURNED/.test(text)) return 'أُرجع العربون للمريض، فلا يمكن إعادة تفعيل الطلب. سجّل طلباً جديداً.';
+  if (/REOPEN_ITEMS_REQUIRED/.test(text)) return 'اختر صنفاً واحداً على الأقل لإعادته.';
+  if (/REOPEN_ITEMS_INVALID/.test(text)) return 'بعض الأصناف المختارة لا يمكن إعادتها. أعد فتح الطلب وحاول مرة أخرى.';
   if (/REOPEN_REASON_REQUIRED/.test(text)) return 'اكتب سبب إعادة التفعيل (حتى 300 حرف).';
   if (/IMMUTABLE_FIELD/.test(text)) return 'لا يمكن تغيير الصيدلية أو المريض أو رقم الطلب أو المنشئ.';
   if (/patient_requests_cancel_needs_reason/.test(text)) return 'اكتب سبب إلغاء الطلب.';
@@ -205,7 +207,10 @@ function describeLine(line: TimelineLine, requestYear: number | null): string {
       if (d.request_number == null) return 'سجّل طلب المواد';
       return `سجّل طلب المواد رقم ${str(d.request_number)}/${str(d.request_year ?? requestYear)}`;
     case 'status_change': {
-      if (d.from === 'cancelled' && d.to === 'open') return `أعاد تفعيل الطلب — السبب: ${str(d.reason)}`;
+      if (d.from === 'cancelled' && d.to === 'open') {
+        const names = Array.isArray(d.items) ? (d.items as unknown[]).map(str).filter(Boolean) : [];
+        return `أعاد تفعيل الطلب${names.length ? ` — الأصناف: ${names.join('، ')}` : ''} — السبب: ${str(d.reason)}`;
+      }
       if (d.to === 'delivered') return 'اكتمل تسليم الطلب';
       if (d.to === 'cancelled') {
         const dep = d.deposit_returned === true ? ' — أُعيد العربون' : d.deposit_returned === false ? ' — لم يُعَد العربون' : '';
@@ -290,6 +295,7 @@ export default function RequestDetailsModal({ row, onClose, onChanged, notify }:
   const [cancelOpen, setCancelOpen] = useState(false);
   const [reopenOpen, setReopenOpen] = useState(false);
   const [reopenReason, setReopenReason] = useState('');
+  const [reopenChosen, setReopenChosen] = useState<Set<string>>(new Set());
   const [cancelReason, setCancelReason] = useState('');
   const [depositAnswer, setDepositAnswer] = useState<'yes' | 'no' | ''>('');
   // اختيار الأصناف (طلب / وصول / تسليم)
@@ -418,6 +424,8 @@ export default function RequestDetailsModal({ row, onClose, onChanged, notify }:
   const isFinal = !!detail && !isOpen;
   const canAct = !!detail && isOpen && !readOnly;
   const hasDelivered = !!detail && detail.items.some(it => it.stage === 'delivered');
+  // الأصناف القابلة للإعادة: ألغاها إلغاء الطلب نفسه (لها مرحلة سابقة محفوظة)
+  const restorable = (detail?.items ?? []).filter(it => it.stage === 'cancelled' && it.stage_before_cancel != null);
   const depositPositive = !!detail && detail.deposit != null && Number(detail.deposit) > 0;
 
   // يحدّث الطلب؛ شرط .eq('status') يكشف تغيّر الحالة من موظف آخر (تحديث بصفر صفوف بلا خطأ)
@@ -455,15 +463,30 @@ export default function RequestDetailsModal({ row, onClose, onChanged, notify }:
   };
 
   // إعادة تفعيل طلب ملغى: عبر الدالة وحدها (تعيد الأصناف إلى مراحلها قبل الإلغاء وتكتب حدثاً واحداً بالسبب)
+  const openReopen = () => {
+    setReopenChosen(new Set(restorable.map(it => it.id)));
+    setReopenOpen(true);
+  };
+
+  const toggleReopenChosen = (id: string) => {
+    setReopenChosen(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
   const submitReopen = async () => {
     if (!detail || acting) return;
     if (readOnly) { notify('err', READ_ONLY_MESSAGE); return; }
     const reason = reopenReason.trim();
     if (!reason) { notify('err', 'اكتب سبب إعادة التفعيل.'); return; }
     if (reason.length > CANCEL_REASON_MAX) { notify('err', `سبب إعادة التفعيل لا يتجاوز ${CANCEL_REASON_MAX} حرف.`); return; }
+    const ids = restorable.filter(it => reopenChosen.has(it.id)).map(it => it.id);
+    if (ids.length === 0) { notify('err', 'اختر صنفاً واحداً على الأقل لإعادته.'); return; }
     setActing(true);
     try {
-      const { error } = await supabase.rpc('reopen_patient_request', { p_request_id: row.id, p_reason: reason });
+      const { error } = await supabase.rpc('reopen_patient_request', { p_request_id: row.id, p_reason: reason, p_item_ids: ids });
       if (error) { notify('err', mapActionError(error)); return; }
       setReopenOpen(false);
       setReopenReason('');
@@ -955,10 +978,12 @@ export default function RequestDetailsModal({ row, onClose, onChanged, notify }:
                                 className="h-10 flex-1 min-w-[9rem] px-3 flex items-center justify-center rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold transition-all active:scale-[0.98] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
                                 سلّمتُ العربون للمريض
                               </button>
-                              <button type="button" onClick={() => setReopenOpen(true)} disabled={acting}
-                                className="h-10 flex-1 min-w-[9rem] px-3 flex items-center justify-center rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-sm font-bold transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
-                                إعادة تفعيل الطلب
-                              </button>
+                              {restorable.length > 0 && (
+                                <button type="button" onClick={openReopen} disabled={acting}
+                                  className="h-10 flex-1 min-w-[9rem] px-3 flex items-center justify-center rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-sm font-bold transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
+                                  إعادة تفعيل الطلب
+                                </button>
+                              )}
                             </div>
                           )}
                         </div>
@@ -1088,8 +1113,8 @@ export default function RequestDetailsModal({ row, onClose, onChanged, notify }:
                 : <>أُلغي{detail.cancelled_at && <> — <bdi className="tabular-nums">{formatEventTime(detail.cancelled_at)}</bdi></>}{detail.cancel_reason && <> — السبب: {detail.cancel_reason}</>}</>}
             </p>
             {/* إعادة التفعيل: طلب ملغى بلا عربون. مع عربون لم يُرجَع يظهر الزر في صندوق العربون، ومع عربون أُرجع لا إعادة */}
-            {detail.status === 'cancelled' && !depositPositive && !readOnly && (
-              <button type="button" onClick={() => setReopenOpen(true)} disabled={acting}
+            {detail.status === 'cancelled' && !depositPositive && !readOnly && restorable.length > 0 && (
+              <button type="button" onClick={openReopen} disabled={acting}
                 className="h-10 w-full flex items-center justify-center rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-sm font-bold transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
                 إعادة تفعيل الطلب
               </button>
@@ -1110,18 +1135,34 @@ export default function RequestDetailsModal({ row, onClose, onChanged, notify }:
           <div className="px-5 py-4 border-b border-slate-100">
             <h3 id="req-reopen-title" className="text-sm font-bold text-slate-900 tabular-nums">إعادة تفعيل طلب المواد رقم {requestNumber}/{requestYear}</h3>
           </div>
-          <div className="p-5">
+          <div className="p-5 space-y-4 max-h-[70dvh] overflow-y-auto min-w-0">
+            <div className="space-y-2">
+              <p className="text-xs font-bold text-slate-600">الأصناف التي تعود</p>
+              {restorable.map(it => (
+                <label key={it.id} className="flex items-start gap-2.5 cursor-pointer">
+                  <input type="checkbox" className="mt-0.5 w-4 h-4 shrink-0 accent-teal-600"
+                    checked={reopenChosen.has(it.id)} disabled={acting} onChange={() => toggleReopenChosen(it.id)} />
+                  <span className="text-sm text-slate-800 min-w-0 break-words">
+                    {it.product_name} × <span className="tabular-nums">{it.quantity}</span>
+                    {it.supplier && <span className="text-xs text-slate-400"> · {it.supplier}</span>}
+                    <span className="text-xs text-slate-400"> — يعود إلى «{STAGE_META[it.stage_before_cancel as ItemStage]?.label ?? it.stage_before_cancel}»</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+            <div>
             <label htmlFor="req-reopen-reason" className="block text-xs font-bold text-slate-600 mb-1.5">سبب إعادة التفعيل</label>
             <textarea id="req-reopen-reason" value={reopenReason} onChange={e => setReopenReason(e.target.value)} rows={3}
               maxLength={CANCEL_REASON_MAX} dir="auto" autoFocus placeholder="مثال: المورد وفّر الصنف" className={`${INPUT_CLS} resize-none`} />
-            <p className="text-[11px] text-slate-400 mt-1">تعود الأصناف إلى مراحلها قبل الإلغاء.</p>
+            <p className="text-[11px] text-slate-400 mt-1">الأصناف غير المختارة تبقى ملغاة.</p>
+            </div>
           </div>
           <div className="px-5 py-4 border-t border-slate-100 grid grid-cols-2 gap-3">
             <button type="button" onClick={() => setReopenOpen(false)} disabled={acting}
               className="h-11 flex items-center justify-center rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-sm font-bold transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
               إلغاء
             </button>
-            <button type="button" onClick={submitReopen} disabled={acting}
+            <button type="button" onClick={submitReopen} disabled={acting || reopenChosen.size === 0 || !reopenReason.trim()}
               className="h-11 flex items-center justify-center rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold transition-all active:scale-[0.98] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
               {acting ? 'جاري التنفيذ...' : 'إعادة التفعيل'}
             </button>

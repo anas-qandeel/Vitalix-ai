@@ -14,6 +14,7 @@ import { normalizePhone } from '@/lib/phone';
 import { formatPharmacistName } from '@/lib/name-format';
 import StatCard from './components/StatCard';
 import { ammanTodayISO } from '@/lib/subscriptions';
+import { Notebook } from '@phosphor-icons/react';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -570,52 +571,62 @@ export default function PharmacistDashboard() {
         <div className="fu4 grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* الفحوصات */}
           <div onClick={() => router.push('/dashboard/vitals')}
-            className="group bg-white border border-slate-200 rounded-xl p-6 cursor-pointer shadow-sm hover:shadow-md transition-all flex flex-col justify-between h-full">
-            <div>
-              <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center shrink-0 mb-4 group-hover:bg-slate-900 group-hover:text-white transition-colors">
+            className="group bg-white border border-slate-200 rounded-xl p-5 cursor-pointer shadow-sm hover:shadow-md transition-all flex items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center shrink-0 group-hover:bg-slate-900 group-hover:text-white transition-colors">
                 <IconVitals className="w-6 h-6 text-slate-600 group-hover:text-white transition-colors" />
               </div>
-              <h3 className="text-base font-bold text-slate-900">الفحوصات والتحليل الذكي</h3>
-              <p className="text-sm text-slate-500 mt-2 leading-relaxed">قياس الضغط والسكري، ملخّص ذكي مخصص، وإرسال فوري عبر WhatsApp.</p>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">الفحوصات والتحليل الذكي</h3>
+                <p className="text-xs text-slate-500 mt-1 leading-relaxed">قياس الضغط والسكري والوزن، ملخّص ذكي مخصص، وإرسال فوري عبر WhatsApp.</p>
+              </div>
             </div>
-            <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-900 bg-slate-100 px-3 py-1.5 rounded-md tabular-nums">{stats.totalVisits} زيارة</span>
-              <span className="text-sm font-medium text-slate-500 group-hover:text-slate-900 transition-colors flex items-center gap-1">
-                دخول <IconArrow className="w-4 h-4 rotate-180" />
-              </span>
-            </div>
+            <IconArrow className="w-5 h-5 text-slate-300 group-hover:text-slate-900 transition-colors shrink-0 rotate-180" />
           </div>
 
-          <div className="space-y-4">
-            {/* الأدوية المزمنة */}
-            <div onClick={() => router.push('/dashboard/chronic')}
-              className="group bg-white border border-slate-200 rounded-xl p-5 cursor-pointer shadow-sm hover:shadow-md transition-all flex items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center shrink-0 group-hover:bg-slate-900 group-hover:text-white transition-colors">
-                  <IconChronic className="w-6 h-6 text-slate-600 group-hover:text-white transition-colors" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900">إدارة الأدوية المزمنة</h3>
-                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">متابعة مرضاك ومواعيد نفاذ أدويتهم.</p>
-                </div>
+          {/* الأدوية المزمنة */}
+          <div onClick={() => router.push('/dashboard/chronic')}
+            className="group bg-white border border-slate-200 rounded-xl p-5 cursor-pointer shadow-sm hover:shadow-md transition-all flex items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center shrink-0 group-hover:bg-slate-900 group-hover:text-white transition-colors">
+                <IconChronic className="w-6 h-6 text-slate-600 group-hover:text-white transition-colors" />
               </div>
-              <IconArrow className="w-5 h-5 text-slate-300 group-hover:text-slate-900 transition-colors shrink-0 rotate-180" />
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">إدارة الأدوية المزمنة</h3>
+                <p className="text-xs text-slate-500 mt-1 leading-relaxed">متابعة مرضاك ومواعيد نفاذ أدويتهم.</p>
+              </div>
             </div>
+            <IconArrow className="w-5 h-5 text-slate-300 group-hover:text-slate-900 transition-colors shrink-0 rotate-180" />
+          </div>
 
-            {/* الكتالوج */}
-            <div onClick={() => router.push('/dashboard/pharmacy-catalog-manager')}
-              className="group bg-white border border-slate-200 rounded-xl p-5 cursor-pointer shadow-sm hover:shadow-md transition-all flex items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center shrink-0 group-hover:bg-slate-900 group-hover:text-white transition-colors">
-                  <IconCatalog className="w-6 h-6 text-slate-600 group-hover:text-white transition-colors" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900">كتالوج المنتجات</h3>
-                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">مكملات وأجهزة ومستلزمات، لكل منتج بطاقة أمان تُفحص تلقائياً لكل مريض.</p>
-                </div>
+          {/* طلبات المرضى */}
+          <div onClick={() => router.push('/dashboard/requests')}
+            className="group bg-white border border-slate-200 rounded-xl p-5 cursor-pointer shadow-sm hover:shadow-md transition-all flex items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center shrink-0 group-hover:bg-slate-900 group-hover:text-white transition-colors">
+                <Notebook size={24} weight="bold" className="text-slate-600 group-hover:text-white transition-colors" aria-hidden="true" />
               </div>
-              <IconArrow className="w-5 h-5 text-slate-300 group-hover:text-slate-900 transition-colors shrink-0 rotate-180" />
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">طلبات المرضى</h3>
+                <p className="text-xs text-slate-500 mt-1 leading-relaxed">سجّل طلبات الأصناف غير المتوفرة وتابعها بين الشفتات حتى تسليمها للمريض.</p>
+              </div>
             </div>
+            <IconArrow className="w-5 h-5 text-slate-300 group-hover:text-slate-900 transition-colors shrink-0 rotate-180" />
+          </div>
+
+          {/* الكتالوج */}
+          <div onClick={() => router.push('/dashboard/pharmacy-catalog-manager')}
+            className="group bg-white border border-slate-200 rounded-xl p-5 cursor-pointer shadow-sm hover:shadow-md transition-all flex items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center shrink-0 group-hover:bg-slate-900 group-hover:text-white transition-colors">
+                <IconCatalog className="w-6 h-6 text-slate-600 group-hover:text-white transition-colors" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">كتالوج المنتجات</h3>
+                <p className="text-xs text-slate-500 mt-1 leading-relaxed">مكملات وأجهزة ومستلزمات، لكل منتج بطاقة أمان تُفحص تلقائياً لكل مريض.</p>
+              </div>
+            </div>
+            <IconArrow className="w-5 h-5 text-slate-300 group-hover:text-slate-900 transition-colors shrink-0 rotate-180" />
           </div>
         </div>
 

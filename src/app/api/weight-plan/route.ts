@@ -10,7 +10,7 @@ import { assessProductForPatient, type PatientForSuitability, type ProductForSui
 import { fetchProductScores, rankSuitable } from '@/lib/product-ranking';
 import { requireStaff } from '@/lib/api-auth';
 import { generateMarketingTexts } from '@/lib/product-marketing-ai';
-import { sanitizeReason, type MarketingFacts } from '@/lib/product-marketing';
+import { sanitizeReason, safeInstruction, type MarketingFacts } from '@/lib/product-marketing';
 import { CATEGORY_LABELS_AR, CATEGORIES_FOR_KIND } from '@/lib/catalog-taxonomy';
 
 export const maxDuration = 60;
@@ -187,6 +187,7 @@ ${CATEGORY_LIST_TEXT}
 - ممنوع اقتراح أي فئة واردة ضمن "فئات مكملات ممنوع اقتراحها لهذا المريض" في بيانات الأدوية أدناه، حتى لو بدت مفيدة نظرياً لحالته
 - الـ reason يجب أن يكون مقنعاً وشخصياً
 - الـ reason: وصف وظيفي فقط («يدعم، يساعد على»)؛ لا ادعاء علاجياً أو وقائياً، ولا ضمان نتيجة، ولا ذكر أمان في الحمل أو الرضاعة، ولا «الأفضل» ولا «مثبت علمياً».
+- الـ instruction: وصف عام فقط؛ لا جرعة ولا عدد أقراص أو كبسولات ولا توقيت ولا كمية ماء ولا مدة.
 - ممنوع قطعاً أي اسم منتج أو ماركة تجارية أو مثال محدد — الرمز وحده
 `;
 
@@ -1027,9 +1028,10 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
     const replacedCategories: string[] = [];
     const cleanedProducts = enrichedProducts.map(p => {
       const r = sanitizeReason(p.reason);
-      if (!r.replaced) return p;
-      replacedCategories.push(p.category_code);
-      return { ...p, reason: r.text };
+      const instruction = safeInstruction(p.category_code, p.instruction, SUPPLEMENT_CODES);
+      if (!r.replaced && instruction === p.instruction) return p;
+      if (r.replaced) replacedCategories.push(p.category_code);
+      return { ...p, reason: r.replaced ? r.text : p.reason, instruction };
     });
     if (replacedCategories.length > 0) {
       console.warn(`[weight-plan PATCH] reasons replaced with neutral text: ${replacedCategories.length} (${[...new Set(replacedCategories)].join(', ')})`);

@@ -193,3 +193,9 @@ export function sanitizeReason(reason: unknown): { text: string; replaced: boole
   if (hasReasonClaim(reason)) return { text: NEUTRAL_REASON, replaced: true };
   return { text: reason.trim(), replaced: false };
 }
+
+export const FIXED_SUPPLEMENT_INSTRUCTION = 'اتبع تعليمات العبوة، أو اسأل الصيدلاني عن طريقة الاستخدام المناسبة لك.';
+// طريقة استخدام المكمّلات لا يكتبها النموذج: لا يرى العبوة، وجرعة مخمَّنة خطر على المريض. الأجهزة تبقى بنصيحتها العامة
+export function safeInstruction(categoryCode: string, instruction: string, supplementCodes: ReadonlySet<string>): string {
+  return supplementCodes.has(categoryCode) ? FIXED_SUPPLEMENT_INSTRUCTION : instruction;
+}

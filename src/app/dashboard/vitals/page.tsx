@@ -2228,6 +2228,11 @@ ${planUrl}
                                   <input type="checkbox" className="mt-0.5 accent-teal-600 shrink-0"
                                     checked={!excludedVitalsProducts.has(p.id)}
                                     onChange={() => setExcludedVitalsProducts(prev => { const n = new Set(prev); n.has(p.id) ? n.delete(p.id) : n.add(p.id); return n; })} />
+                                  {p.image_url && (
+                                    <span className={`shrink-0 ${excludedVitalsProducts.has(p.id) ? 'opacity-40' : ''}`}>
+                                      <ProductThumb url={p.image_url} name={p.brand_name} size="sm" />
+                                    </span>
+                                  )}
                                   <span className={`text-xs leading-relaxed ${excludedVitalsProducts.has(p.id) ? 'text-slate-400 line-through' : 'text-slate-700'}`}>
                                     <span className="font-bold">{p.brand_name}</span>
                                     {p.price != null && <span className="text-slate-400"> · <span dir="ltr" className="tabular-nums inline-block">{p.price}</span> د.أ</span>}

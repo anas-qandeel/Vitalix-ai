@@ -904,7 +904,9 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
     // حتى لو لم يطلبها النموذج. حارسان: بطاقة مؤكَّدة من الصيدلاني، وفئة غير uncategorized.
     // كل خطة وزن = weight؛ السكري/الضغط بحسب التشخيص. تمرّ بعدها بمحرك الملاءمة والترتيب كالمعتاد.
     {
-      const relevanceTags: string[] = ['weight'];
+      // منتجات «الوزن» لا تُضاف تلقائياً لمن لا يناسبها إنقاص الوزن (نفس شروط تخطي النص التسويقي)
+      const skipWeightTag = isPregnant || isLactating || plan.bmi_category === 'underweight' || (age !== null && age < 18);
+      const relevanceTags: string[] = skipWeightTag ? [] : ['weight'];
       if (patientForSuitability.diagnosed_conditions.includes('diabetes'))     relevanceTags.push('diabetes');
       if (patientForSuitability.diagnosed_conditions.includes('hypertension')) relevanceTags.push('hypertension');
       const { data: relRows } = await supabaseAdmin

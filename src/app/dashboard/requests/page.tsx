@@ -11,7 +11,7 @@ import { normalizeAr } from '@/lib/arabic';
 import { displayPhone, normalizePhone, toLatinDigits } from '@/lib/phone';
 import { calendarDaysSince } from '@/lib/calendar-days';
 import RequestDetailsModal from './RequestDetailsModal';
-import { RequestRow, RequestStatus, STATUS_META, fmtJd, remaining } from './shared';
+import { RequestRow, RequestStatus, STATUS_META, fmtJd, remaining, MONEY_RE, cleanNumberInput, INPUT_BASE, INPUT_CLS } from './shared';
 import { friendlyError, READ_ONLY_MESSAGE, useSubscriptionState } from '@/lib/subscription-state';
 import { Plus, MagnifyingGlass, Phone, Package, Clock, UserCircle, X, Notebook, UserPlus, ArrowsClockwise } from '@phosphor-icons/react';
 
@@ -27,13 +27,6 @@ const CLOSED_STATUSES: RequestStatus[] = ['delivered', 'cancelled'];
 const CLOSED_LIMIT = 50;
 const MAX_ITEMS = 30;
 
-// حدّ numeric(10,3) في القاعدة: 7 خانات صحيحة و3 كسرية
-const MONEY_RE = /^\d{1,7}(\.\d{1,3})?$/;
-
-// بلا عرض: حقول البنود تحدّد عرضها بنفسها (w-full هنا كان يتعارض مع w-20 فيتمدد حقل الكمية ويضغط الاسم)
-const INPUT_BASE = 'px-3.5 py-2.5 text-sm bg-white border border-slate-200 rounded-xl text-slate-900 focus:border-slate-900 focus:ring-1 focus:ring-slate-900 focus:outline-none transition-all';
-const INPUT_CLS = `w-full ${INPUT_BASE}`;
-
 // ═══════════════════════════════════════════════════════
 // HELPERS
 // ═══════════════════════════════════════════════════════
@@ -44,11 +37,6 @@ function daysAgoLabel(iso: string): string {
   if (d === 2) return 'منذ يومين';
   if (d <= 10) return `منذ ${d} أيام`;
   return `منذ ${d} يوماً`;
-}
-
-// يحوّل أرقام الإدخال العربية إلى لاتينية ويقبل الفاصلة كفاصل عشري
-function cleanNumberInput(raw: string): string {
-  return toLatinDigits(raw).replace(/,/g, '.').replace(/\s/g, '');
 }
 
 // أخطاء القاعدة إلى رسائل عربية مفهومة؛ نص الخطأ الخام لا يُعرض للمستخدم أبداً

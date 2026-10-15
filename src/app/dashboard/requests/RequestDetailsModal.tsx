@@ -224,6 +224,10 @@ export default function RequestDetailsModal({ row, onClose, notify }: {
     }
   };
 
+  // ترقيم الملاحظات وحدها بالترتيب الزمني (الأحداث مرتّبة تصاعدياً أصلاً)
+  const noteNumbers = new Map<string, number>();
+  events.forEach(ev => { if (ev.kind === 'note') noteNumbers.set(ev.id, noteNumbers.size + 1); });
+
   const status = detail?.status ?? row.status;
   const meta = STATUS_META[status];
   const hasPrice = detail?.price != null;
@@ -346,11 +350,11 @@ export default function RequestDetailsModal({ row, onClose, notify }: {
                       const isNote = ev.kind === 'note';
                       return (
                         <li key={ev.id} className="flex items-start gap-3">
-                          <span className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${isNote ? 'bg-violet-400' : 'bg-slate-300'}`} />
+                          <span className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${isNote ? 'bg-teal-600' : 'bg-slate-300'}`} />
                           <div className="min-w-0 flex-1">
                             {isNote ? (
-                              <div className="bg-violet-50 border border-violet-200 rounded-xl px-3 py-2.5">
-                                <span className="text-[10px] font-bold text-violet-700">ملاحظة</span>
+                              <div className="bg-teal-50 border border-teal-200 rounded-xl px-3 py-2.5">
+                                <span className="text-[10px] font-semibold text-teal-700">ملاحظة <span className="tabular-nums">{noteNumbers.get(ev.id)}</span></span>
                                 <p className="text-sm text-slate-800 mt-0.5 whitespace-pre-line break-words">{ev.body}</p>
                               </div>
                             ) : (

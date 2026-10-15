@@ -4,7 +4,7 @@ import { logAiUsage, notifyAiFallback } from '@/lib/ai-usage';
 import { GoogleGenAI, Type } from '@google/genai';
 import { calcWeightGoals, getBMICategory, LACTATION_FIRST_GOAL_CAP_KG } from '@/lib/weight-math';
 import { SUPPLEMENT_CATEGORIES, isValidCategory } from '@/lib/supplement-categories';
-import { matchPatientDrugs, type DrugEntry } from '@/lib/drug-food-interactions';
+import { matchPatientDrugs, drugAlertLabel, type DrugEntry } from '@/lib/drug-food-interactions';
 import { findAllergenMentions } from '@/lib/allergen-scan';
 import { assessProductForPatient, type PatientForSuitability, type ProductForSuitability } from '@/lib/product-suitability';
 import { fetchProductScores, rankSuitable } from '@/lib/product-ranking';
@@ -719,7 +719,7 @@ ${progressText ? `\nتقدّم المريض:\n${progressText}\n` : ''}
                 // وفارغ حين لا يوجد تطابق. ما يعيده النموذج في هذا الحقل يُتجاهل. الجملة الختامية باسم الصيدلية.
                 {
                   const alertLines: string[] = matchedDrugs
-                    .map(d => ({ name: d.genericAr, text: d.foods.map(f => f.patientText).filter(Boolean).join(' ') }))
+                    .map(d => ({ name: drugAlertLabel(d, medications), text: d.foods.map(f => f.patientText).filter(Boolean).join(' ') }))
                     .filter(x => x.text)
                     .map(x => `${x.name}: ${x.text}`);
                   if (alertLines.length > 0) {

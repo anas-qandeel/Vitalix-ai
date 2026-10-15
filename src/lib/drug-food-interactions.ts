@@ -19,6 +19,7 @@
 
 import type { SupplementCategory } from './supplement-categories';
 import type { DrugClass } from './drug-classes';
+import { normalizeAr } from './arabic';
 
 // ═══════════════════════════════════════════════════════════════
 // الأنواع
@@ -806,4 +807,19 @@ export function matchPatientDrugs(drugs: string[]): {
     }
   }
   return { matched, unknown };
+}
+/**
+ * تسمية الدواء في تنبيه المريض: «الاسم العلمي بالعربية (الاسم المسجّل)». الاسم المسجّل يُقصّ من أول كلمة تبدأ برقم
+ * (جرعة/عبوة)، وإن كان هو نفسه الاسم العلمي أو لم يُعثر على اسم مسجّل مطابق يُكتب الاسم العلمي وحده.
+ */
+export function drugAlertLabel(d: DrugEntry, registeredNames: string[]): string {
+  const name = registeredNames.find(n => matchDrugAll(n).some(e => e.generic === d.generic));
+  if (!name) return d.genericAr;
+  const words = name.trim().split(/\s+/);
+  const cut = words.findIndex(w => /^[0-9٠-٩]/.test(w));
+  const clean = (cut === -1 ? words : words.slice(0, cut)).join(' ').trim();
+  if (!clean) return d.genericAr;
+  const c = normalizeAr(clean);
+  if (c === normalizeAr(d.generic) || c === normalizeAr(d.genericAr)) return d.genericAr;
+  return `${d.genericAr} (${clean})`;
 }

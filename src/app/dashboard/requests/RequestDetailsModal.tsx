@@ -7,23 +7,17 @@ import { calendarDaysSince } from '@/lib/calendar-days';
 import { friendlyError, READ_ONLY_MESSAGE, useSubscriptionState } from '@/lib/subscription-state';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { Phone, Package, X, ArrowsClockwise } from '@phosphor-icons/react';
-import { RequestRow, RequestStatus, STATUS_META, fmtJd, remaining, MONEY_RE, cleanNumberInput, INPUT_CLS } from './shared';
+import {
+  RequestRow, RequestStatus, RequestItem, ItemStage, STATUS_META, STAGE_META, STAGE_RANK, stageTime,
+  fmtJd, paidTotal, remainingAmount, MONEY_RE, cleanNumberInput, INPUT_CLS,
+} from './shared';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
 // ═══════════════════════════════════════════════════════
-interface DetailItem {
-  id: string;
-  product_name: string;
-  quantity: number;
-  cancelled: boolean;
-  cancel_reason: string | null;
-  supplier: string | null;
-  arrived: boolean;
-}
-
 interface DetailRequest {
   id: string;
+  request_number: number;
   price: number | null;
   deposit: number | null;
   deposit_returned: boolean | null;
@@ -31,7 +25,8 @@ interface DetailRequest {
   delivered_at: string | null;
   cancelled_at: string | null;
   status: RequestStatus;
-  items: DetailItem[];
+  items: RequestItem[];
+  payments: { amount: number }[];
 }
 
 interface TimelineEvent {
@@ -40,26 +35,37 @@ interface TimelineEvent {
   body: string | null;
   details: Record<string, unknown> | null;
   created_at: string;
+  staff_id: string | null;
   staff: { name: string } | null;
+}
+
+// سطر في السجل: حدث واحد أو مجموعة أحداث متتالية لتغيّر مرحلة أصناف بالانتقال نفسه
+interface TimelineLine {
+  key: string;
+  ev: TimelineEvent;
+  names: string[];
 }
 
 const NOTE_MAX = 1000;
 const CANCEL_REASON_MAX = 300;
-
-// المرحلة التالية الوحيدة المعروضة كزر رئيسي (القفز على المراحل يسمح به الخادم لكن الواجهة تتقدم خطوة خطوة)
-const NEXT_STAGE: Partial<Record<RequestStatus, { to: RequestStatus; label: string }>> = {
-  recorded: { to: 'ordered',   label: 'طُلب من المورد' },
-  ordered:  { to: 'arrived',   label: 'وصل' },
-  arrived:  { to: 'delivered', label: 'سُلّم للمريض' },
-};
+const GROUP_WINDOW_MS = 5000;
+const EVENTS_SELECT = 'id, kind, body, details, created_at, staff_id, staff:pharmacy_staff!patient_request_events_staff_id_fkey(name)';
+const DETAIL_SELECT = 'id, request_number, price, deposit, deposit_returned, cancel_reason, delivered_at, cancelled_at, status, items:patient_request_items(id, product_name, quantity, supplier, stage, ordered_at, arrived_at, delivered_at, cancelled_at, cancel_reason), payments:patient_request_payments(amount)';
 
 const CONFLICT_MESSAGE = 'تغيّر هذا الطلب من موظف آخر. أعد فتحه.';
 
-// أخطاء القاعدة لإجراءات الطلب إلى رسائل عربية؛ نص الخطأ الخام لا يُعرض أبداً
+// أخطاء القاعدة إلى رسائل عربية؛ نص الخطأ الخام لا يُعرض أبداً
 function mapActionError(err: { message?: string; details?: string } | null | undefined): string {
   const text = `${err?.message ?? ''} ${err?.details ?? ''}`;
   if (/SUBSCRIPTION_READ_ONLY/.test(text)) return friendlyError(err);
-  if (/FINAL_STATUS|BACKWARD_STATUS/.test(text)) return CONFLICT_MESSAGE;
+  if (/REQUEST_CLOSED/.test(text)) return 'أُغلق هذا الطلب. أعد فتحه لرؤية آخر حالة.';
+  if (/STATUS_NOT_ALLOWED/.test(text)) return 'هذا التغيير في حالة الطلب غير مسموح.';
+  if (/REQUEST_HAS_DELIVERIES/.test(text)) return 'لا يمكن إلغاء طلب سُلّمت بعض أصنافه — ألغِ الأصناف المتبقية بدلاً من ذلك.';
+  if (/PRICE_BELOW_PAID/.test(text)) return 'السعر الإجمالي أقل من العربون مع ما دُفع عند التسليم.';
+  if (/PRICE_REQUIRED/.test(text)) return 'لا يمكن مسح السعر الإجمالي بعد تحصيل دفعة. عدّله بدلاً من ذلك.';
+  if (/DEPOSIT_RETURN_FINAL/.test(text)) return 'تسجيل إعادة العربون نهائي ولا يمكن التراجع عنه.';
+  if (/REMAINING_NOT_SETTLED/.test(text)) return 'المتبقي على المريض لا يساوي صفراً. عدّل السعر الإجمالي أولاً ثم أعد المحاولة.';
+  if (/IMMUTABLE_FIELD/.test(text)) return 'لا يمكن تغيير الصيدلية أو المريض أو رقم الطلب أو المنشئ.';
   if (/patient_requests_cancel_needs_reason/.test(text)) return 'اكتب سبب إلغاء الطلب.';
   if (/patient_requests_cancel_deposit_answer/.test(text)) return 'حدّد هل أُعيد العربون للمريض.';
   if (/patient_requests_deposit_le_price/.test(text)) return 'لا يمكن أن يزيد العربون على السعر.';
@@ -67,7 +73,6 @@ function mapActionError(err: { message?: string; details?: string } | null | und
   if (/row-level security|STAFF_REQUIRED/i.test(text)) return 'تعذّر التحقق من هويتك كموظف. سجّل الدخول من جديد ثم أعد المحاولة.';
   return 'تعذّر تنفيذ الإجراء. تحقّق من اتصالك ثم حاول مرة أخرى.';
 }
-const EVENTS_SELECT = 'id, kind, body, details, created_at, staff:pharmacy_staff!patient_request_events_staff_id_fkey(name)';
 
 // ═══════════════════════════════════════════════════════
 // HELPERS
@@ -101,7 +106,7 @@ function formatEventTime(iso: string): string {
 
 const str = (v: unknown): string => (v == null ? '' : String(v));
 const money = (v: unknown): string => `${fmtJd(Number(v))} د.أ`;
-const stageLabel = (v: unknown): string => STATUS_META[v as RequestStatus]?.label ?? str(v);
+const stageLabel = (v: unknown): string => STAGE_META[v as ItemStage]?.label ?? str(v);
 
 // تغيّر مبلغ: إضافة / حذف / تعديل
 function moneyChange(label: string, d: Record<string, unknown>): string {
@@ -113,15 +118,51 @@ function moneyChange(label: string, d: Record<string, unknown>): string {
   return `عدّل ${label}`;
 }
 
+// هل انتقال المرحلة تراجع؟ (رتبة الوجهة أصغر من رتبة المصدر)
+function isBackward(d: Record<string, unknown>): boolean {
+  const from = STAGE_RANK[d.from as ItemStage];
+  const to = STAGE_RANK[d.to as ItemStage];
+  return from != null && to != null && to < from;
+}
+
+// جملة انتقال مرحلة لصنف واحد أو مجموعة أصناف
+function describeStageChange(d: Record<string, unknown>, names: string[]): string {
+  const list = names.join('، ');
+  const many = names.length > 1;
+  if (isBackward(d)) {
+    return many ? `تراجع: ${list} عادت إلى «${stageLabel(d.to)}»` : `تراجع: ${list} عاد إلى «${stageLabel(d.to)}»`;
+  }
+  switch (d.to) {
+    case 'ordered':   return many ? `طلب من المورد: ${list}` : `طلب ${list} من المورد`;
+    case 'arrived':   return many ? `سجّل وصول: ${list}` : `سجّل وصول ${list}`;
+    case 'delivered': return many ? `سلّم للمريض: ${list}` : `سلّم ${list} للمريض`;
+    default:          return many ? `غيّر مرحلة: ${list} إلى «${stageLabel(d.to)}»` : `غيّر مرحلة ${list} إلى «${stageLabel(d.to)}»`;
+  }
+}
+
 // جملة عربية لكل نوع حدث؛ النوع المجهول يعطي سطراً عاماً ولا يكسر العرض أبداً
-function describeEvent(ev: TimelineEvent): string {
+function describeLine(line: TimelineLine): string {
+  const ev = line.ev;
   const d = (ev.details ?? {}) as Record<string, unknown>;
   const name = str(d.product_name);
   switch (ev.kind) {
     case 'created':
-      return 'سجّل الطلب';
-    case 'stage_change':
-      return `غيّر المرحلة من ${stageLabel(d.from)} إلى ${stageLabel(d.to)}`;
+      return d.request_number != null ? `سجّل الطلب رقم ${str(d.request_number)}` : 'سجّل الطلب';
+    case 'status_change': {
+      if (d.to === 'delivered') return 'اكتمل تسليم الطلب';
+      if (d.to === 'cancelled') {
+        const dep = d.deposit_returned === true ? ' — أُعيد العربون' : d.deposit_returned === false ? ' — لم يُعَد العربون' : '';
+        return `ألغى الطلب — السبب: ${str(d.reason)}${dep}`;
+      }
+      return `غيّر حالة الطلب إلى «${STATUS_META[d.to as RequestStatus]?.label ?? str(d.to)}»`;
+    }
+    case 'item_stage_change':
+      return describeStageChange(d, line.names);
+    case 'payment': {
+      const items = Array.isArray(d.items) ? (d.items as unknown[]).map(str).join('، ') : '';
+      const head = Number(d.amount) > 0 ? `استلم ${money(d.amount)}` : 'سلّم دون تحصيل مبلغ';
+      return items ? `${head} (${items})` : head;
+    }
     case 'price_change':
       return moneyChange('السعر الإجمالي', d);
     case 'deposit_change':
@@ -129,7 +170,7 @@ function describeEvent(ev: TimelineEvent): string {
     case 'deposit_return_change':
       if (d.new === true) return 'سجّل أن العربون أُعيد للمريض';
       if (d.new === false) return 'سجّل أن العربون لم يُعَد';
-      return 'ألغى تسجيل إرجاع العربون';
+      return 'ألغى تسجيل إعادة العربون';
     case 'message_sent': {
       const kind = d.message === 'arrival' ? 'أرسل رسالة الوصول' : d.message === 'confirmation' ? 'أرسل رسالة التأكيد' : 'أرسل رسالة للمريض';
       const amounts = d.amounts_included === true ? ' (مع المبالغ)' : d.amounts_included === false ? ' (بدون المبالغ)' : '';
@@ -143,19 +184,40 @@ function describeEvent(ev: TimelineEvent): string {
       if (d.old == null && d.new != null) return `حدّد مورد ${name}: ${str(d.new)}`;
       if (d.new == null) return `حذف مورد ${name}`;
       return `غيّر مورد ${name} من ${str(d.old)} إلى ${str(d.new)}`;
-    case 'item_arrival_change':
-      return d.arrived === true ? `أشّر وصول ${name}` : `ألغى تأشير وصول ${name}`;
     default:
       return 'أجرى تحديثاً على الطلب';
   }
 }
 
+// يدمج أحداث item_stage_change المتتالية (الوجهة والاتجاه والموظف نفسها خلال 5 ثوانٍ) في سطر واحد
+function buildLines(events: TimelineEvent[]): TimelineLine[] {
+  const lines: TimelineLine[] = [];
+  let lastTime = 0;
+  for (const ev of events) {
+    const t = new Date(ev.created_at).getTime();
+    const prev = lines[lines.length - 1];
+    if (ev.kind === 'item_stage_change' && prev && prev.ev.kind === 'item_stage_change') {
+      const pd = (prev.ev.details ?? {}) as Record<string, unknown>;
+      const d = (ev.details ?? {}) as Record<string, unknown>;
+      if (pd.to === d.to && isBackward(pd) === isBackward(d) && prev.ev.staff_id === ev.staff_id && t - lastTime <= GROUP_WINDOW_MS) {
+        prev.names.push(str(d.product_name));
+        lastTime = t;
+        continue;
+      }
+    }
+    lines.push({ key: ev.id, ev, names: ev.kind === 'item_stage_change' ? [str(((ev.details ?? {}) as Record<string, unknown>).product_name)] : [] });
+    lastTime = t;
+  }
+  return lines;
+}
+
 // ═══════════════════════════════════════════════════════
 // MODAL
 // ═══════════════════════════════════════════════════════
-export default function RequestDetailsModal({ row, onClose, notify }: {
+export default function RequestDetailsModal({ row, onClose, onChanged, notify }: {
   row: RequestRow;
   onClose: () => void;
+  onChanged: () => void;
   notify: (kind: 'ok' | 'err', text: string) => void;
 }) {
   const { readOnly } = useSubscriptionState();
@@ -192,7 +254,7 @@ export default function RequestDetailsModal({ row, onClose, notify }: {
       const [detailRes, evs] = await Promise.all([
         supabase
           .from('patient_requests')
-          .select('id, price, deposit, deposit_returned, cancel_reason, delivered_at, cancelled_at, status, items:patient_request_items(id, product_name, quantity, cancelled, cancel_reason, supplier, arrived)')
+          .select(DETAIL_SELECT)
           .eq('id', row.id)
           .order('created_at', { referencedTable: 'patient_request_items', ascending: true })
           .single(),
@@ -234,6 +296,12 @@ export default function RequestDetailsModal({ row, onClose, notify }: {
     void fetchAll();
   };
 
+  // بعد كل إجراء ناجح: تحديث تفاصيل الطلب والسجل داخل النافذة ثم القائمة خلفها فوراً
+  const refreshAll = async () => {
+    await fetchAll();
+    onChanged();
+  };
+
   const addNote = async () => {
     if (saving) return;
     if (readOnly) { notify('err', READ_ONLY_MESSAGE); return; }
@@ -243,7 +311,7 @@ export default function RequestDetailsModal({ row, onClose, notify }: {
 
     setSaving(true);
     try {
-      // request_id و kind و body فقط — الصيدلية والمرحلة والموظف والوقت تضبطها القاعدة
+      // request_id و kind و body فقط — الصيدلية والموظف والوقت تضبطها القاعدة
       const { error } = await supabase.from('patient_request_events').insert({ request_id: row.id, kind: 'note', body });
       if (error) {
         const text = `${error.message ?? ''}`;
@@ -255,7 +323,7 @@ export default function RequestDetailsModal({ row, onClose, notify }: {
       }
       setNote('');
       try {
-        setEvents(await fetchEvents());
+        await refreshAll();
         notify('ok', 'تمت إضافة الملاحظة');
       } catch {
         notify('err', 'حُفظت الملاحظة، لكن تعذّر تحديث السجل. أعد فتح الطلب لرؤيتها.');
@@ -267,12 +335,14 @@ export default function RequestDetailsModal({ row, onClose, notify }: {
     }
   };
 
-  const isFinal = !!detail && (detail.status === 'delivered' || detail.status === 'cancelled');
-  const canAct = !!detail && !isFinal && !readOnly;
+  const isOpen = detail?.status === 'open';
+  const isFinal = !!detail && !isOpen;
+  const canAct = !!detail && isOpen && !readOnly;
+  const hasDelivered = !!detail && detail.items.some(it => it.stage === 'delivered');
   const depositPositive = !!detail && detail.deposit != null && Number(detail.deposit) > 0;
 
   // يحدّث الطلب؛ شرط .eq('status') يكشف تغيّر الحالة من موظف آخر (تحديث بصفر صفوف بلا خطأ)
-  const runUpdate = async (patch: Record<string, unknown>, okText: string, statusAfter?: RequestStatus): Promise<boolean> => {
+  const runUpdate = async (patch: Record<string, unknown>, okText: string): Promise<boolean> => {
     if (!detail || acting) return false;
     if (readOnly) { notify('err', READ_ONLY_MESSAGE); return false; }
     setActing(true);
@@ -281,9 +351,8 @@ export default function RequestDetailsModal({ row, onClose, notify }: {
         .eq('id', row.id).eq('status', detail.status).select('id');
       if (error) { notify('err', mapActionError(error)); return false; }
       if (!data || data.length === 0) { notify('err', CONFLICT_MESSAGE); return false; }
-      if (statusAfter) setDetail(d => (d ? { ...d, status: statusAfter } : d)); // الشارة تتحدّث فوراً
       notify('ok', okText);
-      await fetchAll();
+      await refreshAll();
       return true;
     } catch {
       notify('err', 'تعذّر تنفيذ الإجراء. تحقّق من اتصالك ثم حاول مرة أخرى.');
@@ -291,34 +360,6 @@ export default function RequestDetailsModal({ row, onClose, notify }: {
     } finally {
       setActing(false);
     }
-  };
-
-  const goNext = async () => {
-    if (!detail) return;
-    const next = NEXT_STAGE[detail.status];
-    if (!next) return;
-
-    if (next.to === 'arrived') {
-      const live = detail.items.filter(it => !it.cancelled);
-      if (live.length === 0) { notify('err', 'كل الأصناف ملغاة — ألغِ الطلب بدلاً من ذلك.'); return; }
-      const pending = live.filter(it => !it.arrived).map(it => it.product_name);
-      const ok = await confirm({
-        title: 'تأكيد وصول الطلب',
-        message: `ستُعتبر كل الأصناف غير الملغاة واصلة. هل وصلت كلها؟${pending.length ? ` الأصناف التي لم يُؤشَّر وصولها بعد: ${pending.join('، ')}.` : ''}`,
-        confirmText: 'نعم، وصلت',
-      });
-      if (!ok) return;
-    } else if (next.to === 'delivered') {
-      const hasPrice = detail.price != null;
-      const hasDeposit = detail.deposit != null;
-      let money = '';
-      if (hasPrice && hasDeposit) money = ` المتبقي على المريض: ${fmtJd(remaining(detail.price as number, detail.deposit as number))} د.أ`;
-      else if (hasPrice) money = ` المبلغ المطلوب: ${fmtJd(detail.price as number)} د.أ`;
-      const ok = await confirm({ title: 'تسليم الطلب للمريض', message: `سيُغلق الطلب نهائياً.${money}`, confirmText: 'تأكيد التسليم' });
-      if (!ok) return;
-    }
-    // تحديث الحالة وحدها: التواقيت والسجل تتكفّل بهما القاعدة
-    await runUpdate({ status: next.to }, `تم تغيير المرحلة إلى «${STATUS_META[next.to].label}»`, next.to);
   };
 
   const submitCancel = async () => {
@@ -330,13 +371,13 @@ export default function RequestDetailsModal({ row, onClose, notify }: {
     // الحالة والسبب وإجابة العربون في تحديث واحد: القاعدة تشترطها معاً
     const patch: Record<string, unknown> = { status: 'cancelled', cancel_reason: reason };
     if (depositPositive) patch.deposit_returned = depositAnswer === 'yes';
-    const ok = await runUpdate(patch, 'تم إلغاء الطلب', 'cancelled');
+    const ok = await runUpdate(patch, 'تم إلغاء الطلب');
     if (ok) { setCancelOpen(false); setCancelReason(''); setDepositAnswer(''); }
   };
 
   const markDepositReturned = async () => {
     if (!detail || acting) return;
-    const ok = await confirm({ title: 'تأكيد إرجاع العربون', message: 'سيُسجَّل أن العربون أُعيد للمريض.', confirmText: 'تم الإرجاع' });
+    const ok = await confirm({ title: 'تأكيد إرجاع العربون', message: 'سيُسجَّل أن العربون أُعيد للمريض، ولا يمكن التراجع عن ذلك.', confirmText: 'تم الإرجاع' });
     if (!ok) return;
     if (readOnly) { notify('err', READ_ONLY_MESSAGE); return; }
     setActing(true);
@@ -346,7 +387,7 @@ export default function RequestDetailsModal({ row, onClose, notify }: {
       if (error) { notify('err', mapActionError(error)); return; }
       if (!data || data.length === 0) { notify('err', CONFLICT_MESSAGE); return; }
       notify('ok', 'سُجّل إرجاع العربون');
-      await fetchAll();
+      await refreshAll();
     } catch {
       notify('err', 'تعذّر تنفيذ الإجراء. تحقّق من اتصالك ثم حاول مرة أخرى.');
     } finally {
@@ -384,11 +425,14 @@ export default function RequestDetailsModal({ row, onClose, notify }: {
   // ترقيم الملاحظات وحدها بالترتيب الزمني (الأحداث مرتّبة تصاعدياً أصلاً)
   const noteNumbers = new Map<string, number>();
   events.forEach(ev => { if (ev.kind === 'note') noteNumbers.set(ev.id, noteNumbers.size + 1); });
+  const lines = buildLines(events);
 
   const status = detail?.status ?? row.status;
   const meta = STATUS_META[status];
+  const requestNumber = detail?.request_number ?? row.request_number;
   const hasPrice = detail?.price != null;
   const hasDeposit = detail?.deposit != null;
+  const paid = detail ? paidTotal(detail.payments) : 0;
   const showReturned = detail?.status === 'cancelled' && hasDeposit && Number(detail.deposit) > 0 && detail.deposit_returned != null;
 
   // نافذة الإلغاء ونافذة التأكيد تُرسمان خارج لوحة التفاصيل: حركة saas-slide-up تُبقي transform على اللوحة
@@ -402,7 +446,8 @@ export default function RequestDetailsModal({ row, onClose, notify }: {
         {/* الرأس */}
         <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-slate-100 shrink-0">
           <div className="min-w-0">
-            <h3 id="req-details-title" className="text-sm font-bold text-slate-900 truncate">{row.patient?.name ?? 'مريض غير معروف'}</h3>
+            <h3 id="req-details-title" className="text-base font-black text-slate-900 tabular-nums">طلب رقم {requestNumber}</h3>
+            <p className="text-sm font-bold text-slate-900 truncate mt-0.5">{row.patient?.name ?? 'مريض غير معروف'}</p>
             {row.patient?.phone_number && (
               <p className="flex items-center gap-1 mt-0.5 text-xs text-slate-500">
                 <Phone size={14} weight="bold" className="shrink-0 text-slate-400" aria-hidden="true" />
@@ -446,32 +491,34 @@ export default function RequestDetailsModal({ row, onClose, notify }: {
               {/* الأصناف */}
               <section>
                 <h4 className="text-xs font-bold text-slate-600 mb-2">الأصناف</h4>
-                <div className="bg-slate-50 border border-slate-100 rounded-xl px-3 py-2.5 space-y-2.5">
-                  {detail.items.map(it => (
-                    <div key={it.id} className="flex items-start gap-2">
-                      <Package size={16} weight="bold" className="shrink-0 mt-0.5 text-slate-400" aria-hidden="true" />
-                      <div className="min-w-0 flex-1">
-                        <p className={`text-sm break-words ${it.cancelled ? 'line-through text-slate-400 font-medium' : 'font-semibold text-slate-800'}`}>
-                          {it.product_name} × <span className="tabular-nums">{it.quantity}</span>
-                        </p>
-                        <p className="text-xs text-slate-400 mt-0.5 break-words">{it.supplier ?? 'بلا مورد'}</p>
-                        {it.cancelled && it.cancel_reason && (
-                          <p className="text-xs text-rose-600 mt-0.5 break-words">السبب: {it.cancel_reason}</p>
-                        )}
+                <div className="bg-slate-50 border border-slate-100 rounded-xl px-3 py-2.5 space-y-3">
+                  {detail.items.map(it => {
+                    const time = stageTime(it);
+                    const cancelled = it.stage === 'cancelled';
+                    return (
+                      <div key={it.id} className="flex items-start gap-2">
+                        <Package size={16} weight="bold" className="shrink-0 mt-0.5 text-slate-400" aria-hidden="true" />
+                        <div className="min-w-0 flex-1">
+                          <p className={`text-sm break-words ${cancelled ? 'line-through text-slate-400 font-medium' : 'font-semibold text-slate-800'}`}>
+                            {it.product_name} × <span className="tabular-nums">{it.quantity}</span>
+                          </p>
+                          <p className="text-xs text-slate-400 mt-0.5 break-words">{it.supplier ?? 'بلا مورد'}</p>
+                          {cancelled && it.cancel_reason && (
+                            <p className="text-xs text-rose-600 mt-0.5 break-words">السبب: {it.cancel_reason}</p>
+                          )}
+                        </div>
+                        <span className={`shrink-0 text-[10px] font-bold border rounded-full px-2 py-0.5 ${STAGE_META[it.stage].chip}`}>
+                          {STAGE_META[it.stage].label}
+                          {time && <> — <bdi className="tabular-nums">{formatEventTime(time)}</bdi></>}
+                        </span>
                       </div>
-                      {it.cancelled && (
-                        <span className="shrink-0 text-[10px] font-bold text-rose-600 bg-rose-50 border border-rose-200 rounded-full px-1.5 py-0.5">ملغى</span>
-                      )}
-                      {it.arrived && !it.cancelled && (
-                        <span className="shrink-0 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-1.5 py-0.5">وصل</span>
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </section>
 
               {/* المبالغ */}
-              {(hasPrice || hasDeposit || canAct) && (
+              {(hasPrice || hasDeposit || paid > 0 || canAct) && (
                 <section>
                   <div className="flex items-center justify-between gap-3 mb-2">
                     <h4 className="text-xs font-bold text-slate-600">المبالغ</h4>
@@ -511,7 +558,7 @@ export default function RequestDetailsModal({ row, onClose, notify }: {
                     </div>
                   ) : (
                     <>
-                      {(hasPrice || hasDeposit) ? (
+                      {(hasPrice || hasDeposit || paid > 0) ? (
                         <div className="flex flex-wrap gap-2">
                           {hasPrice && (
                             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs text-slate-600">
@@ -523,9 +570,14 @@ export default function RequestDetailsModal({ row, onClose, notify }: {
                               العربون <span className="font-bold text-slate-900 tabular-nums" dir="ltr">{fmtJd(detail.deposit as number)}</span> د.أ
                             </span>
                           )}
-                          {hasPrice && hasDeposit && (
+                          {paid > 0 && (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs text-slate-600">
+                              المدفوع عند التسليم <span className="font-bold text-slate-900 tabular-nums" dir="ltr">{fmtJd(paid)}</span> د.أ
+                            </span>
+                          )}
+                          {hasPrice && (
                             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-teal-50 border border-teal-200 text-xs text-teal-700">
-                              المتبقي <span className="font-bold tabular-nums" dir="ltr">{fmtJd(remaining(detail.price as number, detail.deposit as number))}</span> د.أ
+                              المتبقي <span className="font-bold tabular-nums" dir="ltr">{fmtJd(remainingAmount(detail.price as number, detail.deposit, paid))}</span> د.أ
                             </span>
                           )}
                         </div>
@@ -553,14 +605,15 @@ export default function RequestDetailsModal({ row, onClose, notify }: {
               {/* سجل المتابعة */}
               <section>
                 <h4 className="text-xs font-bold text-slate-600 mb-3">سجل المتابعة</h4>
-                {events.length === 0 ? (
+                {lines.length === 0 ? (
                   <p className="text-xs text-slate-400">لا توجد أحداث بعد.</p>
                 ) : (
                   <ol className="space-y-3">
-                    {events.map(ev => {
+                    {lines.map(line => {
+                      const ev = line.ev;
                       const isNote = ev.kind === 'note';
                       return (
-                        <li key={ev.id} className="flex items-start gap-3">
+                        <li key={line.key} className="flex items-start gap-3">
                           <span className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${isNote ? 'bg-teal-600' : 'bg-slate-300'}`} />
                           <div className="min-w-0 flex-1">
                             {isNote ? (
@@ -569,7 +622,7 @@ export default function RequestDetailsModal({ row, onClose, notify }: {
                                 <p className="text-sm text-slate-800 mt-0.5 whitespace-pre-line break-words">{ev.body}</p>
                               </div>
                             ) : (
-                              <p className="text-sm text-slate-700 break-words">{describeEvent(ev)}</p>
+                              <p className="text-sm text-slate-700 break-words">{describeLine(line)}</p>
                             )}
                             <p className="text-[11px] text-slate-400 mt-1">
                               {ev.staff?.name ? `${ev.staff.name} · ` : ''}
@@ -600,15 +653,11 @@ export default function RequestDetailsModal({ row, onClose, notify }: {
           )}
         </div>
 
-        {/* التذييل: إجراءات الطلب (غير النهائي) أو سطر الحالة النهائية */}
-        {detail && !failed && canAct && NEXT_STAGE[detail.status] && (
-          <div className="px-5 py-4 border-t border-slate-100 shrink-0 flex items-center gap-3 bg-white">
-            <button type="button" onClick={goNext} disabled={acting}
-              className="h-11 flex-1 flex items-center justify-center rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold transition-all active:scale-[0.98] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
-              {acting ? 'جاري التنفيذ...' : NEXT_STAGE[detail.status]?.label}
-            </button>
+        {/* التذييل: إلغاء الطلب (مفتوح بلا أصناف مسلَّمة) أو سطر الحالة النهائية */}
+        {detail && !failed && canAct && !hasDelivered && (
+          <div className="px-5 py-4 border-t border-slate-100 shrink-0 bg-white">
             <button type="button" onClick={() => setCancelOpen(true)} disabled={acting}
-              className="h-11 shrink-0 px-4 flex items-center justify-center rounded-xl bg-white hover:bg-rose-50 border border-rose-200 text-rose-600 text-sm font-bold transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
+              className="h-11 w-full flex items-center justify-center rounded-xl bg-white hover:bg-rose-50 border border-rose-200 text-rose-600 text-sm font-bold transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
               إلغاء الطلب
             </button>
           </div>

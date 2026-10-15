@@ -1,36 +1,78 @@
 // أنواع وثوابت مشتركة بين صفحة الطلبات ونافذة التفاصيل. ملف مستقل لأن ملف page.tsx في Next
 // لا يجوز أن يصدّر غير المكوّن الافتراضي.
-
 import { toLatinDigits } from '@/lib/phone';
 
-export type RequestStatus = 'recorded' | 'ordered' | 'arrived' | 'delivered' | 'cancelled';
+// حالة الطلب (مفتوح حتى يُسلَّم كل صنف فعّال أو يُلغى كله) ومرحلة كل صنف (مخطط v2)
+export type RequestStatus = 'open' | 'delivered' | 'cancelled';
+export type ItemStage = 'recorded' | 'ordered' | 'arrived' | 'delivered' | 'cancelled';
+
+export interface RequestItem {
+  id: string;
+  product_name: string;
+  quantity: number;
+  supplier: string | null;
+  stage: ItemStage;
+  ordered_at: string | null;
+  arrived_at: string | null;
+  delivered_at: string | null;
+  cancelled_at: string | null;
+  cancel_reason: string | null;
+}
 
 export interface RequestRow {
   id: string;
+  request_number: number;
   price: number | null;
   deposit: number | null;
   status: RequestStatus;
   created_at: string;
+  delivered_at: string | null;
+  cancelled_at: string | null;
   patient: { name: string; phone_number: string } | null;
   creator: { name: string } | null;
-  items: { id: string; product_name: string; quantity: number; cancelled: boolean; supplier: string | null; arrived: boolean }[];
+  items: RequestItem[];
+  payments: { amount: number }[];
 }
 
 export const STATUS_META: Record<RequestStatus, { label: string; badge: string; dot: string }> = {
-  recorded:  { label: 'مسجّل',                  badge: 'bg-slate-50 text-slate-700 border-slate-200',      dot: 'bg-slate-400' },
-  ordered:   { label: 'طُلب من المورد',         badge: 'bg-blue-50 text-blue-700 border-blue-200',         dot: 'bg-blue-500' },
-  arrived:   { label: 'وصل — بانتظار المريض',   badge: 'bg-amber-50 text-amber-700 border-amber-200',      dot: 'bg-amber-500 animate-pulse' },
-  delivered: { label: 'سُلّم',                  badge: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500' },
-  cancelled: { label: 'ملغى',                   badge: 'bg-rose-50 text-rose-700 border-rose-200',         dot: 'bg-rose-500' },
+  open:      { label: 'مفتوح', badge: 'bg-blue-50 text-blue-700 border-blue-200',          dot: 'bg-blue-500' },
+  delivered: { label: 'سُلّم', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500' },
+  cancelled: { label: 'ملغى',  badge: 'bg-rose-50 text-rose-700 border-rose-200',          dot: 'bg-rose-500' },
 };
+
+export const STAGE_META: Record<ItemStage, { label: string; chip: string }> = {
+  recorded:  { label: 'مسجّل',         chip: 'bg-slate-50 text-slate-600 border-slate-200' },
+  ordered:   { label: 'طُلب من المورد', chip: 'bg-blue-50 text-blue-700 border-blue-200' },
+  arrived:   { label: 'وصل',           chip: 'bg-amber-50 text-amber-700 border-amber-200' },
+  delivered: { label: 'سُلّم',         chip: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  cancelled: { label: 'ملغى',          chip: 'bg-rose-50 text-rose-700 border-rose-200' },
+};
+
+// ترتيب المراحل: أي انتقال إلى رقم أصغر تراجع
+export const STAGE_RANK: Record<ItemStage, number> = { recorded: 1, ordered: 2, arrived: 3, delivered: 4, cancelled: 5 };
+
+// وقت دخول الصنف مرحلته الحالية (المسجّل لا وقت له على البند)
+export function stageTime(it: RequestItem): string | null {
+  switch (it.stage) {
+    case 'ordered': return it.ordered_at;
+    case 'arrived': return it.arrived_at;
+    case 'delivered': return it.delivered_at;
+    case 'cancelled': return it.cancelled_at;
+    default: return null;
+  }
+}
 
 export function fmtJd(n: number): string {
   return Number(n).toFixed(3);
 }
 
-// طرح بالأجزاء الألفية لتفادي ضجيج الفاصلة العائمة (0.1 + 0.2)
-export function remaining(price: number, deposit: number): number {
-  return Math.round((Number(price) - Number(deposit)) * 1000) / 1000;
+export function paidTotal(payments: { amount: number }[]): number {
+  return Math.round(payments.reduce((sum, p) => sum + Number(p.amount), 0) * 1000) / 1000;
+}
+
+// المتبقي = السعر الإجمالي − العربون − المدفوع عند التسليم (بالأجزاء الألفية لتفادي ضجيج الفاصلة العائمة)
+export function remainingAmount(price: number, deposit: number | null, paid: number): number {
+  return Math.round((Number(price) - Number(deposit ?? 0) - Number(paid)) * 1000) / 1000;
 }
 
 // حدّ numeric(10,3) في القاعدة: 7 خانات صحيحة و3 كسرية

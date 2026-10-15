@@ -11,7 +11,7 @@ import { normalizeAr } from '@/lib/arabic';
 import { displayPhone, normalizePhone, toLatinDigits } from '@/lib/phone';
 import { calendarDaysSince } from '@/lib/calendar-days';
 import RequestDetailsModal from './RequestDetailsModal';
-import { RequestRow, RequestStatus, STATUS_META, fmtJd, remaining, MONEY_RE, cleanNumberInput, INPUT_BASE, INPUT_CLS } from './shared';
+import { RequestRow, ItemStage, STATUS_META, STAGE_META, fmtJd, paidTotal, remainingAmount, MONEY_RE, cleanNumberInput, INPUT_BASE, INPUT_CLS } from './shared';
 import { friendlyError, READ_ONLY_MESSAGE, useSubscriptionState } from '@/lib/subscription-state';
 import { Plus, MagnifyingGlass, Phone, Package, Clock, UserCircle, X, Notebook, UserPlus, ArrowsClockwise } from '@phosphor-icons/react';
 
@@ -22,8 +22,14 @@ type Tab = 'open' | 'closed';
 
 interface PickedPatient { id: string; name: string; phone_number: string }
 
-const OPEN_STATUSES: RequestStatus[] = ['recorded', 'ordered', 'arrived'];
-const CLOSED_STATUSES: RequestStatus[] = ['delivered', 'cancelled'];
+const CLOSED_STATUSES = ['delivered', 'cancelled'];
+// تسميات مختصرة لسطر التقدّم في بطاقة الطلب المفتوح
+const PROGRESS_ORDER: { stage: ItemStage; label: string }[] = [
+  { stage: 'delivered', label: 'سُلّم' },
+  { stage: 'arrived', label: 'وصل' },
+  { stage: 'ordered', label: 'طُلب' },
+  { stage: 'recorded', label: 'مسجّل' },
+];
 const CLOSED_LIMIT = 50;
 const MAX_ITEMS = 30;
 
@@ -61,6 +67,13 @@ function RequestCard({ row, onOpen }: { row: RequestRow; onOpen: () => void }) {
   const meta = STATUS_META[row.status];
   const hasPrice = row.price != null;
   const hasDeposit = row.deposit != null;
+  const paid = paidTotal(row.payments);
+
+  // سطر التقدّم للطلب المفتوح: الأعداد غير الصفرية لأصناف غير ملغاة
+  const live = row.items.filter(it => it.stage !== 'cancelled');
+  const progress = PROGRESS_ORDER
+    .map(p => ({ label: p.label, n: live.filter(it => it.stage === p.stage).length }))
+    .filter(p => p.n > 0);
 
   return (
     <div role="button" tabIndex={0} onClick={onOpen}
@@ -68,7 +81,8 @@ function RequestCard({ row, onOpen }: { row: RequestRow; onOpen: () => void }) {
       className="bg-white border border-slate-200 rounded-2xl shadow-sm hover:shadow-md transition-all p-4 sm:p-5 cursor-pointer focus:outline-none focus:ring-1 focus:ring-slate-900">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-sm font-bold text-slate-900 truncate">{row.patient?.name ?? 'مريض غير معروف'}</p>
+          <p className="text-base font-black text-slate-900 tabular-nums">طلب رقم {row.request_number}</p>
+          <p className="text-sm font-bold text-slate-900 truncate mt-0.5">{row.patient?.name ?? 'مريض غير معروف'}</p>
           {row.patient?.phone_number && (
             <p className="flex items-center gap-1 mt-0.5 text-xs text-slate-500">
               <Phone size={14} weight="bold" className="shrink-0 text-slate-400" aria-hidden="true" />
@@ -82,27 +96,30 @@ function RequestCard({ row, onOpen }: { row: RequestRow; onOpen: () => void }) {
         </span>
       </div>
 
+      {row.status === 'open' && progress.length > 0 && (
+        <p className="mt-2 text-xs text-slate-500">
+          {progress.map((p, i) => (
+            <span key={p.label}>{i > 0 && ' · '}{p.label} <span className="tabular-nums">{p.n}</span></span>
+          ))}
+        </p>
+      )}
+
       {row.items.length > 0 && (
         <div className="mt-3 bg-slate-50 border border-slate-100 rounded-xl px-3 py-2.5 space-y-1.5">
           {row.items.map(it => (
             <div key={it.id} className="flex items-start gap-2">
               <Package size={16} weight="bold" className="shrink-0 mt-0.5 text-slate-400" aria-hidden="true" />
-              <p className={`text-sm min-w-0 break-words ${it.cancelled ? 'line-through text-slate-400 font-medium' : 'font-semibold text-slate-800'}`}>
+              <p className={`text-sm min-w-0 flex-1 break-words ${it.stage === 'cancelled' ? 'line-through text-slate-400 font-medium' : 'font-semibold text-slate-800'}`}>
                 {it.product_name} × <span className="tabular-nums">{it.quantity}</span>
                 {it.supplier && <span className="text-slate-400 font-medium"> · {it.supplier}</span>}
               </p>
-              {it.cancelled && (
-                <span className="shrink-0 text-[10px] font-bold text-rose-600 bg-rose-50 border border-rose-200 rounded-full px-1.5 py-0.5">ملغى</span>
-              )}
-              {it.arrived && !it.cancelled && (
-                <span className="shrink-0 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-1.5 py-0.5">وصل</span>
-              )}
+              <span className={`shrink-0 text-[10px] font-bold border rounded-full px-1.5 py-0.5 ${STAGE_META[it.stage].chip}`}>{STAGE_META[it.stage].label}</span>
             </div>
           ))}
         </div>
       )}
 
-      {(hasPrice || hasDeposit) && (
+      {(hasPrice || hasDeposit || paid > 0) && (
         <div className="mt-3 flex flex-wrap gap-2">
           {hasPrice && (
             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs text-slate-600">
@@ -114,9 +131,14 @@ function RequestCard({ row, onOpen }: { row: RequestRow; onOpen: () => void }) {
               العربون <span className="font-bold text-slate-900 tabular-nums" dir="ltr">{fmtJd(row.deposit as number)}</span> د.أ
             </span>
           )}
-          {hasPrice && hasDeposit && (
+          {paid > 0 && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs text-slate-600">
+              المدفوع <span className="font-bold text-slate-900 tabular-nums" dir="ltr">{fmtJd(paid)}</span> د.أ
+            </span>
+          )}
+          {hasPrice && (
             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-teal-50 border border-teal-200 text-xs text-teal-700">
-              المتبقي <span className="font-bold tabular-nums" dir="ltr">{fmtJd(remaining(row.price as number, row.deposit as number))}</span> د.أ
+              المتبقي <span className="font-bold tabular-nums" dir="ltr">{fmtJd(remainingAmount(row.price as number, row.deposit, paid))}</span> د.أ
             </span>
           )}
         </div>
@@ -509,19 +531,25 @@ export default function RequestsPage() {
     if (showSpinner) { setLoading(true); setLoadFailed(false); }
     try {
       // RLS تعزل الصيدلية؛ العمود المرتبط بالموظف والمريض عبر اسم القيد صراحةً
-      const select = 'id, price, deposit, status, created_at, patient:patients(name, phone_number), creator:pharmacy_staff!patient_requests_created_by_fkey(name), items:patient_request_items(id, product_name, quantity, cancelled, supplier, arrived)';
+      const select = 'id, request_number, price, deposit, status, created_at, delivered_at, cancelled_at, updated_at, patient:patients(name, phone_number), creator:pharmacy_staff!patient_requests_created_by_fkey(name), items:patient_request_items(id, product_name, quantity, supplier, stage, ordered_at, arrived_at, delivered_at, cancelled_at, cancel_reason), payments:patient_request_payments(amount)';
       const base = supabase.from('patient_requests').select(select);
       const listQuery = t === 'open'
         // الأقدم أولاً: الطلب الأطول انتظاراً في الأعلى
-        ? base.in('status', OPEN_STATUSES).order('created_at', { ascending: true }).order('created_at', { referencedTable: 'patient_request_items', ascending: true })
-        : base.in('status', CLOSED_STATUSES).order('created_at', { ascending: false }).order('created_at', { referencedTable: 'patient_request_items', ascending: true }).limit(CLOSED_LIMIT);
-      const countQuery = supabase.from('patient_requests').select('id', { count: 'exact', head: true }).in('status', OPEN_STATUSES);
+        ? base.eq('status', 'open').order('created_at', { ascending: true }).order('created_at', { referencedTable: 'patient_request_items', ascending: true })
+        // وقت الإغلاق ليس عموداً واحداً (تسليم أو إلغاء)، فنجلب آخر 50 بحسب updated_at ثم نرتّب بوقت الإغلاق أدناه
+        : base.in('status', CLOSED_STATUSES).order('updated_at', { ascending: false }).order('created_at', { referencedTable: 'patient_request_items', ascending: true }).limit(CLOSED_LIMIT);
+      const countQuery = supabase.from('patient_requests').select('id', { count: 'exact', head: true }).eq('status', 'open');
 
       const [listRes, countRes] = await Promise.all([listQuery, countQuery]);
       if (seq !== loadSeq.current) return;
       if (listRes.error) throw listRes.error;
       setLoadFailed(false);
-      setRows((listRes.data || []) as unknown as RequestRow[]);
+      const list = (listRes.data || []) as unknown as RequestRow[];
+      if (t === 'closed') {
+        const closedAt = (r: RequestRow) => new Date(r.delivered_at ?? r.cancelled_at ?? r.created_at).getTime();
+        list.sort((a, b) => closedAt(b) - closedAt(a));
+      }
+      setRows(list);
       if (!countRes.error) setOpenCount(countRes.count ?? 0);
     } catch {
       if (seq !== loadSeq.current) return;
@@ -645,7 +673,7 @@ export default function RequestsPage() {
       <Toast notice={notice} />
 
       {selected && (
-        <RequestDetailsModal row={selected} onClose={closeDetails} notify={notify} />
+        <RequestDetailsModal row={selected} onClose={closeDetails} onChanged={() => load(tab, false)} notify={notify} />
       )}
 
       {modalOpen && pharmacyId && (

@@ -10,25 +10,15 @@ import { getPharmacyId } from '@/lib/tenant';
 import { normalizeAr } from '@/lib/arabic';
 import { displayPhone, normalizePhone, toLatinDigits } from '@/lib/phone';
 import { calendarDaysSince } from '@/lib/calendar-days';
+import RequestDetailsModal from './RequestDetailsModal';
+import { RequestRow, RequestStatus, STATUS_META, fmtJd, remaining } from './shared';
 import { friendlyError, READ_ONLY_MESSAGE, useSubscriptionState } from '@/lib/subscription-state';
 import { Plus, MagnifyingGlass, Phone, Package, Clock, UserCircle, X, Notebook, UserPlus, ArrowsClockwise } from '@phosphor-icons/react';
 
 // ═══════════════════════════════════════════════════════
 // TYPES & CONSTANTS
 // ═══════════════════════════════════════════════════════
-type RequestStatus = 'recorded' | 'ordered' | 'arrived' | 'delivered' | 'cancelled';
 type Tab = 'open' | 'closed';
-
-interface RequestRow {
-  id: string;
-  price: number | null;
-  deposit: number | null;
-  status: RequestStatus;
-  created_at: string;
-  patient: { name: string; phone_number: string } | null;
-  creator: { name: string } | null;
-  items: { id: string; product_name: string; quantity: number; cancelled: boolean; supplier: string | null; arrived: boolean }[];
-}
 
 interface PickedPatient { id: string; name: string; phone_number: string }
 
@@ -36,14 +26,6 @@ const OPEN_STATUSES: RequestStatus[] = ['recorded', 'ordered', 'arrived'];
 const CLOSED_STATUSES: RequestStatus[] = ['delivered', 'cancelled'];
 const CLOSED_LIMIT = 50;
 const MAX_ITEMS = 30;
-
-const STATUS_META: Record<RequestStatus, { label: string; badge: string; dot: string }> = {
-  recorded:  { label: 'مسجّل',                  badge: 'bg-slate-50 text-slate-700 border-slate-200',      dot: 'bg-slate-400' },
-  ordered:   { label: 'طُلب من المورد',         badge: 'bg-blue-50 text-blue-700 border-blue-200',         dot: 'bg-blue-500' },
-  arrived:   { label: 'وصل — بانتظار المريض',   badge: 'bg-amber-50 text-amber-700 border-amber-200',      dot: 'bg-amber-500 animate-pulse' },
-  delivered: { label: 'سُلّم',                  badge: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500' },
-  cancelled: { label: 'ملغى',                   badge: 'bg-rose-50 text-rose-700 border-rose-200',         dot: 'bg-rose-500' },
-};
 
 // حدّ numeric(10,3) في القاعدة: 7 خانات صحيحة و3 كسرية
 const MONEY_RE = /^\d{1,7}(\.\d{1,3})?$/;
@@ -55,15 +37,6 @@ const INPUT_CLS = `w-full ${INPUT_BASE}`;
 // ═══════════════════════════════════════════════════════
 // HELPERS
 // ═══════════════════════════════════════════════════════
-function fmtJd(n: number): string {
-  return Number(n).toFixed(3);
-}
-
-// طرح بالأجزاء الألفية لتفادي ضجيج الفاصلة العائمة (0.1 + 0.2)
-function remaining(price: number, deposit: number): number {
-  return Math.round((Number(price) - Number(deposit)) * 1000) / 1000;
-}
-
 function daysAgoLabel(iso: string): string {
   const d = Math.max(0, calendarDaysSince(iso));
   if (d === 0) return 'اليوم';
@@ -96,13 +69,15 @@ function mapSaveError(err: { message?: string; details?: string } | null | undef
 // ═══════════════════════════════════════════════════════
 // REQUEST CARD
 // ═══════════════════════════════════════════════════════
-function RequestCard({ row }: { row: RequestRow }) {
+function RequestCard({ row, onOpen }: { row: RequestRow; onOpen: () => void }) {
   const meta = STATUS_META[row.status];
   const hasPrice = row.price != null;
   const hasDeposit = row.deposit != null;
 
   return (
-    <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-4 sm:p-5">
+    <div role="button" tabIndex={0} onClick={onOpen}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
+      className="bg-white border border-slate-200 rounded-2xl shadow-sm hover:shadow-md transition-all p-4 sm:p-5 cursor-pointer focus:outline-none focus:ring-1 focus:ring-slate-900">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-bold text-slate-900 truncate">{row.patient?.name ?? 'مريض غير معروف'}</p>
@@ -533,6 +508,7 @@ export default function RequestsPage() {
   const [loadFailed, setLoadFailed] = useState(false);
   const loadSeq = useRef(0);
 
+  const [selected, setSelected] = useState<RequestRow | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [patient, setPatient] = useState<PickedPatient | null>(null);
   const [newPatientPrefill, setNewPatientPrefill] = useState<{ name?: string; phone_number?: string } | null>(null);
@@ -579,6 +555,12 @@ export default function RequestsPage() {
     if (t === tab) return;
     setTab(t);
     load(t);
+  };
+
+  // إغلاق التفاصيل يحدّث القائمة بصمت (بلا مؤشر تحميل) لأن الموظف قد يكون أضاف ملاحظة أو غيّر بيانات
+  const closeDetails = () => {
+    setSelected(null);
+    load(tab, false);
   };
 
   const closeModal = () => {
@@ -662,7 +644,7 @@ export default function RequestsPage() {
           </div>
         ) : (
           <div className="space-y-3 saas-slide-up" key={tab}>
-            {rows.map(row => <RequestCard key={row.id} row={row} />)}
+            {rows.map(row => <RequestCard key={row.id} row={row} onOpen={() => setSelected(row)} />)}
             {tab === 'closed' && rows.length >= CLOSED_LIMIT && (
               <p className="text-[11px] text-slate-400 text-center">تُعرض آخر <span className="tabular-nums">{CLOSED_LIMIT}</span> طلباً مغلقاً.</p>
             )}
@@ -673,6 +655,10 @@ export default function RequestsPage() {
       <AppFooter className="mt-10" />
 
       <Toast notice={notice} />
+
+      {selected && (
+        <RequestDetailsModal row={selected} onClose={closeDetails} notify={notify} />
+      )}
 
       {modalOpen && pharmacyId && (
         <NewRequestModal

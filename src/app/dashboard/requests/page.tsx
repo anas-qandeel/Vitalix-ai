@@ -11,7 +11,7 @@ import { normalizeAr } from '@/lib/arabic';
 import { displayPhone, normalizePhone, toLatinDigits } from '@/lib/phone';
 import { calendarDaysSince } from '@/lib/calendar-days';
 import RequestDetailsModal from './RequestDetailsModal';
-import { RequestRow, ItemStage, STATUS_META, STAGE_META, fmtJd, paidTotal, remainingAmount, MONEY_RE, cleanNumberInput, INPUT_BASE, INPUT_CLS } from './shared';
+import { RequestRow, ItemStage, STATUS_META, STAGE_META, requestTitle, isPendingRefund, fmtJd, paidTotal, remainingAmount, MONEY_RE, cleanNumberInput, INPUT_BASE, INPUT_CLS } from './shared';
 import { friendlyError, READ_ONLY_MESSAGE, useSubscriptionState } from '@/lib/subscription-state';
 import { Plus, MagnifyingGlass, Phone, Package, Clock, UserCircle, X, Notebook, UserPlus, ArrowsClockwise } from '@phosphor-icons/react';
 
@@ -22,7 +22,9 @@ type Tab = 'open' | 'closed';
 
 interface PickedPatient { id: string; name: string; phone_number: string }
 
-const CLOSED_STATUSES = ['delivered', 'cancelled'];
+// مرشحات PostgREST (شجرة or/and): المفتوحة = open أو ملغى بعربون لم يُعَد؛ المغلقة = مسلَّم أو ملغى ليس كذلك
+const OPEN_FILTER = 'status.eq.open,and(status.eq.cancelled,deposit.gt.0,deposit_returned.eq.false)';
+const CLOSED_FILTER = 'status.eq.delivered,and(status.eq.cancelled,or(deposit.is.null,deposit.lte.0,deposit_returned.eq.true))';
 // تسميات مختصرة لسطر التقدّم في بطاقة الطلب المفتوح
 const PROGRESS_ORDER: { stage: ItemStage; label: string }[] = [
   { stage: 'delivered', label: 'سُلّم' },
@@ -64,6 +66,8 @@ function mapSaveError(err: { message?: string; details?: string } | null | undef
 // REQUEST CARD
 // ═══════════════════════════════════════════════════════
 function RequestCard({ row, onOpen }: { row: RequestRow; onOpen: () => void }) {
+  const pendingRefund = isPendingRefund(row);
+  const cancelled = row.status === 'cancelled';
   const meta = STATUS_META[row.status];
   const hasPrice = row.price != null;
   const hasDeposit = row.deposit != null;
@@ -81,7 +85,7 @@ function RequestCard({ row, onOpen }: { row: RequestRow; onOpen: () => void }) {
       className="bg-white border border-slate-200 rounded-2xl shadow-sm hover:shadow-md transition-all p-4 sm:p-5 cursor-pointer focus:outline-none focus:ring-1 focus:ring-slate-900">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-base font-black text-slate-900 tabular-nums">طلب رقم {row.request_number}</p>
+          <p className="text-base font-black text-slate-900 tabular-nums">{requestTitle(row.request_number, row.request_year)}</p>
           <p className="text-sm font-bold text-slate-900 truncate mt-0.5">{row.patient?.name ?? 'مريض غير معروف'}</p>
           {row.patient?.phone_number && (
             <p className="flex items-center gap-1 mt-0.5 text-xs text-slate-500">
@@ -92,7 +96,7 @@ function RequestCard({ row, onOpen }: { row: RequestRow; onOpen: () => void }) {
         </div>
         <span className={`inline-flex items-center gap-1.5 shrink-0 px-2.5 py-1 rounded-full text-[11px] font-bold border ${meta.badge}`}>
           <span className={`w-1.5 h-1.5 rounded-full ${meta.dot}`} />
-          {meta.label}
+          {pendingRefund ? 'ملغى — العربون لم يُعَد' : meta.label}
         </span>
       </div>
 
@@ -136,11 +140,21 @@ function RequestCard({ row, onOpen }: { row: RequestRow; onOpen: () => void }) {
               المدفوع <span className="font-bold text-slate-900 tabular-nums" dir="ltr">{fmtJd(paid)}</span> د.أ
             </span>
           )}
-          {hasPrice && (
+          {/* الطلب الملغى لا «متبقي» له: نعرض حالة العربون بدلاً منه */}
+          {!cancelled && hasPrice && (
             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-teal-50 border border-teal-200 text-xs text-teal-700">
               المتبقي <span className="font-bold tabular-nums" dir="ltr">{fmtJd(remainingAmount(row.price as number, row.deposit, paid))}</span> د.أ
             </span>
           )}
+          {cancelled && Number(row.deposit ?? 0) > 0 && (row.deposit_returned === false ? (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-50 border border-rose-200 text-xs text-rose-700">
+              عربون بانتظار الإرجاع <span className="font-bold tabular-nums" dir="ltr">{fmtJd(row.deposit as number)}</span> د.أ
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-500">
+              أُعيد العربون <span className="font-bold tabular-nums" dir="ltr">{fmtJd(row.deposit as number)}</span> د.أ
+            </span>
+          ))}
         </div>
       )}
 
@@ -531,14 +545,14 @@ export default function RequestsPage() {
     if (showSpinner) { setLoading(true); setLoadFailed(false); }
     try {
       // RLS تعزل الصيدلية؛ العمود المرتبط بالموظف والمريض عبر اسم القيد صراحةً
-      const select = 'id, request_number, price, deposit, status, created_at, delivered_at, cancelled_at, updated_at, patient:patients(name, phone_number), creator:pharmacy_staff!patient_requests_created_by_fkey(name), items:patient_request_items(id, product_name, quantity, supplier, stage, ordered_at, arrived_at, delivered_at, cancelled_at, cancel_reason), payments:patient_request_payments(amount)';
+      const select = 'id, request_number, request_year, price, deposit, deposit_returned, status, created_at, delivered_at, cancelled_at, updated_at, patient:patients(name, phone_number), creator:pharmacy_staff!patient_requests_created_by_fkey(name), items:patient_request_items(id, product_name, quantity, supplier, stage, ordered_at, arrived_at, delivered_at, cancelled_at, cancel_reason), payments:patient_request_payments(amount)';
       const base = supabase.from('patient_requests').select(select);
       const listQuery = t === 'open'
         // الأقدم أولاً: الطلب الأطول انتظاراً في الأعلى
-        ? base.eq('status', 'open').order('created_at', { ascending: true }).order('created_at', { referencedTable: 'patient_request_items', ascending: true })
+        ? base.or(OPEN_FILTER).order('created_at', { ascending: true }).order('created_at', { referencedTable: 'patient_request_items', ascending: true })
         // وقت الإغلاق ليس عموداً واحداً (تسليم أو إلغاء)، فنجلب آخر 50 بحسب updated_at ثم نرتّب بوقت الإغلاق أدناه
-        : base.in('status', CLOSED_STATUSES).order('updated_at', { ascending: false }).order('created_at', { referencedTable: 'patient_request_items', ascending: true }).limit(CLOSED_LIMIT);
-      const countQuery = supabase.from('patient_requests').select('id', { count: 'exact', head: true }).eq('status', 'open');
+        : base.or(CLOSED_FILTER).order('updated_at', { ascending: false }).order('created_at', { referencedTable: 'patient_request_items', ascending: true }).limit(CLOSED_LIMIT);
+      const countQuery = supabase.from('patient_requests').select('id', { count: 'exact', head: true }).or(OPEN_FILTER);
 
       const [listRes, countRes] = await Promise.all([listQuery, countQuery]);
       if (seq !== loadSeq.current) return;

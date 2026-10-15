@@ -22,8 +22,10 @@ export interface RequestItem {
 export interface RequestRow {
   id: string;
   request_number: number;
+  request_year: number;
   price: number | null;
   deposit: number | null;
+  deposit_returned: boolean | null;
   status: RequestStatus;
   created_at: string;
   delivered_at: string | null;
@@ -60,6 +62,16 @@ export function stageTime(it: RequestItem): string | null {
     case 'cancelled': return it.cancelled_at;
     default: return null;
   }
+}
+
+// طلب ملغى عربونه لم يُعَد بعد: يبقى بين «المفتوحة» حتى يُسجَّل الإرجاع
+export function isPendingRefund(r: { status: RequestStatus; deposit: number | null; deposit_returned: boolean | null }): boolean {
+  return r.status === 'cancelled' && Number(r.deposit ?? 0) > 0 && r.deposit_returned === false;
+}
+
+// عنوان الطلب «طلب مواد رقم N/YYYY» (الترقيم يبدأ من 1 كل سنة بتوقيت عمّان)
+export function requestTitle(number: number, year: number): string {
+  return `طلب مواد رقم ${number}/${year}`;
 }
 
 export function fmtJd(n: number): string {

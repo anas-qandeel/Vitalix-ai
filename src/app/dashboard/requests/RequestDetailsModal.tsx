@@ -6,10 +6,10 @@ import { displayPhone } from '@/lib/phone';
 import { calendarDaysSince } from '@/lib/calendar-days';
 import { friendlyError, READ_ONLY_MESSAGE, useSubscriptionState } from '@/lib/subscription-state';
 import { useConfirm } from '@/components/ConfirmDialog';
-import { Phone, Package, X, ArrowsClockwise } from '@phosphor-icons/react';
+import { Phone, Package, X, ArrowsClockwise, PencilSimple, Plus } from '@phosphor-icons/react';
 import {
-  RequestRow, RequestStatus, RequestItem, ItemStage, STATUS_META, STAGE_META, STAGE_RANK, stageTime,
-  fmtJd, paidTotal, remainingAmount, MONEY_RE, cleanNumberInput, INPUT_CLS,
+  RequestRow, RequestStatus, RequestItem, ItemStage, STATUS_META, STAGE_META, STAGE_RANK, stageTime, requestTitle,
+  fmtJd, paidTotal, remainingAmount, MONEY_RE, cleanNumberInput, INPUT_BASE, INPUT_CLS,
 } from './shared';
 
 // ═══════════════════════════════════════════════════════
@@ -18,6 +18,7 @@ import {
 interface DetailRequest {
   id: string;
   request_number: number;
+  request_year: number;
   price: number | null;
   deposit: number | null;
   deposit_returned: boolean | null;
@@ -50,7 +51,20 @@ const NOTE_MAX = 1000;
 const CANCEL_REASON_MAX = 300;
 const GROUP_WINDOW_MS = 5000;
 const EVENTS_SELECT = 'id, kind, body, details, created_at, staff_id, staff:pharmacy_staff!patient_request_events_staff_id_fkey(name)';
-const DETAIL_SELECT = 'id, request_number, price, deposit, deposit_returned, cancel_reason, delivered_at, cancelled_at, status, items:patient_request_items(id, product_name, quantity, supplier, stage, ordered_at, arrived_at, delivered_at, cancelled_at, cancel_reason), payments:patient_request_payments(amount)';
+const DETAIL_SELECT = 'id, request_number, request_year, price, deposit, deposit_returned, cancel_reason, delivered_at, cancelled_at, status, items:patient_request_items(id, product_name, quantity, supplier, stage, ordered_at, arrived_at, delivered_at, cancelled_at, cancel_reason), payments:patient_request_payments(amount)';
+
+const SUPPLIER_MAX = 100;
+const PRODUCT_NAME_MAX = 200;
+const MAX_ITEMS = 30;
+
+// أنماط نافذة اختيار الأصناف: طلب من المورد / وصول / تسليم للمريض
+type ChooseMode = 'order' | 'arrive' | 'deliver';
+
+const CHOOSE_TITLES: Record<ChooseMode, string> = {
+  order: 'ما الأصناف التي طُلبت من المورد؟',
+  arrive: 'ما الأصناف التي وصلت؟',
+  deliver: 'ما الأصناف التي سيستلمها المريض الآن؟',
+};
 
 const CONFLICT_MESSAGE = 'تغيّر هذا الطلب من موظف آخر. أعد فتحه.';
 
@@ -70,8 +84,46 @@ function mapActionError(err: { message?: string; details?: string } | null | und
   if (/patient_requests_cancel_deposit_answer/.test(text)) return 'حدّد هل أُعيد العربون للمريض.';
   if (/patient_requests_deposit_le_price/.test(text)) return 'لا يمكن أن يزيد العربون على السعر.';
   if (/patient_requests_(price|deposit)_check/.test(text)) return 'السعر والعربون لا يمكن أن يكونا بالسالب.';
+  if (/ITEMS_NOT_ARRIVED/.test(text)) return 'يمكن تسليم الأصناف التي وصلت فقط. أعد فتح الطلب وحاول مرة أخرى.';
+  if (/AMOUNT_REQUIRED/.test(text)) return 'أدخل المبلغ المستلم الآن (يمكن أن يكون صفراً).';
+  if (/AMOUNT_EXCEEDS_REMAINING/.test(text)) return 'المبلغ أكبر من المتبقي على المريض.';
+  if (/AMOUNT_MUST_SETTLE/.test(text)) return 'هذا آخر تسليم: يجب تحصيل المتبقي كاملاً. إن أعطيت خصماً فعدّل السعر الإجمالي أولاً.';
+  if (/ITEM_IMMUTABLE/.test(text)) return 'لا يمكن تعديل اسم الصنف أو كميته.';
+  if (/ITEM_FINAL/.test(text)) return 'هذا الصنف مسلَّم أو ملغى ولا يمكن تعديله.';
+  if (/ITEM_STAGE_NOT_ALLOWED/.test(text)) return 'هذا الانتقال بين المراحل غير مسموح.';
+  if (/ITEM_CANCEL_REASON_REQUIRED|patient_request_items_cancel_needs_reason/.test(text)) return 'اكتب سبب إلغاء الصنف.';
+  if (/DELIVERY_VIA_FUNCTION/.test(text)) return 'التسليم يتم من زر «تسليم للمريض» فقط.';
+  if (/patient_request_items_supplier_check/.test(text)) return `اسم المورد لا يتجاوز ${SUPPLIER_MAX} حرف.`;
+  if (/patient_request_items_product_name_check/.test(text)) return `اسم الصنف مطلوب ولا يتجاوز ${PRODUCT_NAME_MAX} حرف.`;
+  if (/patient_request_items_quantity_check/.test(text)) return 'الكمية يجب أن تكون 1 أو أكثر.';
   if (/row-level security|STAFF_REQUIRED/i.test(text)) return 'تعذّر التحقق من هويتك كموظف. سجّل الدخول من جديد ثم أعد المحاولة.';
+  // رمز غير مُعرَّف: نعرض النص العربي الذي بعد الرمز في رسالة القاعدة بدل الرسالة العامة
+  const afterCode = text.match(/\b[A-Z][A-Z_]{3,}:\s*([^\n]*[\u0600-\u06FF][^\n]*)/);
+  if (afterCode) return afterCode[1].trim();
   return 'تعذّر تنفيذ الإجراء. تحقّق من اتصالك ثم حاول مرة أخرى.';
+}
+
+// عدد الأصناف بنحو عربي سليم: صنف واحد / صنفان / 3 أصناف / 11 صنفاً
+function countPhrase(n: number): string {
+  if (n === 1) return 'صنف واحد';
+  if (n === 2) return 'صنفين';
+  if (n <= 10) return `${n} أصناف`;
+  return `${n} صنفاً`;
+}
+
+// الأصناف المؤهلة لكل إجراء
+function eligibleFor(mode: ChooseMode, items: RequestItem[]): RequestItem[] {
+  if (mode === 'order') return items.filter(it => it.stage === 'recorded');
+  // الوصول بعد الطلب من المورد فقط
+  if (mode === 'arrive') return items.filter(it => it.stage === 'ordered');
+  return items.filter(it => it.stage === 'arrived');
+}
+
+// التراجع خطوة واحدة: طُلب ← مسجّل، ووصل ← طُلب دائماً (كما في حارس القاعدة)
+function previousStage(it: RequestItem): ItemStage | null {
+  if (it.stage === 'ordered') return 'recorded';
+  if (it.stage === 'arrived') return 'ordered';
+  return null;
 }
 
 // ═══════════════════════════════════════════════════════
@@ -141,13 +193,14 @@ function describeStageChange(d: Record<string, unknown>, names: string[]): strin
 }
 
 // جملة عربية لكل نوع حدث؛ النوع المجهول يعطي سطراً عاماً ولا يكسر العرض أبداً
-function describeLine(line: TimelineLine): string {
+function describeLine(line: TimelineLine, requestYear: number | null): string {
   const ev = line.ev;
   const d = (ev.details ?? {}) as Record<string, unknown>;
   const name = str(d.product_name);
   switch (ev.kind) {
     case 'created':
-      return d.request_number != null ? `سجّل الطلب رقم ${str(d.request_number)}` : 'سجّل الطلب';
+      if (d.request_number == null) return 'سجّل طلب المواد';
+      return `سجّل طلب المواد رقم ${str(d.request_number)}/${str(d.request_year ?? requestYear)}`;
     case 'status_change': {
       if (d.to === 'delivered') return 'اكتمل تسليم الطلب';
       if (d.to === 'cancelled') {
@@ -233,6 +286,20 @@ export default function RequestDetailsModal({ row, onClose, onChanged, notify }:
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
   const [depositAnswer, setDepositAnswer] = useState<'yes' | 'no' | ''>('');
+  // اختيار الأصناف (طلب / وصول / تسليم)
+  const [choose, setChoose] = useState<ChooseMode | null>(null);
+  const [chosen, setChosen] = useState<Set<string>>(new Set());
+  const [amountInput, setAmountInput] = useState('');
+  const [settleChecked, setSettleChecked] = useState(false);
+  // إجراءات الأصناف
+  const [supplierEditId, setSupplierEditId] = useState<string | null>(null);
+  const [supplierInput, setSupplierInput] = useState('');
+  const [itemCancel, setItemCancel] = useState<RequestItem | null>(null);
+  const [itemCancelReason, setItemCancelReason] = useState('');
+  const [addingItem, setAddingItem] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newSupplier, setNewSupplier] = useState('');
+  const [newQty, setNewQty] = useState('1');
   const [editMoney, setEditMoney] = useState(false);
   const [priceInput, setPriceInput] = useState('');
   const [depositInput, setDepositInput] = useState('');
@@ -278,17 +345,22 @@ export default function RequestDetailsModal({ row, onClose, onChanged, notify }:
 
   useEffect(() => {
     // Escape يغلق الطبقة العليا فقط: نافذة التأكيد ونافذة الإلغاء لهما معالجهما، فلا تُغلق التفاصيل معهما
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !cancelOpen && !confirmDialog) onClose(); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !cancelOpen && !itemCancel && !choose && !confirmDialog) onClose(); };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [onClose, cancelOpen, confirmDialog]);
+  }, [onClose, cancelOpen, itemCancel, choose, confirmDialog]);
 
   useEffect(() => {
-    if (!cancelOpen) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !acting) setCancelOpen(false); };
+    if (!cancelOpen && !itemCancel && !choose) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || acting) return;
+      setCancelOpen(false);
+      setItemCancel(null);
+      setChoose(null);
+    };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [cancelOpen, acting]);
+  }, [cancelOpen, itemCancel, choose, acting]);
 
   const retry = () => {
     setLoading(true);
@@ -422,14 +494,214 @@ export default function RequestDetailsModal({ row, onClose, onChanged, notify }:
     if (ok) setEditMoney(false);
   };
 
+  // ── خطة التسليم: هل الأصناف المختارة تغطي كل ما لم يُسلَّم بعد؟ (آخر تسليم) ──
+  const deliveryPlan = () => {
+    const items = detail?.items ?? [];
+    const eligible = eligibleFor('deliver', items);
+    const checked = eligible.filter(it => chosen.has(it.id));
+    const undelivered = items.filter(it => it.stage !== 'cancelled' && it.stage !== 'delivered');
+    const isFinalDelivery = checked.length > 0 && undelivered.every(it => chosen.has(it.id) && it.stage === 'arrived');
+    const price = detail?.price != null ? Number(detail.price) : null;
+    const deposit = detail?.deposit != null ? Number(detail.deposit) : 0;
+    const paidSoFar = detail ? paidTotal(detail.payments) : 0;
+    const remainingNow = price != null ? Math.max(remainingAmount(price, deposit, paidSoFar), 0) : null;
+    return { eligible, checked, isFinalDelivery, price, deposit, paidSoFar, remainingNow };
+  };
+
+  const openChoose = (mode: ChooseMode) => {
+    if (!detail) return;
+    setChosen(new Set(eligibleFor(mode, detail.items).map(it => it.id)));
+    setAmountInput('');
+    setSettleChecked(false);
+    setChoose(mode);
+  };
+
+  const toggleChosen = (id: string) => {
+    setChosen(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  // تحديث مرحلة عدة أصناف دفعة واحدة؛ أقل صفوف من المختار = تعارض مع موظف آخر
+  const runBulkStage = async (mode: 'order' | 'arrive', ids: string[]): Promise<boolean> => {
+    const target = mode === 'order' ? 'ordered' : 'arrived';
+    const from = mode === 'order' ? 'recorded' : 'ordered';
+    setActing(true);
+    try {
+      const { data, error } = await supabase.from('patient_request_items').update({ stage: target })
+        .in('id', ids).eq('stage', from).select('id');
+      if (error) { notify('err', mapActionError(error)); return false; }
+      if (!data || data.length < ids.length) {
+        notify('err', CONFLICT_MESSAGE);
+        await refreshAll();
+        return false;
+      }
+      notify('ok', mode === 'order' ? `سُجّل طلب ${countPhrase(ids.length)} من المورد.` : `سُجّل وصول ${countPhrase(ids.length)}.`);
+      await refreshAll();
+      return true;
+    } catch {
+      notify('err', 'تعذّر تنفيذ الإجراء. تحقّق من اتصالك ثم حاول مرة أخرى.');
+      return false;
+    } finally {
+      setActing(false);
+    }
+  };
+
+  // التسليم عبر الدالة وحدها؛ المبلغ يُحسب بحسب نوع التسليم (آخر / جزئي) وفق قواعد القاعدة
+  const runDelivery = async (ids: string[]): Promise<boolean> => {
+    const plan = deliveryPlan();
+    let amount: number;
+    if (plan.isFinalDelivery && plan.price != null) {
+      amount = plan.remainingNow ?? 0;
+      if (amount > 0 && !settleChecked) { notify('err', 'أكّد استلام المبلغ المتبقي من المريض أولاً.'); return false; }
+    } else if (plan.isFinalDelivery) {
+      const a = cleanNumberInput(amountInput);
+      if (a && !MONEY_RE.test(a)) { notify('err', 'المبلغ غير صالح — أرقام فقط وحتى 3 منازل عشرية.'); return false; }
+      amount = a ? Number(a) : 0;
+      if (plan.deposit > 0 && !settleChecked) { notify('err', 'أكّد خصم العربون من حساب المريض أولاً.'); return false; }
+    } else {
+      const a = cleanNumberInput(amountInput);
+      if (!a) { notify('err', 'أدخل المبلغ المستلم الآن (يمكن أن يكون صفراً).'); return false; }
+      if (!MONEY_RE.test(a)) { notify('err', 'المبلغ غير صالح — أرقام فقط وحتى 3 منازل عشرية.'); return false; }
+      amount = Number(a);
+      if (plan.remainingNow != null && amount > plan.remainingNow) { notify('err', 'المبلغ أكبر من المتبقي على المريض.'); return false; }
+    }
+
+    setActing(true);
+    try {
+      const { error } = await supabase.rpc('deliver_patient_request_items', {
+        p_request_id: row.id, p_item_ids: ids, p_amount: amount,
+      });
+      if (error) { notify('err', mapActionError(error)); return false; }
+      notify('ok', plan.isFinalDelivery ? 'اكتمل تسليم الطلب.' : 'تم التسليم.');
+      await refreshAll();
+      return true;
+    } catch {
+      notify('err', 'تعذّر تنفيذ الإجراء. تحقّق من اتصالك ثم حاول مرة أخرى.');
+      return false;
+    } finally {
+      setActing(false);
+    }
+  };
+
+  const confirmChoose = async () => {
+    if (!detail || acting || !choose) return;
+    if (readOnly) { notify('err', READ_ONLY_MESSAGE); return; }
+    const ids = eligibleFor(choose, detail.items).filter(it => chosen.has(it.id)).map(it => it.id);
+    if (ids.length === 0) return;
+    const ok = choose === 'deliver' ? await runDelivery(ids) : await runBulkStage(choose, ids);
+    if (ok) setChoose(null);
+  };
+
+  // ── إجراءات صنف واحد: كلها مشروطة بالمرحلة الحالية لكشف تغيّرها من موظف آخر ──
+  const runItemUpdate = async (itemId: string, patch: Record<string, unknown>, guardStage: ItemStage, okText: string): Promise<boolean> => {
+    if (acting) return false;
+    if (readOnly) { notify('err', READ_ONLY_MESSAGE); return false; }
+    setActing(true);
+    try {
+      const { data, error } = await supabase.from('patient_request_items').update(patch)
+        .eq('id', itemId).eq('stage', guardStage).select('id');
+      if (error) { notify('err', mapActionError(error)); return false; }
+      if (!data || data.length === 0) { notify('err', CONFLICT_MESSAGE); await refreshAll(); return false; }
+      notify('ok', okText);
+      await refreshAll();
+      return true;
+    } catch {
+      notify('err', 'تعذّر تنفيذ الإجراء. تحقّق من اتصالك ثم حاول مرة أخرى.');
+      return false;
+    } finally {
+      setActing(false);
+    }
+  };
+
+  const undoItem = async (it: RequestItem) => {
+    const prev = previousStage(it);
+    if (!prev || acting) return;
+    const ok = await confirm({ title: 'تراجع عن المرحلة', message: `إرجاع ${it.product_name} إلى «${STAGE_META[prev].label}»؟`, confirmText: 'تراجع' });
+    if (!ok) return;
+    await runItemUpdate(it.id, { stage: prev }, it.stage, 'تم إرجاع الصنف.');
+  };
+
+  const startEditSupplier = (it: RequestItem) => {
+    setSupplierEditId(it.id);
+    setSupplierInput(it.supplier ?? '');
+  };
+
+  const saveSupplier = async (it: RequestItem) => {
+    const value = supplierInput.trim();
+    if (value.length > SUPPLIER_MAX) { notify('err', `اسم المورد لا يتجاوز ${SUPPLIER_MAX} حرف.`); return; }
+    if ((value || null) === (it.supplier ?? null)) { setSupplierEditId(null); return; }
+    const ok = await runItemUpdate(it.id, { supplier: value || null }, it.stage, 'تم تحديث مورد الصنف.');
+    if (ok) setSupplierEditId(null);
+  };
+
+  const submitItemCancel = async () => {
+    if (!itemCancel) return;
+    const reason = itemCancelReason.trim();
+    if (!reason) { notify('err', 'اكتب سبب إلغاء الصنف.'); return; }
+    if (reason.length > CANCEL_REASON_MAX) { notify('err', `سبب الإلغاء لا يتجاوز ${CANCEL_REASON_MAX} حرف.`); return; }
+    const ok = await runItemUpdate(itemCancel.id, { stage: 'cancelled', cancel_reason: reason }, itemCancel.stage, 'تم إلغاء الصنف. عدّل السعر الإجمالي إن تغيّر.');
+    if (ok) { setItemCancel(null); setItemCancelReason(''); }
+  };
+
+  const startAddItem = () => {
+    // المورد يُملأ مسبقاً من آخر صنف غير ملغى
+    const live = detail?.items.filter(it => it.stage !== 'cancelled') ?? [];
+    setNewName('');
+    setNewQty('1');
+    setNewSupplier(live[live.length - 1]?.supplier ?? '');
+    setAddingItem(true);
+  };
+
+  const saveNewItem = async () => {
+    if (acting) return;
+    if (readOnly) { notify('err', READ_ONLY_MESSAGE); return; }
+    const name = newName.trim();
+    const supplier = newSupplier.trim();
+    const qty = cleanNumberInput(newQty);
+    if (!name) { notify('err', 'أدخل اسم الصنف.'); return; }
+    if (name.length > PRODUCT_NAME_MAX) { notify('err', `اسم الصنف لا يتجاوز ${PRODUCT_NAME_MAX} حرف.`); return; }
+    if (supplier.length > SUPPLIER_MAX) { notify('err', `اسم المورد لا يتجاوز ${SUPPLIER_MAX} حرف.`); return; }
+    if (!/^\d{1,6}$/.test(qty) || Number(qty) < 1) { notify('err', 'الكمية يجب أن تكون عدداً صحيحاً 1 أو أكثر.'); return; }
+
+    setActing(true);
+    try {
+      // request_id و product_name و quantity و supplier فقط — الصيدلية والمرحلة والموظف تضبطها القاعدة
+      const { error } = await supabase.from('patient_request_items').insert({
+        request_id: row.id, product_name: name, quantity: Number(qty), supplier: supplier || null,
+      });
+      if (error) { notify('err', mapActionError(error)); return; }
+      setAddingItem(false);
+      notify('ok', 'أُضيف الصنف. عدّل السعر الإجمالي إن تغيّر.');
+      await refreshAll();
+    } catch {
+      notify('err', 'تعذّر تنفيذ الإجراء. تحقّق من اتصالك ثم حاول مرة أخرى.');
+    } finally {
+      setActing(false);
+    }
+  };
+
   // ترقيم الملاحظات وحدها بالترتيب الزمني (الأحداث مرتّبة تصاعدياً أصلاً)
   const noteNumbers = new Map<string, number>();
   events.forEach(ev => { if (ev.kind === 'note') noteNumbers.set(ev.id, noteNumbers.size + 1); });
-  const lines = buildLines(events);
+  // إجابة العربون الأولى عند الإلغاء (old = null) داخلة في سطر «ألغى الطلب …» فلا تتكرر؛ التغييرات اللاحقة تبقى
+  const lines = buildLines(events.filter(ev => !(ev.kind === 'deposit_return_change' && ((ev.details ?? {}) as Record<string, unknown>).old == null)));
+
+  // أزرار التذييل: الأكثر تقدماً أولاً هو الرئيسي (تسليم ثم وصول ثم طلب)
+  const stages = detail?.items.map(it => it.stage) ?? [];
+  const footerActions: { key: ChooseMode; label: string }[] = [];
+  if (stages.includes('recorded')) footerActions.push({ key: 'order', label: 'تسجيل طلب من المورد' });
+  if (stages.includes('ordered')) footerActions.push({ key: 'arrive', label: 'تسجيل وصول' });
+  if (stages.includes('arrived')) footerActions.push({ key: 'deliver', label: 'تسليم للمريض' });
+  const primaryKey = footerActions[footerActions.length - 1]?.key;
+  const allItemsCancelled = !!detail && isOpen && detail.items.length > 0 && detail.items.every(it => it.stage === 'cancelled');
 
   const status = detail?.status ?? row.status;
   const meta = STATUS_META[status];
   const requestNumber = detail?.request_number ?? row.request_number;
+  const requestYear = detail?.request_year ?? row.request_year;
   const hasPrice = detail?.price != null;
   const hasDeposit = detail?.deposit != null;
   const paid = detail ? paidTotal(detail.payments) : 0;
@@ -446,7 +718,7 @@ export default function RequestDetailsModal({ row, onClose, onChanged, notify }:
         {/* الرأس */}
         <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-slate-100 shrink-0">
           <div className="min-w-0">
-            <h3 id="req-details-title" className="text-base font-black text-slate-900 tabular-nums">طلب رقم {requestNumber}</h3>
+            <h3 id="req-details-title" className="text-base font-black text-slate-900 tabular-nums">{requestTitle(requestNumber, requestYear)}</h3>
             <p className="text-sm font-bold text-slate-900 truncate mt-0.5">{row.patient?.name ?? 'مريض غير معروف'}</p>
             {row.patient?.phone_number && (
               <p className="flex items-center gap-1 mt-0.5 text-xs text-slate-500">
@@ -488,6 +760,12 @@ export default function RequestDetailsModal({ row, onClose, onChanged, notify }:
             </div>
           ) : (
             <>
+              {allItemsCancelled && (
+                <p className="rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium px-3 py-2">
+                  كل الأصناف ملغاة — ألغِ الطلب.
+                </p>
+              )}
+
               {/* الأصناف */}
               <section>
                 <h4 className="text-xs font-bold text-slate-600 mb-2">الأصناف</h4>
@@ -495,6 +773,8 @@ export default function RequestDetailsModal({ row, onClose, onChanged, notify }:
                   {detail.items.map(it => {
                     const time = stageTime(it);
                     const cancelled = it.stage === 'cancelled';
+                    const editable = canAct && it.stage !== 'cancelled' && it.stage !== 'delivered';
+                    const prev = previousStage(it);
                     return (
                       <div key={it.id} className="flex items-start gap-2">
                         <Package size={16} weight="bold" className="shrink-0 mt-0.5 text-slate-400" aria-hidden="true" />
@@ -502,19 +782,94 @@ export default function RequestDetailsModal({ row, onClose, onChanged, notify }:
                           <p className={`text-sm break-words ${cancelled ? 'line-through text-slate-400 font-medium' : 'font-semibold text-slate-800'}`}>
                             {it.product_name} × <span className="tabular-nums">{it.quantity}</span>
                           </p>
-                          <p className="text-xs text-slate-400 mt-0.5 break-words">{it.supplier ?? 'بلا مورد'}</p>
+
+                          {supplierEditId === it.id ? (
+                            <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                              <input type="text" value={supplierInput} onChange={e => setSupplierInput(e.target.value)}
+                                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void saveSupplier(it); } }}
+                                aria-label="مورد الصنف" placeholder="المورد" maxLength={SUPPLIER_MAX} dir="auto" autoFocus
+                                className={`${INPUT_BASE} flex-1 min-w-0 py-1.5`} />
+                              <button type="button" onClick={() => saveSupplier(it)} disabled={acting}
+                                className="h-9 shrink-0 px-3 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
+                                حفظ
+                              </button>
+                              <button type="button" onClick={() => setSupplierEditId(null)} disabled={acting}
+                                className="h-9 shrink-0 px-3 rounded-xl bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
+                                إلغاء
+                              </button>
+                            </div>
+                          ) : (
+                            <p className="text-xs text-slate-400 mt-0.5 break-words flex items-center gap-1.5">
+                              <span className="min-w-0">{it.supplier ?? 'بلا مورد'}</span>
+                              {editable && (
+                                <button type="button" onClick={() => startEditSupplier(it)} disabled={acting} aria-label="تعديل المورد"
+                                  className="shrink-0 text-slate-400 hover:text-slate-900 transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
+                                  <PencilSimple size={14} weight="bold" aria-hidden="true" />
+                                </button>
+                              )}
+                            </p>
+                          )}
+
                           {cancelled && it.cancel_reason && (
                             <p className="text-xs text-rose-600 mt-0.5 break-words">السبب: {it.cancel_reason}</p>
                           )}
+
+                          {editable && (
+                            <button type="button" onClick={() => { setItemCancel(it); setItemCancelReason(''); }} disabled={acting}
+                              className="mt-1.5 text-[11px] font-bold text-rose-600 hover:text-rose-700 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
+                              إلغاء الصنف
+                            </button>
+                          )}
                         </div>
-                        <span className={`shrink-0 text-[10px] font-bold border rounded-full px-2 py-0.5 ${STAGE_META[it.stage].chip}`}>
-                          {STAGE_META[it.stage].label}
-                          {time && <> — <bdi className="tabular-nums">{formatEventTime(time)}</bdi></>}
-                        </span>
+                        <div className="shrink-0 flex flex-col items-end gap-1">
+                          <span className={`text-[10px] font-bold border rounded-full px-2 py-0.5 ${STAGE_META[it.stage].chip}`}>
+                            {STAGE_META[it.stage].label}
+                            {time && <> — <bdi className="tabular-nums">{formatEventTime(time)}</bdi></>}
+                          </span>
+                          {editable && prev && (
+                            <button type="button" onClick={() => undoItem(it)} disabled={acting}
+                              className="text-[11px] text-slate-400 hover:text-slate-700 underline underline-offset-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
+                              تراجع
+                            </button>
+                          )}
+                        </div>
                       </div>
                     );
                   })}
                 </div>
+
+                {canAct && detail.items.length < MAX_ITEMS && (
+                  addingItem ? (
+                    <div className="mt-3 bg-white border border-slate-200 rounded-xl p-3 space-y-2">
+                      <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
+                        <input type="text" value={newName} onChange={e => setNewName(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void saveNewItem(); } }}
+                          aria-label="اسم الصنف الجديد" placeholder="اسم الصنف" maxLength={PRODUCT_NAME_MAX} dir="auto" autoFocus
+                          className={`${INPUT_BASE} flex-1 min-w-0`} />
+                        <input type="text" value={newSupplier} onChange={e => setNewSupplier(e.target.value)}
+                          aria-label="مورد الصنف الجديد" placeholder="المورد" maxLength={SUPPLIER_MAX} dir="auto"
+                          className={`${INPUT_BASE} order-last basis-full sm:order-none sm:basis-auto sm:w-32 sm:shrink-0 min-w-0`} />
+                        <input type="text" inputMode="numeric" dir="ltr" value={newQty} onChange={e => setNewQty(cleanNumberInput(e.target.value))}
+                          aria-label="كمية الصنف الجديد" className={`${INPUT_BASE} w-20 shrink-0 text-center tabular-nums`} />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button type="button" onClick={saveNewItem} disabled={acting}
+                          className="h-9 px-4 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold transition-all active:scale-[0.98] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
+                          {acting ? 'جاري الحفظ...' : 'حفظ الصنف'}
+                        </button>
+                        <button type="button" onClick={() => setAddingItem(false)} disabled={acting}
+                          className="h-9 px-4 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
+                          إلغاء
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button type="button" onClick={startAddItem} disabled={acting}
+                      className="mt-3 inline-flex items-center gap-1.5 h-9 px-3 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
+                      <Plus size={14} weight="bold" aria-hidden="true" /> إضافة صنف
+                    </button>
+                  )
+                )}
               </section>
 
               {/* المبالغ */}
@@ -575,26 +930,31 @@ export default function RequestDetailsModal({ row, onClose, onChanged, notify }:
                               المدفوع عند التسليم <span className="font-bold text-slate-900 tabular-nums" dir="ltr">{fmtJd(paid)}</span> د.أ
                             </span>
                           )}
-                          {hasPrice && (
+                          {/* الطلب الملغى لا «متبقي» له: نعرض حالة العربون بدلاً منه */}
+                          {detail.status !== 'cancelled' && hasPrice && (
                             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-teal-50 border border-teal-200 text-xs text-teal-700">
                               المتبقي <span className="font-bold tabular-nums" dir="ltr">{fmtJd(remainingAmount(detail.price as number, detail.deposit, paid))}</span> د.أ
                             </span>
                           )}
+                          {showReturned && (detail.deposit_returned ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-500">
+                              أُعيد العربون <span className="font-bold tabular-nums" dir="ltr">{fmtJd(detail.deposit as number)}</span> د.أ
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-50 border border-rose-200 text-xs text-rose-700">
+                              عربون بانتظار الإرجاع <span className="font-bold tabular-nums" dir="ltr">{fmtJd(detail.deposit as number)}</span> د.أ
+                            </span>
+                          ))}
                         </div>
                       ) : (
                         <p className="text-xs text-slate-400">لم تُسجَّل مبالغ لهذا الطلب.</p>
                       )}
-                      {showReturned && (
-                        <div className="mt-2 flex flex-wrap items-center gap-3">
-                          <p className={`text-xs font-bold ${detail.deposit_returned ? 'text-emerald-700' : 'text-rose-600'}`}>
-                            العربون: {detail.deposit_returned ? 'أُعيد للمريض' : 'لم يُعَد'}
-                          </p>
-                          {!detail.deposit_returned && !readOnly && (
-                            <button type="button" onClick={markDepositReturned} disabled={acting}
-                              className="h-8 px-3 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
-                              تم إرجاع العربون الآن
-                            </button>
-                          )}
+                      {showReturned && !detail.deposit_returned && !readOnly && (
+                        <div className="mt-2">
+                          <button type="button" onClick={markDepositReturned} disabled={acting}
+                            className="h-8 px-3 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
+                            تم إرجاع العربون الآن
+                          </button>
                         </div>
                       )}
                     </>
@@ -622,7 +982,7 @@ export default function RequestDetailsModal({ row, onClose, onChanged, notify }:
                                 <p className="text-sm text-slate-800 mt-0.5 whitespace-pre-line break-words">{ev.body}</p>
                               </div>
                             ) : (
-                              <p className="text-sm text-slate-700 break-words">{describeLine(line)}</p>
+                              <p className="text-sm text-slate-700 break-words">{describeLine(line, requestYear)}</p>
                             )}
                             <p className="text-[11px] text-slate-400 mt-1">
                               {ev.staff?.name ? `${ev.staff.name} · ` : ''}
@@ -653,13 +1013,29 @@ export default function RequestDetailsModal({ row, onClose, onChanged, notify }:
           )}
         </div>
 
-        {/* التذييل: إلغاء الطلب (مفتوح بلا أصناف مسلَّمة) أو سطر الحالة النهائية */}
-        {detail && !failed && canAct && !hasDelivered && (
-          <div className="px-5 py-4 border-t border-slate-100 shrink-0 bg-white">
-            <button type="button" onClick={() => setCancelOpen(true)} disabled={acting}
-              className="h-11 w-full flex items-center justify-center rounded-xl bg-white hover:bg-rose-50 border border-rose-200 text-rose-600 text-sm font-bold transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
-              إلغاء الطلب
-            </button>
+        {/* التذييل: إجراءات الأصناف + إلغاء الطلب (مفتوح)، أو سطر الحالة النهائية */}
+        {detail && !failed && canAct && (footerActions.length > 0 || !hasDelivered) && (
+          <div className="px-5 py-4 border-t border-slate-100 shrink-0 bg-white space-y-2">
+            {footerActions.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {footerActions.map(a => (
+                  <button key={a.key} type="button" onClick={() => openChoose(a.key)} disabled={acting}
+                    className={`h-11 flex-1 min-w-[9rem] px-3 flex items-center justify-center rounded-xl text-sm font-bold transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed ${
+                      a.key === primaryKey
+                        ? 'bg-teal-600 hover:bg-teal-700 text-white active:scale-[0.98]'
+                        : 'bg-white hover:bg-slate-50 border border-slate-200 text-slate-700'
+                    }`}>
+                    {a.label}
+                  </button>
+                ))}
+              </div>
+            )}
+            {!hasDelivered && (
+              <button type="button" onClick={() => setCancelOpen(true)} disabled={acting}
+                className="h-11 w-full flex items-center justify-center rounded-xl bg-white hover:bg-rose-50 border border-rose-200 text-rose-600 text-sm font-bold transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
+                إلغاء الطلب
+              </button>
+            )}
           </div>
         )}
         {detail && !failed && isFinal && (
@@ -711,6 +1087,156 @@ export default function RequestDetailsModal({ row, onClose, onChanged, notify }:
             <button type="button" onClick={submitCancel} disabled={acting}
               className="h-11 flex items-center justify-center rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-sm font-bold transition-all active:scale-[0.98] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
               {acting ? 'جاري الإلغاء...' : 'تأكيد الإلغاء'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* نافذة اختيار الأصناف: طلب / وصول / تسليم */}
+    {choose && detail && (() => {
+      const eligible = eligibleFor(choose, detail.items);
+      const checkedCount = eligible.filter(it => chosen.has(it.id)).length;
+      const plan = deliveryPlan();
+      const isDeliver = choose === 'deliver';
+      // اشتراطات التسليم: تأكيد استلام المتبقي، أو خصم العربون، أو مبلغ جزئي إلزامي
+      const needsSettle = isDeliver && plan.isFinalDelivery && (
+        plan.price != null ? (plan.remainingNow ?? 0) > 0 : plan.deposit > 0
+      );
+      const partialNeedsAmount = isDeliver && !plan.isFinalDelivery;
+      const confirmDisabled = acting || checkedCount === 0
+        || (needsSettle && !settleChecked)
+        || (partialNeedsAmount && amountInput.trim() === '');
+      return (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[55] flex items-end sm:items-center justify-center sm:p-4" onClick={() => { if (!acting) setChoose(null); }}>
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md max-h-[92dvh] flex flex-col shadow-2xl border border-slate-200 saas-slide-up" onClick={e => e.stopPropagation()}
+            role="dialog" aria-modal="true" aria-labelledby="req-choose-title">
+            <div className="px-5 py-4 border-b border-slate-100 shrink-0">
+              <h3 id="req-choose-title" className="text-sm font-bold text-slate-900">{CHOOSE_TITLES[choose]}</h3>
+            </div>
+            <div className="p-5 space-y-4 overflow-y-auto min-w-0">
+              <div className="space-y-2">
+                {eligible.map(it => (
+                  <label key={it.id} className="flex items-start gap-2.5 cursor-pointer">
+                    <input type="checkbox" className="mt-0.5 w-4 h-4 shrink-0 accent-teal-600"
+                      checked={chosen.has(it.id)} disabled={acting} onChange={() => toggleChosen(it.id)} />
+                    <span className="text-sm text-slate-800 min-w-0 break-words">
+                      {it.product_name} × <span className="tabular-nums">{it.quantity}</span>
+                      {it.supplier && <span className="text-xs text-slate-400"> · {it.supplier}</span>}
+                    </span>
+                  </label>
+                ))}
+              </div>
+
+              {isDeliver && (
+                <div className="space-y-3 bg-slate-50 border border-slate-100 rounded-xl p-3">
+                  <div className="flex flex-wrap gap-2">
+                    {plan.price != null && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs text-slate-600">
+                        السعر الإجمالي <span className="font-bold text-slate-900 tabular-nums" dir="ltr">{fmtJd(plan.price)}</span> د.أ
+                      </span>
+                    )}
+                    {detail.deposit != null && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs text-slate-600">
+                        العربون <span className="font-bold text-slate-900 tabular-nums" dir="ltr">{fmtJd(plan.deposit)}</span> د.أ
+                      </span>
+                    )}
+                    {plan.paidSoFar > 0 && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs text-slate-600">
+                        المدفوع سابقاً <span className="font-bold text-slate-900 tabular-nums" dir="ltr">{fmtJd(plan.paidSoFar)}</span> د.أ
+                      </span>
+                    )}
+                    {plan.price != null && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-teal-50 border border-teal-200 text-xs text-teal-700">
+                        المتبقي <span className="font-bold tabular-nums" dir="ltr">{fmtJd(plan.remainingNow ?? 0)}</span> د.أ
+                      </span>
+                    )}
+                  </div>
+
+                  {plan.isFinalDelivery && plan.price != null && (
+                    <div className="space-y-2">
+                      {(plan.remainingNow ?? 0) > 0 ? (
+                        <label className="flex items-start gap-2.5 cursor-pointer">
+                          <input type="checkbox" className="mt-0.5 w-4 h-4 shrink-0 accent-teal-600"
+                            checked={settleChecked} disabled={acting} onChange={e => setSettleChecked(e.target.checked)} />
+                          <span className="text-sm text-slate-800 min-w-0">
+                            استلمتُ المبلغ المتبقي <span className="font-bold tabular-nums" dir="ltr">{fmtJd(plan.remainingNow ?? 0)}</span> د.أ من المريض
+                          </span>
+                        </label>
+                      ) : (
+                        <p className="text-sm font-bold text-emerald-700">المبلغ مدفوع بالكامل.</p>
+                      )}
+                      <p className="text-[11px] text-slate-400">لإعطاء خصم، عدّل السعر الإجمالي أولاً.</p>
+                    </div>
+                  )}
+
+                  {plan.isFinalDelivery && plan.price == null && (
+                    <div className="space-y-2">
+                      <div>
+                        <label htmlFor="req-deliver-amount" className="block text-xs font-bold text-slate-600 mb-1.5">المبلغ المستلم الآن (اختياري)</label>
+                        <input id="req-deliver-amount" type="text" inputMode="decimal" dir="ltr" placeholder="0.000" value={amountInput}
+                          onChange={e => setAmountInput(cleanNumberInput(e.target.value))} className={`${INPUT_CLS} tabular-nums`} />
+                      </div>
+                      {plan.deposit > 0 && (
+                        <label className="flex items-start gap-2.5 cursor-pointer">
+                          <input type="checkbox" className="mt-0.5 w-4 h-4 shrink-0 accent-teal-600"
+                            checked={settleChecked} disabled={acting} onChange={e => setSettleChecked(e.target.checked)} />
+                          <span className="text-sm text-slate-800 min-w-0">
+                            خصمتُ العربون <span className="font-bold tabular-nums" dir="ltr">{fmtJd(plan.deposit)}</span> د.أ من حساب المريض
+                          </span>
+                        </label>
+                      )}
+                    </div>
+                  )}
+
+                  {!plan.isFinalDelivery && (
+                    <div>
+                      <label htmlFor="req-deliver-amount" className="block text-xs font-bold text-slate-600 mb-1.5">المبلغ المستلم الآن</label>
+                      <input id="req-deliver-amount" type="text" inputMode="decimal" dir="ltr" placeholder="0.000" value={amountInput}
+                        onChange={e => setAmountInput(cleanNumberInput(e.target.value))} className={`${INPUT_CLS} tabular-nums`} />
+                      <p className="text-[11px] text-slate-400 mt-1">يمكن أن يكون صفراً إذا سيدفع المريض عند الاستلام الأخير.</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="px-5 py-4 border-t border-slate-100 grid grid-cols-2 gap-3 shrink-0">
+              <button type="button" onClick={() => setChoose(null)} disabled={acting}
+                className="h-11 flex items-center justify-center rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-sm font-bold transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
+                إلغاء
+              </button>
+              <button type="button" onClick={confirmChoose} disabled={confirmDisabled}
+                className="h-11 flex items-center justify-center rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold transition-all active:scale-[0.98] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
+                {acting ? 'جاري التنفيذ...' : 'تأكيد'}
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    })()}
+
+    {/* نافذة إلغاء صنف */}
+    {itemCancel && (
+      <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[55] flex items-end sm:items-center justify-center sm:p-4" onClick={() => { if (!acting) setItemCancel(null); }}>
+        <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md shadow-2xl border border-slate-200 saas-slide-up" onClick={e => e.stopPropagation()}
+          role="dialog" aria-modal="true" aria-labelledby="req-item-cancel-title">
+          <div className="px-5 py-4 border-b border-slate-100">
+            <h3 id="req-item-cancel-title" className="text-sm font-bold text-slate-900">إلغاء الصنف</h3>
+            <p className="text-xs text-slate-500 mt-1 break-words">{itemCancel.product_name} × <span className="tabular-nums">{itemCancel.quantity}</span> — الإلغاء نهائي ولا يمكن التراجع عنه.</p>
+          </div>
+          <div className="p-5">
+            <label htmlFor="req-item-cancel-reason" className="block text-xs font-bold text-slate-600 mb-1.5">سبب الإلغاء</label>
+            <textarea id="req-item-cancel-reason" value={itemCancelReason} onChange={e => setItemCancelReason(e.target.value)} rows={3}
+              maxLength={CANCEL_REASON_MAX} dir="auto" autoFocus className={`${INPUT_CLS} resize-none`} />
+          </div>
+          <div className="px-5 py-4 border-t border-slate-100 grid grid-cols-2 gap-3">
+            <button type="button" onClick={() => setItemCancel(null)} disabled={acting}
+              className="h-11 flex items-center justify-center rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-sm font-bold transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
+              رجوع
+            </button>
+            <button type="button" onClick={submitItemCancel} disabled={acting}
+              className="h-11 flex items-center justify-center rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-sm font-bold transition-all active:scale-[0.98] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
+              {acting ? 'جاري الإلغاء...' : 'تأكيد إلغاء الصنف'}
             </button>
           </div>
         </div>

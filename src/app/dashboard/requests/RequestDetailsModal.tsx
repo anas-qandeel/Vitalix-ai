@@ -9,7 +9,7 @@ import { useConfirm } from '@/components/ConfirmDialog';
 import { Phone, Package, X, ArrowsClockwise, PencilSimple, Plus } from '@phosphor-icons/react';
 import {
   RequestRow, RequestStatus, RequestItem, ItemStage, STATUS_META, STAGE_META, STAGE_RANK, stageTime, requestTitle,
-  fmtJd, paidTotal, remainingAmount, MONEY_RE, cleanNumberInput, INPUT_BASE, INPUT_CLS,
+  fmtJd, paidTotal, remainingAmount, isPendingRefund, MONEY_RE, cleanNumberInput, INPUT_BASE, INPUT_CLS,
 } from './shared';
 
 // ═══════════════════════════════════════════════════════
@@ -51,7 +51,7 @@ const NOTE_MAX = 1000;
 const CANCEL_REASON_MAX = 300;
 const GROUP_WINDOW_MS = 5000;
 const EVENTS_SELECT = 'id, kind, body, details, created_at, staff_id, staff:pharmacy_staff!patient_request_events_staff_id_fkey(name)';
-const DETAIL_SELECT = 'id, request_number, request_year, price, deposit, deposit_returned, cancel_reason, delivered_at, cancelled_at, status, items:patient_request_items(id, product_name, quantity, supplier, stage, ordered_at, arrived_at, delivered_at, cancelled_at, cancel_reason), payments:patient_request_payments(amount)';
+const DETAIL_SELECT = 'id, request_number, request_year, price, deposit, deposit_returned, cancel_reason, delivered_at, cancelled_at, status, items:patient_request_items(id, product_name, quantity, supplier, stage, ordered_at, arrived_at, delivered_at, cancelled_at, cancel_reason, stage_before_cancel), payments:patient_request_payments(amount)';
 
 const SUPPLIER_MAX = 100;
 const PRODUCT_NAME_MAX = 200;
@@ -79,6 +79,9 @@ function mapActionError(err: { message?: string; details?: string } | null | und
   if (/PRICE_REQUIRED/.test(text)) return 'لا يمكن مسح السعر الإجمالي بعد تحصيل دفعة. عدّله بدلاً من ذلك.';
   if (/DEPOSIT_RETURN_FINAL/.test(text)) return 'تسجيل إعادة العربون نهائي ولا يمكن التراجع عنه.';
   if (/REMAINING_NOT_SETTLED/.test(text)) return 'المتبقي على المريض لا يساوي صفراً. عدّل السعر الإجمالي أولاً ثم أعد المحاولة.';
+  if (/REQUEST_NOT_CANCELLED/.test(text)) return 'الطلب ليس ملغى. أعد فتحه لرؤية آخر حالة.';
+  if (/DEPOSIT_ALREADY_RETURNED/.test(text)) return 'أُرجع العربون للمريض، فلا يمكن إعادة تفعيل الطلب. سجّل طلباً جديداً.';
+  if (/REOPEN_REASON_REQUIRED/.test(text)) return 'اكتب سبب إعادة التفعيل (حتى 300 حرف).';
   if (/IMMUTABLE_FIELD/.test(text)) return 'لا يمكن تغيير الصيدلية أو المريض أو رقم الطلب أو المنشئ.';
   if (/patient_requests_cancel_needs_reason/.test(text)) return 'اكتب سبب إلغاء الطلب.';
   if (/patient_requests_cancel_deposit_answer/.test(text)) return 'حدّد هل أُعيد العربون للمريض.';
@@ -202,6 +205,7 @@ function describeLine(line: TimelineLine, requestYear: number | null): string {
       if (d.request_number == null) return 'سجّل طلب المواد';
       return `سجّل طلب المواد رقم ${str(d.request_number)}/${str(d.request_year ?? requestYear)}`;
     case 'status_change': {
+      if (d.from === 'cancelled' && d.to === 'open') return `أعاد تفعيل الطلب — السبب: ${str(d.reason)}`;
       if (d.to === 'delivered') return 'اكتمل تسليم الطلب';
       if (d.to === 'cancelled') {
         const dep = d.deposit_returned === true ? ' — أُعيد العربون' : d.deposit_returned === false ? ' — لم يُعَد العربون' : '';
@@ -284,6 +288,8 @@ export default function RequestDetailsModal({ row, onClose, onChanged, notify }:
   const { confirm, dialog: confirmDialog } = useConfirm();
   const [acting, setActing] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [reopenOpen, setReopenOpen] = useState(false);
+  const [reopenReason, setReopenReason] = useState('');
   const [cancelReason, setCancelReason] = useState('');
   const [depositAnswer, setDepositAnswer] = useState<'yes' | 'no' | ''>('');
   // اختيار الأصناف (طلب / وصول / تسليم)
@@ -345,22 +351,23 @@ export default function RequestDetailsModal({ row, onClose, onChanged, notify }:
 
   useEffect(() => {
     // Escape يغلق الطبقة العليا فقط: نافذة التأكيد ونافذة الإلغاء لهما معالجهما، فلا تُغلق التفاصيل معهما
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !cancelOpen && !itemCancel && !choose && !confirmDialog) onClose(); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !cancelOpen && !reopenOpen && !itemCancel && !choose && !confirmDialog) onClose(); };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [onClose, cancelOpen, itemCancel, choose, confirmDialog]);
+  }, [onClose, cancelOpen, reopenOpen, itemCancel, choose, confirmDialog]);
 
   useEffect(() => {
-    if (!cancelOpen && !itemCancel && !choose) return;
+    if (!cancelOpen && !reopenOpen && !itemCancel && !choose) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || acting) return;
       setCancelOpen(false);
+      setReopenOpen(false);
       setItemCancel(null);
       setChoose(null);
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [cancelOpen, itemCancel, choose, acting]);
+  }, [cancelOpen, reopenOpen, itemCancel, choose, acting]);
 
   const retry = () => {
     setLoading(true);
@@ -447,9 +454,31 @@ export default function RequestDetailsModal({ row, onClose, onChanged, notify }:
     if (ok) { setCancelOpen(false); setCancelReason(''); setDepositAnswer(''); }
   };
 
+  // إعادة تفعيل طلب ملغى: عبر الدالة وحدها (تعيد الأصناف إلى مراحلها قبل الإلغاء وتكتب حدثاً واحداً بالسبب)
+  const submitReopen = async () => {
+    if (!detail || acting) return;
+    if (readOnly) { notify('err', READ_ONLY_MESSAGE); return; }
+    const reason = reopenReason.trim();
+    if (!reason) { notify('err', 'اكتب سبب إعادة التفعيل.'); return; }
+    if (reason.length > CANCEL_REASON_MAX) { notify('err', `سبب إعادة التفعيل لا يتجاوز ${CANCEL_REASON_MAX} حرف.`); return; }
+    setActing(true);
+    try {
+      const { error } = await supabase.rpc('reopen_patient_request', { p_request_id: row.id, p_reason: reason });
+      if (error) { notify('err', mapActionError(error)); return; }
+      setReopenOpen(false);
+      setReopenReason('');
+      notify('ok', 'أُعيد تفعيل الطلب.');
+      await refreshAll();
+    } catch {
+      notify('err', 'تعذّر تنفيذ الإجراء. تحقّق من اتصالك ثم حاول مرة أخرى.');
+    } finally {
+      setActing(false);
+    }
+  };
+
   const markDepositReturned = async () => {
     if (!detail || acting) return;
-    const ok = await confirm({ title: 'تأكيد إرجاع العربون', message: 'سيُسجَّل أن العربون أُعيد للمريض، ولا يمكن التراجع عن ذلك.', confirmText: 'تم الإرجاع' });
+    const ok = await confirm({ title: 'تأكيد تسليم العربون', message: `تأكيد تسليم العربون ${fmtJd(Number(detail.deposit))} د.أ للمريض؟ لا يمكن التراجع عن هذا.`, confirmText: 'تأكيد التسليم' });
     if (!ok) return;
     if (readOnly) { notify('err', READ_ONLY_MESSAGE); return; }
     setActing(true);
@@ -700,6 +729,7 @@ export default function RequestDetailsModal({ row, onClose, onChanged, notify }:
 
   const status = detail?.status ?? row.status;
   const meta = STATUS_META[status];
+  const pendingRefund = detail ? isPendingRefund(detail) : isPendingRefund(row);
   const requestNumber = detail?.request_number ?? row.request_number;
   const requestYear = detail?.request_year ?? row.request_year;
   const hasPrice = detail?.price != null;
@@ -734,7 +764,7 @@ export default function RequestDetailsModal({ row, onClose, onChanged, notify }:
           <div className="flex items-center gap-2 shrink-0">
             <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border ${meta.badge}`}>
               <span className={`w-1.5 h-1.5 rounded-full ${meta.dot}`} />
-              {meta.label}
+              {pendingRefund ? 'ملغى — العربون لم يُعَد' : meta.label}
             </span>
             <button type="button" onClick={onClose} aria-label="إغلاق"
               className="w-8 h-8 rounded-full bg-slate-50 hover:bg-slate-100 text-slate-500 flex items-center justify-center transition-colors cursor-pointer">
@@ -810,7 +840,8 @@ export default function RequestDetailsModal({ row, onClose, onChanged, notify }:
                             </p>
                           )}
 
-                          {cancelled && it.cancel_reason && (
+                          {/* السبب لبند أُلغي فرادى فقط؛ بند ألغاه إلغاء الطلب سببه سبب الطلب فلا يُكرَّر */}
+                          {cancelled && it.stage_before_cancel == null && it.cancel_reason && (
                             <p className="text-xs text-rose-600 mt-0.5 break-words">السبب: {it.cancel_reason}</p>
                           )}
 
@@ -913,6 +944,25 @@ export default function RequestDetailsModal({ row, onClose, onChanged, notify }:
                     </div>
                   ) : (
                     <>
+                      {pendingRefund && (
+                        <div className="mb-3 rounded-xl bg-rose-50 border border-rose-200 p-3 space-y-3">
+                          <p className="text-sm font-bold text-rose-700">
+                            العربون <span className="tabular-nums" dir="ltr">{fmtJd(Number(detail.deposit))}</span> د.أ لم يُرجَع للمريض بعد.
+                          </p>
+                          {!readOnly && (
+                            <div className="flex flex-wrap gap-2">
+                              <button type="button" onClick={markDepositReturned} disabled={acting}
+                                className="h-10 flex-1 min-w-[9rem] px-3 flex items-center justify-center rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold transition-all active:scale-[0.98] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
+                                سلّمتُ العربون للمريض
+                              </button>
+                              <button type="button" onClick={() => setReopenOpen(true)} disabled={acting}
+                                className="h-10 flex-1 min-w-[9rem] px-3 flex items-center justify-center rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-sm font-bold transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
+                                إعادة تفعيل الطلب
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
                       {(hasPrice || hasDeposit || paid > 0) ? (
                         <div className="flex flex-wrap gap-2">
                           {hasPrice && (
@@ -948,14 +998,6 @@ export default function RequestDetailsModal({ row, onClose, onChanged, notify }:
                         </div>
                       ) : (
                         <p className="text-xs text-slate-400">لم تُسجَّل مبالغ لهذا الطلب.</p>
-                      )}
-                      {showReturned && !detail.deposit_returned && !readOnly && (
-                        <div className="mt-2">
-                          <button type="button" onClick={markDepositReturned} disabled={acting}
-                            className="h-8 px-3 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
-                            تم إرجاع العربون الآن
-                          </button>
-                        </div>
                       )}
                     </>
                   )}
@@ -1039,16 +1081,54 @@ export default function RequestDetailsModal({ row, onClose, onChanged, notify }:
           </div>
         )}
         {detail && !failed && isFinal && (
-          <div className="px-5 py-3 border-t border-slate-100 shrink-0 bg-slate-50">
+          <div className="px-5 py-3 border-t border-slate-100 shrink-0 bg-slate-50 space-y-2">
             <p className="text-xs text-slate-500 break-words">
               {detail.status === 'delivered'
                 ? <>سُلّم للمريض{detail.delivered_at && <> — <bdi className="tabular-nums">{formatEventTime(detail.delivered_at)}</bdi></>}</>
                 : <>أُلغي{detail.cancelled_at && <> — <bdi className="tabular-nums">{formatEventTime(detail.cancelled_at)}</bdi></>}{detail.cancel_reason && <> — السبب: {detail.cancel_reason}</>}</>}
             </p>
+            {/* إعادة التفعيل: طلب ملغى بلا عربون. مع عربون لم يُرجَع يظهر الزر في صندوق العربون، ومع عربون أُرجع لا إعادة */}
+            {detail.status === 'cancelled' && !depositPositive && !readOnly && (
+              <button type="button" onClick={() => setReopenOpen(true)} disabled={acting}
+                className="h-10 w-full flex items-center justify-center rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-sm font-bold transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
+                إعادة تفعيل الطلب
+              </button>
+            )}
+            {detail.status === 'cancelled' && depositPositive && detail.deposit_returned === true && (
+              <p className="text-xs text-slate-400">أُرجع العربون للمريض — لإعادة الطلب سجّل طلباً جديداً.</p>
+            )}
           </div>
         )}
       </div>
     </div>
+
+    {/* نافذة إعادة تفعيل الطلب */}
+    {reopenOpen && (
+      <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[55] flex items-end sm:items-center justify-center sm:p-4" onClick={() => { if (!acting) setReopenOpen(false); }}>
+        <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md shadow-2xl border border-slate-200 saas-slide-up" onClick={e => e.stopPropagation()}
+          role="dialog" aria-modal="true" aria-labelledby="req-reopen-title">
+          <div className="px-5 py-4 border-b border-slate-100">
+            <h3 id="req-reopen-title" className="text-sm font-bold text-slate-900 tabular-nums">إعادة تفعيل طلب المواد رقم {requestNumber}/{requestYear}</h3>
+          </div>
+          <div className="p-5">
+            <label htmlFor="req-reopen-reason" className="block text-xs font-bold text-slate-600 mb-1.5">سبب إعادة التفعيل</label>
+            <textarea id="req-reopen-reason" value={reopenReason} onChange={e => setReopenReason(e.target.value)} rows={3}
+              maxLength={CANCEL_REASON_MAX} dir="auto" autoFocus placeholder="مثال: المورد وفّر الصنف" className={`${INPUT_CLS} resize-none`} />
+            <p className="text-[11px] text-slate-400 mt-1">تعود الأصناف إلى مراحلها قبل الإلغاء.</p>
+          </div>
+          <div className="px-5 py-4 border-t border-slate-100 grid grid-cols-2 gap-3">
+            <button type="button" onClick={() => setReopenOpen(false)} disabled={acting}
+              className="h-11 flex items-center justify-center rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-sm font-bold transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
+              إلغاء
+            </button>
+            <button type="button" onClick={submitReopen} disabled={acting}
+              className="h-11 flex items-center justify-center rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold transition-all active:scale-[0.98] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
+              {acting ? 'جاري التنفيذ...' : 'إعادة التفعيل'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
 
     {/* نافذة إلغاء الطلب */}
     {cancelOpen && (

@@ -7,7 +7,8 @@ import { calendarDaysSince } from '@/lib/calendar-days';
 import { friendlyError, READ_ONLY_MESSAGE, useSubscriptionState } from '@/lib/subscription-state';
 import { useConfirm } from '@/components/ConfirmDialog';
 import { normalizePhone, validatePhone } from '@/lib/phone';
-import { Phone, Package, X, ArrowsClockwise, PencilSimple, Plus, WhatsappLogo } from '@phosphor-icons/react';
+import { getOverdueReasons, getItemOverdue, getExpectedChipLabel, notifyRequestsChanged } from '@/lib/request-overdue';
+import { Phone, Package, X, ArrowsClockwise, PencilSimple, Plus, WhatsappLogo, WarningCircle } from '@phosphor-icons/react';
 import {
   RequestRow, RequestStatus, RequestItem, ItemStage, STATUS_META, STAGE_META, STAGE_RANK, stageTime, requestTitle,
   fmtJd, paidTotal, remainingAmount, isPendingRefund, buildPatientMessage, PatientMessageKind, MONEY_RE, cleanNumberInput, INPUT_BASE, INPUT_CLS,
@@ -52,7 +53,7 @@ const NOTE_MAX = 1000;
 const CANCEL_REASON_MAX = 300;
 const GROUP_WINDOW_MS = 5000;
 const EVENTS_SELECT = 'id, kind, body, details, created_at, staff_id, staff:pharmacy_staff!patient_request_events_staff_id_fkey(name)';
-const DETAIL_SELECT = 'id, request_number, request_year, price, deposit, deposit_returned, cancel_reason, delivered_at, cancelled_at, status, items:patient_request_items(id, product_name, quantity, supplier, stage, ordered_at, arrived_at, delivered_at, cancelled_at, cancel_reason, stage_before_cancel), payments:patient_request_payments(amount)';
+const DETAIL_SELECT = 'id, request_number, request_year, price, deposit, deposit_returned, cancel_reason, delivered_at, cancelled_at, status, items:patient_request_items(id, product_name, quantity, supplier, stage, ordered_at, arrived_at, delivered_at, cancelled_at, cancel_reason, stage_before_cancel, stage_changed_at), payments:patient_request_payments(amount)';
 
 const SUPPLIER_MAX = 100;
 const PRODUCT_NAME_MAX = 200;
@@ -395,6 +396,7 @@ export default function RequestDetailsModal({ row, pharmacyName, suggestion, onC
   const refreshAll = async () => {
     await fetchAll();
     onChanged();
+    notifyRequestsChanged(); // يحدّث عدّادات التأخر خارج هذه الشاشة
   };
 
   const addNote = async () => {
@@ -517,6 +519,7 @@ export default function RequestDetailsModal({ row, pharmacyName, suggestion, onC
         notify('err', 'فُتح واتساب، لكن تعذّر تسجيل الرسالة في السجل.');
       } else {
         await fetchAll();
+        notifyRequestsChanged();
       }
     } catch {
       setPreview(null);
@@ -819,6 +822,8 @@ export default function RequestDetailsModal({ row, pharmacyName, suggestion, onC
   const pendingRefund = detail ? isPendingRefund(detail) : isPendingRefund(row);
   const requestNumber = detail?.request_number ?? row.request_number;
   const requestYear = detail?.request_year ?? row.request_year;
+  // أسباب التأخر تُعاد حسابها عند كل رسم (أي بعد كل fetchAll)
+  const overdueReasons = detail ? getOverdueReasons(detail) : [];
   const hasPrice = detail?.price != null;
   const hasDeposit = detail?.deposit != null;
   const paid = detail ? paidTotal(detail.payments) : 0;
@@ -877,6 +882,17 @@ export default function RequestDetailsModal({ row, pharmacyName, suggestion, onC
             </div>
           ) : (
             <>
+              {overdueReasons.length > 0 && (
+                <div className="rounded-xl bg-rose-50 border border-rose-200 px-3 py-2.5 space-y-1">
+                  {overdueReasons.map(r => (
+                    <p key={`${r.type}|${r.detail}`} className="flex items-start gap-1.5 text-sm font-bold text-rose-700">
+                      <WarningCircle size={16} weight="bold" className="shrink-0 mt-0.5" aria-hidden="true" />
+                      <span className="min-w-0 break-words">{r.label}</span>
+                    </p>
+                  ))}
+                </div>
+              )}
+
               {banner && phoneOk && !readOnly && (
                 <div className="flex items-center gap-3 rounded-xl bg-teal-50 border border-teal-200 px-3 py-2.5">
                   <p className="flex-1 min-w-0 text-sm font-bold text-teal-800">
@@ -956,6 +972,12 @@ export default function RequestDetailsModal({ row, pharmacyName, suggestion, onC
                           )}
                         </div>
                         <div className="shrink-0 flex flex-col items-end gap-1">
+                          {getExpectedChipLabel(it) && (
+                            <span className="text-[10px] font-medium text-slate-500 bg-white border border-slate-200 rounded-full px-2 py-0.5">{getExpectedChipLabel(it)}</span>
+                          )}
+                          {getItemOverdue(it, detail) && (
+                            <span className="text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded-full px-2 py-0.5">متأخر: {getItemOverdue(it, detail)}</span>
+                          )}
                           <span className={`text-[10px] font-bold border rounded-full px-2 py-0.5 ${STAGE_META[it.stage].chip}`}>
                             {STAGE_META[it.stage].label}
                             {time && <> — <bdi className="tabular-nums">{formatEventTime(time)}</bdi></>}

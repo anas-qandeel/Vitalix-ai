@@ -10,10 +10,11 @@ import { getPharmacyId } from '@/lib/tenant';
 import { normalizeAr } from '@/lib/arabic';
 import { displayPhone, normalizePhone, toLatinDigits } from '@/lib/phone';
 import { calendarDaysSince } from '@/lib/calendar-days';
+import { getOverdueReasons, getExpectedChipLabel, notifyRequestsChanged } from '@/lib/request-overdue';
 import RequestDetailsModal from './RequestDetailsModal';
 import { RequestRow, ItemStage, PatientMessageKind, STATUS_META, STAGE_META, requestTitle, isPendingRefund, fmtJd, paidTotal, remainingAmount, MONEY_RE, cleanNumberInput, INPUT_BASE, INPUT_CLS } from './shared';
 import { friendlyError, READ_ONLY_MESSAGE, useSubscriptionState } from '@/lib/subscription-state';
-import { Plus, MagnifyingGlass, Phone, Package, Clock, UserCircle, X, Notebook, UserPlus, ArrowsClockwise } from '@phosphor-icons/react';
+import { Plus, MagnifyingGlass, Phone, Package, Clock, UserCircle, X, Notebook, UserPlus, ArrowsClockwise, WarningCircle } from '@phosphor-icons/react';
 
 // ═══════════════════════════════════════════════════════
 // TYPES & CONSTANTS
@@ -24,7 +25,11 @@ interface PickedPatient { id: string; name: string; phone_number: string }
 
 // مرشحات PostgREST (شجرة or/and): المفتوحة = open أو ملغى بعربون لم يُعَد؛ المغلقة = مسلَّم أو ملغى ليس كذلك
 // RLS تعزل الصيدلية؛ العمود المرتبط بالموظف والمريض عبر اسم القيد صراحةً
-const REQUEST_SELECT = 'id, request_number, request_year, price, deposit, deposit_returned, status, created_at, delivered_at, cancelled_at, updated_at, patient:patients(name, phone_number), creator:pharmacy_staff!patient_requests_created_by_fkey(name), items:patient_request_items(id, product_name, quantity, supplier, stage, ordered_at, arrived_at, delivered_at, cancelled_at, cancel_reason), payments:patient_request_payments(amount)';
+const REQUEST_SELECT = 'id, request_number, request_year, price, deposit, deposit_returned, status, created_at, delivered_at, cancelled_at, updated_at, patient:patients(name, phone_number), creator:pharmacy_staff!patient_requests_created_by_fkey(name), items:patient_request_items(id, product_name, quantity, supplier, stage, ordered_at, arrived_at, delivered_at, cancelled_at, cancel_reason, stage_changed_at), payments:patient_request_payments(amount)';
+
+// حقول حساب التأخر فقط (استعلام خفيف على كل الطلبات المفتوحة)
+const OVERDUE_SELECT = 'id, status, deposit, deposit_returned, cancelled_at, items:patient_request_items(stage, stage_changed_at)';
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const OPEN_FILTER = 'status.eq.open,and(status.eq.cancelled,deposit.gt.0,deposit_returned.eq.false)';
 const CLOSED_FILTER = 'status.eq.delivered,and(status.eq.cancelled,or(deposit.is.null,deposit.lte.0,deposit_returned.eq.true))';
@@ -37,6 +42,8 @@ const PROGRESS_ORDER: { stage: ItemStage; label: string }[] = [
 ];
 const CLOSED_LIMIT = 50;
 const MAX_ITEMS = 30;
+// أسطر أسباب التأخر الظاهرة في بطاقة القائمة؛ الباقي يُلخَّص بسطر «و N غيرها» (النافذة تعرض الكل)
+const MAX_CARD_REASONS = 3;
 
 // ═══════════════════════════════════════════════════════
 // HELPERS
@@ -75,6 +82,8 @@ function RequestCard({ row, onOpen }: { row: RequestRow; onOpen: () => void }) {
   const hasPrice = row.price != null;
   const hasDeposit = row.deposit != null;
   const paid = paidTotal(row.payments);
+  const overdue = getOverdueReasons(row);
+  const expectedLabel = (it: RequestRow['items'][number]) => getExpectedChipLabel(it);
 
   // سطر التقدّم للطلب المفتوح: الأعداد غير الصفرية لأصناف غير ملغاة
   const live = row.items.filter(it => it.stage !== 'cancelled');
@@ -85,7 +94,7 @@ function RequestCard({ row, onOpen }: { row: RequestRow; onOpen: () => void }) {
   return (
     <div role="button" tabIndex={0} onClick={onOpen}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
-      className="bg-white border border-slate-200 rounded-2xl shadow-sm hover:shadow-md transition-all p-4 sm:p-5 cursor-pointer focus:outline-none focus:ring-1 focus:ring-slate-900">
+      className={`bg-white border rounded-2xl shadow-sm hover:shadow-md transition-all p-4 sm:p-5 cursor-pointer focus:outline-none focus:ring-1 focus:ring-slate-900 ${overdue.length > 0 ? 'border-rose-300' : 'border-slate-200'}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-base font-black text-slate-900 tabular-nums">{requestTitle(row.request_number, row.request_year)}</p>
@@ -102,6 +111,20 @@ function RequestCard({ row, onOpen }: { row: RequestRow; onOpen: () => void }) {
           {pendingRefund ? 'ملغى — العربون لم يُعَد' : meta.label}
         </span>
       </div>
+
+      {overdue.length > 0 && (
+        <div className="mt-2 space-y-1">
+          {overdue.slice(0, MAX_CARD_REASONS).map(r => (
+            <p key={`${r.type}|${r.detail}`} className="flex items-start gap-1.5 text-xs font-bold text-rose-700">
+              <WarningCircle size={14} weight="bold" className="shrink-0 mt-0.5" aria-hidden="true" />
+              <span className="min-w-0 break-words">{r.label}</span>
+            </p>
+          ))}
+          {overdue.length > MAX_CARD_REASONS && (
+            <p className="text-xs text-slate-500">و {overdue.length - MAX_CARD_REASONS} غيرها</p>
+          )}
+        </div>
+      )}
 
       {row.status === 'open' && progress.length > 0 && (
         <p className="mt-2 text-xs text-slate-500">
@@ -120,7 +143,12 @@ function RequestCard({ row, onOpen }: { row: RequestRow; onOpen: () => void }) {
                 {it.product_name} × <span className="tabular-nums">{it.quantity}</span>
                 {it.supplier && <span className="text-slate-400 font-medium"> · {it.supplier}</span>}
               </p>
-              <span className={`shrink-0 text-[10px] font-bold border rounded-full px-1.5 py-0.5 ${STAGE_META[it.stage].chip}`}>{STAGE_META[it.stage].label}</span>
+              <div className="shrink-0 flex flex-col items-end gap-1">
+                <span className={`text-[10px] font-bold border rounded-full px-1.5 py-0.5 ${STAGE_META[it.stage].chip}`}>{STAGE_META[it.stage].label}</span>
+                {expectedLabel(it) && (
+                  <span className="text-[10px] font-medium text-slate-500 bg-white border border-slate-200 rounded-full px-1.5 py-0.5">{expectedLabel(it)}</span>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -531,6 +559,7 @@ export default function RequestsPage() {
   const [tab, setTab] = useState<Tab>('open');
   const [rows, setRows] = useState<RequestRow[]>([]);
   const [openCount, setOpenCount] = useState<number | null>(null);
+  const [overdueCount, setOverdueCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
   const loadSeq = useRef(0);
@@ -555,9 +584,10 @@ export default function RequestsPage() {
         ? base.or(OPEN_FILTER).order('created_at', { ascending: true }).order('created_at', { referencedTable: 'patient_request_items', ascending: true })
         // وقت الإغلاق ليس عموداً واحداً (تسليم أو إلغاء)، فنجلب آخر 50 بحسب updated_at ثم نرتّب بوقت الإغلاق أدناه
         : base.or(CLOSED_FILTER).order('updated_at', { ascending: false }).order('created_at', { referencedTable: 'patient_request_items', ascending: true }).limit(CLOSED_LIMIT);
-      const countQuery = supabase.from('patient_requests').select('id', { count: 'exact', head: true }).or(OPEN_FILTER);
+      // كل الطلبات المفتوحة بحقول التأخر فقط: العدّاد وعدد المتأخر لا يتأثران بالتبويب ولا بحد 50
+      const overdueQuery = supabase.from('patient_requests').select(OVERDUE_SELECT).or(OPEN_FILTER);
 
-      const [listRes, countRes] = await Promise.all([listQuery, countQuery]);
+      const [listRes, overdueRes] = await Promise.all([listQuery, overdueQuery]);
       if (seq !== loadSeq.current) return;
       if (listRes.error) throw listRes.error;
       setLoadFailed(false);
@@ -566,8 +596,23 @@ export default function RequestsPage() {
         const closedAt = (r: RequestRow) => new Date(r.delivered_at ?? r.cancelled_at ?? r.created_at).getTime();
         list.sort((a, b) => closedAt(b) - closedAt(a));
       }
+      if (t === 'open') {
+        // المتأخر أولاً (الأكثر تأخراً أولاً) ثم الأقدم؛ sort ثابت فيبقى ترتيب created_at داخل كل مجموعة
+        const top = (r: RequestRow) => getOverdueReasons(r)[0]?.lateness ?? null;
+        list.sort((a, b) => {
+          const la = top(a); const lb = top(b);
+          if (la != null && lb != null) return lb - la;
+          if (la != null) return -1;
+          if (lb != null) return 1;
+          return 0;
+        });
+      }
       setRows(list);
-      if (!countRes.error) setOpenCount(countRes.count ?? 0);
+      if (!overdueRes.error) {
+        const open = (overdueRes.data || []) as unknown as Parameters<typeof getOverdueReasons>[0][];
+        setOpenCount(open.length);
+        setOverdueCount(open.filter(r => getOverdueReasons(r).length > 0).length);
+      }
     } catch {
       if (seq !== loadSeq.current) return;
       setLoadFailed(true);
@@ -590,6 +635,26 @@ export default function RequestsPage() {
     load(t);
   };
 
+  // رابط مباشر ?open=<id>: يُقرأ مرة واحدة بعد أول تحميل (بلا useSearchParams فلا حاجة لـ Suspense)، يُجلب الطلب
+  // بمعرّفه كي يُفتح ولو لم يكن في التبويب الحالي، ثم يُزال الوسيط من العنوان
+  const deepLinkDone = useRef(false);
+  useEffect(() => {
+    if (loading || deepLinkDone.current) return;
+    deepLinkDone.current = true;
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('open');
+    if (!id) return;
+    params.delete('open');
+    const qs = params.toString();
+    window.history.replaceState(null, '', `${window.location.pathname}${qs ? `?${qs}` : ''}`);
+    const notFound = () => notify('err', 'الطلب غير موجود.');
+    if (!UUID_RE.test(id)) { Promise.resolve().then(notFound); return; }
+    supabase.from('patient_requests').select(REQUEST_SELECT).eq('id', id)
+      .order('created_at', { referencedTable: 'patient_request_items', ascending: true }).maybeSingle()
+      .then(({ data }) => { if (data) setSelected(data as unknown as RequestRow); else notFound(); },
+            () => notFound());
+  }, [loading, notify]);
+
   // إغلاق التفاصيل يحدّث القائمة بصمت (بلا مؤشر تحميل) لأن الموظف قد يكون أضاف ملاحظة أو غيّر بيانات
   const closeDetails = () => {
     setSelected(null);
@@ -606,6 +671,7 @@ export default function RequestsPage() {
   const handleSaved = async (newId: string | null) => {
     closeModal();
     notify('ok', 'تم حفظ الطلب');
+    notifyRequestsChanged();
     // الطلب الجديد «مسجّل» أي مفتوح — نعرض تبويب المفتوحة
     setTab('open');
     load('open');
@@ -656,13 +722,14 @@ export default function RequestsPage() {
 
         <div className="inline-flex bg-slate-100 rounded-xl p-1 gap-1" role="tablist">
           {([
-            { key: 'open' as Tab, label: 'المفتوحة', count: openCount },
-            { key: 'closed' as Tab, label: 'المغلقة', count: null },
+            { key: 'open' as Tab, label: 'المفتوحة', count: openCount, late: overdueCount },
+            { key: 'closed' as Tab, label: 'المغلقة', count: null, late: 0 },
           ]).map(t => (
             <button key={t.key} type="button" role="tab" aria-selected={tab === t.key} onClick={() => switchTab(t.key)}
               className={`px-4 py-2 rounded-lg text-sm font-bold transition-all cursor-pointer ${tab === t.key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}>
               {t.label}
               {t.count != null && t.count > 0 && <span className="mr-1.5 text-xs font-black text-teal-700 tabular-nums">{t.count}</span>}
+              {t.late > 0 && <span className="mr-1.5 text-xs font-black text-rose-600 tabular-nums">· متأخر {t.late}</span>}
             </button>
           ))}
         </div>

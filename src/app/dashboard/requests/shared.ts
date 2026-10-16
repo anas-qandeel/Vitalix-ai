@@ -17,6 +17,8 @@ export interface RequestItem {
   delivered_at: string | null;
   cancelled_at: string | null;
   cancel_reason: string | null;
+  // لحظة دخول البند مرحلته الحالية (تضبطها القاعدة)؛ عليها يُحسب تأخر الطلبات
+  stage_changed_at: string;
   // يُملأ في نافذة التفاصيل فقط: غير فارغ = أُلغي البند بإلغاء الطلب نفسه (لا بإلغاء فردي)
   stage_before_cancel?: string | null;
 }

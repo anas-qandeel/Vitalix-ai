@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import DashboardHeader from '../components/DashboardHeader';
+import DashboardHeader, { usePharmacyInfo } from '../components/DashboardHeader';
 import AppFooter from '../../components/AppFooter';
 import Toast, { useNotice } from '@/components/Toast';
 import AddPatientForm, { NewPatient } from '@/components/AddPatientForm';
@@ -11,7 +11,7 @@ import { normalizeAr } from '@/lib/arabic';
 import { displayPhone, normalizePhone, toLatinDigits } from '@/lib/phone';
 import { calendarDaysSince } from '@/lib/calendar-days';
 import RequestDetailsModal from './RequestDetailsModal';
-import { RequestRow, ItemStage, STATUS_META, STAGE_META, requestTitle, isPendingRefund, fmtJd, paidTotal, remainingAmount, MONEY_RE, cleanNumberInput, INPUT_BASE, INPUT_CLS } from './shared';
+import { RequestRow, ItemStage, PatientMessageKind, STATUS_META, STAGE_META, requestTitle, isPendingRefund, fmtJd, paidTotal, remainingAmount, MONEY_RE, cleanNumberInput, INPUT_BASE, INPUT_CLS } from './shared';
 import { friendlyError, READ_ONLY_MESSAGE, useSubscriptionState } from '@/lib/subscription-state';
 import { Plus, MagnifyingGlass, Phone, Package, Clock, UserCircle, X, Notebook, UserPlus, ArrowsClockwise } from '@phosphor-icons/react';
 
@@ -23,6 +23,9 @@ type Tab = 'open' | 'closed';
 interface PickedPatient { id: string; name: string; phone_number: string }
 
 // مرشحات PostgREST (شجرة or/and): المفتوحة = open أو ملغى بعربون لم يُعَد؛ المغلقة = مسلَّم أو ملغى ليس كذلك
+// RLS تعزل الصيدلية؛ العمود المرتبط بالموظف والمريض عبر اسم القيد صراحةً
+const REQUEST_SELECT = 'id, request_number, request_year, price, deposit, deposit_returned, status, created_at, delivered_at, cancelled_at, updated_at, patient:patients(name, phone_number), creator:pharmacy_staff!patient_requests_created_by_fkey(name), items:patient_request_items(id, product_name, quantity, supplier, stage, ordered_at, arrived_at, delivered_at, cancelled_at, cancel_reason), payments:patient_request_payments(amount)';
+
 const OPEN_FILTER = 'status.eq.open,and(status.eq.cancelled,deposit.gt.0,deposit_returned.eq.false)';
 const CLOSED_FILTER = 'status.eq.delivered,and(status.eq.cancelled,or(deposit.is.null,deposit.lte.0,deposit_returned.eq.true))';
 // تسميات مختصرة لسطر التقدّم في بطاقة الطلب المفتوح
@@ -183,7 +186,7 @@ function NewRequestModal({ pharmacyId, patient, onPatientChange, onNeedNewPatien
   onPatientChange: (p: PickedPatient | null) => void;
   onNeedNewPatient: (prefill: { name?: string; phone_number?: string }) => void;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (requestId: string | null) => void;
   notify: (kind: 'ok' | 'err', text: string) => void;
 }) {
   const { readOnly } = useSubscriptionState();
@@ -301,7 +304,7 @@ function NewRequestModal({ pharmacyId, patient, onPatientChange, onNeedNewPatien
     try {
       // استدعاء واحد ذرّي: الطلب وبنوده وملاحظته الأولى في معاملة واحدة؛
       // الصيدلية والحالة والموظف والتواقيت كلها تضبطها القاعدة
-      const { error } = await supabase.rpc('create_patient_request', {
+      const { data: newId, error } = await supabase.rpc('create_patient_request', {
         p_patient_id: patient.id,
         p_items: filledItems().map(it => ({
           product_name: it.name.trim(),
@@ -314,7 +317,7 @@ function NewRequestModal({ pharmacyId, patient, onPatientChange, onNeedNewPatien
       });
 
       if (error) { notify('err', mapSaveError(error)); return; }
-      onSaved();
+      onSaved(typeof newId === 'string' ? newId : null);
     } catch {
       notify('err', 'تعذّر حفظ الطلب. تحقّق من اتصالك ثم حاول مرة أخرى.');
     } finally {
@@ -532,7 +535,9 @@ export default function RequestsPage() {
   const [loadFailed, setLoadFailed] = useState(false);
   const loadSeq = useRef(0);
 
+  const { pharmacyName } = usePharmacyInfo();
   const [selected, setSelected] = useState<RequestRow | null>(null);
+  const [suggest, setSuggest] = useState<PatientMessageKind | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [patient, setPatient] = useState<PickedPatient | null>(null);
   const [newPatientPrefill, setNewPatientPrefill] = useState<{ name?: string; phone_number?: string } | null>(null);
@@ -544,9 +549,7 @@ export default function RequestsPage() {
     const seq = ++loadSeq.current;
     if (showSpinner) { setLoading(true); setLoadFailed(false); }
     try {
-      // RLS تعزل الصيدلية؛ العمود المرتبط بالموظف والمريض عبر اسم القيد صراحةً
-      const select = 'id, request_number, request_year, price, deposit, deposit_returned, status, created_at, delivered_at, cancelled_at, updated_at, patient:patients(name, phone_number), creator:pharmacy_staff!patient_requests_created_by_fkey(name), items:patient_request_items(id, product_name, quantity, supplier, stage, ordered_at, arrived_at, delivered_at, cancelled_at, cancel_reason), payments:patient_request_payments(amount)';
-      const base = supabase.from('patient_requests').select(select);
+      const base = supabase.from('patient_requests').select(REQUEST_SELECT);
       const listQuery = t === 'open'
         // الأقدم أولاً: الطلب الأطول انتظاراً في الأعلى
         ? base.or(OPEN_FILTER).order('created_at', { ascending: true }).order('created_at', { referencedTable: 'patient_request_items', ascending: true })
@@ -590,6 +593,7 @@ export default function RequestsPage() {
   // إغلاق التفاصيل يحدّث القائمة بصمت (بلا مؤشر تحميل) لأن الموظف قد يكون أضاف ملاحظة أو غيّر بيانات
   const closeDetails = () => {
     setSelected(null);
+    setSuggest(null);
     load(tab, false);
   };
 
@@ -599,12 +603,22 @@ export default function RequestsPage() {
     setNewPatientPrefill(null);
   };
 
-  const handleSaved = () => {
+  const handleSaved = async (newId: string | null) => {
     closeModal();
     notify('ok', 'تم حفظ الطلب');
     // الطلب الجديد «مسجّل» أي مفتوح — نعرض تبويب المفتوحة
     setTab('open');
     load('open');
+    // نفتح تفاصيل الطلب الجديد فوراً مع اقتراح رسالة التأكيد؛ فشل الجلب لا يعطّل شيئاً
+    if (!newId) return;
+    try {
+      const { data } = await supabase.from('patient_requests').select(REQUEST_SELECT).eq('id', newId)
+        .order('created_at', { referencedTable: 'patient_request_items', ascending: true }).single();
+      if (data) {
+        setSuggest('confirmation');
+        setSelected(data as unknown as RequestRow);
+      }
+    } catch { /* الاقتراح اختياري */ }
   };
 
   const emptyText = tab === 'open'
@@ -687,7 +701,7 @@ export default function RequestsPage() {
       <Toast notice={notice} />
 
       {selected && (
-        <RequestDetailsModal row={selected} onClose={closeDetails} onChanged={() => load(tab, false)} notify={notify} />
+        <RequestDetailsModal row={selected} pharmacyName={pharmacyName} suggestion={suggest} onClose={closeDetails} onChanged={() => load(tab, false)} notify={notify} />
       )}
 
       {modalOpen && pharmacyId && (

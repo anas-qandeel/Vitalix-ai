@@ -89,6 +89,74 @@ export function remainingAmount(price: number, deposit: number | null, paid: num
   return Math.round((Number(price) - Number(deposit ?? 0) - Number(paid)) * 1000) / 1000;
 }
 
+// ═══════════════════════════════════════════════════════
+// رسائل المريض عبر واتساب — باسم الصيدلية فقط (لا ذكر للمنصة)، وآخر سطر فيهما اسم الصيدلية وحده
+// ═══════════════════════════════════════════════════════
+export type PatientMessageKind = 'confirmation' | 'arrival';
+
+export interface PatientMessageInput {
+  kind: PatientMessageKind;
+  patientName: string;
+  number: number;
+  year: number;
+  items: RequestItem[];
+  price: number | null;
+  deposit: number | null;
+  paid: number;
+  includeAmounts: boolean;
+  pharmacyName: string;
+}
+
+const jd = (n: number): string => `${fmtJd(n)} د.أ`;
+
+export function buildPatientMessage(m: PatientMessageInput): string {
+  const price = m.price != null ? Number(m.price) : null;
+  const deposit = Number(m.deposit ?? 0);
+  const itemLine = (it: RequestItem) => `• ${it.product_name} × ${it.quantity}`;
+
+  // كتل نصية تُفصل بسطر فارغ واحد؛ الكتلة الفارغة تسقط مع سطرها الفارغ، فلا سطران فارغان متتاليان
+  // ولا سطر فارغ في بداية الرسالة أو نهايتها
+  const blocks: string[][] = [[`مرحباً ${m.patientName}،`]];
+
+  if (m.kind === 'confirmation') {
+    blocks.push([`تم تسجيل طلبك رقم ${m.number}/${m.year}:`, ...m.items.filter(it => it.stage !== 'cancelled').map(itemLine)]);
+    if (m.includeAmounts) {
+      const money: string[] = [];
+      if (price != null) {
+        money.push(`السعر الإجمالي: ${jd(price)}`);
+        if (deposit > 0) money.push(`العربون المدفوع: ${jd(deposit)}`);
+        money.push(`المتبقي: ${jd(remainingAmount(price, deposit, m.paid))}`);
+      } else if (deposit > 0) {
+        money.push(`العربون المدفوع: ${jd(deposit)}`);
+      }
+      blocks.push(money);
+    }
+    blocks.push(['سنتواصل معك فور وصول طلبك.']);
+  } else {
+    const waiting = m.items.filter(it => it.stage === 'recorded' || it.stage === 'ordered').map(it => it.product_name);
+    // صياغة سطر الطلب بحسب الحال: أصناف ما زالت معلّقة / باقي الطلب بعد تسليم جزئي / الطلب كله
+    const hasDelivered = m.items.some(it => it.stage === 'delivered');
+    const arrivalLead = waiting.length > 0
+      ? `وصل من طلبك رقم ${m.number}/${m.year}:`
+      : hasDelivered
+        ? `وصل باقي طلبك رقم ${m.number}/${m.year}:`
+        : `وصل طلبك رقم ${m.number}/${m.year}:`;
+    blocks.push([
+      arrivalLead,
+      ...m.items.filter(it => it.stage === 'arrived').map(itemLine),
+      'وهو جاهز للاستلام من الصيدلية.',
+    ]);
+    if (waiting.length > 0) blocks.push([`وما زلنا بانتظار: ${waiting.join('، ')}، وسنبلغك عند وصوله.`]);
+    if (m.includeAmounts) {
+      if (price != null) blocks.push([`المتبقي من قيمة الطلب: ${jd(remainingAmount(price, deposit, m.paid))}.`]);
+      else if (deposit > 0) blocks.push([`سيُخصم العربون المدفوع (${jd(deposit)}) عند الاستلام.`]);
+    }
+  }
+
+  blocks.push([m.pharmacyName]);
+  return blocks.filter(b => b.length > 0).map(b => b.join('\n')).join('\n\n');
+}
+
 // حدّ numeric(10,3) في القاعدة: 7 خانات صحيحة و3 كسرية
 export const MONEY_RE = /^\d{1,7}(\.\d{1,3})?$/;
 

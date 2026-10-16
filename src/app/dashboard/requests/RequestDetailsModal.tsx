@@ -6,10 +6,11 @@ import { displayPhone } from '@/lib/phone';
 import { calendarDaysSince } from '@/lib/calendar-days';
 import { friendlyError, READ_ONLY_MESSAGE, useSubscriptionState } from '@/lib/subscription-state';
 import { useConfirm } from '@/components/ConfirmDialog';
-import { Phone, Package, X, ArrowsClockwise, PencilSimple, Plus } from '@phosphor-icons/react';
+import { normalizePhone, validatePhone } from '@/lib/phone';
+import { Phone, Package, X, ArrowsClockwise, PencilSimple, Plus, WhatsappLogo } from '@phosphor-icons/react';
 import {
   RequestRow, RequestStatus, RequestItem, ItemStage, STATUS_META, STAGE_META, STAGE_RANK, stageTime, requestTitle,
-  fmtJd, paidTotal, remainingAmount, isPendingRefund, MONEY_RE, cleanNumberInput, INPUT_BASE, INPUT_CLS,
+  fmtJd, paidTotal, remainingAmount, isPendingRefund, buildPatientMessage, PatientMessageKind, MONEY_RE, cleanNumberInput, INPUT_BASE, INPUT_CLS,
 } from './shared';
 
 // ═══════════════════════════════════════════════════════
@@ -276,8 +277,11 @@ function buildLines(events: TimelineEvent[]): TimelineLine[] {
 // ═══════════════════════════════════════════════════════
 // MODAL
 // ═══════════════════════════════════════════════════════
-export default function RequestDetailsModal({ row, onClose, onChanged, notify }: {
+export default function RequestDetailsModal({ row, pharmacyName, suggestion, onClose, onChanged, notify }: {
   row: RequestRow;
+  pharmacyName: string;
+  // اقتراح رسالة يظهر كشريط عند الفتح (مثلاً بعد حفظ طلب جديد)
+  suggestion?: PatientMessageKind | null;
   onClose: () => void;
   onChanged: () => void;
   notify: (kind: 'ok' | 'err', text: string) => void;
@@ -293,6 +297,11 @@ export default function RequestDetailsModal({ row, onClose, onChanged, notify }:
   const { confirm, dialog: confirmDialog } = useConfirm();
   const [acting, setActing] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
+  // رسائل المريض: شريط الاقتراح ونافذة المعاينة
+  const [banner, setBanner] = useState<PatientMessageKind | null>(suggestion ?? null);
+  const [preview, setPreview] = useState<PatientMessageKind | null>(null);
+  const [includeAmounts, setIncludeAmounts] = useState(true);
+  const [sendingMsg, setSendingMsg] = useState(false);
   const [reopenOpen, setReopenOpen] = useState(false);
   const [reopenReason, setReopenReason] = useState('');
   const [reopenChosen, setReopenChosen] = useState<Set<string>>(new Set());
@@ -357,23 +366,24 @@ export default function RequestDetailsModal({ row, onClose, onChanged, notify }:
 
   useEffect(() => {
     // Escape يغلق الطبقة العليا فقط: نافذة التأكيد ونافذة الإلغاء لهما معالجهما، فلا تُغلق التفاصيل معهما
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !cancelOpen && !reopenOpen && !itemCancel && !choose && !confirmDialog) onClose(); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !cancelOpen && !reopenOpen && !preview && !itemCancel && !choose && !confirmDialog) onClose(); };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [onClose, cancelOpen, reopenOpen, itemCancel, choose, confirmDialog]);
+  }, [onClose, cancelOpen, reopenOpen, preview, itemCancel, choose, confirmDialog]);
 
   useEffect(() => {
-    if (!cancelOpen && !reopenOpen && !itemCancel && !choose) return;
+    if (!cancelOpen && !reopenOpen && !preview && !itemCancel && !choose) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || acting) return;
       setCancelOpen(false);
       setReopenOpen(false);
+      setPreview(null);
       setItemCancel(null);
       setChoose(null);
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [cancelOpen, reopenOpen, itemCancel, choose, acting]);
+  }, [cancelOpen, reopenOpen, preview, itemCancel, choose, acting]);
 
   const retry = () => {
     setLoading(true);
@@ -463,6 +473,59 @@ export default function RequestDetailsModal({ row, onClose, onChanged, notify }:
   };
 
   // إعادة تفعيل طلب ملغى: عبر الدالة وحدها (تعيد الأصناف إلى مراحلها قبل الإلغاء وتكتب حدثاً واحداً بالسبب)
+  // ── رسائل المريض عبر واتساب (باسم الصيدلية) ──
+  // الرقم يُتحقق ويُطبَّع بمساعد src/lib/phone نفسه الذي تستعمله بقية الشاشات
+  const patientPhone = row.patient?.phone_number ?? '';
+  const phoneOk = !!patientPhone && validatePhone(patientPhone).valid;
+  const hasAmounts = !!detail && (detail.price != null || Number(detail.deposit ?? 0) > 0);
+
+  const messageText = preview && detail
+    ? buildPatientMessage({
+        kind: preview,
+        patientName: row.patient?.name ?? '',
+        number: detail.request_number,
+        year: detail.request_year,
+        items: detail.items,
+        price: detail.price,
+        deposit: detail.deposit,
+        paid: paidTotal(detail.payments),
+        includeAmounts: hasAmounts && includeAmounts,
+        pharmacyName,
+      })
+    : '';
+
+  const openPreview = (kind: PatientMessageKind) => {
+    setIncludeAmounts(true);
+    setBanner(null);
+    setPreview(kind);
+  };
+
+  const sendMessage = async () => {
+    if (!detail || !preview || sendingMsg) return;
+    if (!phoneOk) { notify('err', 'لا يوجد رقم هاتف صالح للمريض.'); return; }
+    const kind = preview;
+    const amountsFlag = hasAmounts && includeAmounts;
+    // يُفتح واتساب أولاً وبشكل متزامن مع الضغطة حتى لا يحجبه المتصفح كنافذة منبثقة
+    window.open(`https://wa.me/${normalizePhone(patientPhone)}?text=${encodeURIComponent(messageText)}`, '_blank', 'noopener,noreferrer');
+    setSendingMsg(true);
+    try {
+      const { error } = await supabase.from('patient_request_events').insert({
+        request_id: row.id, kind: 'message_sent', details: { message: kind, amounts_included: amountsFlag },
+      });
+      setPreview(null);
+      if (error) {
+        notify('err', 'فُتح واتساب، لكن تعذّر تسجيل الرسالة في السجل.');
+      } else {
+        await fetchAll();
+      }
+    } catch {
+      setPreview(null);
+      notify('err', 'فُتح واتساب، لكن تعذّر تسجيل الرسالة في السجل.');
+    } finally {
+      setSendingMsg(false);
+    }
+  };
+
   const openReopen = () => {
     setReopenChosen(new Set(restorable.map(it => it.id)));
     setReopenOpen(true);
@@ -591,6 +654,7 @@ export default function RequestDetailsModal({ row, onClose, onChanged, notify }:
         return false;
       }
       notify('ok', mode === 'order' ? `سُجّل طلب ${countPhrase(ids.length)} من المورد.` : `سُجّل وصول ${countPhrase(ids.length)}.`);
+      if (mode === 'arrive') setBanner('arrival'); // اقتراح رسالة الوصول
       await refreshAll();
       return true;
     } catch {
@@ -813,6 +877,22 @@ export default function RequestDetailsModal({ row, onClose, onChanged, notify }:
             </div>
           ) : (
             <>
+              {banner && phoneOk && !readOnly && (
+                <div className="flex items-center gap-3 rounded-xl bg-teal-50 border border-teal-200 px-3 py-2.5">
+                  <p className="flex-1 min-w-0 text-sm font-bold text-teal-800">
+                    {banner === 'confirmation' ? 'أرسل للمريض رسالة تأكيد الطلب' : 'أرسل للمريض رسالة الوصول'}
+                  </p>
+                  <button type="button" onClick={() => openPreview(banner)}
+                    className="h-9 shrink-0 px-3 flex items-center gap-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all cursor-pointer">
+                    <WhatsappLogo size={16} weight="bold" aria-hidden="true" /> معاينة وإرسال
+                  </button>
+                  <button type="button" onClick={() => setBanner(null)} aria-label="إخفاء"
+                    className="w-8 h-8 shrink-0 rounded-full hover:bg-teal-100 text-teal-700 flex items-center justify-center transition-colors cursor-pointer">
+                    <X size={14} weight="bold" aria-hidden="true" />
+                  </button>
+                </div>
+              )}
+
               {allItemsCancelled && (
                 <p className="rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium px-3 py-2">
                   كل الأصناف ملغاة — ألغِ الطلب.
@@ -1029,6 +1109,28 @@ export default function RequestDetailsModal({ row, onClose, onChanged, notify }:
                 </section>
               )}
 
+              {/* رسائل المريض */}
+              {!readOnly && (isOpen || detail.items.some(it => it.stage === 'arrived')) && (
+                <section>
+                  <h4 className="text-xs font-bold text-slate-600 mb-2">رسائل المريض</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {isOpen && (
+                      <button type="button" onClick={() => openPreview('confirmation')} disabled={!phoneOk || acting}
+                        className="h-10 flex-1 min-w-[9rem] px-3 flex items-center justify-center gap-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-sm font-bold transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
+                        <WhatsappLogo size={16} weight="bold" aria-hidden="true" /> رسالة تأكيد الطلب
+                      </button>
+                    )}
+                    {detail.items.some(it => it.stage === 'arrived') && (
+                      <button type="button" onClick={() => openPreview('arrival')} disabled={!phoneOk || acting}
+                        className="h-10 flex-1 min-w-[9rem] px-3 flex items-center justify-center gap-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-sm font-bold transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
+                        <WhatsappLogo size={16} weight="bold" aria-hidden="true" /> رسالة الوصول
+                      </button>
+                    )}
+                  </div>
+                  {!phoneOk && <p className="mt-2 text-xs text-slate-400">لا يوجد رقم هاتف صالح للمريض.</p>}
+                </section>
+              )}
+
               {/* سجل المتابعة */}
               <section>
                 <h4 className="text-xs font-bold text-slate-600 mb-3">سجل المتابعة</h4>
@@ -1126,6 +1228,40 @@ export default function RequestDetailsModal({ row, onClose, onChanged, notify }:
         )}
       </div>
     </div>
+
+    {/* نافذة معاينة رسالة المريض */}
+    {preview && detail && (
+      <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[55] flex items-end sm:items-center justify-center sm:p-4" onClick={() => { if (!sendingMsg) setPreview(null); }}>
+        <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md max-h-[92dvh] flex flex-col shadow-2xl border border-slate-200 saas-slide-up" onClick={e => e.stopPropagation()}
+          role="dialog" aria-modal="true" aria-labelledby="req-preview-title">
+          <div className="px-5 py-4 border-b border-slate-100 shrink-0">
+            <h3 id="req-preview-title" className="text-sm font-bold text-slate-900">{preview === 'confirmation' ? 'رسالة تأكيد الطلب' : 'رسالة الوصول'}</h3>
+          </div>
+          <div className="p-5 space-y-4 overflow-y-auto min-w-0">
+            <div dir="rtl" className="bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-3 text-sm text-slate-800 whitespace-pre-line break-words leading-relaxed">
+              {messageText}
+            </div>
+            {hasAmounts && (
+              <label className="flex items-start gap-2.5 cursor-pointer">
+                <input type="checkbox" className="mt-0.5 w-4 h-4 shrink-0 accent-teal-600"
+                  checked={includeAmounts} onChange={e => setIncludeAmounts(e.target.checked)} />
+                <span className="text-sm text-slate-800">تضمين المبالغ في الرسالة</span>
+              </label>
+            )}
+          </div>
+          <div className="px-5 py-4 border-t border-slate-100 grid grid-cols-2 gap-3 shrink-0">
+            <button type="button" onClick={() => setPreview(null)} disabled={sendingMsg}
+              className="h-11 flex items-center justify-center rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-sm font-bold transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
+              إلغاء
+            </button>
+            <button type="button" onClick={sendMessage} disabled={sendingMsg || !phoneOk}
+              className="h-11 flex items-center justify-center gap-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold transition-all active:scale-[0.98] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
+              <WhatsappLogo size={18} weight="bold" aria-hidden="true" /> فتح واتساب
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
 
     {/* نافذة إعادة تفعيل الطلب */}
     {reopenOpen && (

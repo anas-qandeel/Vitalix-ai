@@ -14,7 +14,8 @@ import { normalizePhone } from '@/lib/phone';
 import { formatPharmacistName } from '@/lib/name-format';
 import StatCard from './components/StatCard';
 import { ammanTodayISO } from '@/lib/subscriptions';
-import { Notebook } from '@phosphor-icons/react';
+import { Notebook, WarningCircle } from '@phosphor-icons/react';
+import { useOverdueRequests } from '@/lib/use-overdue-requests';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -216,6 +217,7 @@ export default function PharmacistDashboard() {
   const [userRole, setUserRole]   = useState('');
   const [greetedToday, setGreetedToday] = useState<Set<string>>(new Set());
   const { pharmacyName } = usePharmacyInfo();
+  const { requests: overdueRequests } = useOverdueRequests();
   const router = useRouter();
 
   useEffect(() => { fetchAll(); }, []);
@@ -399,6 +401,16 @@ export default function PharmacistDashboard() {
   // بادئة "د." تليق بمن يمارس الصيدلة فعلاً (مالك، صيدلاني، أو مساعد) — لا تصح على موظف
   const withPharmacistTitle = userRole === 'owner' || userRole === 'pharmacist' || userRole === 'assistant';
   const isOwner = userRole === 'owner';
+
+  // شبكة الصف العلوي بحسب البطاقات الظاهرة (اتصل اليوم دائماً + المتأخرة + أعياد الميلاد):
+  // بلا طلبات متأخرة تبقى الأصناف كما كانت حرفياً
+  const hasOverdue = overdueRequests.length > 0;
+  const hasBirthdays = birthdayPatients.length > 0;
+  const threeCols = hasOverdue && hasBirthdays;
+  const topGridCols = threeCols ? 'lg:grid-cols-3'
+    : hasOverdue ? 'lg:grid-cols-2'
+    : hasBirthdays ? 'lg:grid-cols-[1.3fr_1fr]'
+    : '';
   const formattedDisplayName = formatPharmacistName(displayName, withPharmacistTitle);
 
   if (loading) return (
@@ -430,7 +442,8 @@ export default function PharmacistDashboard() {
       <main className="max-w-6xl mx-auto px-4 sm:px-6 pt-8 pb-12 space-y-8">
 
         {/* ═══ 4. تذكيرات الأدوية المزمنة + أعياد الميلاد (صف أفقي واحد) ═══ */}
-        <div className={`grid grid-cols-1 gap-4 ${birthdayPatients.length > 0 ? 'lg:grid-cols-[1.3fr_1fr]' : ''}`}>
+        {/* عدد البطاقات الظاهرة يحدد الشبكة: بلا تأخر الأصناف الحالية تماماً؛ ثلاث بطاقات = ثلاثة أعمدة متساوية */}
+        <div className={`grid grid-cols-1 gap-4 ${topGridCols}`}>
         <div className="fu1 bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
           <div className={`h-1 ${
             todayAlerts.some(a => a.days_left <= 1) ? 'bg-rose-500' :
@@ -438,7 +451,7 @@ export default function PharmacistDashboard() {
           }`} />
           {todayAlerts.length > 0 ? (
             <>
-              <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className={`px-6 py-5 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${threeCols ? 'lg:flex-col lg:items-start' : ''}`}>
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center shadow-sm">
                     <IconBell className="w-5 h-5 text-slate-700" />
@@ -506,6 +519,49 @@ export default function PharmacistDashboard() {
             </div>
           )}
         </div>
+
+        {/* ═══ طلبات متأخرة (تظهر فقط حين يوجد تأخر) ═══ */}
+        {overdueRequests.length > 0 && (
+          <div className="fu2 bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+            <div className="h-1 bg-rose-500" />
+            <div className={`px-6 py-5 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${threeCols ? 'lg:flex-col lg:items-start' : ''}`}>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center shadow-sm">
+                  <WarningCircle size={20} weight="bold" className="text-rose-600" aria-hidden="true" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-bold text-slate-900">طلبات متأخرة</h3>
+                    <span className="inline-flex items-center justify-center min-w-[24px] h-6 px-2 rounded-full text-[13px] font-bold text-white bg-rose-500 tabular-nums">
+                      {overdueRequests.length}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">طلبات تحتاج متابعة الآن</p>
+                </div>
+              </div>
+              <button onClick={() => router.push('/dashboard/requests')} className="text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 px-4 py-2 rounded-lg transition-colors shadow-sm self-start sm:self-auto cursor-pointer">
+                كل الطلبات
+              </button>
+            </div>
+            <div className="divide-y divide-slate-100 lg:max-h-[220px] lg:overflow-y-auto">
+              {overdueRequests.map(r => (
+                <button key={r.id} type="button" onClick={() => router.push(`/dashboard/requests?open=${r.id}`)}
+                  className="w-full text-right px-4 py-3 flex flex-col gap-1.5 hover:bg-slate-50 transition-colors cursor-pointer">
+                  <div className="flex items-baseline justify-between gap-3 min-w-0">
+                    <p className="text-sm font-semibold text-slate-900 truncate min-w-0">{r.patientName || 'مريض غير معروف'}</p>
+                    <span className="text-[11px] text-slate-500 tabular-nums shrink-0">طلب مواد رقم {r.request_number}/{r.request_year}</span>
+                  </div>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span title={r.reasons[0].label} className="text-[11px] font-semibold px-2.5 py-1 rounded-md border text-rose-700 bg-rose-50 border-rose-200 truncate min-w-0">
+                      {r.reasons[0].label}
+                    </span>
+                    {r.reasons.length > 1 && <span className="text-[11px] text-slate-500 tabular-nums shrink-0">+{r.reasons.length - 1}</span>}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* ═══ 2. أعياد الميلاد ═══ */}
         {birthdayPatients.length > 0 && (

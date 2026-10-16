@@ -214,3 +214,45 @@ export function getOverdueReasons(req: OverdueInput, now: Date = getNow()): Over
 
   return [...groups.values()].sort((a, b) => b.lateness - a.lateness);
 }
+
+// ═══════════════════════════════════════════════════════
+// ملخص الطلبات المتأخرة (للبطاقة في الرئيسية وعدّاد القائمة العلوية)
+// ═══════════════════════════════════════════════════════
+
+/** مرشح PostgREST للطلبات «المفتوحة»: open أو ملغى بعربون لم يُرجَع (نسخة صفحة الطلبات نفسها) */
+export const OPEN_REQUESTS_FILTER = 'status.eq.open,and(status.eq.cancelled,deposit.gt.0,deposit_returned.eq.false)';
+
+/** حقول الاستعلام الخفيف: ما يلزم لحساب التأخر وعرض سطر الرئيسية فقط */
+export const OVERDUE_SUMMARY_SELECT =
+  'id, request_number, request_year, status, deposit, deposit_returned, cancelled_at, patient:patients(name), items:patient_request_items(id, product_name, stage, stage_changed_at)';
+
+export interface OverdueRequestRow extends OverdueInput {
+  id: string;
+  request_number: number;
+  request_year: number;
+  patient: { name: string } | { name: string }[] | null;
+}
+
+export interface OverdueRequestSummary {
+  id: string;
+  request_number: number;
+  request_year: number;
+  patientName: string;
+  reasons: OverdueReason[];
+  maxLateness: number;
+}
+
+/** الطلبات المتأخرة فقط، الأكثر تأخراً أولاً (الفرز ثابت: التعادل يحفظ ترتيب المصدر) */
+export function summarizeOverdue(rows: OverdueRequestRow[], now: Date = getNow()): OverdueRequestSummary[] {
+  const out: OverdueRequestSummary[] = [];
+  for (const r of rows) {
+    const reasons = getOverdueReasons(r, now);
+    if (reasons.length === 0) continue;
+    const patient = Array.isArray(r.patient) ? r.patient[0] : r.patient;
+    out.push({
+      id: r.id, request_number: r.request_number, request_year: r.request_year,
+      patientName: patient?.name ?? '', reasons, maxLateness: reasons[0].lateness,
+    });
+  }
+  return out.sort((a, b) => b.maxLateness - a.maxLateness);
+}

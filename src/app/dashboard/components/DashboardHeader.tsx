@@ -7,6 +7,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { getPharmacyId, getStaffName, getUserRole } from '@/lib/tenant';
 import { formatPharmacistName } from '@/lib/name-format';
+import { useOverdueRequests } from '@/lib/use-overdue-requests';
 import { Lightbulb, PlusCircle, Lightning, Bug, ChatCircleDots, CheckCircle, Megaphone, X } from '@phosphor-icons/react';
 
 const ROLE_LABELS: Record<string, string> = { owner: 'مالك', pharmacist: 'صيدلاني', assistant: 'مساعد', staff: 'موظف' };
@@ -123,6 +124,14 @@ export function usePharmacyInfo() {
   return { pharmacyName, pharmacyNameEn, pharmacistName, pharmacyStatus, expiryDate, daysLeft: getDaysLeft(), loading };
 }
 
+// عدد الطلبات المتأخرة بصياغة عربية سليمة لقارئ الشاشة
+function overdueAria(n: number): string {
+  if (n === 1) return 'طلب متأخر واحد';
+  if (n === 2) return 'طلبان متأخران';
+  if (n <= 10) return `${n} طلبات متأخرة`;
+  return `${n} طلباً متأخراً`;
+}
+
 const NAV_LINKS = [
   { label: 'الرئيسية', href: '/dashboard', exact: true },
   { label: 'الفحوصات', href: '/dashboard/vitals', exact: false },
@@ -140,6 +149,10 @@ export default function DashboardHeader({ breadcrumb, onBack }: DashboardHeaderP
   const router = useRouter();
   const pathname = usePathname();
   const { pharmacyName, pharmacistName, pharmacyStatus, daysLeft, loading } = usePharmacyInfo();
+  const { count: overdueCount } = useOverdueRequests();
+  const overduePill = (href: string) => href === '/dashboard/requests' && overdueCount > 0 ? (
+    <span aria-label={overdueAria(overdueCount)} className="ms-1.5 inline-flex min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold items-center justify-center tabular-nums">{overdueCount}</span>
+  ) : null;
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const { notice, setNotice } = useNotice();
   const [feedbackOpen, setFeedbackOpen] = useState(false);
@@ -322,7 +335,7 @@ export default function DashboardHeader({ breadcrumb, onBack }: DashboardHeaderP
                       className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                         isActive ? 'bg-slate-100 text-slate-900 font-bold shadow-sm' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
                       }`}>
-                      {link.label}
+                      {link.label}{overduePill(link.href)}
                     </button>
                   );
                 })}
@@ -505,7 +518,7 @@ export default function DashboardHeader({ breadcrumb, onBack }: DashboardHeaderP
                     className={`w-full text-right px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
                       isActive ? 'bg-slate-100 text-slate-900 font-bold' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
                     }`}>
-                    {link.label}
+                    {link.label}{overduePill(link.href)}
                   </button>
                 );
               })}

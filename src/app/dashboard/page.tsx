@@ -461,14 +461,14 @@ export default function PharmacistDashboard() {
             <>
               <div className={`px-6 py-5 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${threeCols ? 'lg:flex-col lg:items-start' : ''}`}>
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center">
-                    <IconBell className="w-5 h-5 text-amber-600" />
+                  <div className="w-10 h-10 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center">
+                    <IconBell className="w-5 h-5 text-rose-600" />
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
                       <h3 className="text-base font-bold text-slate-900">اتصل اليوم</h3>
                       {todayAlerts.length > 0 && (
-                        <span className="inline-flex items-center justify-center min-w-[24px] h-6 px-2 rounded-full text-[13px] font-bold text-white bg-amber-500">
+                        <span className="inline-flex items-center justify-center min-w-[24px] h-6 px-2 rounded-full text-[13px] font-bold text-white bg-rose-500 tabular-nums">
                           {todayAlerts.length}
                         </span>
                       )}

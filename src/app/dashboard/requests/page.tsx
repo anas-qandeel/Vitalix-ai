@@ -10,8 +10,11 @@ import { getPharmacyId } from '@/lib/tenant';
 import { normalizeAr } from '@/lib/arabic';
 import { displayPhone, normalizePhone, toLatinDigits } from '@/lib/phone';
 import { calendarDaysSince } from '@/lib/calendar-days';
-import { getOverdueReasons, getExpectedChipLabel, notifyRequestsChanged } from '@/lib/request-overdue';
+import { getOverdueReasons, getExpectedChipLabel, notifyRequestsChanged, REQUESTS_CHANGED_EVENT } from '@/lib/request-overdue';
+import { fetchProductStats, isFrequent, type ProductStat } from '@/lib/frequent-products';
 import RequestDetailsModal from './RequestDetailsModal';
+import ProductNameInput, { ProductHint } from './ProductNameInput';
+import FrequentProductsPanel from './FrequentProductsPanel';
 import { RequestRow, ItemStage, PatientMessageKind, STATUS_META, STAGE_META, requestTitle, isPendingRefund, fmtJd, paidTotal, remainingAmount, MONEY_RE, cleanNumberInput, INPUT_BASE, INPUT_CLS } from './shared';
 import { friendlyError, READ_ONLY_MESSAGE, useSubscriptionState } from '@/lib/subscription-state';
 import { Plus, MagnifyingGlass, Phone, Package, Clock, UserCircle, X, Notebook, UserPlus, ArrowsClockwise, WarningCircle } from '@phosphor-icons/react';
@@ -19,7 +22,7 @@ import { Plus, MagnifyingGlass, Phone, Package, Clock, UserCircle, X, Notebook, 
 // ═══════════════════════════════════════════════════════
 // TYPES & CONSTANTS
 // ═══════════════════════════════════════════════════════
-type Tab = 'open' | 'closed';
+type Tab = 'open' | 'closed' | 'stock';
 
 interface PickedPatient { id: string; name: string; phone_number: string }
 
@@ -208,8 +211,9 @@ function RequestCard({ row, onOpen }: { row: RequestRow; onOpen: () => void }) {
 // ═══════════════════════════════════════════════════════
 // NEW REQUEST MODAL
 // ═══════════════════════════════════════════════════════
-function NewRequestModal({ pharmacyId, patient, onPatientChange, onNeedNewPatient, onClose, onSaved, notify }: {
+function NewRequestModal({ pharmacyId, patient, onPatientChange, onNeedNewPatient, onClose, onSaved, notify, productStats }: {
   pharmacyId: string;
+  productStats: ProductStat[];
   patient: PickedPatient | null;
   onPatientChange: (p: PickedPatient | null) => void;
   onNeedNewPatient: (prefill: { name?: string; phone_number?: string }) => void;
@@ -475,16 +479,12 @@ function NewRequestModal({ pharmacyId, patient, onPatientChange, onNeedNewPatien
                 </div>
                 <div className="space-y-2">
                   {items.map((it, idx) => (
-                    <div key={it.key} className="flex flex-wrap sm:flex-nowrap items-center gap-2">
+                    <div key={it.key}>
+                    <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
                       {/* autoFocus على كل صف عند ظهوره: الصف الجديد (بالزر أو Enter) يستقبل التركيز مباشرة */}
-                      <input type="text" value={it.name} onChange={e => updateItem(it.key, { name: e.target.value })}
-                        onKeyDown={e => {
-                          if (e.key !== 'Enter') return;
-                          e.preventDefault();
-                          if (idx === items.length - 1 && it.name.trim()) addItem();
-                        }}
-                        aria-label={`اسم الصنف ${idx + 1}`} placeholder="اسم الصنف" maxLength={200} dir="auto" autoFocus
-                        className={`${INPUT_BASE} flex-1 min-w-0`} />
+                      <ProductNameInput value={it.name} onChange={name => updateItem(it.key, { name })}
+                        onEnter={() => { if (idx === items.length - 1 && it.name.trim()) addItem(); }}
+                        stats={productStats} ariaLabel={`اسم الصنف ${idx + 1}`} maxLength={200} autoFocus />
                       {/* تحت sm يهبط المورد سطراً كاملاً أسفل الصف (basis-full + order-last)؛ من sm عرض ثابت في الصف نفسه */}
                       <input type="text" value={it.supplier} onChange={e => updateItem(it.key, { supplier: e.target.value })}
                         aria-label={`المورد ${idx + 1}`} placeholder="المورد" maxLength={100} dir="auto"
@@ -498,6 +498,8 @@ function NewRequestModal({ pharmacyId, patient, onPatientChange, onNeedNewPatien
                           <X size={14} weight="bold" aria-hidden="true" />
                         </button>
                       )}
+                    </div>
+                    <ProductHint value={it.name} stats={productStats} />
                     </div>
                   ))}
                 </div>
@@ -564,6 +566,12 @@ export default function RequestsPage() {
   const [loadFailed, setLoadFailed] = useState(false);
   const loadSeq = useRef(0);
 
+  // الأصناف المطلوبة بكثرة: تحميل واحد عند الدخول وآخر عند requests:changed، تغذّي الاقتراحات والتلميح والقسم الثالث
+  const [productStats, setProductStats] = useState<ProductStat[] | null>(null);
+  const [statsFailed, setStatsFailed] = useState(false);
+  const statsLoading = useRef(false);
+  const statsAgain = useRef(false);
+
   const { pharmacyName } = usePharmacyInfo();
   const [selected, setSelected] = useState<RequestRow | null>(null);
   const [suggest, setSuggest] = useState<PatientMessageKind | null>(null);
@@ -629,10 +637,39 @@ export default function RequestsPage() {
       .finally(() => { load('open', false); });
   }, [load]);
 
+  // التحميل لا يتداخل: حدث يصل أثناء جلب جارٍ يُعاد له الجلب مرة واحدة بعد انتهائه (الجلب الجاري قد يسبق حفظ الطلب)
+  const loadStats = useCallback(async () => {
+    if (statsLoading.current) { statsAgain.current = true; return; }
+    statsLoading.current = true;
+    try {
+      do {
+        statsAgain.current = false;
+        try {
+          setProductStats(await fetchProductStats());
+          setStatsFailed(false);
+        } catch {
+          setStatsFailed(true); // استشاري: يبقى آخر ما حُمّل، ولا إشعار حاجب
+        }
+      } while (statsAgain.current);
+    } finally {
+      statsLoading.current = false;
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadStats();
+    const onChanged = () => { void loadStats(); };
+    window.addEventListener(REQUESTS_CHANGED_EVENT, onChanged);
+    return () => window.removeEventListener(REQUESTS_CHANGED_EVENT, onChanged);
+  }, [loadStats]);
+
+  const frequentCount = productStats ? productStats.filter(isFrequent).length : null;
+
   const switchTab = (t: Tab) => {
     if (t === tab) return;
     setTab(t);
-    load(t);
+    // القسم الثالث لا قائمة طلبات له: بياناته من productStats
+    if (t !== 'stock') load(t);
   };
 
   // رابط مباشر ?open=<id>: يُقرأ مرة واحدة بعد أول تحميل (بلا useSearchParams فلا حاجة لـ Suspense)، يُجلب الطلب
@@ -720,13 +757,14 @@ export default function RequestsPage() {
           </button>
         </div>
 
-        <div className="inline-flex bg-slate-100 rounded-xl p-1 gap-1" role="tablist">
+        <div className="inline-flex max-w-full overflow-x-auto bg-slate-100 rounded-xl p-1 gap-1" role="tablist">
           {([
             { key: 'open' as Tab, label: 'المفتوحة', count: openCount, late: overdueCount },
             { key: 'closed' as Tab, label: 'المغلقة', count: null, late: 0 },
+            { key: 'stock' as Tab, label: 'مطلوبة بكثرة', count: frequentCount, late: 0 },
           ]).map(t => (
             <button key={t.key} type="button" role="tab" aria-selected={tab === t.key} onClick={() => switchTab(t.key)}
-              className={`px-4 py-2 rounded-lg text-sm font-bold transition-all cursor-pointer ${tab === t.key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}>
+              className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap shrink-0 transition-all cursor-pointer ${tab === t.key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}>
               {t.label}
               {t.count != null && t.count > 0 && <span className="mr-1.5 text-xs font-black text-teal-700 tabular-nums">{t.count}</span>}
               {t.late > 0 && <span className="mr-1.5 text-xs font-black text-rose-600 tabular-nums">· متأخر {t.late}</span>}
@@ -734,7 +772,9 @@ export default function RequestsPage() {
           ))}
         </div>
 
-        {loading ? (
+        {tab === 'stock' ? (
+          <FrequentProductsPanel stats={productStats} failed={statsFailed} onRetry={() => { void loadStats(); }} />
+        ) : loading ? (
           <div className="py-16 flex flex-col items-center gap-3">
             <div className="w-8 h-8 border-4 border-slate-200 border-t-teal-600 rounded-full animate-spin" />
             <p className="text-sm font-medium text-slate-500">جاري تحميل الطلبات...</p>
@@ -768,7 +808,7 @@ export default function RequestsPage() {
       <Toast notice={notice} />
 
       {selected && (
-        <RequestDetailsModal row={selected} pharmacyName={pharmacyName} suggestion={suggest} onClose={closeDetails} onChanged={() => load(tab, false)} notify={notify} />
+        <RequestDetailsModal row={selected} pharmacyName={pharmacyName} suggestion={suggest} productStats={productStats ?? []} onClose={closeDetails} onChanged={() => load(tab, false)} notify={notify} />
       )}
 
       {modalOpen && pharmacyId && (
@@ -780,6 +820,7 @@ export default function RequestsPage() {
           onClose={closeModal}
           onSaved={handleSaved}
           notify={notify}
+          productStats={productStats ?? []}
         />
       )}
 

@@ -6,6 +6,8 @@ import { displayPhone } from '@/lib/phone';
 import { calendarDaysSince } from '@/lib/calendar-days';
 import { friendlyError, READ_ONLY_MESSAGE, useSubscriptionState } from '@/lib/subscription-state';
 import { useConfirm } from '@/components/ConfirmDialog';
+import ProductNameInput, { ProductHint } from './ProductNameInput';
+import type { ProductStat } from '@/lib/frequent-products';
 import { normalizePhone, validatePhone } from '@/lib/phone';
 import { getOverdueReasons, getItemOverdue, getExpectedChipLabel, notifyRequestsChanged } from '@/lib/request-overdue';
 import { Phone, Package, X, ArrowsClockwise, PencilSimple, Plus, WhatsappLogo, WarningCircle } from '@phosphor-icons/react';
@@ -278,8 +280,10 @@ function buildLines(events: TimelineEvent[]): TimelineLine[] {
 // ═══════════════════════════════════════════════════════
 // MODAL
 // ═══════════════════════════════════════════════════════
-export default function RequestDetailsModal({ row, pharmacyName, suggestion, onClose, onChanged, notify }: {
+export default function RequestDetailsModal({ row, pharmacyName, suggestion, onClose, onChanged, notify, productStats }: {
   row: RequestRow;
+  // أسماء سبق طلبها وتلميح الأصناف كثيرة الطلب (تُحمَّل في صفحة الطلبات)
+  productStats: ProductStat[];
   pharmacyName: string;
   // اقتراح رسالة يظهر كشريط عند الفتح (مثلاً بعد حفظ طلب جديد)
   suggestion?: PatientMessageKind | null;
@@ -998,16 +1002,15 @@ export default function RequestDetailsModal({ row, pharmacyName, suggestion, onC
                   addingItem ? (
                     <div className="mt-3 bg-white border border-slate-200 rounded-xl p-3 space-y-2">
                       <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
-                        <input type="text" value={newName} onChange={e => setNewName(e.target.value)}
-                          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void saveNewItem(); } }}
-                          aria-label="اسم الصنف الجديد" placeholder="اسم الصنف" maxLength={PRODUCT_NAME_MAX} dir="auto" autoFocus
-                          className={`${INPUT_BASE} flex-1 min-w-0`} />
+                        <ProductNameInput value={newName} onChange={setNewName} onEnter={() => { void saveNewItem(); }}
+                          stats={productStats} ariaLabel="اسم الصنف الجديد" maxLength={PRODUCT_NAME_MAX} autoFocus />
                         <input type="text" value={newSupplier} onChange={e => setNewSupplier(e.target.value)}
                           aria-label="مورد الصنف الجديد" placeholder="المورد" maxLength={SUPPLIER_MAX} dir="auto"
                           className={`${INPUT_BASE} order-last basis-full sm:order-none sm:basis-auto sm:w-32 sm:shrink-0 min-w-0`} />
                         <input type="text" inputMode="numeric" dir="ltr" value={newQty} onChange={e => setNewQty(cleanNumberInput(e.target.value))}
                           aria-label="كمية الصنف الجديد" className={`${INPUT_BASE} w-20 shrink-0 text-center tabular-nums`} />
                       </div>
+                      <ProductHint value={newName} stats={productStats} />
                       <div className="flex items-center gap-2">
                         <button type="button" onClick={saveNewItem} disabled={acting}
                           className="h-9 px-4 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold transition-all active:scale-[0.98] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">

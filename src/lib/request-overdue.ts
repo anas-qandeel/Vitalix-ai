@@ -32,7 +32,7 @@ const AMMAN_PARTS = new Intl.DateTimeFormat('en-GB', {
 
 // أسماء الأيام مفهرسة بـ dow (الأحد = 0 … السبت = 6)
 const WEEKDAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
-const FRIDAY = 5;
+export const FRIDAY = 5;
 
 /** «الآن» لكل الدوال: في التطوير فقط يمكن السفر بالزمن بـ ?asOf=<ISO> في عنوان الصفحة؛ في الإنتاج لا أثر له */
 export function getNow(): Date {

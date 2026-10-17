@@ -15,6 +15,7 @@ import { fetchProductStats, isFrequent, type ProductStat } from '@/lib/frequent-
 import RequestDetailsModal from './RequestDetailsModal';
 import ProductNameInput, { ProductHint } from './ProductNameInput';
 import FrequentProductsPanel from './FrequentProductsPanel';
+import RequestStatsPanel from './RequestStatsPanel';
 import { RequestRow, ItemStage, PatientMessageKind, STATUS_META, STAGE_META, requestTitle, isPendingRefund, fmtJd, paidTotal, remainingAmount, MONEY_RE, cleanNumberInput, INPUT_BASE, INPUT_CLS } from './shared';
 import { friendlyError, READ_ONLY_MESSAGE, useSubscriptionState } from '@/lib/subscription-state';
 import { Plus, MagnifyingGlass, Phone, Package, Clock, UserCircle, X, Notebook, UserPlus, ArrowsClockwise, WarningCircle } from '@phosphor-icons/react';
@@ -22,7 +23,7 @@ import { Plus, MagnifyingGlass, Phone, Package, Clock, UserCircle, X, Notebook, 
 // ═══════════════════════════════════════════════════════
 // TYPES & CONSTANTS
 // ═══════════════════════════════════════════════════════
-type Tab = 'open' | 'closed' | 'stock';
+type Tab = 'open' | 'closed' | 'stock' | 'stats';
 
 interface PickedPatient { id: string; name: string; phone_number: string }
 
@@ -569,6 +570,8 @@ export default function RequestsPage() {
   // الأصناف المطلوبة بكثرة: تحميل واحد عند الدخول وآخر عند requests:changed، تغذّي الاقتراحات والتلميح والقسم الثالث
   const [productStats, setProductStats] = useState<ProductStat[] | null>(null);
   const [statsFailed, setStatsFailed] = useState(false);
+  // تبويب الإحصائيات يُركَّب عند أول فتح ثم يبقى مخفياً عند مغادرته، فتبقى أرقامه مخزّنة لكل فترة
+  const [statsOpened, setStatsOpened] = useState(false);
   const statsLoading = useRef(false);
   const statsAgain = useRef(false);
 
@@ -668,8 +671,9 @@ export default function RequestsPage() {
   const switchTab = (t: Tab) => {
     if (t === tab) return;
     setTab(t);
-    // القسم الثالث لا قائمة طلبات له: بياناته من productStats
-    if (t !== 'stock') load(t);
+    // «مطلوبة بكثرة» بياناتها من productStats و«الإحصائيات» تحمّلها لوحتها؛ لا قائمة طلبات لهما
+    if (t === 'stats') setStatsOpened(true);
+    if (t !== 'stock' && t !== 'stats') load(t);
   };
 
   // رابط مباشر ?open=<id>: يُقرأ مرة واحدة بعد أول تحميل (بلا useSearchParams فلا حاجة لـ Suspense)، يُجلب الطلب
@@ -762,6 +766,7 @@ export default function RequestsPage() {
             { key: 'open' as Tab, label: 'المفتوحة', count: openCount, late: overdueCount },
             { key: 'closed' as Tab, label: 'المغلقة', count: null, late: 0 },
             { key: 'stock' as Tab, label: 'مطلوبة بكثرة', count: frequentCount, late: 0 },
+            { key: 'stats' as Tab, label: 'الإحصائيات', count: null, late: 0 },
           ]).map(t => (
             <button key={t.key} type="button" role="tab" aria-selected={tab === t.key} onClick={() => switchTab(t.key)}
               className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap shrink-0 transition-all cursor-pointer ${tab === t.key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}>
@@ -772,7 +777,13 @@ export default function RequestsPage() {
           ))}
         </div>
 
-        {tab === 'stock' ? (
+        {statsOpened && (
+          <div hidden={tab !== 'stats'}>
+            <RequestStatsPanel visible={tab === 'stats'} />
+          </div>
+        )}
+
+        {tab === 'stats' ? null : tab === 'stock' ? (
           <FrequentProductsPanel stats={productStats} failed={statsFailed} onRetry={() => { void loadStats(); }} />
         ) : loading ? (
           <div className="py-16 flex flex-col items-center gap-3">

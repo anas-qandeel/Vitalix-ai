@@ -217,7 +217,7 @@ export default function PharmacistDashboard() {
   const [userRole, setUserRole]   = useState('');
   const [greetedToday, setGreetedToday] = useState<Set<string>>(new Set());
   const { pharmacyName } = usePharmacyInfo();
-  const { requests: overdueRequests } = useOverdueRequests();
+  const { requests: overdueRequests, settled: overdueSettled } = useOverdueRequests();
   const router = useRouter();
 
   useEffect(() => { fetchAll(); }, []);
@@ -413,7 +413,8 @@ export default function PharmacistDashboard() {
     : '';
   const formattedDisplayName = formatPharmacistName(displayName, withPharmacistTitle);
 
-  if (loading) return (
+  // لا رسم قبل انتهاء الجلبين معاً كي لا يتغير شكل شبكة الصف العلوي بعد الرسم الأول
+  if (loading || !overdueSettled) return (
     <div className="min-h-screen bg-slate-50/50 flex items-center justify-center" dir="rtl">
       <div className="flex flex-col items-center gap-4">
         <div className="w-8 h-8 border-2 border-slate-900 border-t-transparent rounded-full animate-spin" />

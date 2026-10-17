@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { getPharmacyId, getUserRole } from '@/lib/tenant';
 import { SubscriptionContext } from '@/lib/subscription-state';
+import { prefetchOverdue } from '@/lib/use-overdue-requests';
 import DateFormatNotice from '@/components/DateFormatNotice';
 
 /**
@@ -90,6 +91,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         }
       }
 
+      // تسخين الطلبات المتأخرة بعد اجتياز كل الفحوص فقط، قبل رسم الصفحات، فتجدها الصفحة جاهزة
+      void prefetchOverdue();
       setChecking(false);
     };
 

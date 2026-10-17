@@ -14,42 +14,79 @@ import {
 
 const TTL_MS = 60_000;
 
-interface Snapshot { requests: OverdueRequestSummary[]; loaded: boolean }
+// settled: انتهت أول محاولة جلب للمستخدم الحالي (نجحت أو فشلت) — تعتمد عليها الصفحة كي لا تنتظر للأبد عند الفشل
+// loaded: توجد بيانات صحيحة فعلاً
+interface Snapshot { requests: OverdueRequestSummary[]; loaded: boolean; settled: boolean }
 
-const EMPTY: Snapshot = { requests: [], loaded: false };
+const EMPTY: Snapshot = { requests: [], loaded: false, settled: false };
 let cache: Snapshot = EMPTY;
 let fetchedAt = 0;
 let inflight: Promise<void> | null = null;
+// صاحب الذاكرة الحالية، وعدّاد أجيال يبطل أي جلب بدأ لمستخدم آخر فلا تُنسب بيانات مستخدم لغيره
+let ownerId: string | null = null;
+let generation = 0;
 const listeners = new Set<() => void>();
 
 const emit = () => listeners.forEach(l => l());
+
+// تفريغ كامل وربط الذاكرة بمستخدم جديد (أو بلا أحد)
+function resetFor(uid: string | null) {
+  generation++;
+  inflight = null; // الجلب الجاري للمستخدم السابق لن يُعتمد، فلا يحجب جلباً جديداً
+  cache = EMPTY;
+  fetchedAt = 0;
+  ownerId = uid;
+  emit();
+}
+
+async function currentUserId(): Promise<string | null> {
+  const { data: { session } } = await supabase.auth.getSession();
+  return session?.user.id ?? null;
+}
 
 async function refresh(force = false): Promise<void> {
   if (inflight) return inflight;
   if (!force && cache.loaded && Date.now() - fetchedAt < TTL_MS) return;
   inflight = (async () => {
+    let gen = generation;
     try {
+      const uid = await currentUserId();
+      if (uid !== ownerId) resetFor(uid);
+      gen = generation;
+      if (!uid) return; // لا جلسة: لا استعلام (الحارس سيعيد التوجيه)
       const { data, error } = await supabase.from('patient_requests').select(OVERDUE_SUMMARY_SELECT).or(OPEN_REQUESTS_FILTER);
+      if (gen !== generation) return; // تغيّر المستخدم أثناء الجلب
+      // تحقق أخير: الجلسة التي أجابت الاستعلام هي نفسها صاحبة الذاكرة
+      if ((await currentUserId()) !== uid || gen !== generation) return;
       if (error) return; // فشل صامت: تبقى آخر قيمة معروفة
-      cache = { requests: summarizeOverdue((data || []) as unknown as OverdueRequestRow[]), loaded: true };
+      cache = { requests: summarizeOverdue((data || []) as unknown as OverdueRequestRow[]), loaded: true, settled: true };
       fetchedAt = Date.now();
       emit();
     } catch {
       /* فشل صامت */
     } finally {
-      inflight = null;
+      if (gen === generation) {
+        inflight = null; // نفس الجيل: الجلب الجاري هو هذا الجلب (أي تغيير مستخدم يصفّره ويرفع الجيل)
+        if (!cache.settled) { cache = { ...cache, settled: true }; emit(); }
+      }
     }
   })();
   return inflight;
 }
 
-// تغيير المستخدم أو خروجه يمسح الذاكرة كي لا تُعرض بيانات صيدلية سابقة (كما في tenant.ts)
+/** يبدأ الجلب مبكراً (من layout) ليكون جاهزاً قبل رسم الصفحات؛ يحترم مدة الصلاحية. */
+export function prefetchOverdue(): Promise<void> {
+  return refresh();
+}
+
+// الخروج يمسح الذاكرة؛ وأي حدث آخر لا يمسحها إلا إذا اختلف معرّف المستخدم عن صاحبها
+// (SIGNED_IN يُعاد إطلاقه عند عودة التبويب لنفس المستخدم، ومسحه حينها كان يجعل كل تنقل بارداً)
 if (typeof window !== 'undefined') {
-  supabase.auth.onAuthStateChange(event => {
-    if (event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') return; // لا تغيّر في المستخدم
-    cache = EMPTY;
-    fetchedAt = 0;
-    emit();
+  supabase.auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_OUT') { resetFor(null); return; }
+    const uid = session?.user.id ?? null;
+    if (!uid || uid === ownerId) return;
+    resetFor(uid);
     if (listeners.size > 0) void refresh(true);
   });
   const staleRefresh = () => { if (listeners.size > 0) void refresh(); };
@@ -63,8 +100,8 @@ const subscribe = (cb: () => void) => {
   return () => { listeners.delete(cb); };
 };
 
-export function useOverdueRequests(): { requests: OverdueRequestSummary[]; count: number; loading: boolean } {
+export function useOverdueRequests(): { requests: OverdueRequestSummary[]; count: number; loading: boolean; settled: boolean } {
   const snap = useSyncExternalStore(subscribe, () => cache, () => EMPTY);
   useEffect(() => { void refresh(); }, []);
-  return { requests: snap.requests, count: snap.requests.length, loading: !snap.loaded };
+  return { requests: snap.requests, count: snap.requests.length, loading: !snap.loaded, settled: snap.settled };
 }

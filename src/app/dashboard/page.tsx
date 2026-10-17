@@ -14,7 +14,7 @@ import { normalizePhone } from '@/lib/phone';
 import { formatPharmacistName } from '@/lib/name-format';
 import StatCard from './components/StatCard';
 import { ammanTodayISO } from '@/lib/subscriptions';
-import { Notebook, WarningCircle } from '@phosphor-icons/react';
+import { Notebook } from '@phosphor-icons/react';
 import { useOverdueRequests } from '@/lib/use-overdue-requests';
 
 // ═══════════════════════════════════════════════════════
@@ -113,6 +113,13 @@ function IconCake({ className = 'w-4 h-4' }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M12 8.25v-1.5m0 1.5c-1.355 0-2.697.056-4.024.166C6.845 8.51 6 9.473 6 10.608v2.513m6-4.871c1.355 0 2.697.056 4.024.166C17.155 8.51 18 9.473 18 10.608v2.513M15 8.25v-1.5m-6 1.5v-1.5m12 9.75-1.5.75a3.354 3.354 0 0 1-3 0 3.354 3.354 0 0 0-3 0 3.354 3.354 0 0 1-3 0 3.354 3.354 0 0 0-3 0 3.354 3.354 0 0 1-3 0L3 16.5m15-3.379a48.474 48.474 0 0 0-6-.371c-2.032 0-4.034.126-6 .371m12 0c.39.049.777.102 1.163.16 1.07.16 1.837 1.094 1.837 2.175v5.169c0 .621-.504 1.125-1.125 1.125H4.125A1.125 1.125 0 0 1 3 20.625v-5.17c0-1.08.768-2.014 1.837-2.174A47.78 47.78 0 0 1 6 13.12M12.265 3.11a.375.375 0 1 1-.53 0L12 2.845l.265.265Zm-3 0a.375.375 0 1 1-.53 0L9 2.845l.265.265Zm6 0a.375.375 0 1 1-.53 0L15 2.845l.265.265Z" />
+    </svg>
+  );
+}
+function IconExclamationCircle({ className = 'w-4 h-4' }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
     </svg>
   );
 }
@@ -454,8 +461,8 @@ export default function PharmacistDashboard() {
             <>
               <div className={`px-6 py-5 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${threeCols ? 'lg:flex-col lg:items-start' : ''}`}>
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center shadow-sm">
-                    <IconBell className="w-5 h-5 text-slate-700" />
+                  <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center">
+                    <IconBell className="w-5 h-5 text-amber-600" />
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
@@ -527,8 +534,8 @@ export default function PharmacistDashboard() {
             <div className="h-1 bg-rose-500" />
             <div className={`px-6 py-5 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${threeCols ? 'lg:flex-col lg:items-start' : ''}`}>
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center shadow-sm">
-                  <WarningCircle size={20} weight="bold" className="text-rose-600" aria-hidden="true" />
+                <div className="w-10 h-10 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center">
+                  <IconExclamationCircle className="w-5 h-5 text-rose-600" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
@@ -566,49 +573,52 @@ export default function PharmacistDashboard() {
 
         {/* ═══ 2. أعياد الميلاد ═══ */}
         {birthdayPatients.length > 0 && (
-          <div className="fu3 bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-2 mb-5">
+          <div className="fu3 bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+            <div className="h-1 bg-teal-500" />
+            <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/50 flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center">
-                  <IconCake className="w-5 h-5 text-rose-500" />
+                <div className="w-10 h-10 rounded-xl bg-teal-50 border border-teal-100 flex items-center justify-center">
+                  <IconCake className="w-5 h-5 text-teal-600" />
                 </div>
                 <div>
-                  <h3 className="text-base font-semibold text-slate-900">أعياد ميلاد اليوم</h3>
+                  <h3 className="text-base font-bold text-slate-900">أعياد ميلاد اليوم</h3>
                   <p className="text-xs text-slate-500 mt-0.5">{birthdayPatients.length} {birthdayPatients.length === 1 ? 'مريض' : 'مرضى'}</p>
                 </div>
               </div>
             </div>
-            {greetError && (
-              <div className="mb-4 text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-100 px-4 py-2.5 rounded-lg">
-                {greetError}
-              </div>
-            )}
-            <div className="flex flex-col gap-2.5 lg:max-h-[220px] lg:overflow-y-auto">
-              {sortedBirthdayPatients.map(p => {
-                const age = new Date().getFullYear() - new Date(p.birth_date).getFullYear();
-                const msg = `🎉 كل عام وأنتم بخير ${p.name}!\nبمناسبة عيد ميلادك الكريم، يتقدم فريق ${pharmacyName} بأحر التهاني وأطيب الأمنيات بدوام الصحة والعافية. 💐`;
-                return (
-                  <div key={p.id} className="flex items-center justify-between gap-3 bg-slate-50 border border-slate-100 rounded-xl px-3.5 py-3 hover:bg-slate-100 transition-colors">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-8 h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center font-semibold text-slate-600 text-sm shrink-0">
-                        {p.name.charAt(0)}
+            <div className="p-6">
+              {greetError && (
+                <div className="mb-4 text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-100 px-4 py-2.5 rounded-lg">
+                  {greetError}
+                </div>
+              )}
+              <div className="flex flex-col gap-2.5 lg:max-h-[220px] lg:overflow-y-auto">
+                {sortedBirthdayPatients.map(p => {
+                  const age = new Date().getFullYear() - new Date(p.birth_date).getFullYear();
+                  const msg = `🎉 كل عام وأنتم بخير ${p.name}!\nبمناسبة عيد ميلادك الكريم، يتقدم فريق ${pharmacyName} بأحر التهاني وأطيب الأمنيات بدوام الصحة والعافية. 💐`;
+                  return (
+                    <div key={p.id} className="flex items-center justify-between gap-3 bg-slate-50 border border-slate-100 rounded-xl px-3.5 py-3 hover:bg-slate-100 transition-colors">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-8 h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center font-semibold text-slate-600 text-sm shrink-0">
+                          {p.name.charAt(0)}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-slate-900 truncate">{p.name}</p>
+                          <p className="text-[11px] font-medium text-rose-500 mt-0.5">{age} سنة اليوم</p>
+                          {greetedToday.has(p.id) && (
+                            <span className="inline-block mt-1 text-[10px] font-semibold text-teal-700 bg-teal-50 border border-teal-100 px-1.5 py-0.5 rounded-md">تمّت التهنئة</span>
+                          )}
+                        </div>
                       </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-slate-900 truncate">{p.name}</p>
-                        <p className="text-[11px] font-medium text-rose-500 mt-0.5">{age} سنة اليوم</p>
-                        {greetedToday.has(p.id) && (
-                          <span className="inline-block mt-1 text-[10px] font-semibold text-teal-700 bg-teal-50 border border-teal-100 px-1.5 py-0.5 rounded-md">تمّت التهنئة</span>
-                        )}
-                      </div>
+                      <a href={`https://wa.me/${normalizePhone(p.phone_number)}?text=${encodeURIComponent(msg)}`} target="_blank" rel="noreferrer"
+                        onClick={() => recordGreeting(p.id)}
+                        className={`shrink-0 flex items-center justify-center w-8 h-8 bg-slate-900 hover:bg-slate-800 text-white rounded-lg transition-all shadow-sm ${greetedToday.has(p.id) ? 'opacity-60' : ''}`}>
+                        <IconWhatsapp className="w-4 h-4" />
+                      </a>
                     </div>
-                    <a href={`https://wa.me/${normalizePhone(p.phone_number)}?text=${encodeURIComponent(msg)}`} target="_blank" rel="noreferrer"
-                      onClick={() => recordGreeting(p.id)}
-                      className={`shrink-0 flex items-center justify-center w-8 h-8 bg-slate-900 hover:bg-slate-800 text-white rounded-lg transition-all shadow-sm ${greetedToday.has(p.id) ? 'opacity-60' : ''}`}>
-                      <IconWhatsapp className="w-4 h-4" />
-                    </a>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           </div>
         )}

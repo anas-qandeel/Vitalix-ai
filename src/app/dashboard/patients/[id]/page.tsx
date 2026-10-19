@@ -13,6 +13,8 @@ import Toast, { useNotice } from '@/components/Toast';
 import PatientSafetyFields, { EMPTY_PATIENT_SAFETY, PatientSafetyValues, safetyForSave } from '@/components/PatientSafetyFields';
 import { useSubscriptionState, READ_ONLY_MESSAGE } from '@/lib/subscription-state';
 import DateField from '@/components/DateField';
+import PatientNotesBanner from '@/components/PatientNotesBanner';
+import PatientNotesHistory from '@/components/PatientNotesHistory';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -366,6 +368,8 @@ export default function PatientCardPage({ params }: PageProps) {
   const [errorMsg, setErrorMsg] = useState('');
   const { notice, setNotice } = useNotice();
   const [patient, setPatient] = useState<PatientDetail | null>(null);
+  // يزيد عند أي تغيير في الملاحظات فيُعاد تحميل اللافتة والسجل معاً
+  const [notesVersion, setNotesVersion] = useState(0);
   const [visits, setVisits] = useState<Visit[]>([]);
   const [expandedVisitId, setExpandedVisitId] = useState<string | null>(null);
   const expandedVisitRef = useRef<HTMLDivElement>(null);
@@ -794,6 +798,9 @@ export default function PatientCardPage({ params }: PageProps) {
           </div>
         </div>
 
+        {/* ملاحظات الكادر — داخلية، خارج أي عنصر يُصدَّر PDF */}
+        <PatientNotesBanner patientId={patientId} refreshKey={notesVersion} onChange={() => setNotesVersion(v => v + 1)} />
+
         {/* ════ عمودان ════ */}
         <div className="mt-5 grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-5 items-start">
 
@@ -834,6 +841,9 @@ export default function PatientCardPage({ params }: PageProps) {
                 <p className="text-xs text-slate-400 font-medium">لا توجد أدوية مزمنة مسجلة</p>
               </div>
             )}
+
+            {/* سجل ملاحظات الكادر */}
+            <PatientNotesHistory patientId={patientId} refreshKey={notesVersion} />
           </div>
 
           {/* ══ العمود الأيسر: السجل الطبي ══ */}

@@ -838,7 +838,8 @@ export default function RequestsPage() {
           </button>
         </div>
 
-        <div className="inline-flex max-w-full overflow-x-auto bg-slate-100 rounded-xl p-1 gap-1" role="tablist">
+        {/* على الجوال شبكة 2×2 بلا تمرير أفقي (التسمية تلتف إلى سطرين)، ومن sm فما فوق الصف الواحد كما كان */}
+        <div className="grid grid-cols-2 gap-1 bg-slate-100 rounded-xl p-1 sm:inline-flex sm:max-w-full sm:overflow-x-auto" role="tablist">
           {([
             { key: 'open' as Tab, label: 'المفتوحة', count: openCount, late: overdueCount },
             { key: 'closed' as Tab, label: 'المغلقة', count: null, late: 0 },
@@ -846,7 +847,7 @@ export default function RequestsPage() {
             { key: 'stats' as Tab, label: 'نتائجك', count: null, late: 0 },
           ]).map(t => (
             <button key={t.key} type="button" role="tab" aria-selected={tab === t.key} onClick={() => switchTab(t.key)}
-              className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap shrink-0 transition-all cursor-pointer ${tab === t.key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}>
+              className={`px-4 py-2 rounded-lg text-sm font-bold text-center sm:whitespace-nowrap sm:shrink-0 transition-all cursor-pointer ${tab === t.key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}>
               {t.label}
               {t.count != null && t.count > 0 && <span className="mr-1.5 text-xs font-black text-teal-700 tabular-nums">{t.count}</span>}
               {t.late > 0 && <span className="mr-1.5 text-xs font-black text-rose-600 tabular-nums">· متأخر {t.late}</span>}

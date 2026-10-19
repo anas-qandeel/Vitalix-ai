@@ -12,6 +12,9 @@ export type StatsPeriod = (typeof STATS_PERIODS)[number];
 export const MIN_SAMPLE_DURATION = 5;
 /** أقل عدد عيّنات لمدة مورد أو لنسبة التزامه بالموعد */
 export const MIN_SAMPLE_SUPPLIER = 3;
+/** نسبة الالتزام بالموعد (٪) التي يُلوَّن عندها المورد بالأخضر (teal) ثم بالأصفر (amber)؛ دونهما بالأحمر. اللون يصحبه دائماً الرقم والنص */
+export const SUPPLIER_ON_TIME_GOOD = 80;
+export const SUPPLIER_ON_TIME_OK = 60;
 
 export interface StatsSummary {
   requests_total: number;
@@ -107,12 +110,46 @@ export function countNoun(n: number, f: { one: string; two: string; few: string;
 
 export const itemsCount = (n: number) => countNoun(n, { one: 'صنف واحد', two: 'صنفان', few: 'أصناف', many: 'صنفاً' });
 export const requestsCount = (n: number) => countNoun(n, { one: 'طلب واحد', two: 'طلبان', few: 'طلبات', many: 'طلباً' });
-export const legacyItemsCount = (n: number) => countNoun(n, { one: 'صنف قديم واحد', two: 'صنفان قديمان', few: 'أصناف قديمة', many: 'صنفاً قديماً' });
 
-/** سطر الأصناف القديمة (وصلت بلا وقت طلب من المورد) مع مطابقة الصفة للعدد */
-export function legacyNote(n: number): string {
-  if (n === 1) return 'وصنف قديم واحد غير محتسب';
-  if (n === 2) return 'وصنفان قديمان غير محتسبين';
-  // 3–10 جمع قلة فالصفة جمع، و11 فأكثر تمييز مفرد فالصفة مفردة
-  return n <= 10 ? `و${n} أصناف قديمة غير محتسبة` : `و${n} صنفاً قديماً غير محتسب`;
+// ═══════════════════════════════════════════════════════
+// صياغة الجمل (تبويب «نتائجك»)
+// ═══════════════════════════════════════════════════════
+
+/**
+ * مدة بصيغة المجرور لتأتي بعد «خلال/بعد/من» («بعد يومين»، «خلال ساعتين»)؛ formatDuration يعيد المرفوع
+ * («يومان») ويصلح قيمةً قائمة بذاتها فقط. التقريب هو نفسه: ساعات صحيحة حتى 23، ثم أقرب نصف يوم.
+ */
+export function formatDurationAfter(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < HOUR) return 'أقل من ساعة';
+  const hours = Math.round(seconds / HOUR);
+  if (hours < 24) {
+    if (hours === 1) return 'ساعة';
+    if (hours === 2) return 'ساعتين';
+    return hours <= 10 ? `${hours} ساعات` : `${hours} ساعة`;
+  }
+  const halves = Math.max(2, Math.round(seconds / (DAY / 2)));
+  const whole = Math.floor(halves / 2);
+  let base: string;
+  if (whole === 1) base = 'يوم';
+  else if (whole === 2) base = 'يومين';
+  else base = whole <= 10 ? `${whole} أيام` : `${whole} يوماً`;
+  return halves % 2 === 1 ? `${base} ونصف` : base;
 }
+
+/** عبارة بطاقة النتيجة الرئيسية بحسب العدد (الرقم الكبير يُعرض منفصلاً، والعبارة تحمل المطابقة في الفعل والمعدود) */
+export function deliveredPhrase(n: number): string {
+  if (n === 1) return 'طلب سُلّم لمرضاك';
+  if (n === 2) return 'طلبان سُلّما لمرضاك';
+  return n <= 10 ? 'طلبات سُلّمت لمرضاك' : 'طلباً سُلّم لمرضاك';
+}
+
+// معدود مجرور بعد «من» (محسوب من …): الاثنان بالياء
+export const itemsCountGen = (n: number) => countNoun(n, { one: 'صنف واحد', two: 'صنفين', few: 'أصناف', many: 'صنفاً' });
+export const requestsCountGen = (n: number) => countNoun(n, { one: 'طلب واحد', two: 'طلبين', few: 'طلبات', many: 'طلباً' });
+
+// معدود منصوب بعد «نحتاج … على الأقل»
+export const itemsNeeded = (n: number) => countNoun(n, { one: 'صنفاً واحداً', two: 'صنفين', few: 'أصناف', many: 'صنفاً' });
+export const deliveredRequestsNeeded = (n: number) => countNoun(n, { one: 'طلباً واحداً مسلَّماً', two: 'طلبين مسلَّمين', few: 'طلبات مسلَّمة', many: 'طلباً مسلَّماً' });
+
+/** «N من M مرات»: المعدود بعد 10 مفرد منصوب */
+export const timesWord = (m: number) => (m <= 10 ? 'مرات' : 'مرة');

@@ -843,7 +843,7 @@ export default function RequestsPage() {
             { key: 'open' as Tab, label: 'المفتوحة', count: openCount, late: overdueCount },
             { key: 'closed' as Tab, label: 'المغلقة', count: null, late: 0 },
             { key: 'stock' as Tab, label: 'مطلوبة بكثرة', count: frequentCount, late: 0 },
-            { key: 'stats' as Tab, label: 'الإحصائيات', count: null, late: 0 },
+            { key: 'stats' as Tab, label: 'نتائجك', count: null, late: 0 },
           ]).map(t => (
             <button key={t.key} type="button" role="tab" aria-selected={tab === t.key} onClick={() => switchTab(t.key)}
               className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap shrink-0 transition-all cursor-pointer ${tab === t.key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}>

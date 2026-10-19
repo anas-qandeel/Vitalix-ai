@@ -170,3 +170,29 @@ export function cleanNumberInput(raw: string): string {
 // بلا عرض: حقول البنود تحدّد عرضها بنفسها (w-full هنا كان يتعارض مع w-20 فيتمدد حقل الكمية ويضغط الاسم)
 export const INPUT_BASE = 'px-3.5 py-2.5 text-sm bg-white border border-slate-200 rounded-xl text-slate-900 focus:border-slate-900 focus:ring-1 focus:ring-slate-900 focus:outline-none transition-all';
 export const INPUT_CLS = `w-full ${INPUT_BASE}`;
+
+// تبويب «المغلقة»: يعرض افتراضياً ما أُغلق خلال آخر N يوماً تقويمياً بتوقيت عمّان (اليوم + N-1 قبله)
+export const CLOSED_WINDOW_DAYS = 30;
+
+// بداية اليوم (00:00 بتوقيت عمّان) قبل days-1 يوماً من اليوم، كلحظة ISO. لا نفترض إزاحة ثابتة: نقرأ إزاحة عمّان
+// الفعلية عند تلك اللحظة من Intl (الأردن يعتمد +03 دائماً منذ 2022، لكن التواريخ القديمة قد تختلف)
+const AMMAN_FMT = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'Asia/Amman', year: 'numeric', month: '2-digit', day: '2-digit',
+  hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
+});
+
+function ammanParts(d: Date): { y: number; m: number; d: number; ms: number } {
+  const p: Record<string, number> = {};
+  for (const part of AMMAN_FMT.formatToParts(d)) if (part.type !== 'literal') p[part.type] = Number(part.value);
+  return { y: p.year, m: p.month, d: p.day, ms: Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second) };
+}
+
+export function closedWindowStartIso(days: number = CLOSED_WINDOW_DAYS, now: Date = new Date()): string {
+  const today = ammanParts(now);
+  const targetLocal = Date.UTC(today.y, today.m - 1, today.d - (days - 1)); // منتصف الليل المحلي كأنه UTC
+  let guess = targetLocal - 3 * 3600000;
+  for (let i = 0; i < 2; i++) {
+    guess = targetLocal - (ammanParts(new Date(guess)).ms - guess);
+  }
+  return new Date(guess).toISOString();
+}

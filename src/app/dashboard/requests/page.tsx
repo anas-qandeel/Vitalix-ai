@@ -16,7 +16,7 @@ import RequestDetailsModal from './RequestDetailsModal';
 import ProductNameInput, { ProductHint } from './ProductNameInput';
 import FrequentProductsPanel from './FrequentProductsPanel';
 import RequestStatsPanel from './RequestStatsPanel';
-import { RequestRow, ItemStage, PatientMessageKind, STATUS_META, STAGE_META, requestTitle, isPendingRefund, fmtJd, paidTotal, remainingAmount, MONEY_RE, cleanNumberInput, INPUT_BASE, INPUT_CLS } from './shared';
+import { CLOSED_WINDOW_DAYS, closedWindowStartIso, RequestRow, ItemStage, PatientMessageKind, STATUS_META, STAGE_META, requestTitle, isPendingRefund, fmtJd, paidTotal, remainingAmount, MONEY_RE, cleanNumberInput, INPUT_BASE, INPUT_CLS } from './shared';
 import { friendlyError, READ_ONLY_MESSAGE, useSubscriptionState } from '@/lib/subscription-state';
 import { Plus, MagnifyingGlass, Phone, Package, Clock, UserCircle, X, Notebook, UserPlus, ArrowsClockwise, WarningCircle } from '@phosphor-icons/react';
 
@@ -44,7 +44,36 @@ const PROGRESS_ORDER: { stage: ItemStage; label: string }[] = [
   { stage: 'ordered', label: 'طُلب' },
   { stage: 'recorded', label: 'مسجّل' },
 ];
-const CLOSED_LIMIT = 50;
+// الافتراضي: كل ما أُغلق في النافذة (حتى 200)؛ البحث يتجاوز النافذة ويكتفي بـ 50 نتيجة
+const CLOSED_WINDOW_LIMIT = 200;
+const CLOSED_SEARCH_LIMIT = 50;
+const SEARCH_DEBOUNCE_MS = 300;
+
+// حقل الاستعلام للبحث بالمريض: inner join على المريض بالاسم الحقيقي للجدول (يُرشَّح عليه patients.col)، ثم نعيد تسميته patient
+const PATIENT_EMBED = 'patient:patients(name, phone_number)';
+const PATIENT_INNER_EMBED = 'patients!inner(name, phone_number)';
+
+type ClosedSearch =
+  | { kind: 'number'; number: number; year?: number }
+  | { kind: 'phone'; term: string }
+  | { kind: 'name'; term: string };
+
+// null = لا بحث (نافذة آخر 30 يوماً)؛ 'short' = حرف واحد غير رقمي، لا يُطلق استعلام
+function parseClosedSearch(raw: string): ClosedSearch | 'short' | null {
+  const t = toLatinDigits(raw).trim();
+  if (!t) return null;
+  const full = /^(\d{1,9})\/(\d{4})$/.exec(t);
+  if (full) return { kind: 'number', number: Number(full[1]), year: Number(full[2]) };
+  if (/^\d+$/.test(t)) {
+    if (t.length <= 4) return { kind: 'number', number: Number(t) };
+    // نفس منطق بحث الهاتف في صفحة الفحوصات: تطبيع ثم حذف مفتاح الدولة، ونحذف الصفر البادئ أيضاً لأن المخزّن إما 962... أو 07...
+    const n = normalizePhone(t);
+    return { kind: 'phone', term: (n.startsWith('962') ? n.slice(3) : n).replace(/^0+/, '') };
+  }
+  if (t.length < 2) return 'short';
+  // % و_ و\\ محارف بحث خاصة في ilike، فلا تُمرَّر كما هي
+  return { kind: 'name', term: normalizeAr(t).replace(/[%_\\]/g, '') };
+}
 const MAX_ITEMS = 30;
 // أسطر أسباب التأخر الظاهرة في بطاقة القائمة؛ الباقي يُلخَّص بسطر «و N غيرها» (النافذة تعرض الكل)
 const MAX_CARD_REASONS = 3;
@@ -566,6 +595,11 @@ export default function RequestsPage() {
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
   const loadSeq = useRef(0);
+  // نص البحث المعتمد بعد التأخير؛ مرجع (لا حالة) كي يقرأه load من أي استدعاء، حتى تحديث الإغلاق الصامت، دون إعادة إنشائه
+  const closedSearchRef = useRef('');
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [searchInput, setSearchInput] = useState('');
+  const [activeSearch, setActiveSearch] = useState('');
 
   // الأصناف المطلوبة بكثرة: تحميل واحد عند الدخول وآخر عند requests:changed، تغذّي الاقتراحات والتلميح والقسم الثالث
   const [productStats, setProductStats] = useState<ProductStat[] | null>(null);
@@ -589,12 +623,30 @@ export default function RequestsPage() {
     const seq = ++loadSeq.current;
     if (showSpinner) { setLoading(true); setLoadFailed(false); }
     try {
-      const base = supabase.from('patient_requests').select(REQUEST_SELECT);
-      const listQuery = t === 'open'
+      const search = t === 'closed' ? parseClosedSearch(closedSearchRef.current) : null;
+      const joined = search != null && search !== 'short' && search.kind !== 'number';
+      const base = supabase.from('patient_requests').select(joined ? REQUEST_SELECT.replace(PATIENT_EMBED, PATIENT_INNER_EMBED) : REQUEST_SELECT);
+      let listQuery;
+      if (t === 'open') {
         // الأقدم أولاً: الطلب الأطول انتظاراً في الأعلى
-        ? base.or(OPEN_FILTER).order('created_at', { ascending: true }).order('created_at', { referencedTable: 'patient_request_items', ascending: true })
-        // وقت الإغلاق ليس عموداً واحداً (تسليم أو إلغاء)، فنجلب آخر 50 بحسب updated_at ثم نرتّب بوقت الإغلاق أدناه
-        : base.or(CLOSED_FILTER).order('updated_at', { ascending: false }).order('created_at', { referencedTable: 'patient_request_items', ascending: true }).limit(CLOSED_LIMIT);
+        listQuery = base.or(OPEN_FILTER).order('created_at', { ascending: true }).order('created_at', { referencedTable: 'patient_request_items', ascending: true });
+      } else {
+        // updated_at للطلب المغلق لا يتغيّر إلا لحظة إغلاقه (التسليم أو الإلغاء أو تسجيل إرجاع العربون)، فهو «وقت الإغلاق»
+        // الصالح للنافذة والترتيب (حارس القاعدة يمنع أي تعديل آخر على الطلب النهائي)
+        let q = base.or(CLOSED_FILTER);
+        if (search == null || search === 'short') {
+          q = q.gte('updated_at', closedWindowStartIso());
+        } else if (search.kind === 'number') {
+          q = q.eq('request_number', search.number);
+          if (search.year != null) q = q.eq('request_year', search.year);
+        } else if (search.kind === 'phone') {
+          q = q.ilike('patients.phone_number', `%${search.term}%`);
+        } else {
+          q = q.ilike('patients.name_normalized', `%${search.term}%`);
+        }
+        listQuery = q.order('updated_at', { ascending: false }).order('created_at', { referencedTable: 'patient_request_items', ascending: true })
+          .limit(search == null || search === 'short' ? CLOSED_WINDOW_LIMIT : CLOSED_SEARCH_LIMIT);
+      }
       // كل الطلبات المفتوحة بحقول التأخر فقط: العدّاد وعدد المتأخر لا يتأثران بالتبويب ولا بحد 50
       const overdueQuery = supabase.from('patient_requests').select(OVERDUE_SELECT).or(OPEN_FILTER);
 
@@ -602,11 +654,9 @@ export default function RequestsPage() {
       if (seq !== loadSeq.current) return;
       if (listRes.error) throw listRes.error;
       setLoadFailed(false);
-      const list = (listRes.data || []) as unknown as RequestRow[];
-      if (t === 'closed') {
-        const closedAt = (r: RequestRow) => new Date(r.delivered_at ?? r.cancelled_at ?? r.created_at).getTime();
-        list.sort((a, b) => closedAt(b) - closedAt(a));
-      }
+      let list = (listRes.data || []) as unknown as RequestRow[];
+      // الاستعلام المربوط يعيد المريض باسم الجدول patients؛ نعيده إلى الحقل المعتاد patient
+      if (joined) list = (list as unknown as (RequestRow & { patients?: RequestRow['patient'] })[]).map(({ patients, ...r }) => ({ ...r, patient: patients ?? r.patient }));
       if (t === 'open') {
         // المتأخر أولاً (الأكثر تأخراً أولاً) ثم الأقدم؛ sort ثابت فيبقى ترتيب created_at داخل كل مجموعة
         const top = (r: RequestRow) => getOverdueReasons(r)[0]?.lateness ?? null;
@@ -668,6 +718,28 @@ export default function RequestsPage() {
 
   const frequentCount = productStats ? productStats.filter(isFrequent).length : null;
 
+  useEffect(() => () => { if (searchTimer.current) clearTimeout(searchTimer.current); }, []);
+
+  // تأخير 300ms قبل الاستعلام؛ الردود المتأخرة يتجاهلها loadSeq. حرف واحد غير رقمي لا يغيّر القائمة
+  const onSearchChange = (value: string) => {
+    setSearchInput(value);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => {
+      const trimmed = value.trim();
+      if (parseClosedSearch(trimmed) === 'short') { setActiveSearch(trimmed); return; }
+      closedSearchRef.current = trimmed;
+      setActiveSearch(trimmed);
+      load('closed');
+    }, SEARCH_DEBOUNCE_MS);
+  };
+
+  const clearSearch = () => {
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    setSearchInput('');
+    setActiveSearch('');
+    if (closedSearchRef.current !== '') { closedSearchRef.current = ''; load('closed'); }
+  };
+
   const switchTab = (t: Tab) => {
     if (t === tab) return;
     setTab(t);
@@ -728,9 +800,14 @@ export default function RequestsPage() {
     } catch { /* الاقتراح اختياري */ }
   };
 
+  const searchActive = activeSearch !== '' && parseClosedSearch(activeSearch) !== 'short';
+  const searchTooShort = activeSearch !== '' && parseClosedSearch(activeSearch) === 'short';
+
   const emptyText = tab === 'open'
     ? { title: 'لا توجد طلبات مفتوحة حالياً', hint: 'عندما يطلب مريض منتجاً غير متوفر، اضغط «طلب جديد» لتسجيله ومتابعته.' }
-    : { title: 'لا توجد طلبات مغلقة بعد', hint: 'تظهر هنا الطلبات التي سُلّمت للمريض أو أُلغيت.' };
+    : searchActive
+      ? { title: 'لا توجد طلبات مغلقة مطابقة', hint: '' }
+      : { title: `لا طلبات أُغلقت خلال آخر ${CLOSED_WINDOW_DAYS} يوماً.`, hint: 'للطلبات الأقدم استعمل البحث.' };
 
   return (
     <div className="min-h-screen bg-slate-50/50 antialiased text-slate-900 pb-20 overflow-x-hidden" dir="rtl">
@@ -777,6 +854,28 @@ export default function RequestsPage() {
           ))}
         </div>
 
+        {tab === 'closed' && (
+          <div className="space-y-2">
+            <div className="relative">
+              <MagnifyingGlass size={16} weight="bold" className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" aria-hidden="true" />
+              <input type="text" value={searchInput} onChange={e => onSearchChange(e.target.value)}
+                placeholder="ابحث باسم المريض أو هاتفه أو رقم الطلب (مثل 5/2026)" aria-label="بحث في الطلبات المغلقة"
+                className={`${INPUT_CLS} pr-10 pl-10`} />
+              {searchInput !== '' && (
+                <button type="button" onClick={clearSearch} aria-label="مسح البحث"
+                  className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer">
+                  <X size={14} weight="bold" aria-hidden="true" />
+                </button>
+              )}
+            </div>
+            {searchTooShort ? (
+              <p className="text-xs text-slate-400">اكتب حرفين على الأقل للبحث بالاسم.</p>
+            ) : !searchActive && (
+              <p className="text-xs text-slate-400">الطلبات التي أُغلقت خلال آخر <span className="tabular-nums">{CLOSED_WINDOW_DAYS}</span> يوماً</p>
+            )}
+          </div>
+        )}
+
         {statsOpened && (
           <div hidden={tab !== 'stats'}>
             <RequestStatsPanel visible={tab === 'stats'} />
@@ -802,13 +901,16 @@ export default function RequestsPage() {
           <div className="bg-white border border-slate-200 rounded-2xl py-14 text-center shadow-sm px-6 saas-slide-up">
             <Notebook size={32} weight="bold" className="mx-auto text-slate-300" aria-hidden="true" />
             <p className="text-sm font-bold text-slate-700 mt-3">{emptyText.title}</p>
-            <p className="text-xs text-slate-500 mt-1.5 max-w-sm mx-auto leading-relaxed">{emptyText.hint}</p>
+            {emptyText.hint && <p className="text-xs text-slate-500 mt-1.5 max-w-sm mx-auto leading-relaxed">{emptyText.hint}</p>}
           </div>
         ) : (
           <div className="space-y-3 saas-slide-up" key={tab}>
             {rows.map(row => <RequestCard key={row.id} row={row} onOpen={() => setSelected(row)} />)}
-            {tab === 'closed' && rows.length >= CLOSED_LIMIT && (
-              <p className="text-[11px] text-slate-400 text-center">تُعرض آخر <span className="tabular-nums">{CLOSED_LIMIT}</span> طلباً مغلقاً.</p>
+            {tab === 'closed' && rows.length >= (searchActive ? CLOSED_SEARCH_LIMIT : CLOSED_WINDOW_LIMIT) && (
+              <p className="text-[11px] text-slate-400 text-center">
+                {searchActive ? <>تُعرض أحدث <span className="tabular-nums">{CLOSED_SEARCH_LIMIT}</span> نتيجة؛ ضيّق البحث للوصول لطلب أقدم.</>
+                  : <>تُعرض آخر <span className="tabular-nums">{CLOSED_WINDOW_LIMIT}</span> طلباً مغلقاً.</>}
+              </p>
             )}
           </div>
         )}

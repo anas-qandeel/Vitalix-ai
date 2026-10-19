@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { upsertPipeline } from '@/lib/pipeline';
+import { addPatientNote } from '@/lib/patient-notes';
+import Toast, { useNotice } from '@/components/Toast';
 import { getPharmacyId } from '@/lib/tenant';
 import { normalizePhone, validatePhone, toLatinDigits } from '@/lib/phone';
 import PatientSafetyFields, { EMPTY_PATIENT_SAFETY, PatientSafetyValues, safetyForSave } from '@/components/PatientSafetyFields';
@@ -75,6 +76,7 @@ export default function AddPatientForm({
   const [safety, setSafety] = useState<PatientSafetyValues>(EMPTY_PATIENT_SAFETY);
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
+  const { notice, setNotice } = useNotice();
   const [err, setErr] = useState('');
 
   const toggleCondition = (key: string) => {
@@ -108,15 +110,19 @@ export default function AddPatientForm({
       }).select().single();
       if (error || !data) throw new Error('تعذر الحفظ — تأكد من عدم تكرار رقم الهاتف');
       if (note.trim()) {
-        await upsertPipeline(pid, data.id, 'due', {});
-        await supabase.from('refill_tracking_pipeline').update({ insurance_status: note.trim() })
-          .eq('pharmacy_id', pid).eq('patient_id', data.id).eq('payment_type', 'cash');
+        const noteRes = await addPatientNote(data.id, note);
+        if (!noteRes.ok) {
+          // المريض حُفظ فعلاً؛ نُبقي النموذج لحظة كي تُقرأ الرسالة قبل أن يغلقه الأب عند onSaved
+          setNotice({ kind: 'err', text: 'حُفظ المريض، لكن لم تُحفظ الملاحظة — أضفها من كرت المريض' });
+          await new Promise(r => setTimeout(r, 3000));
+        }
       }
       onSaved(data as NewPatient);
     } catch (e: any) { setErr(e.message); setSaving(false); }
   };
 
   return (
+    <>
     <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center sm:p-4" onClick={onClose}>
       <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-sm max-h-[100dvh] sm:max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 saas-slide-up" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
@@ -201,5 +207,7 @@ export default function AddPatientForm({
         </div>
       </div>
     </div>
+    <Toast notice={notice} />
+    </>
   );
 }

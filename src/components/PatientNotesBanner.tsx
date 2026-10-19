@@ -16,10 +16,11 @@ import {
  * Toast ونافذة التأكيد تُرسمان في body لأن النوافذ ذات الأنيميشن (transform) تكسر position: fixed.
  * refreshKey يُغيَّر من الأب لإعادة التحميل بعد تغيير من مكوّن آخر (مثل السجل)، و onChange يُبلغه بتغييرنا.
  */
-export default function PatientNotesBanner({ patientId, onChange, refreshKey = 0 }: {
+export default function PatientNotesBanner({ patientId, onChange, refreshKey = 0, className = 'mt-5' }: {
   patientId: string;
-  onChange?: () => void;
+  onChange?: (openCount: number | null) => void; // عدد المفتوحة بعد التغيير، أو null إن فشل إعادة التحميل
   refreshKey?: number;
+  className?: string; // الهامش الخارجي؛ تغيّره الشاشة المضيفة حسب تخطيطها
 }) {
   const { readOnly } = useSubscriptionState();
   const { notice, setNotice } = useNotice();
@@ -31,10 +32,13 @@ export default function PatientNotesBanner({ patientId, onChange, refreshKey = 0
   const [closing, setClosing] = useState<PatientNote | null>(null);
   const [closeBusy, setCloseBusy] = useState(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (): Promise<number | null> => {
     const res = await fetchPatientNotes(patientId);
     setLoadFailed(res.error);
-    if (!res.error) setNotes(res.notes.filter(n => !n.closed_at));
+    if (res.error) return null;
+    const open = res.notes.filter(n => !n.closed_at);
+    setNotes(open);
+    return open.length;
   }, [patientId]);
 
   // الجلب داخل then (لا setState متزامن في جسم الـ effect)، والتنظيف يمنع تحديث حالة بعد تغيّر المريض
@@ -55,8 +59,7 @@ export default function PatientNotesBanner({ patientId, onChange, refreshKey = 0
     if (!res.ok) { setNotice({ kind: 'err', text: res.message }); return; }
     setNotice({ kind: 'ok', text: 'تمت إضافة الملاحظة' });
     setText(''); setAdding(false);
-    await load();
-    onChange?.();
+    onChange?.(await load());
   };
 
   const confirmClose = async () => {
@@ -68,8 +71,7 @@ export default function PatientNotesBanner({ patientId, onChange, refreshKey = 0
     if (res.status === 'closed') setNotice({ kind: 'ok', text: 'تم إغلاق الملاحظة' });
     else if (res.status === 'already_closed') setNotice({ kind: 'err', text: 'أُغلقت هذه الملاحظة من قبل' });
     else setNotice({ kind: 'err', text: res.message });
-    await load();
-    onChange?.();
+    onChange?.(await load());
   };
 
   const addForm = (
@@ -104,18 +106,18 @@ export default function PatientNotesBanner({ patientId, onChange, refreshKey = 0
   return (
     <>
       {loadFailed && (
-        <div className="mt-5 flex items-center justify-between gap-2 bg-rose-50 border border-rose-200 rounded-2xl px-4 py-3">
+        <div className={`${className} flex items-center justify-between gap-2 bg-rose-50 border border-rose-200 rounded-2xl px-4 py-3`}>
           <p className="text-xs font-bold text-rose-700">تعذّر تحميل ملاحظات الكادر.</p>
-          <button type="button" onClick={load} className="text-xs font-bold text-rose-700 underline cursor-pointer">إعادة المحاولة</button>
+          <button type="button" onClick={() => { load(); }} className="text-xs font-bold text-rose-700 underline cursor-pointer">إعادة المحاولة</button>
         </div>
       )}
 
       {!loadFailed && notes.length === 0 && (
-        <div className="mt-5">{adding ? <div className="bg-white border border-slate-200 rounded-2xl p-4">{addForm}</div> : addButton}</div>
+        <div className={className}>{adding ? <div className="bg-white border border-slate-200 rounded-2xl p-4">{addForm}</div> : addButton}</div>
       )}
 
       {!loadFailed && notes.length > 0 && (
-        <section aria-label="ملاحظات الكادر" className="mt-5 bg-amber-50 border border-amber-200 rounded-2xl shadow-sm overflow-hidden">
+        <section aria-label="ملاحظات الكادر" className={`${className} bg-amber-50 border border-amber-200 rounded-2xl shadow-sm overflow-hidden`}>
           <div className="px-4 py-3 border-b border-amber-100 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
               <Note className="w-4 h-4 text-amber-700 shrink-0" />

@@ -18,6 +18,8 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recha
 import { ChartBar, Package, Lightning, User, LightbulbFilament, CheckCircle, Check, FilePdf, WarningCircle, Hourglass, PaperPlaneTilt, Star, ClipboardText, Bell, Alarm, EnvelopeSimple, CalendarBlank, Clock, BellSlash, PhoneX, Phone, Heart, Pill, ArrowsClockwise, Warning, Info } from '@phosphor-icons/react';
 import { useConfirm } from '@/components/ConfirmDialog';
 import DateField from '@/components/DateField';
+import PatientNotesBanner from '@/components/PatientNotesBanner';
+import { addPatientNote, fetchOpenNotesFor } from '@/lib/patient-notes';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -31,7 +33,6 @@ interface CareCard {
   loyaltyMonths: number;
   stage: DisplayStage;
   pipeline: PipelineRecord | null;
-  notes: string;
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1903,55 +1904,13 @@ function sortByPriority(cards: CareCard[], stage: CareStage): CareCard[] {
 }
 
 // ═══════════════════════════════════════════════════════
-// NOTES FIELD
-// ═══════════════════════════════════════════════════════
-function NotesField({ notes, pipelineId, onSaved }: { notes: string; pipelineId?: string; onSaved: (n: string) => void }) {
-  const [editing, setEditing] = useState(false);
-  const [val, setVal] = useState(notes);
-  const [saving, setSaving] = useState(false);
-
-  const save = async () => {
-    setSaving(true);
-    try {
-      if (pipelineId) await supabase.from('refill_tracking_pipeline').update({ insurance_status: val.trim() || null }).eq('id', pipelineId);
-      onSaved(val.trim()); setEditing(false);
-    } catch (e) { console.error(e); } finally { setSaving(false); }
-  };
-
-  if (!editing && !notes) return (
-    <button onClick={e => { e.stopPropagation(); setEditing(true); }} className="text-xs text-slate-400 hover:text-slate-700 transition-colors py-1.5">
-      + إضافة ملاحظة
-    </button>
-  );
-
-  if (!editing) return (
-    <div className="bg-slate-50 border border-slate-100 rounded-lg p-3 flex items-start justify-between gap-3">
-      <p className="text-xs text-slate-600 leading-relaxed">{notes}</p>
-      <button onClick={e => { e.stopPropagation(); setEditing(true); }} className="text-[10px] text-slate-400 hover:text-slate-700 font-medium shrink-0 transition-colors py-1 px-1">تعديل</button>
-    </div>
-  );
-
-  return (
-    <div className="space-y-2" onClick={e => e.stopPropagation()}>
-      <textarea value={val} onChange={e => setVal(e.target.value)} placeholder="اكتب ملاحظة..." rows={2} autoFocus
-        className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-900 transition-all resize-none shadow-sm" />
-      <div className="flex gap-2">
-        <button onClick={() => { setEditing(false); setVal(notes); }} className="flex-1 py-2.5 text-xs font-medium text-slate-600 bg-slate-100 rounded-md hover:bg-slate-200 transition-colors">إلغاء</button>
-        <button onClick={save} disabled={saving} className="flex-1 py-2.5 text-xs font-medium text-white bg-slate-900 rounded-md hover:bg-slate-800 disabled:opacity-50 transition-colors">
-          {saving ? 'جاري...' : 'حفظ'}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════
 // PATIENT CARD
 // ═══════════════════════════════════════════════════════
-function PatientCard({ card, pharmacyName, onAction, onNotesUpdate }: {
+function PatientCard({ card, pharmacyName, onAction, openNotes, onNotesChange }: {
   card: CareCard; pharmacyName: string;
+  openNotes: number; // عدد ملاحظات الكادر المفتوحة (من استعلام واحد للصفحة)
   onAction: (a: 'send_msg1'|'send_msg2'|'renewed'|'no_response'|'retry'|'close'|'edit') => void;
-  onNotesUpdate: (patientId: string, notes: string) => void;
+  onNotesChange: (patientId: string, openCount: number | null) => void;
   index: number;
 }) {
   const [open, setOpen] = useState(false);
@@ -1978,6 +1937,11 @@ function PatientCard({ card, pharmacyName, onAction, onNotesUpdate }: {
           <p className="text-sm font-semibold text-slate-900 truncate">{patient.name}</p>
           <p dir="ltr" className="block truncate text-right text-[11px] text-slate-400">{meds.map(m => m.medication_name).join(' · ')}</p>
         </div>
+        {openNotes > 0 && (
+          <span title="ملاحظات كادر مفتوحة" className="flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-md border shrink-0 bg-amber-50 text-amber-700 border-amber-200">
+            <ClipboardText className="w-3.5 h-3.5" /><span className="tabular-nums">{openNotes}</span>
+          </span>
+        )}
         <span className={`text-xs font-medium px-2.5 py-1 rounded-md border shrink-0 ${badgeCls}`}>
           {stage === 'renewed' ? 'مجدد ✓' :
            stage === 'messaged' ? 'تم الإرسال' :
@@ -2007,7 +1971,7 @@ function PatientCard({ card, pharmacyName, onAction, onNotesUpdate }: {
               {patient.is_lactating && <span className="text-[10px] font-bold text-pink-700 bg-pink-50 border border-pink-200 px-2 py-1 rounded-lg">مرضعة</span>}
             </div>
           )}
-          <NotesField notes={card.notes} pipelineId={card.pipeline?.id} onSaved={(n) => onNotesUpdate(patient.id, n)} />
+          <PatientNotesBanner patientId={patient.id} className="" onChange={(n) => onNotesChange(patient.id, n)} />
 
           {/* بادجات الأدوية مع Days */}
           <div className="flex flex-wrap gap-2">
@@ -2138,6 +2102,7 @@ export default function ChronicPage() {
   const router = useRouter();
 
   const [cards, setCards] = useState<CareCard[]>([]);
+  const [openNoteCounts, setOpenNoteCounts] = useState<Record<string, number>>({});
   const [activeTab, setActiveTab] = useState<CareStage>('due');
   const [showInventory, setShowInventory] = useState(false);
   const [showStats, setShowStats] = useState(false);
@@ -2198,11 +2163,17 @@ export default function ChronicPage() {
           stage = daysLeft <= 3 ? 'due' : 'ok';
         }
 
-        const notes = pipeline?.insurance_status || '';
-        list.push({ patient, meds, daysLeft, loyaltyMonths, stage, pipeline, notes });
+        list.push({ patient, meds, daysLeft, loyaltyMonths, stage, pipeline });
       });
 
       list.sort((a, b) => a.daysLeft - b.daysLeft);
+      // عدّادات الملاحظات المفتوحة لكل المرضى المعروضين باستعلام واحد (لا استعلام لكل بطاقة)
+      const openRes = await fetchOpenNotesFor(list.map(c => c.patient.id));
+      if (!openRes.error) {
+        const counts: Record<string, number> = {};
+        openRes.notes.forEach(n => { counts[n.patient_id] = (counts[n.patient_id] || 0) + 1; });
+        setOpenNoteCounts(counts);
+      }
       setCards(list);
       // إذا كان preserveTab محدداً وفيه بيانات → نحتفظ بالتبويب الحالي
       // وإلا نذهب لأول تبويب فيه بيانات (السلوك الافتراضي عند التحميل الأول)
@@ -2247,8 +2218,9 @@ export default function ChronicPage() {
     });
   };
 
-  const handleNotesUpdate = (patientId: string, notes: string) => {
-    setCards(prev => prev.map(c => c.patient.id === patientId ? { ...c, notes } : c));
+  const handleNotesChange = (patientId: string, openCount: number | null) => {
+    if (openCount === null) return;
+    setOpenNoteCounts(prev => ({ ...prev, [patientId]: openCount }));
   };
 
   const handleAction = async (patientId: string, action: 'send_msg1'|'send_msg2'|'renewed'|'no_response'|'retry'|'close'|'edit') => {
@@ -2689,7 +2661,8 @@ export default function ChronicPage() {
                     <div key={card.patient.id} className="relative">
                       <PatientCard card={card} pharmacyName={pharmacyName} index={idx}
                         onAction={action => handleAction(card.patient.id, action)}
-                        onNotesUpdate={handleNotesUpdate} />
+                        openNotes={openNoteCounts[card.patient.id] || 0}
+                        onNotesChange={handleNotesChange} />
                       {actionLoading?.startsWith(card.patient.id) && (
                         <div className="absolute inset-0 bg-white/60 rounded-xl flex items-center justify-center backdrop-blur-sm z-10">
                           <div className="w-6 h-6 border-2 border-slate-900 border-t-transparent rounded-full animate-spin" />
@@ -2780,9 +2753,8 @@ export default function ChronicPage() {
           onAdded={async (p, note, isExistingPatient, meds, isArchived) => {
             setAddModal(false);
             if (note && note.trim()) {
-              await upsertPipeline(pharmacyId, p.id, 'due', {});
-              await supabase.from('refill_tracking_pipeline').update({ insurance_status: note.trim() })
-                .eq('pharmacy_id', pharmacyId).eq('patient_id', p.id).eq('payment_type', 'cash');
+              const noteRes = await addPatientNote(p.id, note);
+              if (!noteRes.ok) showToast('حُفظ المريض، لكن لم تُحفظ الملاحظة — أضفها من كرت المريض', 'info');
             }
             setSearchPrefill({ patient: p, meds: meds || [], isArchived });
             setMedModalFromSearch(true);

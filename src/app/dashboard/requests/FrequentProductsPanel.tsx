@@ -68,7 +68,7 @@ export default function FrequentProductsPanel({ stats, failed, onRetry }: {
           )}
           {frequent.map(p => (
             <div key={p.name_key} className="bg-white border border-slate-200 rounded-2xl shadow-sm p-4 sm:p-5">
-              <p className="text-sm font-bold text-slate-900 break-words" dir="auto">{p.display_name}</p>
+              <p className="text-sm font-bold text-slate-900 break-words"><bdi>{p.display_name}</bdi></p>
               <div className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1.5">
                 <span className="text-[11px] font-bold px-2.5 py-1 rounded-md border text-teal-700 bg-teal-50 border-teal-100 tabular-nums">
                   طُلب {timesLabel(p.requests_in_window)}

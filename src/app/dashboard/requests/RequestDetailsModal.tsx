@@ -845,7 +845,7 @@ export default function RequestDetailsModal({ row, pharmacyName, suggestion, onC
         <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-slate-100 shrink-0">
           <div className="min-w-0">
             <h3 id="req-details-title" className="text-base font-black text-slate-900 tabular-nums">{requestTitle(requestNumber, requestYear)}</h3>
-            <p className="text-sm font-bold text-slate-900 truncate mt-0.5">{row.patient?.name ?? 'مريض غير معروف'}</p>
+            <p className="text-sm font-bold text-slate-900 truncate mt-0.5"><bdi>{row.patient?.name ?? 'مريض غير معروف'}</bdi></p>
             {row.patient?.phone_number && (
               <p className="flex items-center gap-1 mt-0.5 text-xs text-slate-500">
                 <Phone size={14} weight="bold" className="shrink-0 text-slate-400" aria-hidden="true" />
@@ -853,7 +853,7 @@ export default function RequestDetailsModal({ row, pharmacyName, suggestion, onC
               </p>
             )}
             <p className="mt-1 text-[11px] text-slate-400">
-              {row.creator?.name ? `سجّله ${row.creator.name} — ` : 'سُجّل بتاريخ '}
+              {row.creator?.name ? <>سجّله <bdi>{row.creator.name}</bdi> — </> : 'سُجّل بتاريخ '}
               <bdi className="tabular-nums">{formatDate(row.created_at)}</bdi>
             </p>
           </div>
@@ -933,14 +933,14 @@ export default function RequestDetailsModal({ row, pharmacyName, suggestion, onC
                         <Package size={16} weight="bold" className="shrink-0 mt-0.5 text-slate-400" aria-hidden="true" />
                         <div className="min-w-0 flex-1">
                           <p className={`text-sm break-words ${cancelled ? 'line-through text-slate-400 font-medium' : 'font-semibold text-slate-800'}`}>
-                            {it.product_name} × <span className="tabular-nums">{it.quantity}</span>
+                            <bdi>{it.product_name}</bdi> × <span className="tabular-nums">{it.quantity}</span>
                           </p>
 
                           {supplierEditId === it.id ? (
                             <div className="mt-1.5 flex flex-wrap items-center gap-2">
                               <input type="text" value={supplierInput} onChange={e => setSupplierInput(e.target.value)}
                                 onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void saveSupplier(it); } }}
-                                aria-label="مورد الصنف" placeholder="المورد" maxLength={SUPPLIER_MAX} dir="auto" autoFocus
+                                aria-label="مورد الصنف" placeholder="المورد" maxLength={SUPPLIER_MAX} autoFocus
                                 className={`${INPUT_BASE} flex-1 min-w-0 py-1.5`} />
                               <button type="button" onClick={() => saveSupplier(it)} disabled={acting}
                                 className="h-9 shrink-0 px-3 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
@@ -953,7 +953,7 @@ export default function RequestDetailsModal({ row, pharmacyName, suggestion, onC
                             </div>
                           ) : (
                             <p className="text-xs text-slate-400 mt-0.5 break-words flex items-center gap-1.5">
-                              <span className="min-w-0">{it.supplier ?? 'بلا مورد'}</span>
+                              <span className="min-w-0"><bdi>{it.supplier ?? 'بلا مورد'}</bdi></span>
                               {editable && (
                                 <button type="button" onClick={() => startEditSupplier(it)} disabled={acting} aria-label="تعديل المورد"
                                   className="shrink-0 text-slate-400 hover:text-slate-900 transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
@@ -965,7 +965,7 @@ export default function RequestDetailsModal({ row, pharmacyName, suggestion, onC
 
                           {/* السبب لبند أُلغي فرادى فقط؛ بند ألغاه إلغاء الطلب سببه سبب الطلب فلا يُكرَّر */}
                           {cancelled && it.stage_before_cancel == null && it.cancel_reason && (
-                            <p className="text-xs text-rose-600 mt-0.5 break-words">السبب: {it.cancel_reason}</p>
+                            <p className="text-xs text-rose-600 mt-0.5 break-words">السبب: <bdi>{it.cancel_reason}</bdi></p>
                           )}
 
                           {editable && (
@@ -1005,9 +1005,9 @@ export default function RequestDetailsModal({ row, pharmacyName, suggestion, onC
                         <ProductNameInput value={newName} onChange={setNewName} onEnter={() => { void saveNewItem(); }}
                           stats={productStats} ariaLabel="اسم الصنف الجديد" maxLength={PRODUCT_NAME_MAX} autoFocus />
                         <input type="text" value={newSupplier} onChange={e => setNewSupplier(e.target.value)}
-                          aria-label="مورد الصنف الجديد" placeholder="المورد" maxLength={SUPPLIER_MAX} dir="auto"
+                          aria-label="مورد الصنف الجديد" placeholder="المورد" maxLength={SUPPLIER_MAX}
                           className={`${INPUT_BASE} order-last basis-full sm:order-none sm:basis-auto sm:w-32 sm:shrink-0 min-w-0`} />
-                        <input type="text" inputMode="numeric" dir="ltr" value={newQty} onChange={e => setNewQty(cleanNumberInput(e.target.value))}
+                        <input type="text" inputMode="numeric" value={newQty} onChange={e => setNewQty(cleanNumberInput(e.target.value))}
                           aria-label="كمية الصنف الجديد" className={`${INPUT_BASE} w-20 shrink-0 text-center tabular-nums`} />
                       </div>
                       <ProductHint value={newName} stats={productStats} />
@@ -1049,13 +1049,13 @@ export default function RequestDetailsModal({ row, pharmacyName, suggestion, onC
                       <div className="grid grid-cols-2 gap-3">
                         <div>
                           <label htmlFor="req-edit-price" className="block text-xs font-bold text-slate-600 mb-1.5">السعر الإجمالي بالدينار</label>
-                          <input id="req-edit-price" type="text" inputMode="decimal" dir="ltr" placeholder="0.000" value={priceInput}
-                            onChange={e => setPriceInput(cleanNumberInput(e.target.value))} className={`${INPUT_CLS} tabular-nums`} />
+                          <input id="req-edit-price" type="text" inputMode="decimal" placeholder="0.000" value={priceInput}
+                            onChange={e => setPriceInput(cleanNumberInput(e.target.value))} className={`${INPUT_CLS} text-center tabular-nums`} />
                         </div>
                         <div>
                           <label htmlFor="req-edit-deposit" className="block text-xs font-bold text-slate-600 mb-1.5">العربون بالدينار</label>
-                          <input id="req-edit-deposit" type="text" inputMode="decimal" dir="ltr" placeholder="0.000" value={depositInput}
-                            onChange={e => setDepositInput(cleanNumberInput(e.target.value))} className={`${INPUT_CLS} tabular-nums`} />
+                          <input id="req-edit-deposit" type="text" inputMode="decimal" placeholder="0.000" value={depositInput}
+                            onChange={e => setDepositInput(cleanNumberInput(e.target.value))} className={`${INPUT_CLS} text-center tabular-nums`} />
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
@@ -1173,13 +1173,13 @@ export default function RequestDetailsModal({ row, pharmacyName, suggestion, onC
                             {isNote ? (
                               <div className="bg-teal-50 border border-teal-200 rounded-xl px-3 py-2.5">
                                 <span className="text-[10px] font-semibold text-teal-700">ملاحظة <span className="tabular-nums">{noteNumbers.get(ev.id)}</span></span>
-                                <p className="text-sm text-slate-800 mt-0.5 whitespace-pre-line break-words">{ev.body}</p>
+                                <p className="text-sm text-slate-800 mt-0.5 whitespace-pre-line break-words"><bdi>{ev.body}</bdi></p>
                               </div>
                             ) : (
                               <p className="text-sm text-slate-700 break-words">{describeLine(line, requestYear)}</p>
                             )}
                             <p className="text-[11px] text-slate-400 mt-1">
-                              {ev.staff?.name ? `${ev.staff.name} · ` : ''}
+                              {ev.staff?.name ? <><bdi>{ev.staff.name}</bdi> · </> : ''}
                               <bdi className="tabular-nums">{formatEventTime(ev.created_at)}</bdi>
                             </p>
                           </div>
@@ -1192,7 +1192,7 @@ export default function RequestDetailsModal({ row, pharmacyName, suggestion, onC
                 {/* إضافة ملاحظة */}
                 <div className="mt-5 pt-4 border-t border-slate-100">
                   <label htmlFor="req-detail-note" className="block text-xs font-bold text-slate-600 mb-1.5">إضافة ملاحظة</label>
-                  <textarea id="req-detail-note" value={note} onChange={e => setNote(e.target.value)} rows={3} maxLength={NOTE_MAX} dir="auto"
+                  <textarea id="req-detail-note" value={note} onChange={e => setNote(e.target.value)} rows={3} maxLength={NOTE_MAX}
                     className="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-200 rounded-xl text-slate-900 focus:border-slate-900 focus:ring-1 focus:ring-slate-900 focus:outline-none transition-all resize-none" />
                   <div className="flex items-center justify-between gap-3 mt-2">
                     <p className="text-[11px] text-slate-400">لا يمكن تعديل الملاحظة أو حذفها بعد حفظها.</p>
@@ -1237,7 +1237,7 @@ export default function RequestDetailsModal({ row, pharmacyName, suggestion, onC
             <p className="text-xs text-slate-500 break-words">
               {detail.status === 'delivered'
                 ? <>سُلّم للمريض{detail.delivered_at && <> — <bdi className="tabular-nums">{formatEventTime(detail.delivered_at)}</bdi></>}</>
-                : <>أُلغي{detail.cancelled_at && <> — <bdi className="tabular-nums">{formatEventTime(detail.cancelled_at)}</bdi></>}{detail.cancel_reason && <> — السبب: {detail.cancel_reason}</>}</>}
+                : <>أُلغي{detail.cancelled_at && <> — <bdi className="tabular-nums">{formatEventTime(detail.cancelled_at)}</bdi></>}{detail.cancel_reason && <> — السبب: <bdi>{detail.cancel_reason}</bdi></>}</>}
             </p>
             {/* إعادة التفعيل: طلب ملغى بلا عربون. مع عربون لم يُرجَع يظهر الزر في صندوق العربون، ومع عربون أُرجع لا إعادة */}
             {detail.status === 'cancelled' && !depositPositive && !readOnly && restorable.length > 0 && (
@@ -1304,8 +1304,8 @@ export default function RequestDetailsModal({ row, pharmacyName, suggestion, onC
                   <input type="checkbox" className="mt-0.5 w-4 h-4 shrink-0 accent-teal-600"
                     checked={reopenChosen.has(it.id)} disabled={acting} onChange={() => toggleReopenChosen(it.id)} />
                   <span className="text-sm text-slate-800 min-w-0 break-words">
-                    {it.product_name} × <span className="tabular-nums">{it.quantity}</span>
-                    {it.supplier && <span className="text-xs text-slate-400"> · {it.supplier}</span>}
+                    <bdi>{it.product_name}</bdi> × <span className="tabular-nums">{it.quantity}</span>
+                    {it.supplier && <span className="text-xs text-slate-400"> · <bdi>{it.supplier}</bdi></span>}
                     <span className="text-xs text-slate-400"> — يعود إلى «{STAGE_META[it.stage_before_cancel as ItemStage]?.label ?? it.stage_before_cancel}»</span>
                   </span>
                 </label>
@@ -1314,7 +1314,7 @@ export default function RequestDetailsModal({ row, pharmacyName, suggestion, onC
             <div>
             <label htmlFor="req-reopen-reason" className="block text-xs font-bold text-slate-600 mb-1.5">سبب إعادة التفعيل</label>
             <textarea id="req-reopen-reason" value={reopenReason} onChange={e => setReopenReason(e.target.value)} rows={3}
-              maxLength={CANCEL_REASON_MAX} dir="auto" autoFocus placeholder="مثال: المورد وفّر الصنف" className={`${INPUT_CLS} resize-none`} />
+              maxLength={CANCEL_REASON_MAX} autoFocus placeholder="مثال: المورد وفّر الصنف" className={`${INPUT_CLS} resize-none`} />
             <p className="text-[11px] text-slate-400 mt-1">الأصناف غير المختارة تبقى ملغاة.</p>
             </div>
           </div>
@@ -1345,7 +1345,7 @@ export default function RequestDetailsModal({ row, pharmacyName, suggestion, onC
             <div>
               <label htmlFor="req-cancel-reason" className="block text-xs font-bold text-slate-600 mb-1.5">سبب الإلغاء</label>
               <textarea id="req-cancel-reason" value={cancelReason} onChange={e => setCancelReason(e.target.value)} rows={3}
-                maxLength={CANCEL_REASON_MAX} dir="auto" autoFocus className={`${INPUT_CLS} resize-none`} />
+                maxLength={CANCEL_REASON_MAX} autoFocus className={`${INPUT_CLS} resize-none`} />
             </div>
             {depositPositive && (
               <fieldset>
@@ -1403,8 +1403,8 @@ export default function RequestDetailsModal({ row, pharmacyName, suggestion, onC
                     <input type="checkbox" className="mt-0.5 w-4 h-4 shrink-0 accent-teal-600"
                       checked={chosen.has(it.id)} disabled={acting} onChange={() => toggleChosen(it.id)} />
                     <span className="text-sm text-slate-800 min-w-0 break-words">
-                      {it.product_name} × <span className="tabular-nums">{it.quantity}</span>
-                      {it.supplier && <span className="text-xs text-slate-400"> · {it.supplier}</span>}
+                      <bdi>{it.product_name}</bdi> × <span className="tabular-nums">{it.quantity}</span>
+                      {it.supplier && <span className="text-xs text-slate-400"> · <bdi>{it.supplier}</bdi></span>}
                     </span>
                   </label>
                 ))}
@@ -1456,8 +1456,8 @@ export default function RequestDetailsModal({ row, pharmacyName, suggestion, onC
                     <div className="space-y-2">
                       <div>
                         <label htmlFor="req-deliver-amount" className="block text-xs font-bold text-slate-600 mb-1.5">المبلغ المستلم الآن (اختياري)</label>
-                        <input id="req-deliver-amount" type="text" inputMode="decimal" dir="ltr" placeholder="0.000" value={amountInput}
-                          onChange={e => setAmountInput(cleanNumberInput(e.target.value))} className={`${INPUT_CLS} tabular-nums`} />
+                        <input id="req-deliver-amount" type="text" inputMode="decimal" placeholder="0.000" value={amountInput}
+                          onChange={e => setAmountInput(cleanNumberInput(e.target.value))} className={`${INPUT_CLS} text-center tabular-nums`} />
                       </div>
                       {plan.deposit > 0 && (
                         <label className="flex items-start gap-2.5 cursor-pointer">
@@ -1474,8 +1474,8 @@ export default function RequestDetailsModal({ row, pharmacyName, suggestion, onC
                   {!plan.isFinalDelivery && (
                     <div>
                       <label htmlFor="req-deliver-amount" className="block text-xs font-bold text-slate-600 mb-1.5">المبلغ المستلم الآن</label>
-                      <input id="req-deliver-amount" type="text" inputMode="decimal" dir="ltr" placeholder="0.000" value={amountInput}
-                        onChange={e => setAmountInput(cleanNumberInput(e.target.value))} className={`${INPUT_CLS} tabular-nums`} />
+                      <input id="req-deliver-amount" type="text" inputMode="decimal" placeholder="0.000" value={amountInput}
+                        onChange={e => setAmountInput(cleanNumberInput(e.target.value))} className={`${INPUT_CLS} text-center tabular-nums`} />
                       <p className="text-[11px] text-slate-400 mt-1">يمكن أن يكون صفراً إذا سيدفع المريض عند الاستلام الأخير.</p>
                     </div>
                   )}
@@ -1504,12 +1504,12 @@ export default function RequestDetailsModal({ row, pharmacyName, suggestion, onC
           role="dialog" aria-modal="true" aria-labelledby="req-item-cancel-title">
           <div className="px-5 py-4 border-b border-slate-100">
             <h3 id="req-item-cancel-title" className="text-sm font-bold text-slate-900">إلغاء الصنف</h3>
-            <p className="text-xs text-slate-500 mt-1 break-words">{itemCancel.product_name} × <span className="tabular-nums">{itemCancel.quantity}</span> — الإلغاء نهائي ولا يمكن التراجع عنه.</p>
+            <p className="text-xs text-slate-500 mt-1 break-words"><bdi>{itemCancel.product_name}</bdi> × <span className="tabular-nums">{itemCancel.quantity}</span> — الإلغاء نهائي ولا يمكن التراجع عنه.</p>
           </div>
           <div className="p-5">
             <label htmlFor="req-item-cancel-reason" className="block text-xs font-bold text-slate-600 mb-1.5">سبب الإلغاء</label>
             <textarea id="req-item-cancel-reason" value={itemCancelReason} onChange={e => setItemCancelReason(e.target.value)} rows={3}
-              maxLength={CANCEL_REASON_MAX} dir="auto" autoFocus className={`${INPUT_CLS} resize-none`} />
+              maxLength={CANCEL_REASON_MAX} autoFocus className={`${INPUT_CLS} resize-none`} />
           </div>
           <div className="px-5 py-4 border-t border-slate-100 grid grid-cols-2 gap-3">
             <button type="button" onClick={() => setItemCancel(null)} disabled={acting}

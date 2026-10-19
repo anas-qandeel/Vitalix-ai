@@ -66,7 +66,7 @@ export default function ProductNameInput({ value, onChange, onEnter, stats, aria
         role="combobox" aria-expanded={shown} aria-controls={listId} aria-autocomplete="list"
         aria-activedescendant={shown && highlighted >= 0 ? `${listId}-${highlighted}` : undefined}
         autoComplete="off"
-        aria-label={ariaLabel} placeholder="اسم الصنف" maxLength={maxLength} dir="auto" autoFocus={autoFocus}
+        aria-label={ariaLabel} placeholder="اسم الصنف" maxLength={maxLength} autoFocus={autoFocus}
         className={`${INPUT_BASE} w-full`} />
       {shown && (
         <ul id={listId} role="listbox"
@@ -77,7 +77,7 @@ export default function ProductNameInput({ value, onChange, onEnter, stats, aria
               onMouseDown={e => { e.preventDefault(); pick(s); }}
               onMouseEnter={() => setHighlighted(idx)}
               className={`flex items-center justify-between gap-2 px-3.5 py-2 text-sm text-slate-900 cursor-pointer transition-colors ${idx === highlighted ? 'bg-slate-50' : 'bg-white'}`}>
-              <span className="truncate min-w-0" dir="auto">{s.display_name}</span>
+              <span className="truncate min-w-0"><bdi>{s.display_name}</bdi></span>
               {isFrequent(s) && (
                 <span className="shrink-0 text-[10px] font-bold text-teal-700 bg-teal-50 border border-teal-100 px-1.5 py-0.5 rounded-md">مطلوب بكثرة</span>
               )}

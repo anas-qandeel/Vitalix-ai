@@ -131,7 +131,7 @@ function RequestCard({ row, onOpen }: { row: RequestRow; onOpen: () => void }) {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-base font-black text-slate-900 tabular-nums">{requestTitle(row.request_number, row.request_year)}</p>
-          <p className="text-sm font-bold text-slate-900 truncate mt-0.5">{row.patient?.name ?? 'مريض غير معروف'}</p>
+          <p className="text-sm font-bold text-slate-900 truncate mt-0.5"><bdi>{row.patient?.name ?? 'مريض غير معروف'}</bdi></p>
           {row.patient?.phone_number && (
             <p className="flex items-center gap-1 mt-0.5 text-xs text-slate-500">
               <Phone size={14} weight="bold" className="shrink-0 text-slate-400" aria-hidden="true" />
@@ -173,8 +173,8 @@ function RequestCard({ row, onOpen }: { row: RequestRow; onOpen: () => void }) {
             <div key={it.id} className="flex items-start gap-2">
               <Package size={16} weight="bold" className="shrink-0 mt-0.5 text-slate-400" aria-hidden="true" />
               <p className={`text-sm min-w-0 flex-1 break-words ${it.stage === 'cancelled' ? 'line-through text-slate-400 font-medium' : 'font-semibold text-slate-800'}`}>
-                {it.product_name} × <span className="tabular-nums">{it.quantity}</span>
-                {it.supplier && <span className="text-slate-400 font-medium"> · {it.supplier}</span>}
+                <bdi>{it.product_name}</bdi> × <span className="tabular-nums">{it.quantity}</span>
+                {it.supplier && <span className="text-slate-400 font-medium"> · <bdi>{it.supplier}</bdi></span>}
               </p>
               <div className="shrink-0 flex flex-col items-end gap-1">
                 <span className={`text-[10px] font-bold border rounded-full px-1.5 py-0.5 ${STAGE_META[it.stage].chip}`}>{STAGE_META[it.stage].label}</span>
@@ -230,7 +230,7 @@ function RequestCard({ row, onOpen }: { row: RequestRow; onOpen: () => void }) {
         {row.creator?.name && (
           <span className="inline-flex items-center gap-1 min-w-0">
             <UserCircle size={14} weight="bold" className="shrink-0 text-slate-400" aria-hidden="true" />
-            <span className="truncate">سجّله {row.creator.name}</span>
+            <span className="truncate">سجّله <bdi>{row.creator.name}</bdi></span>
           </span>
         )}
       </div>
@@ -412,7 +412,7 @@ function NewRequestModal({ pharmacyId, patient, onPatientChange, onNeedNewPatien
                   {patient.name.charAt(0)}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-slate-900 truncate">{patient.name}</p>
+                  <p className="text-sm font-bold text-slate-900 truncate"><bdi>{patient.name}</bdi></p>
                   <p dir="ltr" className="text-xs text-slate-500 tabular-nums text-right">{displayPhone(patient.phone_number)}</p>
                 </div>
                 <button type="button" onClick={() => onPatientChange(null)}
@@ -444,7 +444,7 @@ function NewRequestModal({ pharmacyId, patient, onPatientChange, onNeedNewPatien
                         setHighlightedIdx(-1);
                       }
                     }}
-                    placeholder="ابحث بالاسم أو رقم الهاتف" autoFocus dir="auto"
+                    placeholder="ابحث بالاسم أو رقم الهاتف" autoFocus
                     className={`${INPUT_CLS} pr-10 pl-9`} />
                   {searching && <div className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />}
                 </div>
@@ -464,7 +464,7 @@ function NewRequestModal({ pharmacyId, patient, onPatientChange, onNeedNewPatien
                             {r.name.charAt(0)}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-slate-900 truncate">{r.name}</p>
+                            <p className="text-sm font-semibold text-slate-900 truncate"><bdi>{r.name}</bdi></p>
                             <p dir="ltr" className="text-xs text-slate-500 tabular-nums text-right">{displayPhone(r.phone_number)}</p>
                           </div>
                           {idx === highlightedIdx && (
@@ -517,9 +517,9 @@ function NewRequestModal({ pharmacyId, patient, onPatientChange, onNeedNewPatien
                         stats={productStats} ariaLabel={`اسم الصنف ${idx + 1}`} maxLength={200} autoFocus />
                       {/* تحت sm يهبط المورد سطراً كاملاً أسفل الصف (basis-full + order-last)؛ من sm عرض ثابت في الصف نفسه */}
                       <input type="text" value={it.supplier} onChange={e => updateItem(it.key, { supplier: e.target.value })}
-                        aria-label={`المورد ${idx + 1}`} placeholder="المورد" maxLength={100} dir="auto"
+                        aria-label={`المورد ${idx + 1}`} placeholder="المورد" maxLength={100}
                         className={`${INPUT_BASE} order-last basis-full sm:order-none sm:basis-auto sm:w-32 sm:shrink-0 min-w-0`} />
-                      <input type="text" inputMode="numeric" dir="ltr" value={it.qty}
+                      <input type="text" inputMode="numeric" value={it.qty}
                         onChange={e => updateItem(it.key, { qty: cleanNumberInput(e.target.value) })}
                         aria-label={`الكمية ${idx + 1}`} className={`${INPUT_BASE} w-20 shrink-0 text-center tabular-nums`} />
                       {items.length > 1 && (
@@ -544,19 +544,19 @@ function NewRequestModal({ pharmacyId, patient, onPatientChange, onNeedNewPatien
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label htmlFor="req-price" className="block text-xs font-bold text-slate-600 mb-1.5">السعر الإجمالي بالدينار (اختياري)</label>
-                  <input id="req-price" type="text" inputMode="decimal" dir="ltr" placeholder="0.000" value={price}
-                    onChange={e => setPrice(cleanNumberInput(e.target.value))} className={`${INPUT_CLS} tabular-nums`} />
+                  <input id="req-price" type="text" inputMode="decimal" placeholder="0.000" value={price}
+                    onChange={e => setPrice(cleanNumberInput(e.target.value))} className={`${INPUT_CLS} text-center tabular-nums`} />
                 </div>
                 <div>
                   <label htmlFor="req-deposit" className="block text-xs font-bold text-slate-600 mb-1.5">العربون بالدينار (اختياري)</label>
-                  <input id="req-deposit" type="text" inputMode="decimal" dir="ltr" placeholder="0.000" value={deposit}
-                    onChange={e => setDeposit(cleanNumberInput(e.target.value))} className={`${INPUT_CLS} tabular-nums`} />
+                  <input id="req-deposit" type="text" inputMode="decimal" placeholder="0.000" value={deposit}
+                    onChange={e => setDeposit(cleanNumberInput(e.target.value))} className={`${INPUT_CLS} text-center tabular-nums`} />
                 </div>
               </div>
 
               <div>
                 <label htmlFor="req-note" className="block text-xs font-bold text-slate-600 mb-1.5">ملاحظة المتابعة الأولى (اختياري)</label>
-                <textarea id="req-note" value={note} onChange={e => setNote(e.target.value)} rows={3} maxLength={1000} dir="auto"
+                <textarea id="req-note" value={note} onChange={e => setNote(e.target.value)} rows={3} maxLength={1000}
                   className={`${INPUT_CLS} resize-none`} />
                 <p className="text-[11px] text-slate-400 mt-1">لا يمكن تعديل الملاحظة أو حذفها بعد حفظها.</p>
               </div>

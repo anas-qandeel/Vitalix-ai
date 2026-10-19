@@ -123,7 +123,7 @@ function SupplierRow({ index, s }: { index: number; s: SupplierStat }) {
     <div className="flex items-center gap-4">
       <RankBox>{index}</RankBox>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-slate-900 truncate" dir="auto">{noSupplier ? 'بدون مورد محدد' : s.display_name}</p>
+        <p className="text-sm font-semibold text-slate-900 truncate"><bdi>{noSupplier ? 'بدون مورد محدد' : s.display_name}</bdi></p>
         <p className="text-[11px] text-slate-400 mt-0.5 tabular-nums">{`طُلب منه ${itemsCount(s.items_ordered)}`}</p>
         <p className="text-[11px] text-slate-500 mt-0.5 tabular-nums">
           {noSupplier ? 'لم يُسجَّل اسم المورد لهذه الأصناف'

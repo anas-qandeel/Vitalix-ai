@@ -18,6 +18,7 @@ import FrequentProductsPanel from './FrequentProductsPanel';
 import RequestStatsPanel from './RequestStatsPanel';
 import { CLOSED_WINDOW_DAYS, closedWindowStartIso, RequestRow, ItemStage, PatientMessageKind, STATUS_META, STAGE_META, requestTitle, isPendingRefund, fmtJd, paidTotal, remainingAmount, MONEY_RE, cleanNumberInput, INPUT_BASE, INPUT_CLS } from './shared';
 import { friendlyError, READ_ONLY_MESSAGE, useSubscriptionState } from '@/lib/subscription-state';
+import PatientNotesBanner from '@/components/PatientNotesBanner';
 import { Plus, MagnifyingGlass, Phone, Package, Clock, UserCircle, X, Notebook, UserPlus, ArrowsClockwise, WarningCircle } from '@phosphor-icons/react';
 
 // ═══════════════════════════════════════════════════════
@@ -29,7 +30,7 @@ interface PickedPatient { id: string; name: string; phone_number: string }
 
 // مرشحات PostgREST (شجرة or/and): المفتوحة = open أو ملغى بعربون لم يُعَد؛ المغلقة = مسلَّم أو ملغى ليس كذلك
 // RLS تعزل الصيدلية؛ العمود المرتبط بالموظف والمريض عبر اسم القيد صراحةً
-const REQUEST_SELECT = 'id, request_number, request_year, price, deposit, deposit_returned, status, created_at, delivered_at, cancelled_at, updated_at, patient:patients(name, phone_number), creator:pharmacy_staff!patient_requests_created_by_fkey(name), items:patient_request_items(id, product_name, quantity, supplier, stage, ordered_at, arrived_at, delivered_at, cancelled_at, cancel_reason, stage_changed_at), payments:patient_request_payments(amount)';
+const REQUEST_SELECT = 'id, patient_id, request_number, request_year, price, deposit, deposit_returned, status, created_at, delivered_at, cancelled_at, updated_at, patient:patients(name, phone_number), creator:pharmacy_staff!patient_requests_created_by_fkey(name), items:patient_request_items(id, product_name, quantity, supplier, stage, ordered_at, arrived_at, delivered_at, cancelled_at, cancel_reason, stage_changed_at), payments:patient_request_payments(amount)';
 
 // حقول حساب التأخر فقط (استعلام خفيف على كل الطلبات المفتوحة)
 const OVERDUE_SELECT = 'id, status, deposit, deposit_returned, cancelled_at, items:patient_request_items(stage, stage_changed_at)';
@@ -493,6 +494,9 @@ function NewRequestModal({ pharmacyId, patient, onPatientChange, onNeedNewPatien
               </div>
             )}
           </div>
+
+          {/* ملاحظات الكادر للمريض المختار */}
+          {patient && <PatientNotesBanner key={patient.id} patientId={patient.id} className="" />}
 
           {/* ── الخطوة 2: الطلب ── */}
           {patient && (

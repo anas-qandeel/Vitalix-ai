@@ -327,8 +327,9 @@ function getSmartTip(card: CareCard): { icon: TipIcon; text: string; accent: str
 // ═══════════════════════════════════════════════════════
 // MODAL: بحث / إضافة مريض
 // ═══════════════════════════════════════════════════════
-function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill }: {
+function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill, onNotesChange }: {
   pharmacyId: string;
+  onNotesChange?: (patientId: string, openCount: number | null) => void; // لمزامنة شارة البطاقة
   onClose: () => void;
   onAdded: (p: Patient, note?: string, isExistingPatient?: boolean, meds?: ChronicMed[], isArchived?: boolean) => void;
   onRenew: (p: Patient, meds: ChronicMed[], isArchived?: boolean) => void;
@@ -622,6 +623,9 @@ function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill }: {
                   بحث آخر
                 </button>
               </div>
+              <div className="px-4 pb-3">
+                <PatientNotesBanner key={found.id} patientId={found.id} className="" onChange={n => onNotesChange?.(found.id, n)} />
+              </div>
               {foundMeds.length > 0 && (
                 <div className="border-t border-slate-200 divide-y divide-slate-100">
                   {[...foundMeds].sort((a,b) => calcDaysLeft(a.next_refill_date) - calcDaysLeft(b.next_refill_date)).map(m => {
@@ -746,8 +750,9 @@ function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill }: {
 // ═══════════════════════════════════════════════════════
 // MODAL: تسجيل / تجديد الأدوية — تجديد انتقائي بدون DELETE+INSERT
 // ═══════════════════════════════════════════════════════
-function MedModal({ patientId, pharmacyId, existingMeds, patientName, onClose, onSaved, onBack, isNewPatient, drugAllergies, foodAllergies, isPregnant, isLactating, diagnosedConditions }: {
+function MedModal({ patientId, pharmacyId, existingMeds, patientName, onClose, onSaved, onBack, isNewPatient, drugAllergies, foodAllergies, isPregnant, isLactating, diagnosedConditions, onNotesChange }: {
   patientId: string; pharmacyId: string;
+  onNotesChange?: (patientId: string, openCount: number | null) => void;
   existingMeds: ChronicMed[]; patientName: string;
   onClose: () => void; onSaved: () => void;
   onBack?: () => void;
@@ -991,6 +996,11 @@ function MedModal({ patientId, pharmacyId, existingMeds, patientName, onClose, o
             </div>
           </div>
           <button onClick={onClose} className="w-8 h-8 rounded-full bg-slate-50 hover:bg-slate-100 text-slate-500 flex items-center justify-center transition-colors shrink-0">✕</button>
+        </div>
+
+        {/* ملاحظات الكادر — المسارات التي تُغلق خلفها نافذة البحث لا ترى اللافتة إلا هنا */}
+        <div className="mx-6 shrink-0 max-h-56 overflow-y-auto">
+          <PatientNotesBanner key={patientId} patientId={patientId} className="mt-4" onChange={n => onNotesChange?.(patientId, n)} />
         </div>
 
         {/* ── banner تأكيد — يظهر فقط عند الفتح من modal البحث بوضع الإضافة ── */}
@@ -1396,10 +1406,11 @@ function calcInventory(cards: CareCard[], confirmed: Record<string, ConfirmedEnt
 
 // ── InventoryTab ────────────────────────────────────────────────────────────
 // ── PatientMedsModal: عرض أدوية المريض المزمنة داخل المخزون ──────────────
-function PatientMedsModal({ patient, cards, onClose }: {
+function PatientMedsModal({ patient, cards, onClose, onNotesChange }: {
   patient: { id: string; name: string };
   cards: CareCard[];
   onClose: () => void;
+  onNotesChange?: (patientId: string, openCount: number | null) => void;
 }) {
   const card = cards.find(c => c.patient.id === patient.id);
   if (!card) return null;
@@ -1426,6 +1437,11 @@ function PatientMedsModal({ patient, cards, onClose }: {
           </div>
           <button onClick={onClose}
             className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center text-xs transition-colors shrink-0">✕</button>
+        </div>
+
+        {/* ملاحظات الكادر */}
+        <div className="px-4 shrink-0 max-h-56 overflow-y-auto">
+          <PatientNotesBanner key={patient.id} patientId={patient.id} className="mt-3" onChange={n => onNotesChange?.(patient.id, n)} />
         </div>
 
         {/* أدوية المريض المزمنة — قابلة للتمرير */}
@@ -1477,8 +1493,9 @@ function PatientMedsModal({ patient, cards, onClose }: {
   );
 }
 
-function InventoryTab({ cards, onClose, pharmacyName, pharmacyId }: {
+function InventoryTab({ cards, onClose, pharmacyName, pharmacyId, onNotesChange }: {
   cards: CareCard[];
+  onNotesChange?: (patientId: string, openCount: number | null) => void;
   onClose?: () => void;
   pharmacyName: string;
   pharmacyId: string;
@@ -1864,7 +1881,7 @@ function InventoryTab({ cards, onClose, pharmacyName, pharmacyId }: {
       </div>
 
       {activePatient && (
-        <PatientMedsModal patient={activePatient} cards={cards} onClose={() => setActivePatient(null)} />
+        <PatientMedsModal patient={activePatient} cards={cards} onClose={() => setActivePatient(null)} onNotesChange={onNotesChange} />
       )}
     </div>
   );
@@ -1971,7 +1988,7 @@ function PatientCard({ card, pharmacyName, onAction, openNotes, onNotesChange }:
               {patient.is_lactating && <span className="text-[10px] font-bold text-pink-700 bg-pink-50 border border-pink-200 px-2 py-1 rounded-lg">مرضعة</span>}
             </div>
           )}
-          <PatientNotesBanner patientId={patient.id} className="" onChange={(n) => onNotesChange(patient.id, n)} />
+          <PatientNotesBanner patientId={patient.id} className="" refreshKey={openNotes} onChange={(n) => onNotesChange(patient.id, n)} />
 
           {/* بادجات الأدوية مع Days */}
           <div className="flex flex-wrap gap-2">
@@ -2645,7 +2662,7 @@ export default function ChronicPage() {
           );
         })()}
 
-        {showInventory && <InventoryTab cards={cards} onClose={() => setShowInventory(false)} pharmacyName={pharmacyName} pharmacyId={pharmacyId} />}
+        {showInventory && <InventoryTab cards={cards} onClose={() => setShowInventory(false)} pharmacyName={pharmacyName} pharmacyId={pharmacyId} onNotesChange={handleNotesChange} />}
 
         {/* Patients List */}
         {!showInventory && !showStats && total > 0 && (
@@ -2748,7 +2765,7 @@ export default function ChronicPage() {
       <ToastContainer toasts={toasts} />
 
       {addModal && (
-        <AddPatientModal pharmacyId={pharmacyId} onClose={() => { setAddModal(false); setSearchPrefill(null); }}
+        <AddPatientModal pharmacyId={pharmacyId} onNotesChange={handleNotesChange} onClose={() => { setAddModal(false); setSearchPrefill(null); }}
           prefill={searchPrefill}
           onAdded={async (p, note, isExistingPatient, meds, isArchived) => {
             setAddModal(false);
@@ -2773,7 +2790,7 @@ export default function ChronicPage() {
 
       {medModal && (
         <MedModal
-          patientId={medModal.patient.id} pharmacyId={pharmacyId}
+          patientId={medModal.patient.id} pharmacyId={pharmacyId} onNotesChange={handleNotesChange}
           existingMeds={medModal.meds} patientName={medModal.patient.name} drugAllergies={medModal.patient.drug_allergies} foodAllergies={medModal.patient.food_allergies} isPregnant={medModal.patient.is_pregnant} isLactating={medModal.patient.is_lactating} diagnosedConditions={medModal.patient.diagnosed_conditions}
           isNewPatient={medModal.isNewPatient}
           onClose={() => {

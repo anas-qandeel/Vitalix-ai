@@ -25,6 +25,7 @@ export interface RequestItem {
 
 export interface RequestRow {
   id: string;
+  patient_id: string;
   request_number: number;
   request_year: number;
   price: number | null;

@@ -21,6 +21,7 @@ import WeightPlanReport, { type WeightPlan, parseNutrition } from '@/components/
 import VitalsThinkingOverlay from '@/components/VitalsThinkingOverlay';
 import { classifyBp, classifySugar, classifyHeartRate, overallVisitStatus } from '@/lib/vitals-classify';
 import AddPatientForm from '@/components/AddPatientForm';
+import PatientNotesBanner from '@/components/PatientNotesBanner';
 import { useSubscriptionState, READ_ONLY_MESSAGE } from '@/lib/subscription-state';
 import ProductThumb from '@/components/ProductThumb';
 
@@ -1413,6 +1414,9 @@ ${planUrl}
                     )}
                   </div>
                 )}
+
+                {/* ملاحظات الكادر — داخلية؛ خارج عناصر PDF (generalPdfRef وغيره) */}
+                {currentPatient && <PatientNotesBanner key={currentPatient.id} patientId={currentPatient.id} className="" />}
               </div>
             </div>
 

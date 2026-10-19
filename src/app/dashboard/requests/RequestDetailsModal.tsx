@@ -10,6 +10,7 @@ import ProductNameInput, { ProductHint } from './ProductNameInput';
 import type { ProductStat } from '@/lib/frequent-products';
 import { normalizePhone, validatePhone } from '@/lib/phone';
 import { getOverdueReasons, getItemOverdue, getExpectedChipLabel, notifyRequestsChanged } from '@/lib/request-overdue';
+import PatientNotesBanner from '@/components/PatientNotesBanner';
 import { Phone, Package, X, ArrowsClockwise, PencilSimple, Plus, WhatsappLogo, WarningCircle } from '@phosphor-icons/react';
 import {
   RequestRow, RequestStatus, RequestItem, ItemStage, STATUS_META, STAGE_META, STAGE_RANK, stageTime, requestTitle,
@@ -868,6 +869,13 @@ export default function RequestDetailsModal({ row, pharmacyName, suggestion, onC
             </button>
           </div>
         </div>
+
+        {/* ملاحظات الكادر للمريض — يُعاد تركيبها لكل مريض عبر key */}
+        {row.patient_id && (
+          <div className="px-5 pb-3 shrink-0 max-h-56 overflow-y-auto">
+            <PatientNotesBanner key={row.patient_id} patientId={row.patient_id} className="mt-3" />
+          </div>
+        )}
 
         {/* المحتوى */}
         <div className="flex-1 min-w-0 overflow-y-auto p-5 space-y-6">

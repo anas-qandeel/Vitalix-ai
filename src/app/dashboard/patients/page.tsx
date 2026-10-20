@@ -101,6 +101,13 @@ export default function PatientsListPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [filter, setFilter] = useState<PatientFilter>('all');
   const [filterCount, setFilterCount] = useState<number | null>(null);
+  // نحفظ معرّف المريض لا موضعه: إن تغيّرت القائمة ولم يعد فيها يختفي التظليل تلقائياً
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  // التنقل بالأسهم: أبقِ البطاقة المحدَّدة ظاهرة داخل الشاشة
+  useEffect(() => {
+    if (!highlightedId) return;
+    document.querySelector(`[data-patient-id="${highlightedId}"]`)?.scrollIntoView({ block: 'nearest' });
+  }, [highlightedId]);
 
   // جلسة الصيدلية + الدور أولاً
   useEffect(() => {
@@ -240,7 +247,28 @@ export default function PatientsListPage() {
         <div className="relative mb-6">
           <IconSearch className="w-5 h-5 text-slate-400 absolute right-4 top-1/2 -translate-y-1/2" />
           <input
-            type="text" value={query} onChange={e => setQuery(e.target.value)}
+            type="text" value={query}
+            onChange={e => { setQuery(e.target.value); setHighlightedId(null); }}
+            onKeyDown={e => {
+              if (e.nativeEvent.isComposing || !patients.length) return;
+              const curIdx = highlightedId ? patients.findIndex(p => p.id === highlightedId) : -1;
+              if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                setHighlightedId(patients[Math.min(curIdx + 1, patients.length - 1)].id);
+              } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                setHighlightedId(patients[Math.max(curIdx - 1, 0)].id);
+              } else if (e.key === 'Enter') {
+                e.preventDefault();
+                // أمان المريض: لا نفتح ملفاً والقائمة قيد التحديث، فقد يشير التحديد إلى نتيجة بحث سابق
+                if (loading || query.trim() !== debouncedQuery) return;
+                // بلا تظليل، Enter يُظلّل الأول فقط ليراه الصيدلاني؛ الضغطة التالية تفتح الملف
+                if (curIdx < 0) { setHighlightedId(patients[0].id); return; }
+                router.push(`/dashboard/patients/${patients[curIdx].id}`);
+              } else if (e.key === 'Escape') {
+                setHighlightedId(null);
+              }
+            }}
             placeholder="ابحث بالاسم أو رقم الهاتف..."
             className="w-full pr-12 pl-4 py-3.5 text-sm bg-white border border-slate-200 rounded-2xl focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition shadow-sm"
           />
@@ -289,9 +317,10 @@ export default function PatientsListPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {patients.map(p => {
                 const age = calculateAge(p.birth_date);
+                const isHighlighted = p.id === highlightedId;
                 return (
-                  <div key={p.id} onClick={() => router.push(`/dashboard/patients/${p.id}`)}
-                    className="bg-white border border-slate-200 rounded-2xl shadow-sm hover:shadow-md hover:border-teal-300 transition-all cursor-pointer p-5">
+                  <div key={p.id} data-patient-id={p.id} onClick={() => router.push(`/dashboard/patients/${p.id}`)}
+                    className={`border rounded-2xl shadow-sm hover:shadow-md hover:border-teal-300 transition-all cursor-pointer p-5 ${isHighlighted ? 'border-teal-400 ring-1 ring-teal-400 bg-teal-50/40' : 'border-slate-200 bg-white'}`}>
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 rounded-full bg-teal-50 flex items-center justify-center shrink-0 border border-teal-100 text-teal-700 font-bold text-base">
                         {p.name.trim().charAt(0)}

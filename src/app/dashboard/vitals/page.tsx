@@ -303,6 +303,8 @@ export default function VitalsPage() {
   const hasRestoredRef = useRef(false);
   // معرّف طلب اختيار المريض: يُبطل أي رد معلّق (سجل/أدوية) لمريض سبق تبديله، فلا تُكتب بياناته في نموذج مريض آخر
   const selectReqId = useRef(0);
+  // معرّف طلب البحث: يُبطل رد بحث قديم (اسم/هاتف) وصل بعد نص أحدث، فلا يستبدل النتائج ولا يختار مريضاً لا يطابق الحقل
+  const searchReqId = useRef(0);
 
   // ── حالة البحث ──
   const [searchQuery, setSearchQuery] = useState('');
@@ -659,6 +661,8 @@ ${planUrl}
 
   // ── البحث الموحّد ──
   const handleSearch = async (raw: string) => {
+    const mySearchId = ++searchReqId.current;
+    ++selectReqId.current; // كل ضغطة مفتاح تمسح المريض الحالي، فيُبطل أي اختيار مريض معلّق
     // توحيد الأرقام العربية/الفارسية إلى لاتينية، وحذف المسافات والشرطات من الأرقام فقط، قبل التصنيف والبحث
     let value = toLatinDigits(raw);
     if (detectInputType(value) === 'phone') value = value.replace(/[\s\-]/g, '');
@@ -682,8 +686,10 @@ ${planUrl}
       setSearchingPatient(true);
       try {
         const { data: { session } } = await supabase.auth.getSession();
+        if (mySearchId !== searchReqId.current) return;
         if (!session) return;
         const pid = await getPharmacyId();
+        if (mySearchId !== searchReqId.current) return;
         if (!pid) return;
         // بعض الأرقام مخزّنة بالصيغة المحلية القديمة (07...) وبعضها بصيغة E.164 الجديدة (962...)
         // لذا نطابق على الجزء المشترك بعد حذف مفتاح الدولة من قيمة البحث المطبّعة
@@ -691,6 +697,7 @@ ${planUrl}
         const searchTerm = normalizedSearch.startsWith('962') ? normalizedSearch.slice(3) : normalizedSearch;
         const { data: found } = await supabase.from('patients').select('*')
           .eq('pharmacy_id', pid).ilike('phone_number', `%${searchTerm}%`);
+        if (mySearchId !== searchReqId.current) return;
         if (found && found.length === 1) {
           await selectPatient(found[0] as Patient, true); // keepQuery=true يحافظ على رقم الهاتف في الحقل
         } else if (found && found.length > 1) {
@@ -710,6 +717,7 @@ ${planUrl}
     setSearchingPatient(true);
     try {
       const pid = await getPharmacyId();
+      if (mySearchId !== searchReqId.current) return;
       if (!pid) { setNameResults([]); return; }
       const { data, error } = await supabase
         .from('patients')
@@ -717,6 +725,7 @@ ${planUrl}
         .eq('pharmacy_id', pid)
         .ilike('name_normalized', `%${normalizeAr(value)}%`)
         .limit(20);
+      if (mySearchId !== searchReqId.current) return;
       if (error) { console.error('[vitals] patient name search failed:', error.message); setNameResults([]); return; }
       setNameResults((data || []) as Patient[]);
     } finally { setSearchingPatient(false); }

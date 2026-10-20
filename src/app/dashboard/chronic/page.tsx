@@ -1955,7 +1955,7 @@ function PatientCard({ card, pharmacyName, onAction, openNotes, onNotesChange }:
           <p dir="ltr" className="block truncate text-right text-[11px] text-slate-400">{meds.map(m => m.medication_name).join(' · ')}</p>
         </div>
         {openNotes > 0 && (
-          <span title="ملاحظات كادر مفتوحة" className="flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-md border shrink-0 bg-amber-50 text-amber-700 border-amber-200">
+          <span title="ملاحظات مفتوحة على المريض" className="flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-md border shrink-0 bg-amber-50 text-amber-700 border-amber-200">
             <ClipboardText className="w-3.5 h-3.5" /><span className="tabular-nums">{openNotes}</span>
           </span>
         )}

@@ -107,7 +107,7 @@ export default function PatientNotesBanner({ patientId, onChange, refreshKey = 0
     <>
       {loadFailed && (
         <div className={`${className} flex items-center justify-between gap-2 bg-rose-50 border border-rose-200 rounded-2xl px-4 py-3`}>
-          <p className="text-xs font-bold text-rose-700">تعذّر تحميل ملاحظات الكادر.</p>
+          <p className="text-xs font-bold text-rose-700">تعذّر تحميل ملاحظات المريض.</p>
           <button type="button" onClick={() => { load(); }} className="text-xs font-bold text-rose-700 underline cursor-pointer">إعادة المحاولة</button>
         </div>
       )}
@@ -117,11 +117,14 @@ export default function PatientNotesBanner({ patientId, onChange, refreshKey = 0
       )}
 
       {!loadFailed && notes.length > 0 && (
-        <section aria-label="ملاحظات الكادر" className={`${className} bg-amber-50 border border-amber-200 rounded-2xl shadow-sm overflow-hidden`}>
+        <section aria-label="ملاحظات على المريض" className={`${className} bg-amber-50 border border-amber-200 rounded-2xl shadow-sm overflow-hidden`}>
           <div className="px-4 py-3 border-b border-amber-100 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
               <Note className="w-4 h-4 text-amber-700 shrink-0" />
-              <p className="text-sm font-bold text-amber-800">ملاحظات الكادر</p>
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-amber-800">ملاحظات على المريض</p>
+                <p className="text-[11px] text-slate-500">يراها الكادر في كل شاشات هذا المريض</p>
+              </div>
               <span className="text-[11px] font-bold text-amber-700 tabular-nums">{notes.length}</span>
             </div>
             {!adding && (

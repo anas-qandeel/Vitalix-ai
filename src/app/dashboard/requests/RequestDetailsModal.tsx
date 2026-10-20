@@ -426,7 +426,7 @@ export default function RequestDetailsModal({ row, pharmacyName, suggestion, onC
       setNote('');
       try {
         await refreshAll();
-        notify('ok', 'تمت إضافة الملاحظة');
+        notify('ok', 'تمت إضافة ملاحظة المتابعة');
       } catch {
         notify('err', 'حُفظت الملاحظة، لكن تعذّر تحديث السجل. أعد فتح الطلب لرؤيتها.');
       }
@@ -1180,7 +1180,7 @@ export default function RequestDetailsModal({ row, pharmacyName, suggestion, onC
                           <div className="min-w-0 flex-1">
                             {isNote ? (
                               <div className="bg-teal-50 border border-teal-200 rounded-xl px-3 py-2.5">
-                                <span className="text-[10px] font-semibold text-teal-700">ملاحظة <span className="tabular-nums">{noteNumbers.get(ev.id)}</span></span>
+                                <span className="text-[10px] font-semibold text-teal-700">ملاحظة متابعة <span className="tabular-nums">{noteNumbers.get(ev.id)}</span></span>
                                 <p className="text-sm text-slate-800 mt-0.5 whitespace-pre-line break-words"><bdi>{ev.body}</bdi></p>
                               </div>
                             ) : (
@@ -1199,14 +1199,14 @@ export default function RequestDetailsModal({ row, pharmacyName, suggestion, onC
 
                 {/* إضافة ملاحظة */}
                 <div className="mt-5 pt-4 border-t border-slate-100">
-                  <label htmlFor="req-detail-note" className="block text-xs font-bold text-slate-600 mb-1.5">إضافة ملاحظة</label>
+                  <label htmlFor="req-detail-note" className="block text-xs font-bold text-slate-600 mb-1.5">ملاحظة متابعة على هذا الطلب</label>
                   <textarea id="req-detail-note" value={note} onChange={e => setNote(e.target.value)} rows={3} maxLength={NOTE_MAX}
                     className="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-200 rounded-xl text-slate-900 focus:border-slate-900 focus:ring-1 focus:ring-slate-900 focus:outline-none transition-all resize-none" />
                   <div className="flex items-center justify-between gap-3 mt-2">
-                    <p className="text-[11px] text-slate-400">لا يمكن تعديل الملاحظة أو حذفها بعد حفظها.</p>
+                    <p className="text-[11px] text-slate-400">تظهر في سجل هذا الطلب فقط. لا يمكن تعديل الملاحظة أو حذفها بعد حفظها.</p>
                     <button type="button" onClick={addNote} disabled={saving || readOnly} title={readOnly ? READ_ONLY_MESSAGE : undefined}
                       className="h-10 shrink-0 px-4 flex items-center justify-center rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold transition-all active:scale-[0.98] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
-                      {saving ? 'جاري الحفظ...' : 'إضافة ملاحظة'}
+                      {saving ? 'جاري الحفظ...' : 'حفظ ملاحظة المتابعة'}
                     </button>
                   </div>
                 </div>

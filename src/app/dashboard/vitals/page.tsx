@@ -301,6 +301,8 @@ export default function VitalsPage() {
   const weightThinkingRef = useRef<HTMLDivElement>(null);
   const weightSummaryRef = useRef<HTMLDivElement>(null);
   const hasRestoredRef = useRef(false);
+  // معرّف طلب اختيار المريض: يُبطل أي رد معلّق (سجل/أدوية) لمريض سبق تبديله، فلا تُكتب بياناته في نموذج مريض آخر
+  const selectReqId = useRef(0);
 
   // ── حالة البحث ──
   const [searchQuery, setSearchQuery] = useState('');
@@ -612,14 +614,17 @@ ${planUrl}
   }, [currentPatient, patientHistory, searchQuery, weightPlanId, weightValue, latestVisitId, activeTests, bpSys1, bpDia1, bpSys2, bpDia2, heartRate, heartRate2, sugarValue, sugarType, isDualBp, selectedSymptoms, bpFactors, sugarFactors, tookBpMed, tookSugarMed, latestPharmacistSummary, latestMedicationsAlert, vitalsRecommendations, excludedVitalsProducts, savedVitalsExclusions]);
 
   // ── تحميل تاريخ مريض ──
-  const loadHistory = async (p: Patient) => {
+  // reqId اختياري: يُفحص فقط عند تمريره (من selectPatient) ولا يغيّر سلوك بقية المستدعين
+  const loadHistory = async (p: Patient, reqId?: number) => {
     const { data } = await supabase.from('visitations').select('*').eq('patient_id', p.id).order('created_at', { ascending: false });
+    if (reqId !== undefined && reqId !== selectReqId.current) return;
     if (data) setPatientHistory(data as VisitationRecord[]);
   };
 
   // ── اختيار مريض ──
   // keepQuery=true عند البحث برقم الهاتف → يبقي الرقم في الحقل بدون استبداله بالاسم
   const selectPatient = async (p: Patient, keepQuery = false) => {
+    const myId = ++selectReqId.current;
     setCurrentPatient(p);
     if (!keepQuery) setSearchQuery(p.name);
     setNameResults([]);
@@ -639,10 +644,13 @@ ${planUrl}
     setVitalsReportReviewed(false); setSavedVitalsExclusions(''); setVitalsSendError('');
     setSearchingPatient(true);
     try {
-      await loadHistory(p);
+      await loadHistory(p, myId);
+      if (myId !== selectReqId.current) return;
       const pid = await getPharmacyId();
+      if (myId !== selectReqId.current) return;
       if (pid) {
         const { data: meds } = await supabase.from('chronic_medications').select('id, medication_name, daily_dosage, dosage_unit').eq('pharmacy_id', pid).eq('patient_id', p.id).eq('status', 'active');
+        if (myId !== selectReqId.current) return;
         setPatientMedications(meds || []);
       }
     } catch { }
@@ -1148,6 +1156,7 @@ ${planUrl}
   };
 
   const handleNewVisit = () => {
+    ++selectReqId.current; // يُبطل أي رد معلّق لاختيار مريض سابق
     setCurrentPatient(null);
     setVitalsRecommendations([]); setExcludedVitalsProducts(new Set());
     setVitalsReportReviewed(false); setSavedVitalsExclusions(''); setVitalsSendError('');

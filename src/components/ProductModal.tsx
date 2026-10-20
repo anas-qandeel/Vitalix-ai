@@ -214,6 +214,7 @@ export default function ProductModal({ item, pharmacyId, onClose, onSaved }: Pro
               className="w-full px-3 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-slate-900 transition text-slate-900">
               {availableCategories.map(c => <option key={c} value={c}>{CATEGORY_LABELS_AR[c]}</option>)}
             </select>
+            <p className="text-[11px] text-slate-400 mt-1.5">تأكد أن الفئة هي الأدق للمنتج، فعليها تعتمد بطاقة الأمان واقتراحات المنتجات للمريض.</p>
           </div>
 
           {/* ── ملخص بطاقة الأمان + التفاصيل المطوية ── */}

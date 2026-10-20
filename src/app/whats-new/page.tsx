@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import AppFooter from '@/app/components/AppFooter';
 import type { Icon } from '@phosphor-icons/react';
-import { Palette, Pill, Package, Users, DeviceMobile, ShieldCheck, CalendarBlank, Notebook, WarningCircle, ChartBar } from '@phosphor-icons/react';
+import { Palette, Pill, Package, Users, DeviceMobile, ShieldCheck, CalendarBlank, Notebook, WarningCircle, ChartBar, NotePencil } from '@phosphor-icons/react';
 
 // نفس شعار Vitalix المستخدم في src/app/help/page.tsx — لا يُعاد رسمه من الصفر
 function VitalixMark() {
@@ -32,6 +32,24 @@ interface Release {
 
 // الإصدارات كبيانات فقط والصفحة ترسمها — الأحدث أولاً، ولإضافة إصدار جديد يكفي إضافة عنصر واحد في أعلى المصفوفة
 const RELEASES: Release[] = [
+  {
+    version: 'v1.3.0',
+    date: '19/10/2026',
+    title: 'ملاحظات الكادر',
+    sections: [
+      {
+        heading: 'ملاحظات على ملف المريض',
+        icon: NotePencil,
+        items: [
+          'أي موظف يستطيع إضافة ملاحظة على مريض في أي وقت: من كرت المريض، أو شاشة الفحص، أو صفحة المزمنين، أو طلبات المرضى.',
+          'الملاحظات المفتوحة تظهر باللون الأصفر في أعلى الشاشة أينما فتحتَ المريض، فيراها كل شفت.',
+          'اضغط «تمّت» حين لا تعود الملاحظة لازمة، فتختفي من الأعلى وتبقى في سجل الملاحظات بكرت المريض مع اسم من أغلقها ومتى.',
+          'الملاحظات داخلية للكادر فقط ولا تصل إلى المريض أبداً.',
+          'ملاحظة التسجيل صارت تُحفظ هنا أيضاً، وملاحظاتك السابقة نُقلت تلقائياً.',
+        ],
+      },
+    ],
+  },
   {
     version: 'v1.2.0',
     date: 'أكتوبر 2026',

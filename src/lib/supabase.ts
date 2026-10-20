@@ -47,3 +47,35 @@ const authedFetch: typeof fetch = async (input, init) => {
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   global: { fetch: authedFetch },
 });
+
+// مراقب مركزي لـ401 على استدعاءات /api/ التي أرسلت توكناً.
+// السبب: اعتراض Supabase أعلاه لا يرى استدعاءات fetch('/api/...') العادية، فتنتهي الجلسة
+// ويظهر خطأ عام أو بيانات فارغة بلا توجيه. الشرط "الطلب حمل Authorization" يستثني عمداً
+// طلبات الدخول (staff/login) والصفحات العامة للمريض فهي بلا توكن أصلاً؛ ويبقى فحص المسار
+// داخل handleExpiredSession خط الدفاع الثاني لأي صفحة خارج /dashboard و/admin.
+function installApiAuthGuard() {
+  if (typeof window === 'undefined') return;
+  // الراية على window لا على المتغير: إعادة تقييم الوحدة (HMR) كانت ستغلّف fetch مرتين
+  const w = window as Window & { __vxApiAuthGuard?: boolean };
+  if (w.__vxApiAuthGuard) return;
+  w.__vxApiAuthGuard = true;
+
+  const originalFetch = window.fetch.bind(window);
+  window.fetch = async (input, init) => {
+    const res = await originalFetch(input, init);
+    if (res.status !== 401) return res;
+    try {
+      const rawUrl = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+      const url = new URL(rawUrl, window.location.href);
+      if (url.origin !== window.location.origin || !url.pathname.startsWith('/api/')) return res;
+      // ترويسات init تحجب ترويسات Request عند وجودها، كما يفعل fetch نفسه
+      const headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined));
+      if (headers.has('Authorization')) void handleExpiredSession();
+    } catch {
+      // أي خلل في الفحص لا يجوز أن يكسر الاستجابة الأصلية
+    }
+    return res;
+  };
+}
+
+installApiAuthGuard();

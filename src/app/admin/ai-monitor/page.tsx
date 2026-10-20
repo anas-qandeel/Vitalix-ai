@@ -31,6 +31,17 @@ interface MonitorData {
   events: AiEvent[];
 }
 
+interface CostRow {
+  pharmacy_id: string;
+  pharmacy_name: string;
+  calls: number;
+  failed: number;
+  prompt_tokens: number;
+  output_tokens: number;
+  cost_usd: number;
+}
+interface CostData { month: string; rows: CostRow[]; total: Omit<CostRow, 'pharmacy_id' | 'pharmacy_name'> }
+
 const PERIODS: Array<{ v: Period; label: string }> = [
   { v: '24h', label: '24 ساعة' },
   { v: '7d', label: '7 أيام' },
@@ -73,6 +84,21 @@ function filterBtn(active: boolean): string {
   return `h-8 px-3 rounded-lg text-xs font-bold cursor-pointer flex items-center gap-1.5 ${active ? 'bg-slate-900 text-white' : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'}`;
 }
 
+// آخر n أشهر بتوقيت عمّان (YYYY-MM) من الأحدث — يطابق حدود الشهر المعتمدة في القاعدة
+function lastMonths(n: number): string[] {
+  const [y, m] = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Amman' }).slice(0, 7).split('-').map(Number);
+  return Array.from({ length: n }, (_, i) => {
+    const d = new Date(Date.UTC(y, m - 1 - i, 1));
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+  });
+}
+function monthLabel(v: string): string {
+  return new Date(`${v}-01T00:00:00Z`).toLocaleDateString('ar-EG', { month: 'long', year: 'numeric', timeZone: 'UTC', numberingSystem: 'latn' });
+}
+const fmtNum = (n: number) => n.toLocaleString('en-US');
+
+const MONTHS = lastMonths(6);
+
 export default function AiMonitorPage() {
   const [period, setPeriod] = useState<Period>('7d');
   const [feature, setFeature] = useState<FeatureFilter>('all');
@@ -82,6 +108,11 @@ export default function AiMonitorPage() {
   const [refreshing, setRefreshing] = useState(false);
   const { notice, setNotice } = useNotice();
   const reqId = useRef(0);
+  const [costMonth, setCostMonth] = useState<string>(MONTHS[0]);
+  const [cost, setCost] = useState<CostData | null>(null);
+  const [costLoading, setCostLoading] = useState(true);
+  const [costError, setCostError] = useState(false);
+  const costReqId = useRef(0);
 
   const load = async () => {
     const id = ++reqId.current;
@@ -112,6 +143,26 @@ export default function AiMonitorPage() {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [period, feature, outcome]);
+
+  // بطاقة التكلفة مستقلة عن فلاتر الأعطال: تتغير بالشهر فقط
+  useEffect(() => {
+    const id = ++costReqId.current;
+    (async () => {
+      try {
+        const res = await adminFetch(`/api/admin/ai-monitor?view=cost&month=${costMonth}`);
+        if (id !== costReqId.current) return;
+        if (!res.ok) { setCostError(true); setCost(null); }
+        else {
+          const json = await res.json();
+          if (id !== costReqId.current) return;
+          setCost(json);
+        }
+      } catch {
+        if (id === costReqId.current) { setCostError(true); setCost(null); }
+      }
+      if (id === costReqId.current) setCostLoading(false);
+    })();
+  }, [costMonth]);
 
   const c = data?.counts;
   const calls = c ? c.used + c.discarded + c.failed : 0;
@@ -215,6 +266,65 @@ export default function AiMonitorPage() {
           )}
         </>
       )}
+
+      <div className="bg-white rounded-2xl border border-slate-200 p-4 mt-4">
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <h2 className="text-sm font-bold text-slate-900">التكلفة التقديرية للذكاء الاصطناعي</h2>
+          <select
+            value={costMonth}
+            onChange={e => { setCostLoading(true); setCostError(false); setCostMonth(e.target.value); }}
+            className="h-8 px-2 rounded-lg text-xs font-bold bg-white border border-slate-200 text-slate-700 cursor-pointer focus:border-slate-900 focus:ring-1 focus:ring-slate-900 focus:outline-none"
+          >
+            {MONTHS.map(m => <option key={m} value={m}>{monthLabel(m)}</option>)}
+          </select>
+        </div>
+
+        {costLoading ? (
+          <p className="text-sm text-slate-400">جارٍ التحميل…</p>
+        ) : costError ? (
+          <p className="text-sm text-rose-600">تعذّر جلب بيانات التكلفة</p>
+        ) : !cost || cost.rows.length === 0 ? (
+          <p className="text-sm text-slate-400 py-6 text-center">لا استهلاك مسجّل في هذا الشهر.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-slate-500 border-b border-slate-100">
+                  <th className="text-start font-bold py-2 pe-3">الصيدلية</th>
+                  <th className="text-start font-bold py-2 pe-3">الاستدعاءات</th>
+                  <th className="text-start font-bold py-2 pe-3">الفاشل</th>
+                  <th className="text-start font-bold py-2 pe-3">توكنز الإدخال</th>
+                  <th className="text-start font-bold py-2 pe-3">توكنز الإخراج والتفكير</th>
+                  <th className="text-start font-bold py-2">التكلفة ($)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cost.rows.map(r => (
+                  <tr key={r.pharmacy_id} className="border-b border-slate-50 text-slate-700">
+                    <td className="py-2 pe-3 font-bold text-slate-900">
+                      <Link href={`/admin/pharmacies/${r.pharmacy_id}`} className="hover:text-teal-700">{r.pharmacy_name}</Link>
+                    </td>
+                    <td className="py-2 pe-3 tabular-nums"><bdi>{fmtNum(r.calls)}</bdi></td>
+                    <td className={`py-2 pe-3 tabular-nums ${r.failed > 0 ? 'text-rose-600' : ''}`}><bdi>{fmtNum(r.failed)}</bdi></td>
+                    <td className="py-2 pe-3 tabular-nums"><bdi>{fmtNum(r.prompt_tokens)}</bdi></td>
+                    <td className="py-2 pe-3 tabular-nums"><bdi>{fmtNum(r.output_tokens)}</bdi></td>
+                    <td className="py-2 tabular-nums font-bold text-slate-900"><bdi>${r.cost_usd.toFixed(3)}</bdi></td>
+                  </tr>
+                ))}
+                <tr className="bg-slate-50 font-bold text-slate-900">
+                  <td className="py-2 pe-3">الإجمالي</td>
+                  <td className="py-2 pe-3 tabular-nums"><bdi>{fmtNum(cost.total.calls)}</bdi></td>
+                  <td className="py-2 pe-3 tabular-nums"><bdi>{fmtNum(cost.total.failed)}</bdi></td>
+                  <td className="py-2 pe-3 tabular-nums"><bdi>{fmtNum(cost.total.prompt_tokens)}</bdi></td>
+                  <td className="py-2 pe-3 tabular-nums"><bdi>{fmtNum(cost.total.output_tokens)}</bdi></td>
+                  <td className="py-2 tabular-nums"><bdi>${cost.total.cost_usd.toFixed(3)}</bdi></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        )}
+        <p className="text-[11px] text-slate-400 mt-3">تقدير تقريبي حسب أسعار Google الرسمية (فئة Standard)، وتتغير في يناير 2027.</p>
+      </div>
 
       <Toast notice={notice} />
     </div>

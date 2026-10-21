@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import DashboardHeader from '../components/DashboardHeader';
@@ -101,6 +101,10 @@ export default function PatientsListPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [filter, setFilter] = useState<PatientFilter>('all');
   const [filterCount, setFilterCount] = useState<number | null>(null);
+  // معرّف الجلب: ردّ بحث أو فلتر سابق يصل متأخراً لا يجوز أن يستبدل نتائج البحث الحالي
+  // ولا أن يعيد ملء القائمة بعد تفريغها لغير المالك (مبدأ الحاجة للمعرفة).
+  // يُزاد عند كل جلب جديد وعند التفريغ المباشر؛ التحميل الإضافي يلتقطه دون زيادة
+  const fetchReqId = useRef(0);
   // نحفظ معرّف المريض لا موضعه: إن تغيّرت القائمة ولم يعد فيها يختفي التظليل تلقائياً
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   // التنقل بالأسهم: أبقِ البطاقة المحدَّدة ظاهرة داخل الشاشة
@@ -134,6 +138,8 @@ export default function PatientsListPage() {
   useEffect(() => {
     if (!pharmacyId || !role) return;
     if (role !== 'owner' && !debouncedQuery) {
+      // يُبطل أي جلب جارٍ كي لا يعيد ملء القائمة بعد تفريغها
+      ++fetchReqId.current;
       setPatients([]);
       setHasMore(false);
       setLoading(false);
@@ -145,6 +151,8 @@ export default function PatientsListPage() {
 
   // نجلب دفعة محدودة (PAGE_SIZE) فقط في كل استدعاء بدل كل المرضى دفعة واحدة
   const fetchPatients = async (pid: string, searchTerm: string, offset: number, append: boolean) => {
+    // جلب البحث/الفلتر الجديد يُبطل ما سبقه؛ التحميل الإضافي ليس بحثاً جديداً فيلتقط المعرّف الحالي ويُهمل إن بدأ بحث أثناءه
+    const myId = append ? fetchReqId.current : ++fetchReqId.current;
     append ? setLoadingMore(true) : setLoading(true);
 
     // التصنيف للمالك وحده؛ لغيره يبقى «الكل» مهما كان الرابط
@@ -196,9 +204,12 @@ export default function PatientsListPage() {
     const { data, count: matchCount, error: listErr } = await q;
     if (listErr) console.error('[patients] list query failed:', listErr.message);
     const rows = (data as unknown as PatientRow[]) || [];
-    setFilterCount(matchCount ?? null);
-    setPatients(prev => append ? [...prev, ...rows] : rows);
-    setHasMore(rows.length === PAGE_SIZE);
+    // لا عودة مبكرة: العدّاد الإجمالي أدناه لا يتعلق بنص البحث ويجب أن يُجلب حتى لو أُبطل هذا الردّ
+    if (myId === fetchReqId.current) {
+      setFilterCount(matchCount ?? null);
+      setPatients(prev => append ? [...prev, ...rows] : rows);
+      setHasMore(rows.length === PAGE_SIZE);
+    }
 
     // العدّاد الإجمالي عبر استعلام خفيف (count فقط بلا بيانات) — لا معنى له أثناء البحث
     if (!searchTerm) {
@@ -208,7 +219,10 @@ export default function PatientsListPage() {
       setTotalCount(count ?? 0);
     }
 
-    append ? setLoadingMore(false) : setLoading(false);
+    // loadingMore لا يُحرس: يضبطه التحميل الإضافي وحده ولا يرفعه جلب البحث، فتركه يعلّق الزر
+    // loading يرفعه الجلب الأحدث فقط: رفعه من ردّ قديم يكشف القائمة السابقة والبحث الجديد لم يصل
+    if (append) setLoadingMore(false);
+    else if (myId === fetchReqId.current) setLoading(false);
   };
 
   const changeFilter = (f: PatientFilter) => {

@@ -7,6 +7,7 @@ import { getPharmacyId, getUserRole } from '@/lib/tenant';
 import { SubscriptionContext } from '@/lib/subscription-state';
 import { prefetchOverdue } from '@/lib/use-overdue-requests';
 import DateFormatNotice from '@/components/DateFormatNotice';
+import PullToRefresh from '@/components/PullToRefresh';
 
 /**
  * طبقة حماية موحّدة تُطبَّق تلقائياً على كل الصفحات ضمن /dashboard/* (بما فيها الصفحات
@@ -111,6 +112,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const waHref = waNumber && subBanner ? `https://wa.me/${waNumber}?text=${encodeURIComponent(`أرغب في تجديد اشتراك ${subBanner.name || 'صيدليتي'} في Vitalix`)}` : null;
   return (
     <>
+      <PullToRefresh />
       {subBanner && (
         <div dir="rtl" className={`w-full px-4 py-2.5 text-xs font-bold flex flex-wrap items-center justify-center gap-x-4 gap-y-1 ${subBanner.status === 'expired' ? 'bg-rose-600 text-white' : 'bg-amber-500 text-slate-900'}`} role="status">
           <span>

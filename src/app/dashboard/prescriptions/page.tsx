@@ -11,6 +11,7 @@ import { getPharmacyId, getTenantContext } from '@/lib/tenant';
 import { normalizeAr } from '@/lib/arabic';
 import { displayPhone } from '@/lib/phone';
 import { formatIsoAsDmy } from '@/lib/date-input';
+import { prepareRxFile, rxStoragePath, formatBytes, RX_BUCKET, RX_ACCEPT, type PreparedFile } from '@/lib/prescription-file';
 import { useSubscriptionState, READ_ONLY_MESSAGE, friendlyError } from '@/lib/subscription-state';
 
 // ═══════════════════════════════════════════════════════
@@ -27,7 +28,13 @@ interface Rx {
   recorded_by: string;
   created_at: string;
   prescription_items: RxItem[];
+  file_path: string | null;
+  file_name: string | null;
+  file_size: number | null;
+  file_mime: string | null;
 }
+// مرفق محفوظ فعلاً في التخزين وفي أعمدة file_* للوصفة
+interface StoredFile { path: string; name: string; size: number; mime: string }
 interface DrugRow { key: number; value: string }
 // شريط اقتراح الملف مربوط بالوصفة (rxId) لا بالاسم وحده؛ match = نتيجة آخر فحص لملفات بنفس الاسم المطبّع
 interface Suggest { rxId: string; name: string; match: 'none' | 'one' | 'many'; patientId: string | null }
@@ -93,6 +100,19 @@ const IconOpen = ({ className = 'w-3.5 h-3.5' }: { className?: string }) => (
   <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>
 );
 
+const IconPaperclip = ({ className = 'w-4 h-4' }: { className?: string }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="m18.375 12.739-7.693 7.693a4.5 4.5 0 0 1-6.364-6.364l10.94-10.94A3 3 0 1 1 19.5 7.372L8.552 18.32m.009-.01-.01.01m5.699-9.941-7.81 7.81a1.5 1.5 0 0 0 2.112 2.13" /></svg>
+);
+const IconDocument = ({ className = 'w-5 h-5' }: { className?: string }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg>
+);
+const IconX = ({ className = 'w-4 h-4' }: { className?: string }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+);
+const IconDownload = ({ className = 'w-4 h-4' }: { className?: string }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+);
+
 const INPUT = 'w-full h-11 px-3 text-sm bg-white border border-slate-200 rounded-xl focus:border-slate-900 focus:ring-1 focus:ring-slate-900 focus:outline-none transition text-right text-slate-900 placeholder:text-slate-400';
 const BTN_PRIMARY = 'h-11 px-6 bg-gradient-to-l from-slate-900 to-teal-800 hover:from-slate-800 hover:to-teal-700 text-white rounded-xl text-sm font-bold shadow-sm transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer';
 
@@ -102,7 +122,7 @@ async function fetchPrescriptions(): Promise<{ rows: Rx[] | null; error: string 
   if (!pid) return { rows: null, error: null };
   const { data, error } = await supabase
     .from('prescriptions')
-    .select('id, entry_date, doctor_name, patient_name, patient_id, pharmacist_name, recorded_by, created_at, prescription_items(id, drug_name, position)')
+    .select('id, entry_date, doctor_name, patient_name, patient_id, pharmacist_name, recorded_by, created_at, file_path, file_name, file_size, file_mime, prescription_items(id, drug_name, position)')
     .eq('pharmacy_id', pid)
     .order('entry_date', { ascending: false })
     .order('created_at', { ascending: false })
@@ -118,6 +138,16 @@ async function fetchPrescriptions(): Promise<{ rows: Rx[] | null; error: string 
     })),
     error: null,
   };
+}
+
+/** يحمّل الصورة مسبقاً كي يظهر الفشل (رابط منتهٍ أو ملف مفقود) قبل فتح النافذة لا بعدها */
+function preloadImage(url: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const el = new Image();
+    el.onload = () => resolve();
+    el.onerror = () => reject(new Error('image load failed'));
+    el.src = url;
+  });
 }
 
 // ═══════════════════════════════════════════════════════
@@ -172,6 +202,21 @@ export default function PrescriptionsPage() {
   const lastRecheckAt = useRef(0);
   const linkingRef = useRef(false);
   const [linking, setLinking] = useState(false);
+
+  // ── مرفق الوصفة ──
+  const [attachment, setAttachment] = useState<{ prepared: PreparedFile; previewUrl: string | null } | null>(null);
+  // عند التعديل: المرفق المحفوظ حالياً، وهل طُلبت إزالته عند الحفظ
+  const [existingFile, setExistingFile] = useState<StoredFile | null>(null);
+  const [removeExisting, setRemoveExisting] = useState(false);
+  const [preparing, setPreparing] = useState(false);
+  // يُبطل تجهيز ملف سبقه اختيار أحدث
+  const pickReqId = useRef(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  // عرض المرفق: lightbox للصور، وحارس race لطلبات الرابط الموقّع
+  const [lightbox, setLightbox] = useState<{ url: string; name: string; path: string } | null>(null);
+  const [openingId, setOpeningId] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState(false);
+  const signReqId = useRef(0);
 
   const today = ammanDay(new Date());
   const minDate = shiftIso(today, -7);
@@ -270,6 +315,16 @@ export default function PrescriptionsPage() {
     if (last) drugRefs.current[last.key]?.focus();
   }, [drugs]);
 
+  const previewUrl = attachment?.previewUrl ?? null;
+  useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl); }, [previewUrl]);
+
+  useEffect(() => {
+    if (!lightbox) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setLightbox(null); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [lightbox]);
+
   // نفس شرط prescription_is_editable في القاعدة: يوم التسجيل (لا entry_date) بتوقيت عمّان + المسجِّل أو المالك.
   // القاعدة هي المرجع؛ هذا لإخفاء الأزرار فقط، وأي رفض منها يُترجم برسالة عربية
   const canEdit = (r: Rx) =>
@@ -283,6 +338,11 @@ export default function PrescriptionsPage() {
     setDoctor('');
     setPatient('');
     setLinked(null);
+    pickReqId.current++;
+    setPreparing(false);
+    setAttachment(null);
+    setExistingFile(null);
+    setRemoveExisting(false);
     // الصيدلاني والتاريخ يبقيان: إدخال وصفات يوم سابق دفعة واحدة شائع
     requestAnimationFrame(() => doctorRef.current?.focus());
   };
@@ -312,6 +372,12 @@ export default function PrescriptionsPage() {
     setPharmacist(r.pharmacist_name);
     setEntryDate(r.entry_date);
     setDrugs(r.prescription_items.length ? r.prescription_items.map(it => newRow(it.drug_name)) : [newRow()]);
+    pickReqId.current++;
+    setPreparing(false);
+    setAttachment(null);
+    setRemoveExisting(false);
+    setExistingFile(r.file_path && r.file_name && r.file_size && r.file_mime
+      ? { path: r.file_path, name: r.file_name, size: r.file_size, mime: r.file_mime } : null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -401,10 +467,130 @@ export default function PrescriptionsPage() {
     }
   };
 
+  // ── مرفق الوصفة: اختيار وتجهيز ──
+  const handleFilePick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setFormError('');
+    const myId = ++pickReqId.current;
+    setPreparing(true);
+    try {
+      const prepared = await prepareRxFile(file);
+      if (myId !== pickReqId.current) return;
+      setAttachment({ prepared, previewUrl: prepared.mime.startsWith('image/') ? URL.createObjectURL(prepared.blob) : null });
+    } catch (err) {
+      if (myId === pickReqId.current) setFormError(err instanceof Error ? err.message : 'تعذّرت معالجة الملف.');
+    } finally {
+      if (myId === pickReqId.current) setPreparing(false);
+    }
+  };
+
+  const removeAttachment = () => {
+    pickReqId.current++;
+    setPreparing(false);
+    setAttachment(null);
+  };
+
+  // ── مرفق الوصفة: التخزين ──
+  // حذف الكائن لا يُفشل العملية: الكائن اليتيم (بلا صف يشير إليه) يحق حذفه لاحقاً حسب سياسة التخزين
+  const removeStored = async (path: string) => {
+    try { await supabase.storage.from(RX_BUCKET).remove([path]); } catch { /* يتيم مسموح */ }
+  };
+
+  // قراءة file_path المخزَّن فعلاً: تحسم الحالة الغامضة (رد ضائع بعد نجاح الكتابة) قبل حذف أي ملف
+  const readStoredPath = async (id: string): Promise<{ ok: boolean; exists: boolean; path: string | null }> => {
+    const { data, error } = await supabase.from('prescriptions').select('file_path').eq('id', id).maybeSingle();
+    if (error) return { ok: false, exists: false, path: null };
+    return { ok: true, exists: !!data, path: data?.file_path ?? null };
+  };
+
+  // update_prescription لا تلمس أعمدة الملف، فتُحدَّث مباشرة (الأعمدة الأربعة معاً كما يشترط قيد الجدول)
+  const applyFileColumns = async (id: string, f: StoredFile | null): Promise<boolean> => {
+    const { data, error } = await supabase
+      .from('prescriptions')
+      .update({ file_path: f?.path ?? null, file_name: f?.name ?? null, file_size: f?.size ?? null, file_mime: f?.mime ?? null })
+      .eq('id', id)
+      .select('id');
+    if (!error && data && data.length > 0) return true;
+    const cur = await readStoredPath(id);
+    return cur.ok && cur.exists && cur.path === (f?.path ?? null);
+  };
+
+  const uploadAttachment = async (pharmacyId: string, rxId: string): Promise<StoredFile | null> => {
+    if (!attachment) return null;
+    const { prepared } = attachment;
+    const path = rxStoragePath(pharmacyId, rxId, prepared.mime);
+    const { error } = await supabase.storage.from(RX_BUCKET).upload(path, prepared.blob, { contentType: prepared.mime, upsert: false });
+    if (error) {
+      setFormError('تعذّر رفع المرفق — تحقق من الاتصال وحاول مرة أخرى.');
+      return null;
+    }
+    return { path, name: prepared.name, size: prepared.size, mime: prepared.mime };
+  };
+
+  // ── مرفق الوصفة: العرض ──
+  const openAttachment = async (r: Rx) => {
+    if (!r.file_path) return;
+    const isPdf = r.file_mime === 'application/pdf';
+    // تبويب PDF يُفتح فوراً داخل حدث النقر كي لا يحجبه المتصفح، ثم يُوجَّه للرابط بعد توقيعه
+    const win = isPdf ? window.open('', '_blank') : null;
+    const myId = ++signReqId.current;
+    setOpeningId(r.id);
+    try {
+      const { data, error } = await supabase.storage.from(RX_BUCKET).createSignedUrl(r.file_path, 60);
+      if (myId !== signReqId.current) { win?.close(); return; }
+      if (error || !data?.signedUrl) {
+        win?.close();
+        setNotice({ kind: 'err', text: 'تعذّر عرض المرفق — قد يكون الملف غير موجود.' });
+        return;
+      }
+      if (isPdf) {
+        if (!win) {
+          setNotice({ kind: 'err', text: 'منع المتصفح فتح تبويب جديد — اسمح بالنوافذ المنبثقة لهذا الموقع.' });
+          return;
+        }
+        win.opener = null;
+        win.location.href = data.signedUrl;
+        return;
+      }
+      await preloadImage(data.signedUrl);
+      if (myId !== signReqId.current) return;
+      setLightbox({ url: data.signedUrl, name: r.file_name ?? 'وصفة', path: r.file_path });
+    } catch {
+      win?.close();
+      if (myId === signReqId.current) setNotice({ kind: 'err', text: 'تعذّر عرض المرفق — قد يكون الملف غير موجود.' });
+    } finally {
+      if (myId === signReqId.current) setOpeningId(null);
+    }
+  };
+
+  // رابط تحميل جديد عند الضغط: رابط المعاينة عمره 60 ثانية وقد يكون انتهى حين يضغط المستخدم
+  const downloadAttachment = async () => {
+    if (!lightbox || downloading) return;
+    setDownloading(true);
+    try {
+      const { data, error } = await supabase.storage.from(RX_BUCKET).createSignedUrl(lightbox.path, 60, { download: lightbox.name });
+      if (error || !data?.signedUrl) {
+        setNotice({ kind: 'err', text: 'تعذّر تحميل المرفق، حاول مرة أخرى.' });
+        return;
+      }
+      const a = document.createElement('a');
+      a.href = data.signedUrl;
+      a.rel = 'noopener noreferrer';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   const handleSave = async () => {
     if (savingRef.current) return;
     setFormError('');
     if (readOnly) { setFormError(READ_ONLY_MESSAGE); return; }
+    if (preparing) { setFormError('انتظر حتى ينتهي تجهيز الملف.'); return; }
     const doctorV = doctor.trim();
     const pharmacistV = pharmacist.trim();
     const drugsV = drugs.map(r => r.value.trim()).filter(Boolean);
@@ -431,14 +617,54 @@ export default function PrescriptionsPage() {
         p_drugs: drugsV,
       };
       if (editingId) {
+        let uploaded: StoredFile | null = null;
+        if (attachment) {
+          const pid = await getPharmacyId();
+          if (!pid) { setFormError('تعذّر تحديد الصيدلية، أعد تحميل الصفحة.'); return; }
+          uploaded = await uploadAttachment(pid, editingId);
+          if (!uploaded) return;
+        }
         const { error } = await supabase.rpc('update_prescription', { p_id: editingId, ...params });
-        if (error) throw error;
+        if (error) {
+          // الملف الجديد غير مشار إليه من أي صف بعد، فحذفه آمن مهما كان سبب الفشل
+          if (uploaded) await removeStored(uploaded.path);
+          throw error;
+        }
+        if (uploaded || (removeExisting && existingFile)) {
+          const ok = await applyFileColumns(editingId, uploaded);
+          if (!ok) {
+            // الصف ما زال يشير للمرفق القديم (سليم)؛ الجديد غير مرتبط فيُحذف
+            if (uploaded) await removeStored(uploaded.path);
+            setFormError('حُفظت بيانات الوصفة، لكن تعذّر تحديث المرفق — أعد المحاولة من زر التعديل.');
+            await load();
+            return;
+          }
+          if (existingFile) await removeStored(existingFile.path);
+        }
         setNotice({ kind: 'ok', text: 'تم تحديث الوصفة.' });
         resetForm();
       } else {
         const rxId = crypto.randomUUID();
-        const { error } = await supabase.rpc('create_prescription', { p_id: rxId, ...params });
-        if (error) throw error;
+        let uploaded: StoredFile | null = null;
+        if (attachment) {
+          const pid = await getPharmacyId();
+          if (!pid) { setFormError('تعذّر تحديد الصيدلية، أعد تحميل الصفحة.'); return; }
+          uploaded = await uploadAttachment(pid, rxId);
+          if (!uploaded) return;
+        }
+        const { error } = await supabase.rpc('create_prescription', {
+          p_id: rxId,
+          ...params,
+          ...(uploaded ? { p_file_path: uploaded.path, p_file_name: uploaded.name, p_file_size: uploaded.size, p_file_mime: uploaded.mime } : {}),
+        });
+        if (error && uploaded) {
+          // رد ضائع بعد نجاح فعلي؟ إن وُجد الصف فالحفظ تم ولا يُحذف الملف (وإلا بقي سجل يشير إلى ملف مفقود)
+          const cur = await readStoredPath(rxId);
+          if (cur.ok && !cur.exists) { await removeStored(uploaded.path); throw error; }
+          if (!(cur.ok && cur.exists)) throw error;
+        } else if (error) {
+          throw error;
+        }
         setNotice({ kind: 'ok', text: 'تم حفظ الوصفة.' });
         // الاقتراح السابق ينتهي بحفظ سجل جديد؛ والجديد يُقترح فقط إن لم تكن الوصفة مربوطة
         const wasLinked = !!linked;
@@ -472,6 +698,8 @@ export default function PrescriptionsPage() {
       await load();
       return;
     }
+    // الصف أولاً ثم الملف: بعد حذف الصف يصير الملف يتيماً وتسمح السياسة بحذفه (وفشله لا يترك سجلاً يشير إليه)
+    if (r.file_path) void removeStored(r.file_path);
     if (editingId === r.id) resetForm();
     setNotice({ kind: 'ok', text: 'تم حذف الوصفة.' });
     await load();
@@ -613,14 +841,64 @@ export default function PrescriptionsPage() {
             </button>
           </div>
 
+          {/* ── مرفق الوصفة ── */}
+          <div className="space-y-2">
+            <input ref={fileInputRef} type="file" accept={RX_ACCEPT} className="hidden" onChange={e => void handleFilePick(e)} />
+            {attachment ? (
+              <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+                {attachment.previewUrl ? (
+                  <div role="img" aria-label="معاينة المرفق" className="w-12 h-12 rounded-lg border border-slate-200 bg-white bg-cover bg-center shrink-0"
+                    style={{ backgroundImage: `url("${attachment.previewUrl}")` }} />
+                ) : (
+                  <div className="w-12 h-12 rounded-lg border border-slate-200 bg-white flex items-center justify-center text-slate-400 shrink-0"><IconDocument /></div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold text-slate-800 truncate" dir="rtl"><bdi>{attachment.prepared.name}</bdi></p>
+                  <p className="text-[11px] text-slate-400 tabular-nums"><bdi dir="ltr">{formatBytes(attachment.prepared.size)}</bdi></p>
+                </div>
+                <button type="button" onClick={removeAttachment}
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500 hover:text-rose-600 cursor-pointer">
+                  <IconX className="w-3.5 h-3.5" />
+                  إزالة
+                </button>
+              </div>
+            ) : existingFile && !removeExisting ? (
+              <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+                <div className="w-12 h-12 rounded-lg border border-slate-200 bg-white flex items-center justify-center text-slate-400 shrink-0">
+                  {existingFile.mime === 'application/pdf' ? <IconDocument /> : <IconPaperclip className="w-5 h-5" />}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold text-slate-800 truncate" dir="rtl"><bdi>{existingFile.name}</bdi></p>
+                  <p className="text-[11px] text-slate-400 tabular-nums"><bdi dir="ltr">{formatBytes(existingFile.size)}</bdi> · مرفق محفوظ</p>
+                </div>
+                <button type="button" onClick={() => setRemoveExisting(true)}
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500 hover:text-rose-600 cursor-pointer">
+                  <IconX className="w-3.5 h-3.5" />
+                  إزالة
+                </button>
+              </div>
+            ) : existingFile && removeExisting ? (
+              <div className="flex items-center justify-between gap-3 bg-amber-50 border border-amber-200 text-amber-700 rounded-xl px-3 py-2 text-xs font-bold">
+                <span>سيُحذف المرفق الحالي عند الحفظ</span>
+                <button type="button" onClick={() => setRemoveExisting(false)} className="underline underline-offset-2 hover:opacity-80 cursor-pointer">تراجع</button>
+              </div>
+            ) : null}
+            <button type="button" onClick={() => fileInputRef.current?.click()} disabled={preparing || saving || readOnly}
+              title={readOnly ? READ_ONLY_MESSAGE : undefined}
+              className="inline-flex items-center gap-1.5 text-sm font-bold text-teal-700 hover:text-teal-800 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer">
+              <IconPaperclip />
+              {preparing ? 'جاري تجهيز الملف...' : attachment || (existingFile && !removeExisting) ? 'استبدال المرفق' : 'إرفاق صورة الوصفة (اختياري)'}
+            </button>
+          </div>
+
           {formError && (
             <div role="alert" className="bg-rose-50 border border-rose-200 text-rose-700 rounded-xl px-4 py-2.5 text-sm font-bold">{formError}</div>
           )}
 
           <div className="flex flex-col sm:flex-row gap-3 pt-1">
-            <button type="button" onClick={() => void handleSave()} disabled={saving || readOnly}
+            <button type="button" onClick={() => void handleSave()} disabled={saving || readOnly || preparing}
               title={readOnly ? READ_ONLY_MESSAGE : undefined} className={BTN_PRIMARY}>
-              {saving ? 'جاري الحفظ...' : editingId ? 'حفظ التعديل' : 'حفظ الوصفة'}
+              {preparing ? 'جاري تجهيز الملف...' : saving ? 'جاري الحفظ...' : editingId ? 'حفظ التعديل' : 'حفظ الوصفة'}
             </button>
           </div>
         </section>
@@ -684,7 +962,7 @@ export default function PrescriptionsPage() {
                   </div>
 
                   {/* رؤوس الأعمدة — سطح المكتب فقط */}
-                  <div className="hidden md:grid grid-cols-[1.2fr_1.2fr_2fr_1fr_88px] gap-4 px-5 py-2 text-[11px] font-bold text-slate-400 border-b border-slate-100">
+                  <div className="hidden md:grid grid-cols-[1.2fr_1.2fr_2fr_1fr_124px] gap-4 px-5 py-2 text-[11px] font-bold text-slate-400 border-b border-slate-100">
                     <span>اسم الطبيب</span><span>اسم المريض</span><span>الأدوية</span><span>الصيدلاني</span><span />
                   </div>
 
@@ -693,7 +971,7 @@ export default function PrescriptionsPage() {
                       const late = r.entry_date !== ammanDay(r.created_at);
                       const editable = canEdit(r);
                       return (
-                        <li key={r.id} className="px-5 py-3.5 md:grid md:grid-cols-[1.2fr_1.2fr_2fr_1fr_88px] md:gap-4 md:items-start space-y-2 md:space-y-0">
+                        <li key={r.id} className="px-5 py-3.5 md:grid md:grid-cols-[1.2fr_1.2fr_2fr_1fr_124px] md:gap-4 md:items-start space-y-2 md:space-y-0">
                           <div className="text-sm font-bold text-slate-900" dir="rtl">
                             <span className="md:hidden text-[11px] font-medium text-slate-400 block">الطبيب</span>
                             <bdi>{r.doctor_name}</bdi>
@@ -730,6 +1008,13 @@ export default function PrescriptionsPage() {
                             </div>
                           </div>
                           <div className="flex md:justify-end items-center gap-1.5">
+                            {r.file_path && (
+                              <button type="button" onClick={() => void openAttachment(r)} disabled={openingId === r.id}
+                                aria-label="عرض مرفق الوصفة" title={r.file_name ?? undefined}
+                                className="h-9 w-9 flex items-center justify-center rounded-xl border border-teal-200 bg-teal-50 text-teal-700 hover:bg-teal-100 transition disabled:opacity-50 disabled:cursor-wait cursor-pointer">
+                                <IconPaperclip />
+                              </button>
+                            )}
                             {editable && (
                               <>
                                 <button type="button" onClick={() => startEdit(r)} aria-label="تعديل الوصفة"
@@ -756,6 +1041,31 @@ export default function PrescriptionsPage() {
           )}
         </section>
       </main>
+
+      {/* مكبّر صورة المرفق — في أعلى مستوى الصفحة كي لا تحبسه حاوية البطاقة */}
+      {lightbox && (
+        <div className="fixed inset-0 z-[70] bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 saas-fade-in"
+          onClick={() => setLightbox(null)} role="dialog" aria-modal="true" aria-label="معاينة مرفق الوصفة">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-200">
+              <span className="text-sm font-bold text-slate-800 truncate" dir="rtl"><bdi>{lightbox.name}</bdi></span>
+              <div className="flex items-center gap-2 shrink-0">
+                <button type="button" onClick={() => void downloadAttachment()} disabled={downloading}
+                  className="h-9 px-4 inline-flex items-center gap-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer">
+                  <IconDownload />
+                  {downloading ? 'جاري التحميل...' : 'تحميل'}
+                </button>
+                <button type="button" onClick={() => setLightbox(null)} aria-label="إغلاق"
+                  className="h-9 w-9 flex items-center justify-center rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 transition cursor-pointer">
+                  <IconX />
+                </button>
+              </div>
+            </div>
+            <div role="img" aria-label={lightbox.name} className="h-[70vh] bg-slate-100 bg-contain bg-center bg-no-repeat"
+              style={{ backgroundImage: `url("${lightbox.url}")` }} />
+          </div>
+        </div>
+      )}
 
       <Toast notice={notice} />
       {dialog}

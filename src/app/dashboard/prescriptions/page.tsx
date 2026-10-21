@@ -13,6 +13,7 @@ import { displayPhone } from '@/lib/phone';
 import { formatIsoAsDmy } from '@/lib/date-input';
 import { prepareRxFile, rxStoragePath, formatBytes, RX_BUCKET, RX_ACCEPT, type PreparedFile } from '@/lib/prescription-file';
 import { useSubscriptionState, READ_ONLY_MESSAGE, friendlyError } from '@/lib/subscription-state';
+import type { RowInput, CellDef, CellHookData } from 'jspdf-autotable';
 
 // ═══════════════════════════════════════════════════════
 // TYPES & CONSTANTS
@@ -42,7 +43,16 @@ interface Suggest { rxId: string; name: string; match: 'none' | 'one' | 'many'; 
 interface Candidate { id: string; name: string; phone_number: string; birth_date: string }
 
 const MAX_DRUGS = 30;
-const LIST_LIMIT = 150;
+const LIST_LIMIT = 1000;
+
+type Period = 'today' | 'yesterday' | 'last7' | 'month' | 'custom';
+const PERIODS: { v: Period; label: string }[] = [
+  { v: 'today', label: 'اليوم' },
+  { v: 'yesterday', label: 'أمس' },
+  { v: 'last7', label: 'آخر 7 أيام' },
+  { v: 'month', label: 'هذا الشهر' },
+  { v: 'custom', label: 'مخصّص' },
+];
 
 // عدّاد مفاتيح صفوف الأدوية (React keys فقط — لا يُكتب في DOM فلا يسبّب اختلاف hydration)
 let rowSeq = 0;
@@ -56,6 +66,25 @@ const ammanDay = (d: Date | string): string => new Date(d).toLocaleDateString('e
 function shiftIso(iso: string, days: number): string {
   const [y, m, d] = iso.split('-').map(Number);
   return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
+}
+
+/** حدود الفترة (شاملة) بتوقيت عمّان؛ null للمخصّص الناقص أو المقلوب */
+function rangeFor(period: Period, today: string, customFrom: string, customTo: string): { from: string; to: string } | null {
+  switch (period) {
+    case 'today': return { from: today, to: today };
+    case 'yesterday': { const y = shiftIso(today, -1); return { from: y, to: y }; }
+    case 'last7': return { from: shiftIso(today, -6), to: today };
+    case 'month': return { from: `${today.slice(0, 7)}-01`, to: today };
+    default: return customFrom && customTo && customFrom <= customTo ? { from: customFrom, to: customTo } : null;
+  }
+}
+
+/** مقاطع اليوم (الأربعاء، 21، أكتوبر، 2026) منفصلة بأرقام لاتينية، لرسمها مقطعاً مقطعاً في PDF */
+function dayParts(iso: string): string[] {
+  return new Intl.DateTimeFormat('ar-EG', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', numberingSystem: 'latn' })
+    .formatToParts(new Date(`${iso}T12:00:00`))
+    .filter(p => p.type !== 'literal')
+    .map(p => p.value);
 }
 
 function formatDay(iso: string): string {
@@ -113,17 +142,24 @@ const IconDownload = ({ className = 'w-4 h-4' }: { className?: string }) => (
   <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
 );
 
+const IconPrinter = ({ className = 'w-4 h-4' }: { className?: string }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0 1 10.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0 .229 2.523a1.125 1.125 0 0 1-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0 0 21 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 0 0-1.913-.247M6.34 18H5.25A2.25 2.25 0 0 1 3 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 0 1 1.913-.247m10.5 0a48.536 48.536 0 0 0-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5Zm-3 0h.008v.008H15V10.5Z" /></svg>
+);
+
 const INPUT = 'w-full h-11 px-3 text-sm bg-white border border-slate-200 rounded-xl focus:border-slate-900 focus:ring-1 focus:ring-slate-900 focus:outline-none transition text-right text-slate-900 placeholder:text-slate-400';
+const BTN_SECONDARY = 'h-11 px-5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-xl text-sm font-bold transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer';
 const BTN_PRIMARY = 'h-11 px-6 bg-gradient-to-l from-slate-900 to-teal-800 hover:from-slate-800 hover:to-teal-700 text-white rounded-xl text-sm font-bold shadow-sm transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer';
 
 /** rows = null حين لا صيدلية للجلسة (لا شيء يُطبَّق على القائمة) */
-async function fetchPrescriptions(): Promise<{ rows: Rx[] | null; error: string | null }> {
+async function fetchPrescriptions(from: string, to: string): Promise<{ rows: Rx[] | null; error: string | null }> {
   const pid = await getPharmacyId();
   if (!pid) return { rows: null, error: null };
   const { data, error } = await supabase
     .from('prescriptions')
     .select('id, entry_date, doctor_name, patient_name, patient_id, pharmacist_name, recorded_by, created_at, file_path, file_name, file_size, file_mime, prescription_items(id, drug_name, position)')
     .eq('pharmacy_id', pid)
+    .gte('entry_date', from)
+    .lte('entry_date', to)
     .order('entry_date', { ascending: false })
     .order('created_at', { ascending: false })
     .limit(LIST_LIMIT);
@@ -155,7 +191,7 @@ function preloadImage(url: string): Promise<void> {
 // ═══════════════════════════════════════════════════════
 export default function PrescriptionsPage() {
   const { readOnly } = useSubscriptionState();
-  const { pharmacistName } = usePharmacyInfo();
+  const { pharmacistName, pharmacyName } = usePharmacyInfo();
   const { notice, setNotice } = useNotice();
   const { confirm, dialog } = useConfirm();
 
@@ -166,7 +202,10 @@ export default function PrescriptionsPage() {
 
   // ── القائمة ──
   const [list, setList] = useState<Rx[]>([]);
-  const [loading, setLoading] = useState(true);
+  // مفتاح الفترة التي تعرضها القائمة الآن؛ يختلف عن الفترة المطلوبة = جلب جارٍ (مشتق بدل setState داخل effect)
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
+  // كل ما جُلب في هذه الجلسة، لاقتراحات الأطباء والأدوية فقط (لا تضيق باختيار فترة قصيرة)
+  const [pool, setPool] = useState<Map<string, Rx>>(() => new Map());
   const [loadError, setLoadError] = useState('');
   // يُبطل رد تحميل قديم وصل بعد أحدث منه فلا يستبدل القائمة
   const loadReqId = useRef(0);
@@ -222,6 +261,23 @@ export default function PrescriptionsPage() {
   const minDate = shiftIso(today, -7);
   const candidates = !linked && found && found.forKey === normalizeAr(patient) ? found.rows : [];
 
+  // ── فلاتر القائمة ──
+  const [period, setPeriod] = useState<Period>('last7');
+  const [customFrom, setCustomFrom] = useState(() => shiftIso(ammanDay(new Date()), -6));
+  const [customTo, setCustomTo] = useState(() => ammanDay(new Date()));
+  const [search, setSearch] = useState('');
+  const [fDoctor, setFDoctor] = useState('');
+  const [fPharmacist, setFPharmacist] = useState('');
+  const [fFile, setFFile] = useState<'all' | 'with' | 'without'>('all');
+  const [fLink, setFLink] = useState<'all' | 'linked' | 'unlinked'>('all');
+  const [exporting, setExporting] = useState(false);
+  const exportingRef = useRef(false);
+  const range = rangeFor(period, today, customFrom, customTo);
+  const rangeFrom = range?.from ?? null;
+  const rangeTo = range?.to ?? null;
+  const rangeKey = range ? `${range.from}|${range.to}` : null;
+  const loading = rangeKey !== null && loadedKey !== rangeKey;
+
   // ── الهوية ──
   useEffect(() => {
     void getTenantContext().then(ctx => {
@@ -239,26 +295,37 @@ export default function PrescriptionsPage() {
 
   // ── تحميل القائمة ──
   // الجلب نفسه خارج المكوّن (fetchPrescriptions) كي يبقى setState في callback غير متزامن لا في جسم الـ effect
-  const applyResult = useCallback((myId: number, res: { rows: Rx[] | null; error: string | null }) => {
+  const applyResult = useCallback((myId: number, key: string, res: { rows: Rx[] | null; error: string | null }) => {
     if (myId !== loadReqId.current) return;
     if (res.error) {
       setLoadError(res.error);
     } else if (res.rows) {
+      const rows = res.rows;
       setLoadError('');
-      setList(res.rows);
+      setList(rows);
+      setPool(prev => {
+        const next = new Map(prev);
+        for (const r of rows) next.set(r.id, r);
+        return next;
+      });
     }
-    setLoading(false);
+    setLoadedKey(key);
   }, []);
 
+  // إعادة تحميل الفترة الحالية (بعد الحفظ والحذف والربط)
   const load = useCallback(async () => {
+    if (!rangeFrom || !rangeTo) return;
     const myId = ++loadReqId.current;
-    applyResult(myId, await fetchPrescriptions());
-  }, [applyResult]);
+    applyResult(myId, `${rangeFrom}|${rangeTo}`, await fetchPrescriptions(rangeFrom, rangeTo));
+  }, [applyResult, rangeFrom, rangeTo]);
 
+  // تغيّر الفترة = جلب جديد من القاعدة؛ الرد المتأخر لفترة سابقة يُبطله loadReqId
   useEffect(() => {
+    if (!rangeFrom || !rangeTo) return;
     const myId = ++loadReqId.current;
-    void fetchPrescriptions().then(res => applyResult(myId, res));
-  }, [applyResult]);
+    const key = `${rangeFrom}|${rangeTo}`;
+    void fetchPrescriptions(rangeFrom, rangeTo).then(res => applyResult(myId, key, res));
+  }, [applyResult, rangeFrom, rangeTo]);
 
   // ── البحث عن ملفات مطابقة تماماً للاسم المكتوب (بحث مؤجَّل 300ms مع حارس race) ──
   useEffect(() => {
@@ -291,21 +358,55 @@ export default function PrescriptionsPage() {
       [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 100).map(([k]) => k);
     const d = new Map<string, number>();
     const g = new Map<string, number>();
-    for (const r of list) {
+    for (const r of pool.values()) {
       d.set(r.doctor_name, (d.get(r.doctor_name) ?? 0) + 1);
       for (const it of r.prescription_items) g.set(it.drug_name, (g.get(it.drug_name) ?? 0) + 1);
     }
     return { doctorSuggestions: rank(d), drugSuggestions: rank(g) };
-  }, [list]);
+  }, [pool]);
+
+  // خيارا الطبيب والصيدلاني من الفترة المجلوبة؛ قيمة اختيار لم تعد موجودة بعد تغيير الفترة تُعامَل «الكل» (مشتق لا setState)
+  const doctorOptions = useMemo(() => [...new Set(list.map(r => r.doctor_name))].sort((a, b) => a.localeCompare(b, 'ar')), [list]);
+  const pharmacistOptions = useMemo(() => [...new Set(list.map(r => r.pharmacist_name))].sort((a, b) => a.localeCompare(b, 'ar')), [list]);
+  const effDoctor = doctorOptions.includes(fDoctor) ? fDoctor : '';
+  const effPharmacist = pharmacistOptions.includes(fPharmacist) ? fPharmacist : '';
+  const hasActiveFilters = !!(search.trim() || effDoctor || effPharmacist || fFile !== 'all' || fLink !== 'all');
+
+  // الفلاتر النصية والقوائم تُطبَّق في المتصفح على ما جُلب للفترة
+  const filtered = useMemo(() => {
+    const q = normalizeAr(search.trim());
+    return list.filter(r => {
+      if (effDoctor && r.doctor_name !== effDoctor) return false;
+      if (effPharmacist && r.pharmacist_name !== effPharmacist) return false;
+      if (fFile === 'with' && !r.file_path) return false;
+      if (fFile === 'without' && r.file_path) return false;
+      if (fLink === 'linked' && !r.patient_id) return false;
+      if (fLink === 'unlinked' && r.patient_id) return false;
+      if (q && !(
+        normalizeAr(r.doctor_name).includes(q)
+        || normalizeAr(r.patient_name).includes(q)
+        || r.prescription_items.some(it => normalizeAr(it.drug_name).includes(q))
+      )) return false;
+      return true;
+    });
+  }, [list, search, effDoctor, effPharmacist, fFile, fLink]);
+
+  const clearFilters = () => {
+    setSearch('');
+    setFDoctor('');
+    setFPharmacist('');
+    setFFile('all');
+    setFLink('all');
+  };
 
   const groups = useMemo(() => {
     const m = new Map<string, Rx[]>();
-    for (const r of list) {
+    for (const r of filtered) {
       const arr = m.get(r.entry_date);
       if (arr) arr.push(r); else m.set(r.entry_date, [r]);
     }
     return [...m.entries()];
-  }, [list]);
+  }, [filtered]);
 
   // تركيز آخر حقل دواء بعد إضافة صف
   useEffect(() => {
@@ -586,6 +687,15 @@ export default function PrescriptionsPage() {
     }
   };
 
+  // وصفة بتاريخ خارج الفترة المعروضة (إنشاءً أو تعديلاً) كانت ستغيب عن القائمة (ومعها شريط الاقتراح)؛ تُوسَّع الفترة لتشملها
+  const ensureDateVisible = (date: string) => {
+    if (rangeFrom && rangeTo && (date < rangeFrom || date > rangeTo)) {
+      setPeriod('custom');
+      setCustomFrom(date < rangeFrom ? date : rangeFrom);
+      setCustomTo(date > rangeTo ? date : rangeTo);
+    }
+  };
+
   const handleSave = async () => {
     if (savingRef.current) return;
     setFormError('');
@@ -643,6 +753,7 @@ export default function PrescriptionsPage() {
         }
         setNotice({ kind: 'ok', text: 'تم تحديث الوصفة.' });
         resetForm();
+        ensureDateVisible(entryDate);
       } else {
         const rxId = crypto.randomUUID();
         let uploaded: StoredFile | null = null;
@@ -672,6 +783,7 @@ export default function PrescriptionsPage() {
         suggestReqId.current++;
         resetForm();
         if (!wasLinked) void suggestCreateIfMissing(rxId, patientV);
+        ensureDateVisible(entryDate);
       }
       await load();
     } catch (e) {
@@ -679,6 +791,88 @@ export default function PrescriptionsPage() {
     } finally {
       savingRef.current = false;
       setSaving(false);
+    }
+  };
+
+  // ── PDF: النتائج المفلترة المعروضة، مجمّعة بالأيام، سطر لكل دواء ──
+  const handleExportPdf = async () => {
+    if (exportingRef.current || !rangeFrom || !rangeTo || filtered.length === 0) return;
+    exportingRef.current = true;
+    setExporting(true);
+    try {
+      const { createBrandedPdf, finishBrandedPdf, drawRtlParts, PDF_FONT, PDF_TOP, PDF_BOTTOM, PDF_MARGIN_X } = await import('@/lib/pdf-branding');
+      const { pdf, autoTable } = await createBrandedPdf();
+
+      // صف عنوان لكل يوم يُرسم مقاطعه يدوياً في didDrawCell (محتواه فارغ هنا)
+      const dayRows = new Map<number, string[]>();
+      const body: RowInput[] = [];
+      // الورقة من الأقدم إلى الأحدث (الأيام ثم ترتيب التسجيل داخل اليوم) بنسخة محلية؛ ترتيب الشاشة (groups) لا يتغير
+      const byDay = new Map<string, Rx[]>();
+      for (const r of filtered) {
+        const arr = byDay.get(r.entry_date);
+        if (arr) arr.push(r); else byDay.set(r.entry_date, [r]);
+      }
+      const pdfGroups: [string, Rx[]][] = [...byDay.entries()]
+        .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+        .map(([day, rows]): [string, Rx[]] => [day, [...rows].sort((x, y) => new Date(x.created_at).getTime() - new Date(y.created_at).getTime())]);
+      // الوصفة كتلة واحدة: خلاياها المشتركة بـ rowSpan = عدد أدويتها في أول سطر، والأسطر التالية تحمل خلية الدواء وحدها
+      // (autoTable يضعها تلقائياً في العمود التالي الحر). الترقيم متسلسل عبر الأيام، والتلوين يتناوب بين الوصفات
+      let seq = 0;
+      for (const [day, rows] of pdfGroups) {
+        dayRows.set(body.length, dayParts(day));
+        body.push([{ content: '', colSpan: 6, styles: { fillColor: [241, 245, 249] } }]);
+        for (const r of rows) {
+          seq += 1;
+          const fill: [number, number, number] = seq % 2 ? [255, 255, 255] : [248, 250, 252];
+          const drugs = r.prescription_items.length ? r.prescription_items.map(it => it.drug_name) : ['-'];
+          const shared = (content: string): CellDef => ({ content, rowSpan: drugs.length, styles: { fillColor: fill } });
+          drugs.forEach((drug, i) => {
+            const drugCell: CellDef = { content: drug, styles: { fillColor: fill } };
+            body.push(i === 0
+              ? [shared(r.pharmacist_name), drugCell, shared(r.patient_name), shared(r.doctor_name), shared(formatIsoAsDmy(r.entry_date)), shared(String(seq))]
+              : [drugCell]);
+          });
+        }
+      }
+
+      autoTable(pdf, {
+        // الأعمدة من اليمين: م، التاريخ، الطبيب، المريض، الدواء، الصيدلاني (ترتيب المصفوفة من اليسار)
+        head: [['اسم الصيدلاني', 'اسم الدواء', 'اسم المريض', 'اسم الطبيب', 'التاريخ', 'م']],
+        body,
+        startY: PDF_TOP,
+        margin: { top: PDF_TOP, bottom: PDF_BOTTOM, left: PDF_MARGIN_X, right: PDF_MARGIN_X },
+        // autoTable لا يقسم كتلة rowSpan بين صفحتين من تلقائه؛ 'avoid' يحمي الأسطر العادية أيضاً
+        rowPageBreak: 'avoid',
+        styles: { font: PDF_FONT, fontStyle: 'normal', fontSize: 8.5, halign: 'right', valign: 'middle', cellPadding: 2.2, textColor: [71, 85, 105], lineWidth: 0.1, lineColor: [226, 232, 240] },
+        headStyles: { fillColor: [248, 250, 252], textColor: [51, 65, 85], fontStyle: 'normal', fontSize: 8.5, lineWidth: 0.1, lineColor: [203, 213, 225] },
+        // المجموع 186 مم؛ عمود الرقم بحشو أصغر كي تتّسع أربع خانات (حتى 1000 وصفة) دون أن يتمدد العمود
+        columnStyles: {
+          0: { cellWidth: 26 }, 1: { cellWidth: 51 }, 2: { cellWidth: 36 }, 3: { cellWidth: 42 }, 4: { cellWidth: 22 },
+          5: { cellWidth: 9, halign: 'center', cellPadding: 0.8, fontSize: 7.5 },
+        },
+        didDrawCell: (data: CellHookData) => {
+          if (data.section !== 'body' || data.column.index !== 0) return;
+          const parts = dayRows.get(data.row.index);
+          if (!parts) return;
+          pdf.setFont(PDF_FONT); pdf.setFontSize(9); pdf.setTextColor(15, 23, 42);
+          drawRtlParts(pdf, parts, data.cell.x + data.cell.width - 3, data.cell.y + data.cell.height / 2 + 1.2);
+        },
+      });
+
+      const dmy = (iso: string) => formatIsoAsDmy(iso);
+      finishBrandedPdf(pdf, {
+        pharmacyName: pharmacyName || 'صيدليتك',
+        title: 'سجل الوصفات الطبية',
+        periodParts: rangeFrom === rangeTo ? ['الفترة:', dmy(rangeFrom)] : ['الفترة:', 'من', dmy(rangeFrom), 'إلى', dmy(rangeTo)],
+        countParts: ['عدد الوصفات:', String(filtered.length)],
+        issueParts: ['تاريخ الإصدار:', dmy(today)],
+      }, `سجل-الوصفات-${rangeFrom}${rangeFrom === rangeTo ? '' : `_${rangeTo}`}.pdf`);
+    } catch (e) {
+      console.error('[prescriptions] pdf failed:', e);
+      setNotice({ kind: 'err', text: 'تعذّر إنشاء ملف PDF، حاول مرة أخرى.' });
+    } finally {
+      exportingRef.current = false;
+      setExporting(false);
     }
   };
 
@@ -937,9 +1131,90 @@ export default function PrescriptionsPage() {
           </div>
         )}
 
+        {/* ── فلاتر القائمة ── */}
+        <section className="bg-white border border-slate-200 rounded-2xl shadow-sm p-4 sm:p-5 space-y-3">
+          <div className="flex flex-wrap gap-2" role="group" aria-label="الفترة">
+            {PERIODS.map(p => (
+              <button key={p.v} type="button" onClick={() => setPeriod(p.v)} aria-pressed={period === p.v}
+                className={`h-9 px-4 rounded-xl border text-xs font-bold transition active:scale-95 cursor-pointer ${
+                  period === p.v ? 'bg-slate-900 border-slate-900 text-white' : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                }`}>
+                {p.label}
+              </button>
+            ))}
+          </div>
+
+          {period === 'custom' && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <span className="block text-xs font-bold text-slate-600 mb-1.5">من</span>
+                <DateField value={customFrom} onChange={setCustomFrom} max={today} className={INPUT} />
+              </div>
+              <div>
+                <span className="block text-xs font-bold text-slate-600 mb-1.5">إلى</span>
+                <DateField value={customTo} onChange={setCustomTo} max={today} className={INPUT} />
+              </div>
+              {customFrom && customTo && customFrom > customTo && (
+                <p className="sm:col-span-2 text-xs font-bold text-rose-600">تاريخ البداية بعد تاريخ النهاية.</p>
+              )}
+            </div>
+          )}
+
+          <input type="search" dir="rtl" value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="بحث بالطبيب أو المريض أو الدواء" className={INPUT} autoComplete="off" />
+
+          <div className="grid grid-cols-1 min-[420px]:grid-cols-2 lg:grid-cols-4 gap-3">
+            <select value={effDoctor} onChange={e => setFDoctor(e.target.value)} className={INPUT} aria-label="الطبيب">
+              <option value="">كل الأطباء</option>
+              {doctorOptions.map(n => <option key={n} value={n}>{n}</option>)}
+            </select>
+            <select value={effPharmacist} onChange={e => setFPharmacist(e.target.value)} className={INPUT} aria-label="الصيدلاني">
+              <option value="">كل الصيادلة</option>
+              {pharmacistOptions.map(n => <option key={n} value={n}>{n}</option>)}
+            </select>
+            <select value={fFile} onChange={e => setFFile(e.target.value as 'all' | 'with' | 'without')} className={INPUT} aria-label="المرفق">
+              <option value="all">مع مرفق وبلا مرفق</option>
+              <option value="with">مع مرفق</option>
+              <option value="without">بلا مرفق</option>
+            </select>
+            <select value={fLink} onChange={e => setFLink(e.target.value as 'all' | 'linked' | 'unlinked')} className={INPUT} aria-label="ربط الملف">
+              <option value="all">مربوطة وغير مربوطة</option>
+              <option value="linked">مربوطة بملف</option>
+              <option value="unlinked">بلا ملف</option>
+            </select>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+              <span className="font-bold tabular-nums">
+                {filtered.length} {filtered.length === 1 ? 'وصفة' : 'وصفات'}{filtered.length !== list.length ? ` من ${list.length}` : ''}
+              </span>
+              {rangeFrom && rangeTo && (
+                <span className="tabular-nums" dir="rtl">
+                  {rangeFrom === rangeTo ? <bdi>{formatIsoAsDmy(rangeFrom)}</bdi> : <>من <bdi>{formatIsoAsDmy(rangeFrom)}</bdi> إلى <bdi>{formatIsoAsDmy(rangeTo)}</bdi></>}
+                </span>
+              )}
+              {hasActiveFilters && (
+                <button type="button" onClick={clearFilters} className="font-bold text-teal-700 hover:text-teal-900 underline underline-offset-2 cursor-pointer">
+                  مسح الفلاتر
+                </button>
+              )}
+            </div>
+            <button type="button" onClick={() => void handleExportPdf()} disabled={exporting || loading || filtered.length === 0}
+              className={`${BTN_SECONDARY} inline-flex items-center gap-2`}>
+              <IconPrinter />
+              {exporting ? 'جاري الإنشاء...' : 'طباعة / PDF'}
+            </button>
+          </div>
+        </section>
+
         {/* ── القائمة مجمّعة بالأيام ── */}
         <section className="space-y-5">
-          {loading ? (
+          {!rangeKey ? (
+            <div className="bg-white border border-slate-200 rounded-2xl p-10 text-center text-sm text-slate-500">
+              حدّد تاريخ البداية والنهاية لعرض الوصفات.
+            </div>
+          ) : loading ? (
             <div className="flex items-center justify-center gap-3 py-12">
               <div className="w-8 h-8 border-4 border-slate-200 border-t-teal-600 rounded-full animate-spin" />
               <p className="text-xs font-bold text-slate-500">جاري التحميل...</p>
@@ -948,10 +1223,15 @@ export default function PrescriptionsPage() {
             <div role="alert" className="bg-rose-50 border border-rose-200 text-rose-700 rounded-xl px-4 py-3 text-sm font-bold">{loadError}</div>
           ) : groups.length === 0 ? (
             <div className="bg-white border border-slate-200 rounded-2xl p-10 text-center text-sm text-slate-500">
-              لا توجد وصفات مسجّلة بعد. ابدأ بتسجيل أول وصفة من النموذج أعلاه.
+              {list.length === 0 ? 'لا توجد وصفات في هذه الفترة.' : 'لا توجد وصفات تطابق الفلاتر المحددة.'}
             </div>
           ) : (
             <>
+              {list.length >= LIST_LIMIT && (
+                <div role="alert" className="bg-amber-50 border border-amber-200 text-amber-700 rounded-xl px-4 py-2.5 text-xs font-bold">
+                  بلغ عدد الوصفات في هذه الفترة الحد الأقصى للعرض ({LIST_LIMIT} وصفة)، وقد توجد وصفات أقدم لم تظهر ولن تدخل ملف PDF — ضيّق الفترة للاطلاع عليها.
+                </div>
+              )}
               {groups.map(([day, rows]) => (
                 <div key={day} className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
                   <div className="flex items-center justify-between gap-3 px-5 py-3 bg-slate-50 border-b border-slate-200">
@@ -1034,9 +1314,6 @@ export default function PrescriptionsPage() {
                   </ul>
                 </div>
               ))}
-              {list.length >= LIST_LIMIT && (
-                <p className="text-center text-xs text-slate-400">يُعرض آخر {LIST_LIMIT} وصفة فقط.</p>
-              )}
             </>
           )}
         </section>

@@ -99,6 +99,8 @@ export default function PatientsListPage() {
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
+  // اسم معبّأ مسبقاً في نموذج الإضافة (يأتي من ?new= في الرابط)
+  const [prefillName, setPrefillName] = useState('');
   const [filter, setFilter] = useState<PatientFilter>('all');
   const [filterCount, setFilterCount] = useState<number | null>(null);
   // معرّف الجلب: ردّ بحث أو فلتر سابق يصل متأخراً لا يجوز أن يستبدل نتائج البحث الحالي
@@ -124,6 +126,15 @@ export default function PatientsListPage() {
       if (r === 'owner' && urlFilter && isPatientFilter(urlFilter)) setFilter(urlFilter);
       setPharmacyId(pid);
       setRole(r);
+      // ?new=<الاسم> (من سجل الوصفات): يفتح نموذج مريض جديد باسم معبّأ، ثم يُزال من الرابط كي لا يعيد التحديث فتحه
+      const newName = new URLSearchParams(window.location.search).get('new')?.trim();
+      if (newName) {
+        setPrefillName(newName);
+        setShowAddModal(true);
+        const url = new URL(window.location.href);
+        url.searchParams.delete('new');
+        window.history.replaceState(null, '', url.toString());
+      }
     })();
   }, []);
 
@@ -370,11 +381,13 @@ export default function PatientsListPage() {
 
       {showAddModal && (
         <AddPatientForm
-          onClose={() => setShowAddModal(false)}
+          prefill={prefillName ? { name: prefillName } : undefined}
+          onClose={() => { setShowAddModal(false); setPrefillName(''); }}
           onSaved={(p) => {
             setPatients(prev => [...prev, p].sort((a, b) => a.name.localeCompare(b.name, 'ar')));
             setTotalCount(c => (c ?? 0) + 1);
             setShowAddModal(false);
+            setPrefillName('');
           }}
         />
       )}

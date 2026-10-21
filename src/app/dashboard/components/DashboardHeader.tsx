@@ -138,6 +138,7 @@ const NAV_LINKS = [
   { label: 'المزمنون', href: '/dashboard/chronic', exact: false },
   { label: 'طلبات المرضى', href: '/dashboard/requests', exact: false },
   { label: 'المرضى', href: '/dashboard/patients', exact: false },
+  { label: 'سجل الوصفات', href: '/dashboard/prescriptions', exact: false },
 ];
 
 interface DashboardHeaderProps {

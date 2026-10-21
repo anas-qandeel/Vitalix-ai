@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import DashboardHeader, { usePharmacyInfo } from '../components/DashboardHeader';
@@ -356,6 +356,10 @@ function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill, onNot
   const [patientNote, setPatientNote] = useState('');
   const [foundIsArchived, setFoundIsArchived]   = useState(prefill?.isArchived || false);
   const [foundMeds, setFoundMeds] = useState<ChronicMed[]>(prefill?.meds || []);
+  // معرّف اختيار المريض: رد جلب مريض سابق يصل متأخراً لا يجوز أن يكتب أدويته تحت مريض آخر
+  // (تجديد الأدوية يعدّل الصفوف بمعرّفها، فاختلاط المريضين يعدّل دواء المريض الخطأ).
+  // يُزاد عند كل اختيار جديد وعند تصفير البحث لـ found
+  const selectReqId = useRef(0);
   const [allPatients, setAllPatients] = useState<Patient[]>([]); // كاش محلي للمرضى
   const [allMeds, setAllMeds]         = useState<ChronicMed[]>([]); // كاش الأدوية للبحث
 
@@ -394,6 +398,8 @@ function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill, onNot
   // لاتيني → بحث في اسم المريض الإنجليزي + اسم الدواء معاً (بدون تمييز الكابيتل)
   const search = async (q: string) => {
     setQuery(q);
+    // قبل أي استدعاء لـ selectPatient أدناه: يُبطل اختياراً سابقاً جارياً دون أن يمسّ اختيار هذه الدالة نفسها
+    ++selectReqId.current;
     setFound(null);
     setResults([]);
     setName('');
@@ -454,6 +460,7 @@ function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill, onNot
 
   // ── اختيار مريض من القائمة أو من التطابق الوحيد ────────────────────────
   const selectPatient = async (patient: Patient) => {
+    const myId = ++selectReqId.current;
     setFound(patient);
     setName(patient.name);
     setResults([]);
@@ -464,6 +471,7 @@ function AddPatientModal({ pharmacyId, onClose, onAdded, onRenew, prefill, onNot
         supabase.from('refill_tracking_pipeline').select('pipeline_stage').eq('pharmacy_id', pid).eq('patient_id', patient.id).eq('payment_type', 'cash').maybeSingle(),
         supabase.from('chronic_medications').select('*').eq('pharmacy_id', pid).eq('patient_id', patient.id).eq('status', 'active'),
       ]);
+      if (myId !== selectReqId.current) return;
       setFoundIsArchived(pipeRes.data?.pipeline_stage === 'archived');
       setFoundMeds((medsRes.data || []) as ChronicMed[]);
     } catch (e) { console.error(e); }

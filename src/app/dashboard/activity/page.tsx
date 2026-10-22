@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import DashboardHeader from '../components/DashboardHeader';
 import AppFooter from '../../components/AppFooter';
 import { getPharmacyId, getUserRole } from '@/lib/tenant';
+import { formatIsoAsDmy } from '@/lib/date-input';
 
 interface ActivityEntry {
   id: string;
@@ -14,7 +15,17 @@ interface ActivityEntry {
   action: string;
   entity_type: string | null;
   entity_label: string | null;
-  details: { patient_name?: string; from?: string; to?: string; actor?: string } | null;
+  details: {
+    patient_name?: string; from?: string; to?: string; actor?: string;
+    // الوصفات: لقطة «قبل التعديل» (before) أو «لقطة الحذف» (snapshot)، وما تغيّر، وتاريخ الوصفة
+    entry_date?: string; backdated?: boolean; changed?: string[]; recorded_by_name?: string;
+    before?: RxSnapshot; snapshot?: RxSnapshot;
+  } | null;
+}
+
+interface RxSnapshot {
+  doctor_name?: string; patient_name?: string; pharmacist_name?: string; entry_date?: string;
+  created_at?: string; drugs?: string[]; file_name?: string; patient_id?: string;
 }
 
 const ACTION_LABELS: Record<string, string> = {
@@ -41,6 +52,9 @@ const ACTION_LABELS: Record<string, string> = {
   birthday_greeting_sent: 'أرسل تهنئة عيد ميلاد',
   patient_note_added: 'أضاف ملاحظة على مريض',
   patient_note_closed: 'أغلق ملاحظة على مريض',
+  prescription_added: 'سجّل وصفة',
+  prescription_updated: 'عدّل وصفة',
+  prescription_deleted: 'حذف وصفة',
   login: 'سجّل الدخول',
 };
 
@@ -76,6 +90,7 @@ const ENTITY_TYPE_OPTIONS: { key: string; label: string }[] = [
   { key: 'reminder', label: 'التذكيرات' },
   { key: 'greeting', label: 'التهاني' },
   { key: 'patient_note', label: 'ملاحظات المرضى' },
+  { key: 'prescription', label: 'الوصفات' },
   { key: 'staff', label: 'دخول الموظفين' },
 ];
 
@@ -88,6 +103,76 @@ function formatEntryTime(iso: string): string {
     minute: '2-digit',
     numberingSystem: 'latn',
   });
+}
+
+const RX_CHANGED_LABELS: Record<string, string> = {
+  doctor_name: 'الطبيب',
+  patient_name: 'المريض',
+  pharmacist_name: 'الصيدلاني',
+  entry_date: 'تاريخ الوصفة',
+  patient_id: 'الربط بملف المريض',
+  file: 'المرفق',
+};
+
+// تفاصيل حركات الوصفات: تاريخ الإضافة، ولقطة «قبل التعديل» / «الوصفة المحذوفة» قابلة للطي
+function RxDetails({ entry }: { entry: ActivityEntry }) {
+  const d = entry.details;
+  if (!d) return null;
+
+  if (entry.action === 'prescription_added') {
+    if (!d.entry_date) return null;
+    return (
+      <p className="mt-1 text-[11px] text-slate-500 flex items-center gap-2 flex-wrap">
+        <span>تاريخ الوصفة <bdi className="tabular-nums">{formatIsoAsDmy(d.entry_date)}</bdi></span>
+        {d.backdated && (
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700">تاريخ سابق ليوم التسجيل</span>
+        )}
+      </p>
+    );
+  }
+
+  const deleted = entry.action === 'prescription_deleted';
+  const snap = deleted ? d.snapshot : d.before;
+  if (!snap) return null;
+
+  const changed = (d.changed || []).map(k => RX_CHANGED_LABELS[k] || k);
+  const rows: { label: string; value: React.ReactNode }[] = [
+    { label: 'الطبيب', value: snap.doctor_name },
+    { label: 'المريض', value: snap.patient_name },
+    { label: 'الصيدلاني', value: snap.pharmacist_name },
+    { label: 'تاريخ الوصفة', value: snap.entry_date ? <bdi className="tabular-nums">{formatIsoAsDmy(snap.entry_date)}</bdi> : null },
+    { label: 'وقت التسجيل', value: deleted && snap.created_at ? <bdi className="tabular-nums">{formatEntryTime(snap.created_at)}</bdi> : null },
+    { label: 'المرفق', value: snap.file_name },
+    { label: 'سُجّلت أصلاً بواسطة', value: d.recorded_by_name },
+  ];
+
+  return (
+    <details className="mt-2">
+      <summary className="cursor-pointer text-[11px] font-bold text-teal-700 hover:text-teal-900">
+        {deleted ? 'نسخة من الوصفة المحذوفة' : 'قبل التعديل'}
+      </summary>
+      <div className="mt-2 bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs text-slate-700 space-y-1.5">
+        {!deleted && (
+          <p className="font-bold text-slate-600">
+            {changed.length > 0 ? `الحقول المعدّلة: ${changed.join('، ')}` : 'لم يتغيّر رأس الوصفة — تعديل على الأدوية أو حفظ بلا تغيير'}
+          </p>
+        )}
+        {rows.filter(r => r.value).map(r => (
+          <p key={r.label}><span className="text-slate-400">{r.label}: </span><bdi>{r.value}</bdi></p>
+        ))}
+        {snap.drugs && snap.drugs.length > 0 && (
+          <div>
+            <span className="text-slate-400">الأدوية: </span>
+            <ul className="mt-0.5 space-y-0.5 pe-1">
+              {snap.drugs.map((n, i) => (
+                <li key={i} className="flex gap-1.5"><span className="text-slate-300">•</span><bdi>{n}</bdi></li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    </details>
+  );
 }
 
 function ActivityRow({ entry }: { entry: ActivityEntry }) {
@@ -119,6 +204,7 @@ function ActivityRow({ entry }: { entry: ActivityEntry }) {
           {showLabel && <span>{entry.entity_label}</span>}
           {patientName && <span className="text-slate-400"> — {patientName}</span>}
         </div>
+        <RxDetails entry={entry} />
         <p className="mt-1 text-[10px] text-slate-400 tabular-nums">{formatEntryTime(entry.created_at)}</p>
       </div>
     </div>

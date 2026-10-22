@@ -17,14 +17,14 @@ export const metadata: Metadata = {
     description: 'Vitalix-ai برنامج تستخدمه أنت وفريقك في الصيدلية، يضمّ أدوات مستقلة لمتابعة مرضاك.',
     locale: 'ar_JO',
     type: 'website',
-    url: 'https://vitalix-ai.com/welcome',
-    images: [{ url: 'https://vitalix-ai.com/welcome/og.jpg', width: 1200, height: 630, alt: 'Vitalix-ai: تابع مرضاك بذكاء' }],
+    url: 'https://www.vitalix-ai.com/welcome',
+    images: [{ url: 'https://www.vitalix-ai.com/welcome/og.jpg', width: 1200, height: 630, alt: 'Vitalix-ai: تابع مرضاك بذكاء' }],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Vitalix-ai | تابع مرضاك بذكاء',
     description: 'Vitalix-ai برنامج تستخدمه أنت وفريقك في الصيدلية، يضمّ أدوات مستقلة لمتابعة مرضاك.',
-    images: ['https://vitalix-ai.com/welcome/og.jpg'],
+    images: ['https://www.vitalix-ai.com/welcome/og.jpg'],
   },
 };
 

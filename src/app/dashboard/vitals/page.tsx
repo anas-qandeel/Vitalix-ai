@@ -9,6 +9,7 @@ import DashboardHeader, { usePharmacyInfo } from '../components/DashboardHeader'
 import AppFooter from '../../components/AppFooter';
 import { getPharmacyId, getStaffId, getStaffName } from '@/lib/tenant';
 import { normalizeAr } from '@/lib/arabic';
+import { formatPharmacistName } from '@/lib/name-format';
 import { calcWeightGoals, getBMICategory, LACTATION_FIRST_GOAL_CAP_KG } from '@/lib/weight-math';
 import { detectTextDir } from '@/lib/text-direction';
 import { normalizePhone, displayPhone, toLatinDigits } from '@/lib/phone';
@@ -3133,7 +3134,7 @@ ${weightPlanUrl}
           <div style={{ fontSize: 10, color: '#64748B', lineHeight: 1.65, textAlign: 'center' }}>
             «هذه المعلومات للتوعية والمتابعة فقط، وليست تشخيصاً طبياً ولا وصفة علاجية ولا بديلاً عن استشارة طبيبك أو صيدلانيك.»
           </div>
-          <div style={{ fontSize: 10, color: '#475569', marginTop: 8, textAlign: 'center' }}>أُعدّت نتائج التحليل بواسطة {pharmacyName}{patientHistory[0]?.performed_by ? `، د. ${patientHistory[0].performed_by}` : ''}</div>
+          <div style={{ fontSize: 10, color: '#475569', marginTop: 8, textAlign: 'center' }}>أُعدّت نتائج التحليل بواسطة {pharmacyName}{patientHistory[0]?.performed_by ? `، ${formatPharmacistName(patientHistory[0].performed_by)}` : ''}</div>
         </div>
       </div>
 
@@ -3165,7 +3166,7 @@ ${weightPlanUrl}
           <div style={{ fontSize: 10, color: '#64748B', lineHeight: 1.65, textAlign: 'center' }}>
             «هذه المعلومات للتوعية والمتابعة فقط، وليست تشخيصاً طبياً ولا وصفة علاجية ولا بديلاً عن استشارة طبيبك أو صيدلانيك.»
           </div>
-          <div style={{ fontSize: 10, color: '#475569', marginTop: 8, textAlign: 'center' }}>أُعدّت نتائج التحليل بواسطة {pharmacyName}{patientHistory[0]?.performed_by ? `، د. ${patientHistory[0].performed_by}` : ''}</div>
+          <div style={{ fontSize: 10, color: '#475569', marginTop: 8, textAlign: 'center' }}>أُعدّت نتائج التحليل بواسطة {pharmacyName}{patientHistory[0]?.performed_by ? `، ${formatPharmacistName(patientHistory[0].performed_by)}` : ''}</div>
         </div>
       </div>
     </div>

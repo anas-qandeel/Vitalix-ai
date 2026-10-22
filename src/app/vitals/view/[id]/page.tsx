@@ -4,6 +4,7 @@ import { useEffect, useState, use } from 'react';
 import { Storefront, HeartStraight, Drop, Barbell, WhatsappLogo, Warning, Info, Scales, ClipboardText } from '@phosphor-icons/react';
 import BackToPharmacyBar, { useFromPharmacy } from '@/components/BackToPharmacyBar';
 import AppFooter from '../../../components/AppFooter';
+import { formatPharmacistName } from '@/lib/name-format';
 import Disclaimer from '@/components/Disclaimer';
 import { detectTextDir } from '@/lib/text-direction';
 import BpHistoryChart from '@/components/BpHistoryChart';
@@ -974,9 +975,9 @@ export default function SingleVitalViewPage({ params }: PageProps) {
         {/* ─── Footer ─── */}
         <div style={{ textAlign: 'center', paddingTop: 8, paddingBottom: 16 }}>
           <p style={{ fontSize: 12, color: '#475569', marginBottom: 12 }}>
-            أُعدّت نتائج التحليل بواسطة {displayPharmacyName}{performedBy ? `، د. ${performedBy}` : ''}
+            أُعدّت نتائج التحليل بواسطة {displayPharmacyName}{performedBy ? `، ${formatPharmacistName(performedBy)}` : ''}
           </p>
-          <AppFooter />
+          <AppFooter hidePrivacy />
         </div>
       </main>
 

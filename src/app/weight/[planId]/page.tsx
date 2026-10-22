@@ -4,6 +4,7 @@ import { useEffect, useState, use, useRef } from 'react';
 import { Storefront, Warning } from '@phosphor-icons/react';
 import BackToPharmacyBar from '@/components/BackToPharmacyBar';
 import AppFooter from '../../components/AppFooter';
+import { formatPharmacistName } from '@/lib/name-format';
 import Disclaimer from '@/components/Disclaimer';
 import { SUPPLEMENT_CATEGORIES } from '@/lib/supplement-categories';
 import WeightPlanReport, { type WeightPlan, parseNutrition } from '@/components/WeightPlanReport';
@@ -391,9 +392,9 @@ export default function WeightPlanPage({ params }: PageProps) {
         {/* Footer */}
         <div className="text-center pt-2 pb-4">
           <p className="text-xs text-slate-600 mb-3">
-            أُعدّت نتائج التحليل بواسطة {pharmacyName}{performedBy ? `، د. ${performedBy}` : ''}
+            أُعدّت نتائج التحليل بواسطة {pharmacyName}{performedBy ? `، ${formatPharmacistName(performedBy)}` : ''}
           </p>
-          <AppFooter />
+          <AppFooter hidePrivacy />
         </div>
       </main>
     </div>

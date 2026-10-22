@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import AppFooter from '@/app/components/AppFooter';
 import type { Icon } from '@phosphor-icons/react';
-import { Palette, Pill, Package, Users, DeviceMobile, ShieldCheck, CalendarBlank, Notebook, WarningCircle, ChartBar, NotePencil } from '@phosphor-icons/react';
+import { Palette, Pill, Package, Users, DeviceMobile, ShieldCheck, CalendarBlank, Notebook, WarningCircle, ChartBar, NotePencil, Prescription, FilePdf, ClockCounterClockwise } from '@phosphor-icons/react';
 
 // نفس شعار Vitalix المستخدم في src/app/help/page.tsx — لا يُعاد رسمه من الصفر
 function VitalixMark() {
@@ -32,6 +32,40 @@ interface Release {
 
 // الإصدارات كبيانات فقط والصفحة ترسمها — الأحدث أولاً، ولإضافة إصدار جديد يكفي إضافة عنصر واحد في أعلى المصفوفة
 const RELEASES: Release[] = [
+  {
+    version: 'v1.4.0',
+    date: '22/10/2026',
+    title: 'سجل الوصفات الطبية',
+    sections: [
+      {
+        heading: 'سجل الوصفات الطبية',
+        icon: Prescription,
+        items: [
+          'وثّق كل وصفة تصرفها يوماً بيوم: اسم الطبيب، والمريض، والأدوية، والصيدلاني الذي صرفها.',
+          'الوصفة الواحدة تضم عدة أدوية، ويمكنك ربطها بملف المريض إن كان مسجّلاً عندك، والربط اختياري دائماً.',
+          'أرفق صورة الوصفة أو ملف PDF، وتُصغَّر الصور تلقائياً قبل الحفظ.',
+          'اختر الفترة التي تريدها: اليوم، أو أمس، أو آخر 7 أيام، أو هذا الشهر، أو فترة تحدّدها بنفسك.',
+          'ابحث بالطبيب أو المريض أو الدواء، وصفِّ النتائج حسب الطبيب أو الصيدلاني أو وجود مرفق أو ربط بملف.',
+        ],
+      },
+      {
+        heading: 'ورقة PDF بترويسة صيدليتك',
+        icon: FilePdf,
+        items: [
+          'أخرج السجل كورقة PDF باسم صيدليتك، مجمّعة بالأيام، ولكل وصفة أدويتها تحت بعضها.',
+          'تحمل الورقة الفترة وعدد الوصفات وترقيم الصفحات.',
+        ],
+      },
+      {
+        heading: 'سجل النشاط',
+        icon: ClockCounterClockwise,
+        items: [
+          'كل إضافة وتعديل وحذف للوصفات يظهر لمالك الصيدلية في «سجل النشاط».',
+          'عند التعديل أو الحذف تُحفظ نسخة من الوصفة قبل التغيير، فتعرف ما كان فيها.',
+        ],
+      },
+    ],
+  },
   {
     version: 'v1.3.0',
     date: '19/10/2026',

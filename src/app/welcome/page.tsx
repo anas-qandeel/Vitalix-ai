@@ -111,7 +111,10 @@ export default async function WelcomePage({
                     <div className="rx">
                       <span className="rx-name">ريم سامي</span>
                       <span className="rx-drug">طلب سيتاليبتين 50 ملغ · تأخر يوماً</span>
-                      <span className="chip chip-warn">طلب متأخر</span>
+                      <span className="swap">
+                        <span className="chip chip-warn">طلب متأخر</span>
+                        <span className="chip chip-ok">تم الإرسال</span>
+                      </span>
                     </div>
                     <div className="rx">
                       <span className="rx-name">هالة سمير</span>
@@ -489,7 +492,7 @@ export default async function WelcomePage({
                           <line className="ch-goal" x1="44" y1="116" x2="304" y2="116"/>
                           <text className="ch-goal-lbl" x="304" y="110" textAnchor="end">الهدف الأول</text>
                           <line className="ch-base" x1="44" y1="140" x2="304" y2="140"/>
-                          <polyline className="ch-line" points="44,39.2 108,54.8 172,68 236,77.6 300,90.8"/>
+                          <polyline className="ch-line" pathLength="1" points="44,39.2 108,54.8 172,68 236,77.6 300,90.8"/>
                           <circle className="ch-dot" cx="44" cy="39.2" r="4"/>
                           <circle className="ch-dot" cx="108" cy="54.8" r="4"/>
                           <circle className="ch-dot" cx="172" cy="68" r="4"/>

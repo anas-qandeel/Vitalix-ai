@@ -8,6 +8,32 @@ export default function WelcomeEffects() {
   useEffect(() => {
     const cleanups: Array<() => void> = [];
 
+    // الصنف vx-js يفعّل الحالات الابتدائية للحركة في CSS؛ بدون JavaScript تبقى الصفحة كاملة الظهور
+    const root = document.querySelector<HTMLElement>('.vx-welcome');
+    root?.classList.add('vx-js');
+    cleanups.push(() => root?.classList.remove('vx-js'));
+
+    // كل عنصر توضيحي (شاشة/رسالة/ملف/هاتف) يُشغَّل بمفرده عند ظهوره، كي لا تبدأ حركة السفلي قبل أن يصل إليه الزائر
+    const arts = document.querySelectorAll<HTMLElement>(
+      '.vx-welcome .module-art > .screen, .vx-welcome .module-art > .chat, .vx-welcome .module-art > .doc, .vx-welcome .module-art > .phone',
+    );
+    if ('IntersectionObserver' in window) {
+      const artIo = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((e) => {
+            if (!e.isIntersecting) return;
+            e.target.classList.add('is-in');
+            artIo.unobserve(e.target);
+          });
+        },
+        { threshold: 0.35, rootMargin: '0px 0px -12% 0px' },
+      );
+      arts.forEach((el) => artIo.observe(el));
+      cleanups.push(() => artIo.disconnect());
+    } else {
+      arts.forEach((el) => el.classList.add('is-in'));
+    }
+
     document.querySelectorAll<HTMLButtonElement>('.vx-welcome [data-copy]').forEach((btn) => {
       const onClick = () => {
         const label = btn.querySelector('.copy-label');

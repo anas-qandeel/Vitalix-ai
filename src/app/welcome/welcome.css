@@ -371,3 +371,51 @@
 @keyframes vx-rise{from{opacity:.35;transform:translateY(14px)}to{opacity:1;transform:none}}
 .vx-welcome .rise{animation:vx-rise .8s cubic-bezier(.2,.7,.2,1) both;animation-delay:var(--d,0s)}
 @media (prefers-reduced-motion:reduce){.vx-welcome *,.vx-welcome *::before,.vx-welcome *::after{animation:none!important;transition:none!important}}
+
+/* Scroll-linked demos: كل حالة ابتدائية مخفية محصورة بـ no-preference و .vx-js، فمن يعطّل الحركة أو JavaScript يرى كل شيء */
+.vx-welcome .swap{display:inline-grid;grid-column:2;grid-row:1 / span 2;align-self:center}
+.vx-welcome .rx .swap .chip{grid-column:1;grid-row:1;justify-self:center}
+.vx-welcome .swap .chip-ok{opacity:0}
+@keyframes vx-fade-in{from{opacity:0}to{opacity:1}}
+@keyframes vx-fade-out{from{opacity:1}to{opacity:0}}
+@keyframes vx-fade-up{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes vx-pop{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes vx-fill{from{width:0}to{width:var(--w)}}
+@keyframes vx-draw{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
+@media (prefers-reduced-motion:no-preference){
+  /* 1) الواجهة: تعمل بـ CSS وحده لأنها أول ما يراه الزائر */
+  .vx-welcome .hero-art .rx{animation:vx-fade-up .7s cubic-bezier(.2,.7,.2,1) both}
+  .vx-welcome .hero-art .rx:nth-child(1){animation-delay:.5s}
+  .vx-welcome .hero-art .rx:nth-child(2){animation-delay:1s}
+  .vx-welcome .hero-art .rx:nth-child(3){animation-delay:1.5s}
+  .vx-welcome .hero-art .swap .chip-warn{animation:vx-fade-out .7s cubic-bezier(.2,.7,.2,1) 3s both}
+  .vx-welcome .hero-art .swap .chip-ok{animation:vx-fade-in .7s cubic-bezier(.2,.7,.2,1) 3s both}
+
+  /* الحالات الابتدائية */
+  .vx-js .module-art .supply i{width:0}
+  .vx-js .module-art .bubble{opacity:0}
+  .vx-js .module-art .doc-table tbody tr{opacity:0}
+  .vx-js .module-art .ch-line{stroke-dasharray:1 2;stroke-dashoffset:1}
+  .vx-js .module-art .ch-dot,.vx-js .module-art .ch-end,.vx-js .module-art .ch-area{opacity:0}
+
+  /* 2) شريط النفاد */
+  .vx-js .is-in .supply i{animation:vx-fill .9s cubic-bezier(.2,.7,.2,1) both}
+  /* 3) فقاعات واتساب */
+  .vx-js .is-in .bubble{animation:vx-pop .6s cubic-bezier(.2,.7,.2,1) .5s both}
+  /* 4) صفوف الجدول */
+  .vx-js .module-art .doc-table tbody tr:nth-child(2){--i:1}
+  .vx-js .module-art .doc-table tbody tr:nth-child(3){--i:2}
+  .vx-js .module-art .doc-table tbody tr:nth-child(4){--i:3}
+  .vx-js .module-art .doc-table tbody tr:nth-child(5){--i:4}
+  .vx-js .module-art .doc-table tbody tr:nth-child(6){--i:5}
+  .vx-js .is-in .doc-table tbody tr{animation:vx-fade-in .5s cubic-bezier(.2,.7,.2,1) calc(.5s + var(--i,0) * .12s) both}
+  /* 5) مخطط الوزن: الخط ثم النقاط ثم المنطقة */
+  .vx-js .is-in .ch-line{animation:vx-draw 1.4s cubic-bezier(.2,.7,.2,1) both}
+  .vx-js .is-in .ch-area{animation:vx-fade-in .7s cubic-bezier(.2,.7,.2,1) 1.4s both}
+  .vx-js .is-in .ch-dot,.vx-js .is-in .ch-end{animation:vx-fade-in .5s cubic-bezier(.2,.7,.2,1) both}
+  .vx-js .is-in .chart circle:nth-of-type(1){animation-delay:1.4s}
+  .vx-js .is-in .chart circle:nth-of-type(2){animation-delay:1.55s}
+  .vx-js .is-in .chart circle:nth-of-type(3){animation-delay:1.7s}
+  .vx-js .is-in .chart circle:nth-of-type(4){animation-delay:1.85s}
+  .vx-js .is-in .chart circle:nth-of-type(5){animation-delay:2s}
+}

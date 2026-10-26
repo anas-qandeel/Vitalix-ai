@@ -1,8 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
-import AppFooter from '../components/AppFooter';
+import {
+  LoginCarouselProvider, LoginBackground,
+  LoginBrandAside, LoginCaptionMobile, LoginFooter,
+} from '../components/login/LoginBrand';
+import '../components/login/staff.css';
 
 interface RosterStaff {
   name: string;
@@ -14,6 +19,43 @@ const ROLE_LABELS: Record<string, string> = { pharmacist: 'صيدلاني', assi
 const STORAGE_KEY = 'vitalix_pharmacy_code';
 
 type Step = 'code' | 'roster' | 'pin';
+
+// الغلاف مكوّن واحد على مستوى الملف تستعمله حالة التحقق الأولي والخطوات معاً، فيحتفظ React بعنصر
+// البطاقة ولا يعيد إنشاءه — حركة vx-flip تبدأ فور فتح الصفحة ولا تُعاد عند انتهاء الفحص (مظهر فقط)
+function StaffShell({ showBack, showCaption, children }: { showBack: boolean; showCaption: boolean; children: React.ReactNode }) {
+  return (
+    <div className="vx-root vx-staff-root" dir="rtl">
+      <LoginBackground />
+      <LoginCarouselProvider>
+        <div className="vx-shell">
+          <main className="vx-form-side">
+            <div className="vx-card vx-flip">
+              {showBack && (
+                <Link href="/" className="vx-staff-back">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false"><path d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
+                  رجوع إلى الدخول بالبريد
+                </Link>
+              )}
+              <div className="vx-staff-brand">
+                <svg className="vx-staff-tile" viewBox="0 0 192 192" aria-hidden="true" focusable="false">
+                  <rect width="192" height="192" rx="44" fill="#0F172A" />
+                  <path d="M37.4 51.2L90.7 156.5L120 102.8" fill="none" stroke="#fff" strokeWidth="20.6" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M144 41Q149.2 66.8 175 72Q149.2 77.2 144 103Q138.8 77.2 113 72Q138.8 66.8 144 41Z" fill="#0D9488" />
+                </svg>
+                <div className="vx-staff-word" dir="ltr">Vitalix<b>-ai</b></div>
+              </div>
+              {children}
+            </div>
+
+            {showCaption && <LoginCaptionMobile />}
+            <LoginFooter />
+          </main>
+          <LoginBrandAside />
+        </div>
+      </LoginCarouselProvider>
+    </div>
+  );
+}
 
 export default function StaffLoginPage() {
   const [step, setStep] = useState<Step>('code');
@@ -192,228 +234,202 @@ export default function StaffLoginPage() {
     };
   }, [step, lockRemaining, pinLoading, pinDigits, selectedStaff, pharmacyCode]);
 
+  const pinLocked = lockRemaining > 0 || pinLoading;
+
   if (initialLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#F8FAFC] font-sans" dir="rtl">
-        <p className="text-sm font-semibold text-slate-500 animate-pulse">جاري التحقق...</p>
-      </div>
+      <StaffShell showBack={false} showCaption>
+        <div className="vx-staff-loading" role="status">
+          <svg className="vx-spin" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9" strokeOpacity=".3" /><path d="M12 3a9 9 0 0 1 9 9" /></svg>
+          <p>جاري التحقق...</p>
+        </div>
+      </StaffShell>
     );
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#F8FAFC] font-sans antialiased selection:bg-[#2563EB] selection:text-[#FFFFFF] px-4" dir="rtl">
-
-      <style jsx global>{`
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800;900&display=swap');
-        .font-brand {
-          font-family: 'IBM Plex Sans Arabic', system-ui, -apple-system, sans-serif;
-        }
-      `}</style>
-
-      <div className="w-full max-w-[420px] py-10">
-        <div className="bg-white p-9 sm:p-10 rounded-[22px] border border-slate-200/80 shadow-[0_20px_50px_rgba(15,23,42,0.04)] space-y-9">
-
-          {/* Brand Mark Header */}
-          <div className="flex flex-col items-center text-center space-y-6">
-            <div className="w-16 h-16 rounded-2xl bg-[#0F172A] flex items-center justify-center shadow-md shadow-slate-900/10 border border-slate-800 transition-transform duration-300 hover:scale-105">
-              <svg className="w-8 h-8 text-white" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M6 8L14.5 25C14.8 25.6 15.6 25.6 15.9 25L20 17" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" />
-                <path d="M24 6C24 9.3 26.7 12 30 12C26.7 12 24 14.7 24 18C24 14.7 21.3 12 18 12C21.3 12 24 9.3 24 6Z" fill="#0D9488" />
-              </svg>
+    <StaffShell showBack={step !== 'pin'} showCaption={step !== 'pin'}>
+      {/* -- الخطوة ١: كود الصيدلية -- */}
+      {step === 'code' && (
+        <>
+          <h1 className="vx-h1">دخول الموظف</h1>
+          <form onSubmit={handleCodeSubmit}>
+            <div className="vx-lab">
+              <label htmlFor="pharmacyCode">كود الصيدلية</label>
+            </div>
+            <div className="vx-field">
+              <input
+                id="pharmacyCode"
+                name="pharmacyCode"
+                type="text"
+                dir="ltr"
+                autoComplete="off"
+                required
+                maxLength={6}
+                value={pharmacyCode}
+                onChange={(e) => {
+                  setCodeError('');
+                  setPharmacyCode(e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 6));
+                }}
+                className="vx-inp vx-staff-code"
+                placeholder="XXXXXX"
+              />
             </div>
 
-            <div className="space-y-2">
-              <h1 className="text-2xl sm:text-[26px] font-black tracking-tight text-[#0F172A] font-brand">
-                Vitalix<span className="text-teal-600">-ai</span>
-              </h1>
-              <p className="text-xs sm:text-sm font-semibold text-slate-500 tracking-wide leading-relaxed">
-                {step === 'code' && 'دخول الموظف'}
-                {step === 'roster' && (pharmacyName || 'اختر اسمك من القائمة')}
-                {step === 'pin' && `مرحباً ${selectedStaff?.name || ''}`}
-              </p>
-            </div>
+            <button
+              type="submit"
+              disabled={pharmacyCode.length !== 6 || codeLoading}
+              className="vx-btn vx-staff-btn"
+            >
+              {codeLoading ? (
+                <span className="vx-btn-load">
+                  <svg className="vx-spin" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9" strokeOpacity=".3" /><path d="M12 3a9 9 0 0 1 9 9" /></svg>
+                  جاري التحقق...
+                </span>
+              ) : (
+                'متابعة'
+              )}
+            </button>
+
+            {codeError && (
+              <div role="alert" className="vx-msg vx-msg-error" style={{ marginTop: 14, marginBottom: 0 }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9" /><path d="M12 7.5v5.5" /><path d="M12 16.6v.01" /></svg>
+                <span>{codeError}</span>
+              </div>
+            )}
+          </form>
+        </>
+      )}
+
+      {/* -- الخطوة ٢: اختيار الموظف -- */}
+      {step === 'roster' && (
+        <div>
+          {!pharmacyName && <p className="vx-staff-hint">اختر اسمك من القائمة</p>}
+          <div className="vx-staff-bar">
+            {pharmacyName && (
+              <span className="vx-staff-pill">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false"><path d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21" /></svg>
+                <span>{pharmacyName}</span>
+              </span>
+            )}
+            <button type="button" onClick={handleChangePharmacy} className="vx-staff-link">
+              تغيير الصيدلية
+            </button>
           </div>
 
-          {/* ── الخطوة ١: كود الصيدلية ── */}
-          {step === 'code' && (
-            <form onSubmit={handleCodeSubmit} className="space-y-5">
-              <div className="space-y-1.5">
-                <label htmlFor="pharmacyCode" className="block text-xs font-semibold text-[#0F172A]">
-                  كود الصيدلية
-                </label>
-                <input
-                  id="pharmacyCode"
-                  name="pharmacyCode"
-                  type="text"
-                  dir="ltr"
-                  autoComplete="off"
-                  required
-                  maxLength={6}
-                  value={pharmacyCode}
-                  onChange={(e) => {
-                    setCodeError('');
-                    setPharmacyCode(e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 6));
-                  }}
-                  className="w-full px-4 py-3 text-lg tracking-[0.3em] text-center bg-white border border-slate-200 rounded-xl focus:border-[#0F172A] focus:ring-1 focus:ring-[#0F172A] focus:outline-none transition-all text-[#0F172A] placeholder:text-slate-400 font-bold shadow-sm"
-                  placeholder="XXXXXX"
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={pharmacyCode.length !== 6 || codeLoading}
-                className="w-full pt-3 pb-3 px-4 text-sm font-semibold text-white bg-[#0F172A] hover:bg-slate-800 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition-all rounded-xl shadow-md shadow-slate-900/10 flex items-center justify-center cursor-pointer mt-2"
-              >
-                {codeLoading ? (
-                  <span className="inline-flex items-center gap-2">
-                    <svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24" fill="none">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
-                    جاري التحقق...
-                  </span>
-                ) : (
-                  'متابعة'
-                )}
-              </button>
-
-              {codeError && (
-                <div className="p-3.5 rounded-xl text-xs font-medium text-center border bg-rose-50 border-rose-200 text-rose-700">
-                  {codeError}
-                </div>
-              )}
-            </form>
-          )}
-
-          {/* ── الخطوة ٢: اختيار الموظف ── */}
-          {step === 'roster' && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-center">
-                <button
-                  type="button"
-                  onClick={handleChangePharmacy}
-                  className="text-xs text-[#2563EB] hover:underline font-semibold transition cursor-pointer"
-                >
-                  تغيير الصيدلية
-                </button>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                {staffList.length === 0 ? (
-                  <p className="text-xs text-slate-400 text-center font-medium py-4 col-span-full">لا يوجد موظفون مفعّلون حالياً</p>
-                ) : (
-                  staffList.map((member) => (
-                    <button
-                      key={member.login_slug}
-                      type="button"
-                      onClick={() => handleSelectStaff(member)}
-                      className="flex flex-col items-center gap-2 px-3 py-4 bg-white border border-slate-200 rounded-2xl hover:border-teal-300 hover:shadow-md active:scale-[0.98] transition-all cursor-pointer text-center"
-                    >
-                      <div className="w-11 h-11 rounded-xl bg-teal-600 text-white flex items-center justify-center text-sm font-black shrink-0">
-                        {member.name.charAt(0)}
-                      </div>
-                      <p className="text-sm font-bold text-slate-900 truncate w-full">{member.name}</p>
-                      <span className="text-[10px] font-bold text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md shrink-0">
-                        {ROLE_LABELS[member.role] || member.role}
-                      </span>
-                    </button>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* ── الخطوة ٣: إدخال PIN ── */}
-          {step === 'pin' && (
-            <div className="space-y-5">
-              <div className="flex items-center justify-center">
-                <button
-                  type="button"
-                  onClick={handleBackToRoster}
-                  className="text-xs text-[#2563EB] hover:underline font-semibold transition cursor-pointer"
-                >
-                  ← رجوع
-                </button>
-              </div>
-
-              {/* مؤشر التقدّم */}
-              <div dir="ltr" className="flex items-center justify-center gap-3">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className={`w-3.5 h-3.5 rounded-full border-2 transition-colors ${
-                      i < pinDigits.length ? 'bg-slate-900 border-slate-900' : 'border-slate-300'
-                    }`}
-                  />
-                ))}
-              </div>
-
-              {lockRemaining > 0 ? (
-                <div className="p-3.5 rounded-xl text-xs font-medium text-center border bg-rose-50 border-rose-200 text-rose-700">
-                  {pinError || 'الحساب مقفل مؤقتاً'} — حاول بعد <span dir="ltr">{lockRemaining}</span> ثانية
-                </div>
-              ) : pinError ? (
-                <div className="p-3.5 rounded-xl text-xs font-medium text-center border bg-rose-50 border-rose-200 text-rose-700">
-                  {pinError}
-                </div>
-              ) : null}
-
-              {/* لوحة الأرقام — dir="ltr" هنا فقط: ترتيب لوحات الأرقام معياري عالمياً ولا ينعكس مع RTL */}
-              <div dir="ltr" className="grid grid-cols-3 gap-2 sm:gap-3">
-                {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((d) => (
+          <div className="vx-staff-list">
+            <div className="vx-staff-grid">
+              {staffList.length === 0 ? (
+                <p className="vx-staff-empty">لا يوجد موظفون مفعّلون حالياً</p>
+              ) : (
+                staffList.map((member) => (
                   <button
-                    key={d}
+                    key={member.login_slug}
                     type="button"
-                    onClick={() => handleDigit(d)}
-                    disabled={lockRemaining > 0 || pinLoading}
-                    className="h-11 sm:h-14 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-2xl font-black text-slate-900 active:scale-95 transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                    onClick={() => handleSelectStaff(member)}
+                    className="vx-staff-card"
                   >
-                    {d}
+                    <span className="vx-staff-av">{member.name.charAt(0)}</span>
+                    <span className="vx-staff-name">{member.name}</span>
+                    <span className={`vx-staff-role${member.role === 'pharmacist' ? ' is-pharm' : ''}`}>
+                      {ROLE_LABELS[member.role] || member.role}
+                    </span>
                   </button>
-                ))}
-                <button
-                  type="button"
-                  onClick={handleBackspace}
-                  disabled={lockRemaining > 0 || pinLoading}
-                  className="h-11 sm:h-14 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-lg font-black text-slate-500 active:scale-95 transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                >
-                  ⌫
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleDigit('0')}
-                  disabled={lockRemaining > 0 || pinLoading}
-                  className="h-11 sm:h-14 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-2xl font-black text-slate-900 active:scale-95 transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                >
-                  0
-                </button>
-                <div />
-              </div>
-
-              <button
-                type="button"
-                onClick={handleLogin}
-                disabled={pinDigits.length !== 6 || lockRemaining > 0 || pinLoading}
-                className="w-full pt-3 pb-3 px-4 text-sm font-semibold text-white bg-gradient-to-l from-slate-900 to-teal-800 hover:from-slate-800 hover:to-teal-700 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition-all rounded-xl shadow-md shadow-slate-900/10 flex items-center justify-center cursor-pointer"
-              >
-                {pinLoading ? (
-                  <span className="inline-flex items-center gap-2">
-                    <svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24" fill="none">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
-                    جاري الدخول...
-                  </span>
-                ) : (
-                  'دخول'
-                )}
-              </button>
+                ))
+              )}
             </div>
-          )}
+          </div>
         </div>
+      )}
 
-        <AppFooter className="mt-8" hidePrivacy />
-      </div>
-    </div>
+      {/* -- الخطوة ٣: إدخال PIN -- */}
+      {step === 'pin' && (
+        <div>
+          <div className="vx-staff-head">
+            <div className="vx-staff-who">
+              <span className="vx-staff-av" aria-hidden="true">{selectedStaff?.name.charAt(0)}</span>
+              <div className="vx-staff-who-t">
+                <h1 className="vx-staff-hello">مرحباً {selectedStaff?.name || ''}</h1>
+                {selectedStaff && (
+                  <span className={`vx-staff-role${selectedStaff.role === 'pharmacist' ? ' is-pharm' : ''}`}>
+                    {ROLE_LABELS[selectedStaff.role] || selectedStaff.role}
+                  </span>
+                )}
+              </div>
+            </div>
+            <button type="button" onClick={handleBackToRoster} className="vx-staff-link">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false"><path d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" /></svg>
+              رجوع
+            </button>
+          </div>
+
+          {/* مؤشر التقدّم */}
+          <div dir="ltr" className={`vx-staff-dots${pinError ? ' is-err' : ''}`}>
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className={`vx-staff-dot${i < pinDigits.length ? ' is-on' : ''}`} />
+            ))}
+          </div>
+
+          {lockRemaining > 0 ? (
+            <div role="alert" className="vx-msg vx-msg-error vx-staff-msg">
+              <span>{pinError || 'الحساب مقفل مؤقتاً'} — حاول بعد <span dir="ltr">{lockRemaining}</span> ثانية</span>
+            </div>
+          ) : pinError ? (
+            <div role="alert" className="vx-msg vx-msg-error vx-staff-msg">
+              <span>{pinError}</span>
+            </div>
+          ) : null}
+
+          {/* لوحة الأرقام — dir="ltr" هنا فقط: ترتيب لوحات الأرقام معياري عالمياً ولا ينعكس مع RTL */}
+          <div dir="ltr" className="vx-staff-pad">
+            {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => handleDigit(d)}
+                disabled={pinLocked}
+                className="vx-staff-key"
+              >
+                {d}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={handleBackspace}
+              disabled={pinLocked}
+              className="vx-staff-key"
+              aria-label="مسح"
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false"><path d="M12 9.75 14.25 12m0 0 2.25 2.25M14.25 12l2.25-2.25M14.25 12 12 14.25m-2.58 4.92-6.374-6.375a1.125 1.125 0 0 1 0-1.59L9.42 4.83c.211-.211.498-.33.796-.33H19.5a2.25 2.25 0 0 1 2.25 2.25v10.5a2.25 2.25 0 0 1-2.25 2.25h-9.284c-.298 0-.585-.119-.796-.33Z" /></svg>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleDigit('0')}
+              disabled={pinLocked}
+              className="vx-staff-key"
+            >
+              0
+            </button>
+            <div />
+          </div>
+
+          <button
+            type="button"
+            onClick={handleLogin}
+            disabled={pinDigits.length !== 6 || lockRemaining > 0 || pinLoading}
+            className="vx-btn vx-staff-btn"
+          >
+            {pinLoading ? (
+              <span className="vx-btn-load">
+                <svg className="vx-spin" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9" strokeOpacity=".3" /><path d="M12 3a9 9 0 0 1 9 9" /></svg>
+                جاري الدخول...
+              </span>
+            ) : (
+              'دخول'
+            )}
+          </button>
+        </div>
+      )}
+    </StaffShell>
   );
 }

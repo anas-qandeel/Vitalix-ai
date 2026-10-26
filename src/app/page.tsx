@@ -4,13 +4,51 @@ import { useEffect, useState, Suspense } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import AppFooter from './components/AppFooter';
+import {
+  LoginCarouselProvider, LoginBackground, LoginBrandMark,
+  LoginBrandAside, LoginCaptionMobile, LoginFooter,
+} from './components/login/LoginBrand';
+
+// الغلاف مكوّن واحد على مستوى الملف تستعمله حالة التحقق والنموذج معاً، فيحتفظ React بعنصر البطاقة
+// ولا يعيد إنشاءه (فلا تُعاد حركتها) عند انتهاء الفحص — مظهر فقط ولا علاقة له بمنطق الدخول
+function LoginShell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="vx-root" dir="rtl">
+      <LoginBackground />
+      <LoginCarouselProvider>
+        <div className="vx-shell">
+          <main className="vx-form-side">
+            <div className="vx-card">
+              <LoginBrandMark />
+              {children}
+            </div>
+            <LoginCaptionMobile />
+            <LoginFooter />
+          </main>
+          <LoginBrandAside />
+        </div>
+      </LoginCarouselProvider>
+    </div>
+  );
+}
+
+function LoginLoading({ text }: { text: string }) {
+  return (
+    <div className="vx-loading" role="status">
+      <svg className="vx-spin" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9" strokeOpacity=".3" /><path d="M12 3a9 9 0 0 1 9 9" /></svg>
+      <p>{text}</p>
+    </div>
+  );
+}
 
 function LoginContent() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
+  // حالتان للواجهة فقط (إظهار كلمة المرور وشارة Caps Lock) — لا علاقة لهما بمنطق الدخول
+  const [showPassword, setShowPassword] = useState(false);
+  const [capsOn, setCapsOn] = useState(false);
   const [message, setMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
   const searchParams = useSearchParams();
 
@@ -89,159 +127,131 @@ function LoginContent() {
 
   if (checkingAuth) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#F8FAFC] font-sans" dir="rtl">
-        <p className="text-sm font-semibold text-slate-500 animate-pulse">جاري التحقق من الجلسة والصلاحيات...</p>
-      </div>
+      <LoginShell>
+        <LoginLoading text="جاري التحقق من الجلسة والصلاحيات..." />
+      </LoginShell>
     );
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#F8FAFC] font-sans antialiased selection:bg-[#2563EB] selection:text-[#FFFFFF] px-4" dir="rtl">
-      
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800;900&display=swap');
-        .font-brand {
-          font-family: 'IBM Plex Sans Arabic', system-ui, -apple-system, sans-serif;
-        }
-      `}</style>
+    <LoginShell>
+      <h1 className="vx-h1">أهلاً بعودتك</h1>
 
-      <div className="w-full max-w-[420px] py-10">
-        <div className="bg-white p-9 sm:p-10 rounded-[22px] border border-slate-200/80 shadow-[0_20px_50px_rgba(15,23,42,0.04)] space-y-9">
-          
-          {/* Brand Mark Header */}
-          <div className="flex flex-col items-center text-center space-y-6">
-            <div className="w-16 h-16 rounded-2xl bg-[#0F172A] flex items-center justify-center shadow-md shadow-slate-900/10 border border-slate-800 transition-transform duration-300 hover:scale-105">
-              <svg 
-                className="w-8 h-8 text-white" 
-                viewBox="0 0 32 32" 
-                fill="none" 
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path 
-                  d="M6 8L14.5 25C14.8 25.6 15.6 25.6 15.9 25L20 17" 
-                  stroke="currentColor" 
-                  strokeWidth="3.5" 
-                  strokeLinecap="round" 
-                />
-                <path
-                  d="M24 6C24 9.3 26.7 12 30 12C26.7 12 24 14.7 24 18C24 14.7 21.3 12 18 12C21.3 12 24 9.3 24 6Z"
-                  fill="#0D9488"
-                />
-              </svg>
-            </div>
-
-            <div className="space-y-2">
-              <h1 className="text-2xl sm:text-[26px] font-black tracking-tight text-[#0F172A] font-brand">
-                Vitalix<span className="text-teal-600">-ai</span>
-              </h1>
-              <p className="text-xs sm:text-sm font-semibold text-slate-500 tracking-wide leading-relaxed">
-                تابع مرضاك بذكاء
-              </p>
-            </div>
-          </div>
-
-          {/* Login Form */}
-          {message && (
-            <div
-              className={`p-3.5 rounded-xl text-xs font-medium text-center border ${
-                message.type === 'error'
-                  ? 'bg-rose-50 border-rose-200 text-rose-700'
-                  : 'bg-emerald-50 border-emerald-200 text-emerald-700'
-              }`}
-            >
-              {message.text}
-            </div>
+      {/* Login Form */}
+      {message && (
+        <div
+          role={message.type === 'error' ? 'alert' : 'status'}
+          className={`vx-msg ${message.type === 'error' ? 'vx-msg-error' : 'vx-msg-success'}`}
+        >
+          {message.type === 'error' ? (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9" /><path d="M12 7.5v5.5" /><path d="M12 16.6v.01" /></svg>
+          ) : (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9" /><path d="m8 12.5 3 3 5-6" /></svg>
           )}
+          <span>{message.text}</span>
+        </div>
+      )}
 
-          <form onSubmit={handleLogin} className="space-y-5">
-            <div className="space-y-1.5">
-              <label htmlFor="email" className="block text-xs font-semibold text-[#0F172A]">
-                البريد الإلكتروني
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="username"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 text-sm bg-white border border-slate-200 rounded-xl focus:border-[#0F172A] focus:ring-1 focus:ring-[#0F172A] focus:outline-none transition-all text-[#0F172A] placeholder:text-slate-400 font-normal shadow-sm"
-                placeholder="name@pharmacy.com"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label htmlFor="password" className="block text-xs font-semibold text-[#0F172A]">
-                كلمة المرور
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 text-sm bg-white border border-slate-200 rounded-xl focus:border-[#0F172A] focus:ring-1 focus:ring-[#0F172A] focus:outline-none transition-all text-[#0F172A] placeholder:text-slate-400 font-normal shadow-sm"
-                placeholder="••••••••"
-              />
-              <div className="flex justify-end pt-0.5">
-                <Link
-                  href="/forgot-password"
-                  className="text-xs text-[#2563EB] hover:underline font-semibold transition cursor-pointer"
-                >
-                  نسيت كلمة المرور؟
-                </Link>
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full pt-3 pb-3 px-4 text-sm font-semibold text-white bg-[#0F172A] hover:bg-slate-800 active:scale-[0.98] disabled:opacity-50 transition-all rounded-xl shadow-md shadow-slate-900/10 flex items-center justify-center cursor-pointer mt-2"
-            >
-              {loading ? (
-                <span className="inline-flex items-center gap-2">
-                  <svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                  جاري التحقق...
-                </span>
-              ) : (
-                'تسجيل الدخول'
-              )}
-            </button>
-          </form>
-
-          <div className="flex items-center gap-3">
-            <div className="flex-1 h-px bg-slate-200" />
-            <span className="text-[11px] font-medium text-slate-400">أو</span>
-            <div className="flex-1 h-px bg-slate-200" />
+      <form onSubmit={handleLogin}>
+        <div>
+          <div className="vx-lab">
+            <label htmlFor="email">البريد الإلكتروني</label>
           </div>
-
-          <Link
-            href="/staff-login"
-            className="w-full pt-3 pb-3 px-4 text-sm font-semibold text-[#0F172A] bg-white hover:bg-slate-50 active:scale-[0.98] transition-all rounded-xl border border-slate-200 shadow-sm flex items-center justify-center cursor-pointer"
-          >
-            دخول الموظفين برمز PIN
-          </Link>
+          <div className="vx-field">
+            <span className="vx-ic" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" focusable="false"><rect x="3" y="5" width="18" height="14" rx="3" /><path d="m4 8 8 5.5L20 8" /></svg>
+            </span>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              dir="ltr"
+              autoComplete="username"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="vx-inp"
+              placeholder="name@pharmacy.com"
+            />
+          </div>
         </div>
 
-        <AppFooter className="mt-8" hidePrivacy />
-      </div>
-    </div>
+        <div className="vx-group2">
+          <div className="vx-lab">
+            <label htmlFor="password">كلمة المرور</label>
+          </div>
+          <div className="vx-field">
+            <span className="vx-ic" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" focusable="false"><rect x="5" y="11" width="14" height="9" rx="3" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>
+            </span>
+            <input
+              id="password"
+              name="password"
+              type={showPassword ? 'text' : 'password'}
+              dir="ltr"
+              autoComplete="current-password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyUp={(e) => setCapsOn(e.getModifierState('CapsLock'))}
+              onBlur={() => setCapsOn(false)}
+              className="vx-inp"
+              placeholder="••••••••"
+            />
+            <button
+              type="button"
+              className="vx-eye"
+              aria-label={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
+              aria-pressed={showPassword}
+              onClick={() => setShowPassword((v) => !v)}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+                <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" /><circle cx="12" cy="12" r="3" />
+                {showPassword && <path d="M4 4l16 16" />}
+              </svg>
+            </button>
+          </div>
+          <div className="vx-forgot-row">
+            {capsOn && (
+              <div className="vx-caps" role="status">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false"><path d="M12 4 5 12h4v5h6v-5h4z" /><path d="M9 20.5h6" /></svg>
+                زر Caps Lock مفعّل
+              </div>
+            )}
+            <Link href="/forgot-password" className="vx-forgot">
+              نسيت كلمة المرور؟
+            </Link>
+          </div>
+        </div>
+
+        <button type="submit" disabled={loading} className="vx-btn">
+          {loading ? (
+            <span className="vx-btn-load">
+              <svg className="vx-spin" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9" strokeOpacity=".3" /><path d="M12 3a9 9 0 0 1 9 9" /></svg>
+              جاري التحقق...
+            </span>
+          ) : (
+            <>
+              <span>تسجيل الدخول</span>
+              <svg className="vx-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false"><path d="M19 12H5" /><path d="m11 6-6 6 6 6" /></svg>
+            </>
+          )}
+        </button>
+      </form>
+
+      <div className="vx-or">أو</div>
+
+      <Link href="/staff-login" className="vx-pin">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><circle cx="6" cy="6" r="1.8" /><circle cx="12" cy="6" r="1.8" /><circle cx="18" cy="6" r="1.8" /><circle cx="6" cy="12" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="18" cy="12" r="1.8" /><circle cx="6" cy="18" r="1.8" /><circle cx="12" cy="18" r="1.8" /><circle cx="18" cy="18" r="1.8" /></svg>
+        دخول الموظفين برمز PIN
+      </Link>
+    </LoginShell>
   );
 }
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={
-      <div className="flex min-h-screen items-center justify-center bg-[#F8FAFC] font-sans" dir="rtl">
-        <p className="text-sm font-semibold text-slate-500 animate-pulse">جاري التحميل...</p>
-      </div>
-    }>
+    <Suspense fallback={<LoginShell><LoginLoading text="جاري التحميل..." /></LoginShell>}>
       <LoginContent />
     </Suspense>
   );

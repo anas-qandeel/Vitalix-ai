@@ -1,0 +1,30 @@
+/* إضافات صفحة /forgot-password فقط — تُحمَّل بعد login.css ولا تعدّل أي قاعدة فيه.
+   كل الكلاسات بادئة vx-forgot-page- وتحت .vx-root. الحركة داخل prefers-reduced-motion:no-preference. */
+.vx-root .vx-forgot-page-brand{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:14px}
+.vx-root .vx-forgot-page-tile{width:40px;height:40px;display:block;border-radius:12px;box-shadow:0 10px 22px -10px rgba(15,23,42,.45)}
+.vx-root .vx-forgot-page-word{direction:ltr;font-size:24px;font-weight:700;line-height:1;letter-spacing:-.3px;color:#0F172A}
+.vx-root .vx-forgot-page-word b{font-weight:700;color:#0D9488}
+.vx-root .vx-forgot-page-h1{margin:0 0 22px;text-align:center;font-size:23px;font-weight:800;line-height:1.3;color:#0F172A}
+.vx-root .vx-forgot-page-note{margin:12px 0 0}
+.vx-root .vx-forgot-page-btn{height:50px;text-decoration:none}
+.vx-root .vx-forgot-page-send{transform:scaleX(-1)}
+.vx-root .vx-forgot-page-back{display:flex;align-items:center;justify-content:center;gap:6px;min-height:40px;margin-top:6px;font-size:13px;font-weight:600;color:#0B5F58;text-decoration:none;cursor:pointer}
+.vx-root .vx-forgot-page-back:hover{text-decoration:underline}
+.vx-root .vx-forgot-page-back:focus-visible{outline:3px solid #0D9488;outline-offset:3px;border-radius:6px}
+.vx-root .vx-forgot-page-check{display:grid;place-items:center;width:56px;height:56px;margin:0 auto 14px;border-radius:50%;background:#D9F2EC;color:#0F766E}
+.vx-root.vx-forgot-page-root .vx-forgot-page-note.vx-msg-success{text-align:center;justify-content:center;line-height:1.7}
+.vx-root .vx-forgot-page-cool{margin:14px 0 0;text-align:center;font-size:12.5px;font-weight:500;color:#556A72;font-variant-numeric:tabular-nums}
+.vx-root .vx-forgot-page-resend{margin-top:12px}
+.vx-root .vx-forgot-page-resend:disabled{opacity:.6;cursor:not-allowed}
+.vx-root.vx-forgot-page-root .vx-foot a{color:inherit;text-decoration:none;cursor:pointer}
+.vx-root.vx-forgot-page-root .vx-foot a:hover{text-decoration:underline}
+
+@container vx (max-width:880px){
+  .vx-root .vx-forgot-page-brand{margin-bottom:10px}
+  .vx-root .vx-forgot-page-h1{margin-bottom:14px;font-size:21px}
+  .vx-root .vx-forgot-page-note{margin-top:10px}
+  .vx-root .vx-forgot-page-check{width:48px;height:48px;margin-bottom:10px}
+  .vx-root .vx-forgot-page-back{margin-top:2px}
+  .vx-root .vx-forgot-page-resend{margin-top:10px}
+  .vx-root.vx-forgot-page-root .vx-brand{height:84px}
+}

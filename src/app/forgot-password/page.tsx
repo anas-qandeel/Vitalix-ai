@@ -2,10 +2,44 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import AppFooter from '../components/AppFooter';
+import {
+  LoginCarouselProvider, LoginBackground, LoginBrandAside, LoginCaptionMobile, LoginFooter,
+} from '../components/login/LoginBrand';
+import '../components/login/forgot.css';
 
 const COOLDOWN_SECONDS = 60;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// غلاف الصفحة (الخلفية + البطاقة الزجاجية + لوحة العلامة) — مكوّن واحد على مستوى الملف حتى لا
+// يُعاد إنشاء البطاقة عند التبديل بين النموذج وشاشة النجاح. مظهر فقط. رابط الخصوصية يبقى ظاهراً هنا
+function ForgotShell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="vx-root vx-forgot-page-root" dir="rtl">
+      <LoginBackground />
+      <LoginCarouselProvider>
+        <div className="vx-shell">
+          <main className="vx-form-side">
+            <div className="vx-card">
+              <div className="vx-forgot-page-brand">
+                <svg className="vx-forgot-page-tile" viewBox="0 0 192 192" aria-hidden="true" focusable="false">
+                  <rect width="192" height="192" rx="44" fill="#0F172A" />
+                  <path d="M37.4 51.2L90.7 156.5L120 102.8" fill="none" stroke="#fff" strokeWidth="20.6" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M144 41Q149.2 66.8 175 72Q149.2 77.2 144 103Q138.8 77.2 113 72Q138.8 66.8 144 41Z" fill="#0D9488" />
+                </svg>
+                <div className="vx-forgot-page-word" dir="ltr">Vitalix<b>-ai</b></div>
+              </div>
+              <h1 className="vx-forgot-page-h1">استعادة كلمة المرور</h1>
+              {children}
+            </div>
+            <LoginCaptionMobile />
+            <LoginFooter showPrivacy />
+          </main>
+          <LoginBrandAside />
+        </div>
+      </LoginCarouselProvider>
+    </div>
+  );
+}
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -69,136 +103,89 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#F8FAFC] font-sans antialiased selection:bg-[#2563EB] selection:text-[#FFFFFF] px-4" dir="rtl">
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800;900&display=swap');
-        .font-brand {
-          font-family: 'IBM Plex Sans Arabic', system-ui, -apple-system, sans-serif;
-        }
-      `}</style>
-
-      <div className="w-full max-w-[420px] py-10">
-        <div className="bg-white p-9 sm:p-10 rounded-[22px] border border-slate-200/80 shadow-[0_20px_50px_rgba(15,23,42,0.04)] space-y-9">
-          {/* Brand Mark Header */}
-          <div className="flex flex-col items-center text-center space-y-6">
-            <div className="w-16 h-16 rounded-2xl bg-[#0F172A] flex items-center justify-center shadow-md shadow-slate-900/10 border border-slate-800 transition-transform duration-300 hover:scale-105">
-              <svg
-                className="w-8 h-8 text-white"
-                viewBox="0 0 32 32"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M6 8L14.5 25C14.8 25.6 15.6 25.6 15.9 25L20 17"
-                  stroke="currentColor"
-                  strokeWidth="3.5"
-                  strokeLinecap="round"
-                />
-                <path
-                  d="M24 6C24 9.3 26.7 12 30 12C26.7 12 24 14.7 24 18C24 14.7 21.3 12 18 12C21.3 12 24 9.3 24 6Z"
-                  fill="#0D9488"
-                />
-              </svg>
-            </div>
-
-            <div className="space-y-2">
-              <h1 className="text-2xl sm:text-[26px] font-black tracking-tight text-[#0F172A] font-brand">
-                Vitalix<span className="text-teal-600">-ai</span>
-              </h1>
-              <p className="text-xs sm:text-sm font-semibold text-slate-500 tracking-wide leading-relaxed">
-                استعادة كلمة المرور
-              </p>
-            </div>
+    <ForgotShell>
+      {sent ? (
+        <div>
+          <div className="vx-forgot-page-check" aria-hidden="true">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" focusable="false"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg>
           </div>
-
-          {sent ? (
-            <div className="space-y-6">
-              <div className="p-3.5 rounded-xl text-xs font-medium text-center border bg-emerald-50 border-emerald-200 text-emerald-700 leading-relaxed">
-                إذا كان هذا البريد مسجّلاً لدينا، فسيصلك رابط تغيير كلمة المرور خلال دقائق. تحقّق من صندوق الوارد ومن مجلد البريد غير المرغوب فيه.
-              </div>
-              <a
-                href="/"
-                className="w-full inline-block text-center pt-3 pb-3 px-4 text-sm font-semibold text-white bg-[#0F172A] hover:bg-slate-800 active:scale-[0.98] transition-all rounded-xl shadow-md shadow-slate-900/10 cursor-pointer"
-              >
-                العودة لتسجيل الدخول
-              </a>
-              {cooldown > 0 ? (
-                <p className="text-[11px] font-medium text-slate-400 text-center tabular-nums">
-                  يمكنك طلب رابط جديد بعد {cooldown} ثانية
-                </p>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleResend}
-                  disabled={loading}
-                  className="w-full pt-3 pb-3 px-4 text-sm font-semibold text-[#0F172A] bg-white hover:bg-slate-50 active:scale-[0.98] disabled:opacity-50 transition-all rounded-xl border border-slate-200 shadow-sm flex items-center justify-center cursor-pointer"
-                >
-                  {loading ? (
-                    <span className="inline-flex items-center gap-2">
-                      <svg className="animate-spin h-4 w-4 text-slate-900" viewBox="0 0 24 24" fill="none">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                      </svg>
-                      جاري الإرسال...
-                    </span>
-                  ) : (
-                    'إعادة إرسال الرابط'
-                  )}
-                </button>
-              )}
-            </div>
+          <div role="status" className="vx-msg vx-msg-success vx-forgot-page-note">
+            <span>إذا كان هذا البريد مسجّلاً لدينا، فسيصلك رابط تغيير كلمة المرور خلال دقائق. تحقّق من صندوق الوارد ومن مجلد البريد غير المرغوب فيه.</span>
+          </div>
+          <a href="/" className="vx-btn vx-forgot-page-btn">
+            العودة لتسجيل الدخول
+          </a>
+          {cooldown > 0 ? (
+            <p className="vx-forgot-page-cool">
+              يمكنك طلب رابط جديد بعد {cooldown} ثانية
+            </p>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <div className="space-y-1.5">
-                <label htmlFor="email" className="block text-xs font-semibold text-[#0F172A]">
-                  البريد الإلكتروني
-                </label>
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="username"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-4 py-3 text-sm bg-white border border-slate-200 rounded-xl focus:border-[#0F172A] focus:ring-1 focus:ring-[#0F172A] focus:outline-none transition-all text-[#0F172A] placeholder:text-slate-400 font-normal shadow-sm"
-                  placeholder="name@pharmacy.com"
-                />
-                {emailError && (
-                  <p className="text-[11px] font-semibold text-rose-600">{emailError}</p>
-                )}
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full pt-3 pb-3 px-4 text-sm font-semibold text-white bg-[#0F172A] hover:bg-slate-800 active:scale-[0.98] disabled:opacity-50 transition-all rounded-xl shadow-md shadow-slate-900/10 flex items-center justify-center cursor-pointer mt-2"
-              >
-                {loading ? (
-                  <span className="inline-flex items-center gap-2">
-                    <svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24" fill="none">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
-                    جاري الإرسال...
-                  </span>
-                ) : (
-                  'إرسال الرابط'
-                )}
-              </button>
-
-              <a
-                href="/"
-                className="block text-center text-xs text-slate-500 hover:text-slate-700 font-semibold transition"
-              >
-                العودة لتسجيل الدخول
-              </a>
-            </form>
+            <button
+              type="button"
+              onClick={handleResend}
+              disabled={loading}
+              className="vx-pin vx-forgot-page-resend"
+            >
+              {loading ? (
+                <span className="vx-btn-load">
+                  <svg className="vx-spin" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9" strokeOpacity=".3" /><path d="M12 3a9 9 0 0 1 9 9" /></svg>
+                  جاري الإرسال...
+                </span>
+              ) : (
+                'إعادة إرسال الرابط'
+              )}
+            </button>
           )}
         </div>
+      ) : (
+        <form onSubmit={handleSubmit}>
+          <div className="vx-lab">
+            <label htmlFor="email">البريد الإلكتروني</label>
+          </div>
+          <div className="vx-field">
+            <span className="vx-ic" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" focusable="false"><rect x="3" y="5" width="18" height="14" rx="3" /><path d="m4 8 8 5.5L20 8" /></svg>
+            </span>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              dir="ltr"
+              autoComplete="username"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="vx-inp"
+              placeholder="name@pharmacy.com"
+            />
+          </div>
+          {emailError && (
+            <div role="alert" className="vx-msg vx-msg-error vx-forgot-page-note">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9" /><path d="M12 7.5v5.5" /><path d="M12 16.6v.01" /></svg>
+              <span>{emailError}</span>
+            </div>
+          )}
 
-        <AppFooter className="mt-8" />
-      </div>
-    </div>
+          <button type="submit" disabled={loading} className="vx-btn vx-forgot-page-btn">
+            {loading ? (
+              <span className="vx-btn-load">
+                <svg className="vx-spin" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9" strokeOpacity=".3" /><path d="M12 3a9 9 0 0 1 9 9" /></svg>
+                جاري الإرسال...
+              </span>
+            ) : (
+              <>
+                <span>إرسال الرابط</span>
+                <svg className="vx-forgot-page-send" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false"><path d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" /></svg>
+              </>
+            )}
+          </button>
+
+          <a href="/" className="vx-forgot-page-back">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false"><path d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
+            العودة لتسجيل الدخول
+          </a>
+        </form>
+      )}
+    </ForgotShell>
   );
 }

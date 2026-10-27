@@ -201,3 +201,4 @@ button.vd-x{background:rgba(15,60,70,.06)}
 .vd-subnote.is-bad{color:#B42318}
 .vd-skel{display:inline-block;vertical-align:middle;height:14px;width:112px;max-width:100%;border-radius:7px;background:linear-gradient(90deg,rgba(15,60,70,.08),rgba(15,60,70,.16),rgba(15,60,70,.08))}
 @media (prefers-reduced-motion:no-preference){.vd-skel{animation:vd-pulse 1.4s ease-in-out infinite}@keyframes vd-pulse{50%{opacity:.45}}}
+@media (max-width:1023px){.vd-side{background:#fff}}

@@ -16,6 +16,8 @@ import StatCard from './components/StatCard';
 import { ammanTodayISO } from '@/lib/subscriptions';
 import { Notebook } from '@phosphor-icons/react';
 import { useOverdueRequests } from '@/lib/use-overdue-requests';
+import { USE_SIDEBAR } from './components/shell-config';
+import './dashboard-home.css';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -431,7 +433,7 @@ export default function PharmacistDashboard() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50/50 antialiased text-slate-900 pb-20" dir="rtl">
+    <div className="vh-root min-h-screen bg-slate-50/50 antialiased text-slate-900 pb-20" dir="rtl">
 
       <style jsx global>{`
         @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700;800&display=swap');
@@ -447,67 +449,82 @@ export default function PharmacistDashboard() {
 
       <DashboardHeader />
 
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 pt-8 pb-12 space-y-8">
+      <main className="vh-main max-w-6xl mx-auto px-4 sm:px-6 pt-8 pb-12 space-y-8">
+
+        {/* ═══ ترويسة الصفحة (تظهر مع القائمة الجانبية الجديدة فقط) ═══ */}
+        {USE_SIDEBAR && (
+          <div className="vh-hero">
+            <span className="vh-hero-ic" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" focusable="false">
+                <path d="M9.4 4h5.2v5.4H20v5.2h-5.4V20H9.4v-5.4H4V9.4h5.4z" />
+              </svg>
+            </span>
+            <div className="vh-hero-tx">
+              {pharmacyName && <h1 className="vh-hi">{pharmacyName}</h1>}
+              <p className="vh-hello">مرحباً بعودتك <span>{formattedDisplayName}</span></p>
+            </div>
+          </div>
+        )}
 
         {/* ═══ 4. تذكيرات الأدوية المزمنة + أعياد الميلاد (صف أفقي واحد) ═══ */}
         {/* عدد البطاقات الظاهرة يحدد الشبكة: بلا تأخر الأصناف الحالية تماماً؛ ثلاث بطاقات = ثلاثة أعمدة متساوية */}
-        <div className={`grid grid-cols-1 gap-4 ${topGridCols}`}>
-        <div className="fu1 bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-          <div className={`h-1 ${
+        <div className={`vh-top ${hasOverdue ? 'vh-has-late' : ''} grid grid-cols-1 gap-4 ${topGridCols}`}>
+        <div className="vh-card vh-call fu1 bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+          <div className={`vh-strip h-1 ${
             todayAlerts.some(a => a.days_left <= 1) ? 'bg-rose-500' :
             todayAlerts.length > 0 ? 'bg-amber-500' : 'bg-teal-500'
           }`} />
           {todayAlerts.length > 0 ? (
             <>
-              <div className={`px-6 py-5 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${threeCols ? 'lg:flex-col lg:items-start' : ''}`}>
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center">
+              <div className={`vh-ch px-6 py-5 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${threeCols ? 'lg:flex-col lg:items-start' : ''}`}>
+                <div className="vh-chl flex items-center gap-3">
+                  <div className="vh-cic w-10 h-10 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center">
                     <IconBell className="w-5 h-5 text-rose-600" />
                   </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-base font-bold text-slate-900">اتصل اليوم</h3>
+                  <div className="vh-ct">
+                    <div className="vh-ctr flex items-center gap-2">
+                      <h3 className="vh-ttl text-base font-bold text-slate-900">اتصل اليوم</h3>
                       {todayAlerts.length > 0 && (
-                        <span className="inline-flex items-center justify-center min-w-[24px] h-6 px-2 rounded-full text-[13px] font-bold text-white bg-rose-500 tabular-nums">
+                        <span className="vh-cnt inline-flex items-center justify-center min-w-[24px] h-6 px-2 rounded-full text-[13px] font-bold text-white bg-rose-500 tabular-nums">
                           {todayAlerts.length}
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-slate-500 mt-0.5">مرضى يحتاجون تجديد دوائهم قريباً</p>
+                    <p className="vh-sb text-xs text-slate-500 mt-0.5">مرضى يحتاجون تجديد دوائهم قريباً</p>
                   </div>
                 </div>
-                <button onClick={() => router.push('/dashboard/chronic')} className="text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 px-4 py-2 rounded-lg transition-colors shadow-sm self-start sm:self-auto">
+                <button onClick={() => router.push('/dashboard/chronic')} className="vh-ghost text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 px-4 py-2 rounded-lg transition-colors shadow-sm self-start sm:self-auto">
                   إدارة المزمنين
                 </button>
               </div>
 
-              <div className="divide-y divide-slate-100 lg:max-h-[220px] lg:overflow-y-auto">
+              <div className="vh-rows divide-y divide-slate-100 lg:max-h-[220px] lg:overflow-y-auto">
                 {todayAlerts.map(item => {
                   return (
-                    <div key={item.patient_id} className="px-4 py-3 flex items-center justify-between gap-4 hover:bg-slate-50 transition-colors">
-                      <div className="flex items-center gap-4 min-w-0">
-                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center shrink-0 border border-slate-200 text-slate-500 font-semibold text-sm">
+                    <div key={item.patient_id} className="vh-row px-4 py-3 flex items-center justify-between gap-4 hover:bg-slate-50 transition-colors">
+                      <div className="vh-who-g flex items-center gap-4 min-w-0">
+                        <div className="vh-pa w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center shrink-0 border border-slate-200 text-slate-500 font-semibold text-sm">
                           {item.patient_name.charAt(0)}
                         </div>
-                        <div className="min-w-0 flex flex-col gap-1">
-                          <p className="text-sm font-semibold text-slate-900 truncate">{item.patient_name}</p>
-                          <div className="text-xs font-medium text-slate-500 flex items-center min-w-0 gap-1" dir="ltr">
+                        <div className="vh-who min-w-0 flex flex-col gap-1">
+                          <p className="vh-nm text-sm font-semibold text-slate-900 truncate">{item.patient_name}</p>
+                          <div className="vh-mt text-xs font-medium text-slate-500 flex items-center min-w-0 gap-1" dir="ltr">
                              <span className="truncate">{item.medication_names.join(' · ')}</span>
                           </div>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-3 shrink-0">
-                        <span className={`text-[11px] font-semibold px-3 py-1.5 rounded-md border tabular-nums ${
-                          item.days_left <= 1  ? 'text-rose-700 bg-rose-50 border-rose-200 animate-pulse' :
-                          item.days_left <= 3  ? 'text-amber-700 bg-amber-50 border-amber-200' :
-                          'text-slate-700 bg-slate-100 border-slate-200'
+                      <div className="vh-end flex items-center gap-3 shrink-0">
+                        <span className={`vh-st text-[11px] font-semibold px-3 py-1.5 rounded-md border tabular-nums ${
+                          item.days_left <= 1  ? 'vh-st-late text-rose-700 bg-rose-50 border-rose-200 animate-pulse' :
+                          item.days_left <= 3  ? 'vh-st-soon text-amber-700 bg-amber-50 border-amber-200' :
+                          'vh-st-ok text-slate-700 bg-slate-100 border-slate-200'
                         }`}>
                           {pluralizeDaysLeft(item.days_left)}
                         </span>
                         <button
                           onClick={() => openWaModal(item)}
-                          className="flex items-center justify-center w-8 h-8 bg-slate-900 hover:bg-slate-800 text-white rounded-full transition-all shadow-sm">
+                          className="vh-wa flex items-center justify-center w-8 h-8 bg-slate-900 hover:bg-slate-800 text-white rounded-full transition-all shadow-sm">
                           <IconWhatsapp className="w-4 h-4" />
                         </button>
                       </div>
@@ -517,53 +534,56 @@ export default function PharmacistDashboard() {
               </div>
             </>
           ) : (
-            <div className="px-6 py-10 flex flex-col items-center text-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-teal-50 border border-teal-100 flex items-center justify-center">
+            <div className="vh-empty px-6 py-10 flex flex-col items-center text-center gap-3">
+              <div className="vh-empty-ic w-12 h-12 rounded-xl bg-teal-50 border border-teal-100 flex items-center justify-center">
                 <svg className="w-6 h-6 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <h3 className="text-base font-bold text-slate-900">لا يوجد مرضى بحاجة للتذكير اليوم</h3>
+              <h3 className="vh-empty-t text-base font-bold text-slate-900">لا يوجد مرضى بحاجة للتذكير اليوم</h3>
             </div>
           )}
         </div>
 
         {/* ═══ طلبات متأخرة (تظهر فقط حين يوجد تأخر) ═══ */}
         {overdueRequests.length > 0 && (
-          <div className="fu2 bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-            <div className="h-1 bg-rose-500" />
-            <div className={`px-6 py-5 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${threeCols ? 'lg:flex-col lg:items-start' : ''}`}>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center">
+          <div className="vh-card vh-late fu2 bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+            <div className="vh-strip h-1 bg-rose-500" />
+            <div className={`vh-ch px-6 py-5 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${threeCols ? 'lg:flex-col lg:items-start' : ''}`}>
+              <div className="vh-chl flex items-center gap-3">
+                <div className="vh-cic w-10 h-10 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center">
                   <IconExclamationCircle className="w-5 h-5 text-rose-600" />
                 </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-base font-bold text-slate-900">طلبات متأخرة</h3>
-                    <span className="inline-flex items-center justify-center min-w-[24px] h-6 px-2 rounded-full text-[13px] font-bold text-white bg-rose-500 tabular-nums">
+                <div className="vh-ct">
+                  <div className="vh-ctr flex items-center gap-2">
+                    <h3 className="vh-ttl text-base font-bold text-slate-900">طلبات متأخرة</h3>
+                    <span className="vh-cnt inline-flex items-center justify-center min-w-[24px] h-6 px-2 rounded-full text-[13px] font-bold text-white bg-rose-500 tabular-nums">
                       {overdueRequests.length}
                     </span>
                   </div>
-                  <p className="text-xs text-slate-500 mt-0.5">طلبات تحتاج متابعة الآن</p>
+                  <p className="vh-sb text-xs text-slate-500 mt-0.5">طلبات تحتاج متابعة الآن</p>
                 </div>
               </div>
-              <button onClick={() => router.push('/dashboard/requests')} className="text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 px-4 py-2 rounded-lg transition-colors shadow-sm self-start sm:self-auto cursor-pointer">
+              <button onClick={() => router.push('/dashboard/requests')} className="vh-ghost text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 px-4 py-2 rounded-lg transition-colors shadow-sm self-start sm:self-auto cursor-pointer">
                 كل الطلبات
               </button>
             </div>
-            <div className="divide-y divide-slate-100 lg:max-h-[220px] lg:overflow-y-auto">
+            <div className="vh-rows divide-y divide-slate-100 lg:max-h-[220px] lg:overflow-y-auto">
               {overdueRequests.map(r => (
                 <button key={r.id} type="button" onClick={() => router.push(`/dashboard/requests?open=${r.id}`)}
-                  className="w-full text-right px-4 py-3 flex flex-col gap-1.5 hover:bg-slate-50 transition-colors cursor-pointer">
-                  <div className="flex items-baseline justify-between gap-3 min-w-0">
-                    <p className="text-sm font-semibold text-slate-900 truncate min-w-0">{r.patientName || 'مريض غير معروف'}</p>
-                    <span className="text-[11px] text-slate-500 tabular-nums shrink-0">طلب مواد رقم {r.request_number}/{r.request_year}</span>
+                  className="vh-row vh-row-req w-full text-right px-4 py-3 flex flex-col gap-1.5 hover:bg-slate-50 transition-colors cursor-pointer">
+                  {USE_SIDEBAR && (
+                    <span className="vh-pa vh-pa-late" aria-hidden="true">{(r.patientName || 'مريض غير معروف').charAt(0)}</span>
+                  )}
+                  <div className="vh-reqtop flex items-baseline justify-between gap-3 min-w-0">
+                    <p className="vh-nm text-sm font-semibold text-slate-900 truncate min-w-0">{r.patientName || 'مريض غير معروف'}</p>
+                    <span className="vh-mt text-[11px] text-slate-500 tabular-nums shrink-0">طلب مواد رقم {r.request_number}/{r.request_year}</span>
                   </div>
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span title={r.reasons[0].label} className="text-[11px] font-semibold px-2.5 py-1 rounded-md border text-rose-700 bg-rose-50 border-rose-200 truncate min-w-0">
+                  <div className="vh-chips flex items-center gap-2 min-w-0">
+                    <span title={r.reasons[0].label} className="vh-note text-[11px] font-semibold px-2.5 py-1 rounded-md border text-rose-700 bg-rose-50 border-rose-200 truncate min-w-0">
                       {r.reasons[0].label}
                     </span>
-                    {r.reasons.length > 1 && <span className="text-[11px] text-slate-500 tabular-nums shrink-0">+{r.reasons.length - 1}</span>}
+                    {r.reasons.length > 1 && <span className="vh-mt text-[11px] text-slate-500 tabular-nums shrink-0">+{r.reasons.length - 1}</span>}
                   </div>
                 </button>
               ))}
@@ -573,46 +593,46 @@ export default function PharmacistDashboard() {
 
         {/* ═══ 2. أعياد الميلاد ═══ */}
         {birthdayPatients.length > 0 && (
-          <div className="fu3 bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-            <div className="h-1 bg-teal-500" />
-            <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/50 flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-teal-50 border border-teal-100 flex items-center justify-center">
+          <div className="vh-card vh-bday fu3 bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+            <div className="vh-strip h-1 bg-teal-500" />
+            <div className="vh-ch vh-bch px-6 py-5 border-b border-slate-100 bg-slate-50/50 flex flex-wrap items-center justify-between gap-2">
+              <div className="vh-chl flex items-center gap-3">
+                <div className="vh-cic w-10 h-10 rounded-xl bg-teal-50 border border-teal-100 flex items-center justify-center">
                   <IconCake className="w-5 h-5 text-teal-600" />
                 </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-900">أعياد ميلاد اليوم</h3>
-                  <p className="text-xs text-slate-500 mt-0.5">{birthdayPatients.length} {birthdayPatients.length === 1 ? 'مريض' : 'مرضى'}</p>
+                <div className="vh-ct">
+                  <h3 className="vh-ttl text-base font-bold text-slate-900">أعياد ميلاد اليوم</h3>
+                  <p className="vh-sb text-xs text-slate-500 mt-0.5">{birthdayPatients.length} {birthdayPatients.length === 1 ? 'مريض' : 'مرضى'}</p>
                 </div>
               </div>
             </div>
-            <div className="p-6">
+            <div className="vh-bbody p-6">
               {greetError && (
-                <div className="mb-4 text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-100 px-4 py-2.5 rounded-lg">
+                <div className="vh-gerr mb-4 text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-100 px-4 py-2.5 rounded-lg">
                   {greetError}
                 </div>
               )}
-              <div className="flex flex-col gap-2.5 lg:max-h-[220px] lg:overflow-y-auto">
+              <div className="vh-ppl flex flex-col gap-2.5 lg:max-h-[220px] lg:overflow-y-auto">
                 {sortedBirthdayPatients.map(p => {
                   const age = new Date().getFullYear() - new Date(p.birth_date).getFullYear();
                   const msg = `🎉 كل عام وأنتم بخير ${p.name}!\nبمناسبة عيد ميلادك الكريم، يتقدم فريق ${pharmacyName} بأحر التهاني وأطيب الأمنيات بدوام الصحة والعافية. 💐`;
                   return (
-                    <div key={p.id} className="flex items-center justify-between gap-3 bg-slate-50 border border-slate-100 rounded-xl px-3.5 py-3 hover:bg-slate-100 transition-colors">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-8 h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center font-semibold text-slate-600 text-sm shrink-0">
+                    <div key={p.id} className="vh-pp flex items-center justify-between gap-3 bg-slate-50 border border-slate-100 rounded-xl px-3.5 py-3 hover:bg-slate-100 transition-colors">
+                      <div className="vh-who-g flex items-center gap-3 min-w-0">
+                        <div className="vh-pa vh-pa-gold w-8 h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center font-semibold text-slate-600 text-sm shrink-0">
                           {p.name.charAt(0)}
                         </div>
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-slate-900 truncate">{p.name}</p>
-                          <p className="text-[11px] font-medium text-rose-500 mt-0.5">{age} سنة اليوم</p>
+                        <div className="vh-who min-w-0">
+                          <p className="vh-nm text-sm font-semibold text-slate-900 truncate">{p.name}</p>
+                          <p className="vh-mt vh-age text-[11px] font-medium text-rose-500 mt-0.5">{age} سنة اليوم</p>
                           {greetedToday.has(p.id) && (
-                            <span className="inline-block mt-1 text-[10px] font-semibold text-teal-700 bg-teal-50 border border-teal-100 px-1.5 py-0.5 rounded-md">تمّت التهنئة</span>
+                            <span className="vh-greeted inline-block mt-1 text-[10px] font-semibold text-teal-700 bg-teal-50 border border-teal-100 px-1.5 py-0.5 rounded-md">تمّت التهنئة</span>
                           )}
                         </div>
                       </div>
                       <a href={`https://wa.me/${normalizePhone(p.phone_number)}?text=${encodeURIComponent(msg)}`} target="_blank" rel="noreferrer"
                         onClick={() => recordGreeting(p.id)}
-                        className={`shrink-0 flex items-center justify-center w-8 h-8 bg-slate-900 hover:bg-slate-800 text-white rounded-lg transition-all shadow-sm ${greetedToday.has(p.id) ? 'opacity-60' : ''}`}>
+                        className={`vh-wa shrink-0 flex items-center justify-center w-8 h-8 bg-slate-900 hover:bg-slate-800 text-white rounded-lg transition-all shadow-sm ${greetedToday.has(p.id) ? 'opacity-60' : ''}`}>
                         <IconWhatsapp className="w-4 h-4" />
                       </a>
                     </div>
@@ -625,9 +645,9 @@ export default function PharmacistDashboard() {
         </div>
 
         {/* ═══ 1. لوحة الإحصائيات ═══ */}
-        <div className={`fu2 grid grid-cols-2 ${isOwner ? 'sm:grid-cols-3 lg:grid-cols-6' : ''} gap-px bg-slate-200 border border-slate-200 rounded-2xl overflow-hidden shadow-sm`}>
+        <div className={`vh-kpgrid ${isOwner ? 'vh-own' : 'vh-stf'} fu2 grid grid-cols-2 ${isOwner ? 'sm:grid-cols-3 lg:grid-cols-6' : ''} gap-px bg-slate-200 border border-slate-200 rounded-2xl overflow-hidden shadow-sm`}>
           {isOwner && <StatCard href="/dashboard/patients" icon={<IconUsers className="w-3.5 h-3.5 text-slate-400" />} label="إجمالي المرضى" value={stats.totalPatients} />}
-          {isOwner && <StatCard href="/dashboard/patients?filter=with_visits" icon={<IconClipboard className="w-3.5 h-3.5 text-slate-400" />} label="لهم فحوصات" value={stats.patientsWithVisits} hint={`من ${stats.totalPatients}`} />}
+          {isOwner && <StatCard href="/dashboard/patients?filter=with_visits" icon={<IconClipboard className="w-3.5 h-3.5 text-slate-400" />} label="لهم فحوصات" value={stats.patientsWithVisits} hint={`من ${stats.totalPatients}`} progress={stats.totalPatients > 0 ? Math.min(100, Math.max(0, (stats.patientsWithVisits / stats.totalPatients) * 100)) : 0} />}
           <StatCard href={isOwner ? '/dashboard/patients?filter=today' : undefined} note={isOwner ? 'يُعرض كل مريض مرة واحدة' : undefined} icon={<IconVitals className="w-3.5 h-3.5 text-slate-400" />} label="فحوصات اليوم" value={stats.visitsToday} />
           {isOwner && <StatCard href="/dashboard/patients?filter=month" note="يُعرض كل مريض مرة واحدة" icon={<IconVitals className="w-3.5 h-3.5 text-slate-400" />} label="فحوصات الشهر" value={stats.visitsThisMonth} />}
           {isOwner && <StatCard icon={<IconChronic className="w-3.5 h-3.5 text-slate-400" />} label="إجمالي الفحوصات" value={stats.totalVisits} />}
@@ -635,27 +655,36 @@ export default function PharmacistDashboard() {
         </div>
 
         {/* ═══ 3. بطاقات التنقل ═══ */}
-        <div className="fu4 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="vh-tools fu4 grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* الفحوصات */}
           <div onClick={() => router.push('/dashboard/vitals')}
-            className="group bg-white border border-slate-200 rounded-xl p-5 cursor-pointer shadow-sm hover:shadow-md transition-all flex items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center shrink-0 group-hover:bg-slate-900 group-hover:text-white transition-colors">
+            className="vh-card vh-tile vh-t1 vh-feat group bg-white border border-slate-200 rounded-xl p-5 cursor-pointer shadow-sm hover:shadow-md transition-all flex items-center justify-between gap-4">
+            {USE_SIDEBAR && (
+              <span className="vh-ecg" aria-hidden="true">
+                <svg viewBox="0 0 420 80" preserveAspectRatio="none" focusable="false">
+                  <polyline pathLength="1" points="0,44 74,44 96,44 108,16 124,68 138,30 152,44 236,44 258,44 270,24 284,60 296,44 420,44" fill="none" stroke="#fff" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+                </svg>
+              </span>
+            )}
+            <div className="vh-tin flex items-center gap-4">
+              <div className="vh-ti w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center shrink-0 group-hover:bg-slate-900 group-hover:text-white transition-colors">
                 <IconVitals className="w-6 h-6 text-slate-600 group-hover:text-white transition-colors" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-900">الفحوصات والتحليل الذكي</h3>
+                <h3 className="text-sm font-bold text-slate-900">الفحوصات والتحليل الذكي{USE_SIDEBAR && (
+                  <svg className="vh-spark" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M12 3c.6 4.6 3.4 7.4 8 8-4.6.6-7.4 3.4-8 8-.6-4.6-3.4-7.4-8-8 4.6-.6 7.4-3.4 8-8z" /></svg>
+                )}</h3>
                 <p className="text-xs text-slate-500 mt-1 leading-relaxed">قياس الضغط والسكري والوزن، ملخّص ذكي مخصص، وإرسال فوري عبر WhatsApp.</p>
               </div>
             </div>
-            <IconArrow className="w-5 h-5 text-slate-300 group-hover:text-slate-900 transition-colors shrink-0 rotate-180" />
+            <IconArrow className="vh-arrow w-5 h-5 text-slate-300 group-hover:text-slate-900 transition-colors shrink-0 rotate-180" />
           </div>
 
           {/* الأدوية المزمنة */}
           <div onClick={() => router.push('/dashboard/chronic')}
-            className="group bg-white border border-slate-200 rounded-xl p-5 cursor-pointer shadow-sm hover:shadow-md transition-all flex items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center shrink-0 group-hover:bg-slate-900 group-hover:text-white transition-colors">
+            className="vh-card vh-tile vh-t2 group bg-white border border-slate-200 rounded-xl p-5 cursor-pointer shadow-sm hover:shadow-md transition-all flex items-center justify-between gap-4">
+            <div className="vh-tin flex items-center gap-4">
+              <div className="vh-ti w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center shrink-0 group-hover:bg-slate-900 group-hover:text-white transition-colors">
                 <IconChronic className="w-6 h-6 text-slate-600 group-hover:text-white transition-colors" />
               </div>
               <div>
@@ -663,14 +692,14 @@ export default function PharmacistDashboard() {
                 <p className="text-xs text-slate-500 mt-1 leading-relaxed">متابعة مرضاك ومواعيد نفاذ أدويتهم.</p>
               </div>
             </div>
-            <IconArrow className="w-5 h-5 text-slate-300 group-hover:text-slate-900 transition-colors shrink-0 rotate-180" />
+            <IconArrow className="vh-arrow w-5 h-5 text-slate-300 group-hover:text-slate-900 transition-colors shrink-0 rotate-180" />
           </div>
 
           {/* طلبات المرضى */}
           <div onClick={() => router.push('/dashboard/requests')}
-            className="group bg-white border border-slate-200 rounded-xl p-5 cursor-pointer shadow-sm hover:shadow-md transition-all flex items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center shrink-0 group-hover:bg-slate-900 group-hover:text-white transition-colors">
+            className="vh-card vh-tile vh-t3 group bg-white border border-slate-200 rounded-xl p-5 cursor-pointer shadow-sm hover:shadow-md transition-all flex items-center justify-between gap-4">
+            <div className="vh-tin flex items-center gap-4">
+              <div className="vh-ti w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center shrink-0 group-hover:bg-slate-900 group-hover:text-white transition-colors">
                 <Notebook size={24} weight="bold" className="text-slate-600 group-hover:text-white transition-colors" aria-hidden="true" />
               </div>
               <div>
@@ -678,14 +707,14 @@ export default function PharmacistDashboard() {
                 <p className="text-xs text-slate-500 mt-1 leading-relaxed">سجّل طلبات الأصناف غير المتوفرة وتابعها بين الشفتات حتى تسليمها للمريض.</p>
               </div>
             </div>
-            <IconArrow className="w-5 h-5 text-slate-300 group-hover:text-slate-900 transition-colors shrink-0 rotate-180" />
+            <IconArrow className="vh-arrow w-5 h-5 text-slate-300 group-hover:text-slate-900 transition-colors shrink-0 rotate-180" />
           </div>
 
           {/* الكتالوج */}
           <div onClick={() => router.push('/dashboard/pharmacy-catalog-manager')}
-            className="group bg-white border border-slate-200 rounded-xl p-5 cursor-pointer shadow-sm hover:shadow-md transition-all flex items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center shrink-0 group-hover:bg-slate-900 group-hover:text-white transition-colors">
+            className="vh-card vh-tile vh-t4 group bg-white border border-slate-200 rounded-xl p-5 cursor-pointer shadow-sm hover:shadow-md transition-all flex items-center justify-between gap-4">
+            <div className="vh-tin flex items-center gap-4">
+              <div className="vh-ti w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center shrink-0 group-hover:bg-slate-900 group-hover:text-white transition-colors">
                 <IconCatalog className="w-6 h-6 text-slate-600 group-hover:text-white transition-colors" />
               </div>
               <div>
@@ -693,7 +722,7 @@ export default function PharmacistDashboard() {
                 <p className="text-xs text-slate-500 mt-1 leading-relaxed">مكملات وأجهزة ومستلزمات، لكل منتج بطاقة أمان تُفحص تلقائياً لكل مريض.</p>
               </div>
             </div>
-            <IconArrow className="w-5 h-5 text-slate-300 group-hover:text-slate-900 transition-colors shrink-0 rotate-180" />
+            <IconArrow className="vh-arrow w-5 h-5 text-slate-300 group-hover:text-slate-900 transition-colors shrink-0 rotate-180" />
           </div>
         </div>
 
@@ -729,7 +758,7 @@ export default function PharmacistDashboard() {
         </div>
       )}
 
-      <AppFooter className="max-w-6xl mx-auto px-6 py-8 border-t border-slate-200/60 mt-4" />
+      <AppFooter className="vh-foot max-w-6xl mx-auto px-6 py-8 border-t border-slate-200/60 mt-4" />
     </div>
   );
 }

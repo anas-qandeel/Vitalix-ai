@@ -206,10 +206,10 @@ button.vd-x{background:rgba(15,60,70,.06)}
 /* ===== Round 3.7 (additive): tooltips on every rail icon + footer at the bottom of the window ===== */
 
 /* (1) collapsed rail: the item list only needs its own scrollbar on very short windows, so let tooltips escape it otherwise */
-@media (min-width:1024px) and (min-height:650px){
+@media (min-width:1024px) and (min-height:690px){
   .vd[data-sb="rail"] .vd-nav{overflow:visible;background:none}
 }
-@media (min-width:1024px) and (max-width:1279px) and (min-height:650px){
+@media (min-width:1024px) and (max-width:1279px) and (min-height:690px){
   .vd[data-sb="auto"] .vd-nav{overflow:visible;background:none}
 }
 /* same tooltip for the logo and the account button (they carry aria-label, not data-tip) */
@@ -234,4 +234,25 @@ button.vd-x{background:rgba(15,60,70,.06)}
 .vd .vd-colw > .min-h-screen:has(> footer) > footer{position:absolute;inset-inline:0;bottom:0;margin-top:0;margin-inline:auto}
 @media (max-width:1023px){
   .vd .vd-colw > .min-h-screen:has(> footer){min-height:calc(100dvh - 64px)}
+}
+
+/* ===== Round 4.0 (additive): room for the 12th sidebar item («جهّز مخزونك») ===== */
+
+/* the stock item gets a teal icon so it is noticed (the other icons are slate) */
+.vd-ni.is-stock svg{color:var(--teal)}
+
+/* the compact sidebar (36px items) now also covers windows up to 810px tall (it was 760px), so that all 12 owner items fit without
+   scrolling on common laptop windows (~700-780px). Below ~670px the list still scrolls as before. */
+@media (min-width:1024px) and (max-height:810px){
+  .vd-side{padding:10px;gap:2px}
+  .vd-side .vd-tile{width:40px;height:40px}
+  .vd-sh{height:44px}
+  .vd-tg{top:8px}
+  .vd-side .vd-tag{display:none}
+  .vd-ph{height:44px;margin:0 0 4px}
+  .vd-nav{gap:2px;margin-top:0}
+  .vd-ni{height:36px;font-size:14px}
+  .vd-sep{margin:3px 10px}
+  .vd-acc{margin-top:2px}
+  .vd-accb{height:48px}
 }

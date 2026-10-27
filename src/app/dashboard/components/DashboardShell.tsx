@@ -9,6 +9,9 @@ type SbPref = 'auto' | 'expanded' | 'rail';
 
 const KEY = 'vd-sb';
 
+// مسارات تحت /dashboard لا تعرض DashboardHeader اليوم، فتبقى بلا قائمة (تُرسم كما في layout القديم)
+const NO_SHELL_PATHS = [/^\/dashboard\/vitals\/summary\/[^/]+\/?$/];
+
 // تفضيل الطي المحفوظ؛ غيابه = auto (يتبع عرض الشاشة). كل وصول للتخزين داخل try لأنه قد يُحجب
 function readPref(): SbPref {
   if (typeof window === 'undefined') return 'auto';
@@ -77,6 +80,9 @@ export default function DashboardShell({ banner, children }: { banner?: ReactNod
     savePref(next);
     setSb(next);
   };
+
+  // كل الـ hooks أعلاه تعمل دائماً؛ الاستثناء هنا بعدها فقط
+  if (NO_SHELL_PATHS.some(re => re.test(pathname))) return <>{banner}{children}</>;
 
   return (
     <div className="vd" data-sb={sb} data-dr={drawerOpen ? 'open' : 'closed'}>

@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
+import { useInventoryDeepLink } from './inventory-link';
 import DashboardHeader, { usePharmacyInfo } from '../components/DashboardHeader';
 import AppFooter from '../../components/AppFooter';
 import { CareStage, PipelineRecord, upsertPipeline } from '@/lib/pipeline';
@@ -2131,6 +2132,8 @@ export default function ChronicPage() {
   const [activeTab, setActiveTab] = useState<CareStage>('due');
   const [showInventory, setShowInventory] = useState(false);
   const [showStats, setShowStats] = useState(false);
+  // فتح «جهّز مخزونك» من القائمة الجانبية (رابط ?view=inventory أو حدث نافذة). لا أثر له دون القائمة الجديدة
+  useInventoryDeepLink(() => { setShowInventory(true); setShowStats(false); });
   const [showArchived, setShowArchived] = useState(false);
   const [addModal, setAddModal] = useState(false);
   const [medModal, setMedModal] = useState<{ patient: Patient; meds: ChronicMed[]; isNewPatient?: boolean } | null>(null);

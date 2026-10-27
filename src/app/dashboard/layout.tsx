@@ -8,6 +8,8 @@ import { SubscriptionContext } from '@/lib/subscription-state';
 import { prefetchOverdue } from '@/lib/use-overdue-requests';
 import DateFormatNotice from '@/components/DateFormatNotice';
 import PullToRefresh from '@/components/PullToRefresh';
+import DashboardShell from './components/DashboardShell';
+import { USE_SIDEBAR } from './components/shell-config';
 
 /**
  * طبقة حماية موحّدة تُطبَّق تلقائياً على كل الصفحات ضمن /dashboard/* (بما فيها الصفحات
@@ -110,26 +112,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const waNumber = (process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP || '').replace(/[^0-9]/g, '');
   const waHref = waNumber && subBanner ? `https://wa.me/${waNumber}?text=${encodeURIComponent(`أرغب في تجديد اشتراك ${subBanner.name || 'صيدليتي'} في Vitalix`)}` : null;
+  // اللافتة تبقى فوق الصفحة كما هي حين لا قائمة جانبية، وتنتقل داخل عمود المحتوى حين تُفعَّل
+  const subBannerEl = subBanner && (
+    <div dir="rtl" className={`w-full px-4 py-2.5 text-xs font-bold flex flex-wrap items-center justify-center gap-x-4 gap-y-1 ${subBanner.status === 'expired' ? 'bg-rose-600 text-white' : 'bg-amber-500 text-slate-900'}`} role="status">
+      <span>
+        {subBanner.status === 'expired'
+          ? 'انتهى اشتراك الصيدلية — الحساب للقراءة فقط حتى التجديد. بياناتك محفوظة بالكامل.'
+          : `انتهى اشتراك الصيدلية${subBanner.until ? ` بتاريخ ${subBanner.until}` : ''} — مهلة قصيرة قبل التحويل إلى القراءة فقط. جدّد للمتابعة.`}
+      </span>
+      {waHref && (
+        <a href={waHref} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:opacity-80">
+          تواصل للتجديد
+        </a>
+      )}
+    </div>
+  );
   return (
     <>
       <PullToRefresh />
-      {subBanner && (
-        <div dir="rtl" className={`w-full px-4 py-2.5 text-xs font-bold flex flex-wrap items-center justify-center gap-x-4 gap-y-1 ${subBanner.status === 'expired' ? 'bg-rose-600 text-white' : 'bg-amber-500 text-slate-900'}`} role="status">
-          <span>
-            {subBanner.status === 'expired'
-              ? 'انتهى اشتراك الصيدلية — الحساب للقراءة فقط حتى التجديد. بياناتك محفوظة بالكامل.'
-              : `انتهى اشتراك الصيدلية${subBanner.until ? ` بتاريخ ${subBanner.until}` : ''} — مهلة قصيرة قبل التحويل إلى القراءة فقط. جدّد للمتابعة.`}
-          </span>
-          {waHref && (
-            <a href={waHref} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:opacity-80">
-              تواصل للتجديد
-            </a>
-          )}
-        </div>
-      )}
+      {!USE_SIDEBAR && subBannerEl}
       {noticeUser && <DateFormatNotice key={noticeUser.id} userId={noticeUser.id} loginStamp={noticeUser.login} />}
       <SubscriptionContext.Provider value={{ status: subStatus, readOnly: subStatus === 'expired' }}>
-        {children}
+        {USE_SIDEBAR ? <DashboardShell banner={subBannerEl}>{children}</DashboardShell> : children}
       </SubscriptionContext.Provider>
     </>
   );

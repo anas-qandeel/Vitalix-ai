@@ -324,6 +324,20 @@
 .vd .vh-root .vh-call .vh-rows::-webkit-scrollbar-thumb,.vd .vh-root .vh-late .vh-rows::-webkit-scrollbar-thumb,.vd .vh-root .vh-ppl::-webkit-scrollbar-thumb{border-radius:6px}
 .vd .vh-root .vh-call .vh-rows::-webkit-scrollbar-thumb,.vd .vh-root .vh-late .vh-rows::-webkit-scrollbar-thumb{background:#C9D6DB}
 
+/* when the late-requests card sits beside it: the two cards are always equal in width (sidebar open, collapsed or absent)
+   and the call list shows 3 rows (3 x 50px + 8px bottom padding) and the late list about 2 requests, then each scrolls */
+@container pg (min-width:640px){
+  .vd .vh-root .vh-has-late .vh-call,.vd .vh-root .vh-has-late .vh-late{grid-column:span 6}
+  .vd .vh-root .vh-has-late .vh-call .vh-rows{max-height:158px}
+  .vd .vh-root .vh-has-late .vh-late .vh-rows{max-height:200px}
+}
+@container pg (min-width:900px){
+  .vd .vh-root .vh-has-late .vh-late .vh-rows{max-height:160px}
+}
+@container pg (max-width:639px){
+  .vd .vh-root .vh-has-late .vh-call .vh-rows{max-height:162px}
+}
+
 /* empty state: one slim line instead of a tall card */
 .vd .vh-root .vh-empty{flex-direction:row;justify-content:center;gap:12px;padding:16px 18px}
 .vd .vh-root .vh-empty-ic{width:34px;height:34px}

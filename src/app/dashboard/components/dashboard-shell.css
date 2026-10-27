@@ -1,0 +1,195 @@
+/* ==========================================================================
+   Vitalix-ai — dashboard shell (sidebar + mobile drawer)
+   Scoped under .vd. NO container queries / containment on purpose: they would turn
+   the wrapper into a containing block for position:fixed descendants and break the
+   app's modals. State is driven by two attributes on the .vd root:
+     data-sb = "auto" | "expanded" | "rail"   sidebar width (auto = by screen width)
+     data-dr = "closed" | "open"              mobile drawer
+   Breakpoints (viewport): >=1280 expanded | 1024-1279 rail | <1024 drawer
+   z-index: top bar 20 | sidebar 30 | scrim 40 | drawer 50  (app toast=60, date notice=9990)
+   ========================================================================== */
+.vd{--sw:268px;--ink:#0B1F2A;--ink2:#334155;--mut:#5B6B79;--line:rgba(15,60,70,.10);--teal:#0F766E;--teald:#0B5F58;position:relative;display:flex;align-items:flex-start;min-height:100dvh;background:radial-gradient(900px 520px at 88% -6%,rgba(45,212,191,.17),transparent 70%),radial-gradient(760px 460px at 4% 2%,rgba(153,221,232,.22),transparent 70%),radial-gradient(900px 520px at 55% 104%,rgba(243,211,145,.22),transparent 70%),linear-gradient(180deg,#EDF7F6 0%,#F5FAFA 45%,#F8FAFB 100%)}
+.vd-colw{position:relative;flex:1;min-width:0}
+.vd::before{content:'';position:absolute;inset:0 0 auto 0;height:520px;pointer-events:none;background-image:radial-gradient(rgba(15,118,110,.13) 1px,transparent 1.4px);background-size:26px 26px;-webkit-mask-image:linear-gradient(180deg,#000,transparent 85%);mask-image:linear-gradient(180deg,#000,transparent 85%)}
+.vd-mtop{display:none}
+.vd-side,.vd-mtop,.vd-scrim{font-family:'IBM Plex Sans Arabic',system-ui,sans-serif;-webkit-font-smoothing:antialiased;color:var(--ink)}
+.vd-side,.vd-mtop{box-sizing:border-box}
+.vd-side *,.vd-side *::before,.vd-side *::after,.vd-mtop *,.vd-mtop *::before,.vd-mtop *::after{box-sizing:border-box}
+.vd-live{position:relative;flex:none;width:11px;height:11px;border-radius:50%;background:#16A34A}
+.vd-live::after{content:'';position:absolute;inset:-5px;border-radius:50%;background:rgba(22,163,74,.3);z-index:-1}
+.vd-side :focus-visible,.vd-mtop :focus-visible{outline:3px solid #0D9488;outline-offset:2px}
+
+/* ---------- sidebar ---------- */
+.vd-side{position:sticky;top:14px;z-index:30;flex:none;width:var(--sw);height:calc(100dvh - 28px);min-height:420px;margin:14px;margin-inline-end:0;padding:12px;display:flex;flex-direction:column;gap:4px;border-radius:26px;background:rgba(255,255,255,.86);-webkit-backdrop-filter:blur(18px) saturate(1.5);backdrop-filter:blur(18px) saturate(1.5);box-shadow:0 0 0 1px rgba(15,60,70,.08),0 1px 2px rgba(15,23,42,.04),0 34px 64px -36px rgba(8,33,42,.5);transition:width .32s cubic-bezier(.3,.7,.2,1)}
+.vd-sh{position:relative;flex:none;display:flex;align-items:center;gap:10px;height:60px;padding:0 4px}
+.vd-brand{display:flex;align-items:center;gap:11px;min-width:0;text-decoration:none}
+.vd-tile{flex:none;width:44px;height:44px;display:block;border-radius:13px;box-shadow:0 10px 20px -10px rgba(15,23,42,.55)}
+.vd-lock{display:flex;flex-direction:column;gap:4px;overflow:hidden;white-space:nowrap;max-width:170px;transition:opacity .2s,max-width .32s}
+.vd-word{direction:ltr;text-align:right;font-size:20px;font-weight:700;letter-spacing:-.2px;line-height:1;color:var(--ink)}
+.vd-word b{font-weight:700;color:#0D9488}
+.vd-tag{font-size:11.5px;font-weight:500;line-height:1.2;color:var(--mut)}
+.vd-tg{position:absolute;top:16px;inset-inline-end:-26px;z-index:3;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:#fff;color:var(--ink2);cursor:pointer;box-shadow:0 0 0 1px var(--line),0 8px 16px -8px rgba(15,60,70,.55);transition:background .2s,color .2s,transform .2s}
+.vd-tg svg{width:15px;height:15px;transition:transform .32s}
+.vd-tg:hover{background:var(--teal);color:#fff;transform:scale(1.08)}
+.vd-x{display:none;margin-inline-start:auto;width:40px;height:40px;border-radius:12px;place-items:center;background:rgba(15,60,70,.06);color:var(--ink2);cursor:pointer}
+.vd-x svg{width:20px;height:20px}
+
+.vd-ph{position:relative;flex:none;display:flex;align-items:center;gap:11px;height:58px;margin:2px 0 8px;padding:0 6px;border-radius:19px;background:linear-gradient(135deg,rgba(15,118,110,.12),rgba(45,212,191,.07));box-shadow:inset 0 0 0 1px rgba(15,118,110,.18)}
+.vd-phi{flex:none;width:40px;height:40px;border-radius:13px;display:grid;place-items:center;background:#fff;color:var(--teal);box-shadow:0 8px 16px -10px rgba(15,118,110,.7),inset 0 0 0 1px rgba(15,118,110,.16)}
+.vd-phi svg{width:22px;height:22px}
+.vd-pht{min-width:0;flex:1;overflow:hidden;max-width:170px;transition:opacity .2s,max-width .32s}
+.vd-phn{display:block;font-size:15px;font-weight:700;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink)}
+.vd-ph .vd-live{width:9px;height:9px;flex:none;margin-inline-end:10px;transition:opacity .2s}
+.vd-ph .vd-live::after{inset:-4px}
+.vd-nav{flex:1;min-height:0;display:flex;flex-direction:column;gap:3px;margin-top:4px}
+.vd-sep{flex:none;height:1px;margin:8px 10px;background:var(--line)}
+.vd-sep.is-end{margin-top:auto}
+.vd-ni{position:relative;flex:none;display:flex;align-items:center;gap:13px;height:44px;padding:0 16px;border-radius:14px;font-size:14.5px;font-weight:600;color:#334455;text-decoration:none;white-space:nowrap;transition:background .18s,color .18s,box-shadow .18s}
+.vd-ni svg{flex:none;width:20px;height:20px;color:#64748B;transition:color .18s,transform .22s}
+.vd-ni:hover{background:rgba(15,118,110,.08);color:var(--teald)}
+.vd-ni:hover svg{color:var(--teal);transform:scale(1.1)}
+.vd-ni.is-on{color:#fff;background:linear-gradient(135deg,#139488,#0B5F58);box-shadow:0 14px 24px -14px rgba(11,95,88,.95),inset 0 1px 0 rgba(255,255,255,.24)}
+.vd-ni.is-on svg,.vd-ni.is-on:hover svg{color:#fff;transform:none}
+.vd-ni.is-sug,.vd-ni.is-sug svg{color:#6D28D9}
+.vd-ni.is-sug:hover{background:#F3EEFF}
+.vd-lbl{overflow:hidden;max-width:190px;transition:opacity .2s,max-width .32s}
+.vd-bdg{min-width:20px;height:20px;padding:0 6px;border-radius:99px;display:inline-grid;place-items:center;background:#E11D48;color:#fff;font-size:12px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.vd-ni .vd-bdg{margin-inline-start:auto}
+
+/* the sidebar items are <button>/<a>: neutralise default button styles */
+button.vd-ni,button.vd-mi,button.vd-tg,button.vd-x{font-family:inherit;border:0;background:transparent;text-align:start;cursor:pointer;-webkit-appearance:none;appearance:none}
+button.vd-ni,button.vd-mi{width:100%}
+button.vd-tg{background:#fff}
+button.vd-x{background:rgba(15,60,70,.06)}
+.vd-ni[aria-current="page"]{color:#fff;background:linear-gradient(135deg,#139488,#0B5F58);box-shadow:0 14px 24px -14px rgba(11,95,88,.95),inset 0 1px 0 rgba(255,255,255,.24)}
+.vd-ni[aria-current="page"] svg,.vd-ni[aria-current="page"]:hover svg{color:#fff;transform:none}
+
+/* account chip (bottom of the sidebar) */
+.vd-acc{position:relative;flex:none;margin-top:4px}
+.vd-accb{width:100%;border:0;font:inherit;color:inherit;text-align:start;cursor:pointer;display:flex;align-items:center;gap:11px;height:58px;padding:0 6px;border-radius:19px;background:rgba(15,60,70,.05);transition:background .2s,box-shadow .2s}
+.vd-accb:hover{background:rgba(15,118,110,.09)}
+.vd-acc[data-open="true"] .vd-accb{background:#fff;box-shadow:0 0 0 1px rgba(15,118,110,.45),0 0 0 4px rgba(15,118,110,.1)}
+.vd-ava{flex:none;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(135deg,#C9F0E8,#E6F6F3);color:var(--teald);box-shadow:inset 0 0 0 1px rgba(15,118,110,.14)}
+.vd-ava svg{width:21px;height:21px}
+.vd-acct{min-width:0;flex:1;overflow:hidden;max-width:160px;transition:opacity .2s,max-width .32s}
+.vd-an{font-size:14.5px;font-weight:700;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vd-as{margin-top:1px;font-size:12.5px;line-height:1.35;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vd-chev{flex:none;width:16px;height:16px;margin-inline-end:6px;color:#64748B;transition:transform .2s,opacity .2s}
+.vd-acc[data-open="true"] .vd-chev{transform:rotate(180deg)}
+.vd-pop{position:absolute;bottom:calc(100% + 10px);right:0;width:max(100%,276px);padding:8px;border-radius:22px;background:#fff;box-shadow:0 0 0 1px rgba(15,60,70,.09),0 30px 60px -22px rgba(8,33,42,.42),0 10px 24px -14px rgba(8,33,42,.22)}
+.vd-mh{display:flex;align-items:center;gap:12px;padding:10px 10px 12px}
+.vd-mh .vd-ava{width:46px;height:46px}
+.vd-mh .vd-ava svg{width:24px;height:24px}
+.vd-mn{font-size:16px;font-weight:700;line-height:1.3}
+.vd-ms{margin-top:2px;font-size:13px;color:var(--mut)}
+.vd-sub{display:flex;align-items:center;gap:8px;margin:0 10px 8px;padding:9px 14px;border-radius:14px;background:#E7F8F0;box-shadow:inset 0 0 0 1px #BFE9D6;font-size:13.5px;font-weight:600;color:#0B6B4D}
+.vd-sub i{flex:none;width:8px;height:8px;border-radius:50%;background:#16A34A}
+.vd-mi{display:flex;align-items:center;gap:12px;height:44px;padding:0 12px;border-radius:13px;font-size:14.5px;font-weight:500;color:#1E293B;text-decoration:none;transition:background .15s,color .15s}
+.vd-mi svg{width:20px;height:20px;flex:none;color:#64748B;transition:color .15s}
+.vd-mi:hover{background:rgba(15,118,110,.08);color:var(--teald)}
+.vd-mi:hover svg{color:var(--teal)}
+.vd-mi.is-out,.vd-mi.is-out svg{color:#B42318}
+.vd-mi.is-out:hover{background:#FEF3F2}
+.vd-pop .vd-sep{margin:6px 10px}
+
+
+/* dark layer behind the open drawer (React renders it only while the drawer is open, with the app's own `fixed inset-0` classes so the existing scroll-lock rule applies) */
+.vd-pop[hidden]{display:none}
+.vd-scrim{position:fixed;inset:0;z-index:40;background:rgba(8,33,42,.4);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+
+/* ---------- mobile top bar (only below 1024px) ---------- */
+.vd-mtop .vd-tile{width:40px;height:40px;border-radius:12px}
+.vd-mtop .vd-word{font-size:18px}
+.vd-mtop .vd-tag{display:none}
+.vd-bgb{margin-inline-start:auto;display:grid;place-items:center;width:44px;height:44px;border:0;border-radius:14px;background:#fff;color:var(--ink);cursor:pointer;box-shadow:0 0 0 1px var(--line),0 8px 18px -12px rgba(15,60,70,.55)}
+.vd-bgb svg{width:22px;height:22px}
+/* ---------- collapsed rail: explicit (any width >=1024) ---------- */
+@media (min-width:1024px){
+.vd[data-sb="rail"]{--sw:76px}
+.vd[data-sb="rail"] .vd-lock,.vd[data-sb="rail"] .vd-lbl,.vd[data-sb="rail"] .vd-acct,.vd[data-sb="rail"] .vd-pht{max-width:0;opacity:0}
+.vd[data-sb="rail"] .vd-ph .vd-live{opacity:0;width:0;margin:0}
+.vd[data-sb="rail"] .vd-chev{opacity:0;margin:0;width:0}
+.vd[data-sb="rail"] .vd-tg svg{transform:rotate(180deg)}
+.vd[data-sb="rail"] .vd-ni .vd-bdg{position:absolute;top:3px;inset-inline-start:29px;min-width:18px;height:18px;padding:0 5px;font-size:11px;box-shadow:0 0 0 2px #fff}
+.vd[data-sb="rail"] .vd-ni::after,.vd[data-sb="rail"] .vd-ph::after{content:attr(data-tip);position:absolute;top:50%;right:calc(100% + 18px);transform:translate(8px,-50%);padding:7px 12px;border-radius:10px;background:#0F2A33;color:#fff;font-size:13px;font-weight:600;line-height:1.3;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .16s,transform .16s;box-shadow:0 12px 24px -10px rgba(8,33,42,.6)}
+.vd[data-sb="rail"] .vd-ni:hover::after,.vd[data-sb="rail"] .vd-ni:focus-visible::after,.vd[data-sb="rail"] .vd-ph:hover::after{opacity:1;transform:translate(0,-50%)}
+}
+/* ---------- collapsed rail: automatic on 1024-1279 ---------- */
+@media (min-width:1024px) and (max-width:1279px){
+.vd[data-sb="auto"]{--sw:76px}
+.vd[data-sb="auto"] .vd-lock,.vd[data-sb="auto"] .vd-lbl,.vd[data-sb="auto"] .vd-acct,.vd[data-sb="auto"] .vd-pht{max-width:0;opacity:0}
+.vd[data-sb="auto"] .vd-ph .vd-live{opacity:0;width:0;margin:0}
+.vd[data-sb="auto"] .vd-chev{opacity:0;margin:0;width:0}
+.vd[data-sb="auto"] .vd-tg svg{transform:rotate(180deg)}
+.vd[data-sb="auto"] .vd-ni .vd-bdg{position:absolute;top:3px;inset-inline-start:29px;min-width:18px;height:18px;padding:0 5px;font-size:11px;box-shadow:0 0 0 2px #fff}
+.vd[data-sb="auto"] .vd-ni::after,.vd[data-sb="auto"] .vd-ph::after{content:attr(data-tip);position:absolute;top:50%;right:calc(100% + 18px);transform:translate(8px,-50%);padding:7px 12px;border-radius:10px;background:#0F2A33;color:#fff;font-size:13px;font-weight:600;line-height:1.3;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .16s,transform .16s;box-shadow:0 12px 24px -10px rgba(8,33,42,.6)}
+.vd[data-sb="auto"] .vd-ni:hover::after,.vd[data-sb="auto"] .vd-ni:focus-visible::after,.vd[data-sb="auto"] .vd-ph:hover::after{opacity:1;transform:translate(0,-50%)}
+}
+
+/* subscription chip variants (owner only; map the app's existing states: active / grace / expired) */
+.vd-sub.is-warn{background:#FEF6E3;box-shadow:inset 0 0 0 1px #F6DFA8;color:#8A5A00}
+.vd-sub.is-warn i{background:#F59E0B}
+.vd-sub.is-bad{background:#FEF0EF;box-shadow:inset 0 0 0 1px #F8C9C4;color:#B42318}
+.vd-sub.is-bad i{background:#E11D48}
+
+/* ---------- short screens: tighter sidebar ---------- */
+@media (max-height:860px){
+  .vd-ni{height:41px}
+  .vd-ph{height:52px;margin-bottom:4px}
+  .vd-sep{margin:6px 10px}
+  .vd-sh{height:54px}
+}
+@media (max-height:780px){
+  /* if it still does not fit, the item list scrolls (with a soft shadow at the cut edge); header and account chip stay put */
+  .vd-nav{overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;
+    background:linear-gradient(#fff 30%,rgba(255,255,255,0)) top/100% 22px no-repeat local,
+               linear-gradient(rgba(255,255,255,0),#fff 70%) bottom/100% 22px no-repeat local,
+               radial-gradient(farthest-side at 50% 0,rgba(15,60,70,.16),transparent) top/100% 9px no-repeat scroll,
+               radial-gradient(farthest-side at 50% 100%,rgba(15,60,70,.16),transparent) bottom/100% 9px no-repeat scroll}
+  .vd-nav::-webkit-scrollbar{display:none}
+}
+@media (max-height:760px){
+  /* 1366x768 laptops give ~650px of viewport (and 720px is common too): compact so that everything fits without scrolling */
+  .vd-side{padding:10px;gap:2px}
+  .vd-side .vd-tile{width:40px;height:40px}
+  .vd-sh{height:44px}
+  .vd-tg{top:8px}
+  .vd-side .vd-tag{display:none}
+  .vd-ph{height:44px;margin:0 0 4px}
+  .vd-nav{gap:2px;margin-top:0}
+  .vd-ni{height:36px;font-size:14px}
+  .vd-sep{margin:3px 10px}
+  .vd-acc{margin-top:2px}
+  .vd-accb{height:48px}
+}
+
+/* ---------- below 1024px: the sidebar becomes a drawer ---------- */
+@media (max-width:1023px){
+  .vd{display:block}
+  .vd-tg{display:none}
+  button.vd-x{display:grid}
+  .vd-mtop{display:flex;position:sticky;top:0;z-index:20;align-items:center;gap:12px;height:64px;padding:0 16px;background:rgba(255,255,255,.82);-webkit-backdrop-filter:blur(16px) saturate(1.5);backdrop-filter:blur(16px) saturate(1.5);border-bottom:1px solid var(--line);box-shadow:0 10px 30px -24px rgba(15,60,70,.55)}
+  .vd-side{position:fixed;top:10px;right:10px;bottom:10px;height:auto;min-height:0;margin:0;width:min(312px,calc(100vw - 56px));z-index:50;transform:translateX(calc(100% + 24px));visibility:hidden;transition:transform .36s cubic-bezier(.2,.7,.2,1),visibility 0s .36s;box-shadow:0 0 0 1px rgba(15,60,70,.08),0 40px 80px -30px rgba(8,33,42,.6)}
+  .vd[data-dr="open"] .vd-side{transform:none;visibility:visible;transition:transform .36s cubic-bezier(.2,.7,.2,1),visibility 0s}
+}
+@media (min-width:1024px){
+  .vd-side{display:flex}
+}
+
+/* ---------- motion / accessibility ---------- */
+@media (prefers-reduced-motion:no-preference){
+  .vd-live::after{animation:vd-ping 2.6s ease-out infinite}
+  @keyframes vd-ping{0%{transform:scale(.6);opacity:.95}100%{transform:scale(2);opacity:0}}
+  .vd-scrim{animation:vd-fade .25s ease both}
+  @keyframes vd-fade{from{opacity:0}}
+}
+@media (prefers-reduced-motion:reduce){
+  .vd-side,.vd-lock,.vd-lbl,.vd-acct,.vd-pht,.vd-tg svg{transition:none}
+}
+@media (prefers-reduced-transparency:reduce){
+  .vd-side,.vd-mtop,.vd-scrim{-webkit-backdrop-filter:none;backdrop-filter:none}
+  .vd-side,.vd-mtop{background:#fff}
+}
+@media print{
+  .vd-side,.vd-mtop,.vd-scrim{display:none!important}
+}

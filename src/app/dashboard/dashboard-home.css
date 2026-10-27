@@ -318,9 +318,11 @@
 .vd .vh-root .vh-wa{width:34px;height:34px}
 .vd .vh-root .vh-wa svg{width:17px;height:17px}
 
-/* the call list is at most 5 rows (page logic): show them all, no inner scrollbar; late list keeps its cap */
-.vd .vh-root .vh-call .vh-rows{max-height:none;overflow:visible}
-.vd .vh-root .vh-late .vh-rows{max-height:260px}
+/* lists never grow the card: fixed cap at every width, a slim scrollbar appears only when the rows do not fit */
+.vd .vh-root .vh-call .vh-rows,.vd .vh-root .vh-late .vh-rows{max-height:272px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#C9D6DB transparent}
+.vd .vh-root .vh-call .vh-rows::-webkit-scrollbar,.vd .vh-root .vh-late .vh-rows::-webkit-scrollbar,.vd .vh-root .vh-ppl::-webkit-scrollbar{width:6px}
+.vd .vh-root .vh-call .vh-rows::-webkit-scrollbar-thumb,.vd .vh-root .vh-late .vh-rows::-webkit-scrollbar-thumb,.vd .vh-root .vh-ppl::-webkit-scrollbar-thumb{border-radius:6px}
+.vd .vh-root .vh-call .vh-rows::-webkit-scrollbar-thumb,.vd .vh-root .vh-late .vh-rows::-webkit-scrollbar-thumb{background:#C9D6DB}
 
 /* empty state: one slim line instead of a tall card */
 .vd .vh-root .vh-empty{flex-direction:row;justify-content:center;gap:12px;padding:16px 18px}
@@ -336,6 +338,13 @@
 /* birthday ribbon */
 .vd .vh-root .vh-bday{gap:8px 16px;padding:10px 14px;background:#FFFAEE}
 .vd .vh-root .vh-pp{gap:10px;padding:4px 6px 4px 10px;border-radius:16px}
+/* birthdays: chips start right after the title (right to left), not pushed to the far left; tall lists scroll */
+.vd .vh-root .vh-ppl{max-height:164px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#E6CF9C transparent}
+.vd .vh-root .vh-ppl::-webkit-scrollbar-thumb{background:#E6CF9C}
+@container pg (min-width:640px){
+  .vd .vh-root .vh-bbody{flex:0 1 auto}
+  .vd .vh-root .vh-ppl{margin-inline-start:0;justify-content:flex-start}
+}
 
 /* KPI: icon beside the figure, smaller figures, chevron only on hover */
 .vd .vh-root .vh-kpgrid::before,.vd .vh-root .vh-kpgrid::after{border-radius:16px;background:#fff;box-shadow:0 0 0 1px rgba(15,60,70,.08),0 1px 2px rgba(15,23,42,.04)}

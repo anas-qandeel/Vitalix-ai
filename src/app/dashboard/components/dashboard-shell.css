@@ -202,3 +202,36 @@ button.vd-x{background:rgba(15,60,70,.06)}
 .vd-skel{display:inline-block;vertical-align:middle;height:14px;width:112px;max-width:100%;border-radius:7px;background:linear-gradient(90deg,rgba(15,60,70,.08),rgba(15,60,70,.16),rgba(15,60,70,.08))}
 @media (prefers-reduced-motion:no-preference){.vd-skel{animation:vd-pulse 1.4s ease-in-out infinite}@keyframes vd-pulse{50%{opacity:.45}}}
 @media (max-width:1023px){.vd-side{background:#fff}}
+
+/* ===== Round 3.7 (additive): tooltips on every rail icon + footer at the bottom of the window ===== */
+
+/* (1) collapsed rail: the item list only needs its own scrollbar on very short windows, so let tooltips escape it otherwise */
+@media (min-width:1024px) and (min-height:650px){
+  .vd[data-sb="rail"] .vd-nav{overflow:visible;background:none}
+}
+@media (min-width:1024px) and (max-width:1279px) and (min-height:650px){
+  .vd[data-sb="auto"] .vd-nav{overflow:visible;background:none}
+}
+/* same tooltip for the logo and the account button (they carry aria-label, not data-tip) */
+@media (min-width:1024px){
+  .vd[data-sb="rail"] .vd-brand{position:relative}
+  .vd[data-sb="rail"] .vd-brand::after,.vd[data-sb="rail"] .vd-accb::after{content:attr(aria-label);position:absolute;top:50%;right:calc(100% + 18px);z-index:5;transform:translate(8px,-50%);padding:7px 12px;border-radius:10px;background:#0F2A33;color:#fff;font-size:13px;font-weight:600;line-height:1.3;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .16s,transform .16s;box-shadow:0 12px 24px -10px rgba(8,33,42,.6)}
+  .vd[data-sb="rail"] .vd-brand:hover::after,.vd[data-sb="rail"] .vd-brand:focus-visible::after,.vd[data-sb="rail"] .vd-accb:hover::after,.vd[data-sb="rail"] .vd-accb:focus-visible::after{opacity:1;transform:translate(0,-50%)}
+  .vd[data-sb="rail"] .vd-acc[data-open="true"] .vd-accb::after{display:none}
+  .vd[data-sb="rail"] .vd-brand::after{right:calc(100% + 46px)} /* clears the collapse button that sticks out beside the logo */
+}
+@media (min-width:1024px) and (max-width:1279px){
+  .vd[data-sb="auto"] .vd-brand{position:relative}
+  .vd[data-sb="auto"] .vd-brand::after,.vd[data-sb="auto"] .vd-accb::after{content:attr(aria-label);position:absolute;top:50%;right:calc(100% + 18px);z-index:5;transform:translate(8px,-50%);padding:7px 12px;border-radius:10px;background:#0F2A33;color:#fff;font-size:13px;font-weight:600;line-height:1.3;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .16s,transform .16s;box-shadow:0 12px 24px -10px rgba(8,33,42,.6)}
+  .vd[data-sb="auto"] .vd-brand:hover::after,.vd[data-sb="auto"] .vd-brand:focus-visible::after,.vd[data-sb="auto"] .vd-accb:hover::after,.vd[data-sb="auto"] .vd-accb:focus-visible::after{opacity:1;transform:translate(0,-50%)}
+  .vd[data-sb="auto"] .vd-acc[data-open="true"] .vd-accb::after{display:none}
+  .vd[data-sb="auto"] .vd-brand::after{right:calc(100% + 46px)}
+}
+
+/* (2) footer: on a short page it sits at the bottom edge of the window; on a long page it follows the content.
+   Only pages whose root is `.min-h-screen` with the footer as its direct child are touched. */
+.vd .vd-colw > .min-h-screen:has(> footer){position:relative;min-height:100dvh;padding-bottom:150px}
+.vd .vd-colw > .min-h-screen:has(> footer) > footer{position:absolute;inset-inline:0;bottom:0;margin-top:0;margin-inline:auto}
+@media (max-width:1023px){
+  .vd .vd-colw > .min-h-screen:has(> footer){min-height:calc(100dvh - 64px)}
+}

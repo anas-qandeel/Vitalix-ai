@@ -274,3 +274,148 @@
 @media print{
   .vd .vh-root .vh-ecg{display:none}
 }
+
+/* ==========================================================================
+   ROUND 3.5 — "calm" layer (proposal). Rules:
+   1) red only where the pharmacist must ACT (status pills, count badges, late-request notes)
+   2) compact cards (desktop + phone)  3) one identity (no repeated name/icon)  4) less decoration
+   Appended last on purpose: same specificity, later wins. No markup/logic is touched.
+   ========================================================================== */
+
+/* frame */
+.vd .vh-root .vh-main{gap:14px;padding:22px 30px 30px}
+.vd .vh-root .vh-top,.vd .vh-root .vh-tools{gap:14px}
+
+/* hero: title only (the sidebar already shows the pharmacy icon + name) */
+.vd .vh-root .vh-hero{gap:12px;padding:0 2px 2px}
+.vd .vh-root .vh-hero-ic{display:none}
+.vd .vh-root .vh-hi{font-size:27px;letter-spacing:-.3px}
+.vd .vh-root .vh-hello{margin-top:2px;font-size:15px}
+
+/* flat cards: no glass blur, soft hairline, no coloured top strip, no tinted header */
+.vd .vh-root .vh-card{border-radius:16px;-webkit-backdrop-filter:none;backdrop-filter:none;background:#fff;box-shadow:0 0 0 1px rgba(15,60,70,.08),0 1px 2px rgba(15,23,42,.04)}
+.vd .vh-root .vh-strip{display:none}
+.vd .vh-root .vh-ch{gap:8px 10px;padding:12px 14px 6px}
+.vd .vh-root .vh-ch::before{display:none}
+.vd .vh-root .vh-cic{width:34px;height:34px;border-radius:11px}
+.vd .vh-root .vh-cic svg{width:18px;height:18px}
+.vd .vh-root .vh-ttl{font-size:15px}
+.vd .vh-root .vh-sb{margin-top:1px;font-size:12px}
+.vd .vh-root .vh-cnt{min-width:22px;height:22px;padding:0 7px;font-size:12px;box-shadow:none}
+.vd .vh-root .vh-call{--cbg:#E11D48}
+.vd .vh-root .vh-ghost{height:30px;padding:0 11px;font-size:12px}
+
+/* rows: compact; avatars neutral (the status pill is the only coloured signal) */
+.vd .vh-root .vh-rows{gap:0;padding:0 6px 8px}
+.vd .vh-root .vh-row{gap:10px;padding:6px 8px;border-radius:12px}
+.vd .vh-root .vh-pa{width:34px;height:34px;font-size:13px}
+.vd .vh-root .vh-row:has(.vh-st-late) .vh-pa,.vd .vh-root .vh-pa-late,.vd .vh-root .vh-row:has(.vh-st-soon) .vh-pa{background:#EEF4F6;color:#36505F}
+.vd .vh-root .vh-who-g{gap:10px}
+.vd .vh-root .vh-nm{font-size:14px;line-height:1.4}
+.vd .vh-root .vh-mt{margin-top:0;font-size:12px;line-height:1.45}
+.vd .vh-root .vh-end{gap:8px}
+.vd .vh-root .vh-st{height:24px;gap:6px;padding:0 9px;font-size:12px}
+.vd .vh-root .vh-wa{width:34px;height:34px}
+.vd .vh-root .vh-wa svg{width:17px;height:17px}
+
+/* the call list is at most 5 rows (page logic): show them all, no inner scrollbar; late list keeps its cap */
+.vd .vh-root .vh-call .vh-rows{max-height:none;overflow:visible}
+.vd .vh-root .vh-late .vh-rows{max-height:260px}
+
+/* empty state: one slim line instead of a tall card */
+.vd .vh-root .vh-empty{flex-direction:row;justify-content:center;gap:12px;padding:16px 18px}
+.vd .vh-root .vh-empty-ic{width:34px;height:34px}
+.vd .vh-root .vh-empty-ic svg{width:18px;height:18px}
+.vd .vh-root .vh-empty-t{font-size:14px}
+
+/* late requests: red kept, but as a light note */
+.vd .vh-root .vh-chips{margin-top:5px;gap:6px}
+.vd .vh-root .vh-note{gap:6px;padding:5px 10px;border-radius:10px;font-size:12.5px;line-height:1.55}
+.vd .vh-root .vh-note::before{width:14px;height:14px;margin-top:3px}
+
+/* birthday ribbon */
+.vd .vh-root .vh-bday{gap:8px 16px;padding:10px 14px;background:#FFFAEE}
+.vd .vh-root .vh-pp{gap:10px;padding:4px 6px 4px 10px;border-radius:16px}
+
+/* KPI: icon beside the figure, smaller figures, chevron only on hover */
+.vd .vh-root .vh-kpgrid::before,.vd .vh-root .vh-kpgrid::after{border-radius:16px;background:#fff;box-shadow:0 0 0 1px rgba(15,60,70,.08),0 1px 2px rgba(15,23,42,.04)}
+.vd .vh-root .vh-own>:nth-child(1),.vd .vh-root .vh-own>:nth-child(3),.vd .vh-root .vh-stf>:nth-child(1){border-start-start-radius:16px;border-end-start-radius:16px}
+.vd .vh-root .vh-own>:nth-child(6),.vd .vh-root .vh-own>:nth-child(5),.vd .vh-root .vh-stf>:nth-child(2){border-start-end-radius:16px;border-end-end-radius:16px}
+.vd .vh-root .vh-kpi{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:10px;align-items:center;align-content:center;padding:12px 14px}
+.vd .vh-root .vh-head>svg:first-child{grid-column:1;grid-row:1/span 2;width:32px;height:32px;padding:7px;border-radius:10px}
+.vd .vh-root .vh-kv{grid-column:2;grid-row:1;margin-top:0}
+.vd .vh-root .vh-kl{grid-column:2;grid-row:2;margin-top:1px;font-size:12.5px}
+.vd .vh-root .vh-bar{grid-column:1/-1;grid-row:3;height:4px;margin-top:8px}
+.vd .vh-root .vh-ks{grid-column:1/-1;grid-row:4;margin-top:4px;font-size:11px}
+.vd .vh-root .vh-kvn{font-size:26px;letter-spacing:-.3px}
+.vd .vh-root .vh-go{top:10px;inset-inline-end:10px;opacity:0}
+.vd .vh-root a.vh-kpi:hover .vh-go,.vd .vh-root a.vh-kpi:focus-visible .vh-go{opacity:1}
+
+/* tool tiles: slim quick links, no descriptions, no gradients, no ECG/sparkle */
+.vd .vh-root .vh-tile{min-height:0;gap:12px;padding:11px 16px;border-radius:14px}
+.vd .vh-root .vh-tile:hover{transform:none;box-shadow:0 0 0 1px rgba(15,118,110,.35),0 1px 2px rgba(15,23,42,.04)}
+.vd .vh-root .vh-tin{gap:12px}
+.vd .vh-root .vh-ti{width:38px;height:38px;border-radius:12px;background:#E6F5F2;box-shadow:none}
+.vd .vh-root .vh-ti svg{width:20px;height:20px}
+.vd .vh-root .vh-tin h3{font-size:15px}
+.vd .vh-root .vh-tin p{display:none}
+.vd .vh-root .vh-arrow{width:30px;height:30px;padding:8px;background:transparent;box-shadow:inset 0 0 0 1px rgba(15,60,70,.14)}
+.vd .vh-root .vh-tile:hover .vh-arrow{translate:-3px 0}
+.vd .vh-root .vh-feat{min-height:0;color:var(--vh-ink);background:#F1FAF8;box-shadow:0 0 0 1px rgba(15,118,110,.2),0 1px 2px rgba(15,23,42,.03)}
+.vd .vh-root .vh-feat::before,.vd .vh-root .vh-ecg,.vd .vh-root .vh-feat h3 .vh-spark{display:none}
+.vd .vh-root .vh-feat .vh-ti{background:#D8F1EC;color:var(--vh-teal);box-shadow:none}
+.vd .vh-root .vh-feat h3{font-size:15px;color:var(--vh-ink)}
+.vd .vh-root .vh-feat .vh-arrow{background:#fff;color:var(--vh-teald)}
+.vd .vh-root .vh-feat:hover{box-shadow:0 0 0 1px rgba(15,118,110,.45),0 1px 2px rgba(15,23,42,.04)}
+.vd .vh-root .vh-feat:hover .vh-arrow{background:var(--vh-teal);color:#fff}
+
+/* laptop+ (sidebar with labels): only the main action stays, as one slim bar */
+@media (min-width:1280px){
+  .vd .vh-root .vh-tools>.vh-tile:not(.vh-feat){display:none}
+  .vd .vh-root .vh-t1{grid-column:span 12}
+  .vd .vh-root .vh-feat p{display:block;margin:1px 0 0;max-width:none;font-size:13px;line-height:1.5;color:var(--vh-mut)}
+}
+/* below laptop: the quick links are ONE card made of rows (hairline separators), not four boxes */
+@media (max-width:1279px){
+  .vd .vh-root .vh-t1,.vd .vh-root .vh-t2,.vd .vh-root .vh-t3,.vd .vh-root .vh-t4{grid-column:span 6}
+  .vd .vh-root .vh-tools{gap:1px;overflow:hidden;border-radius:16px;background:var(--vh-line);box-shadow:0 0 0 1px rgba(15,60,70,.08),0 1px 2px rgba(15,23,42,.04)}
+  .vd .vh-root .vh-tools>.vh-tile{min-height:58px;padding:8px 16px;border-radius:0;background:#fff;box-shadow:none}
+  .vd .vh-root .vh-tools>.vh-tile:hover{transform:none;background:#F6FBFA;box-shadow:none}
+  .vd .vh-root .vh-tools>.vh-feat{background:#F5FBF9}
+  .vd .vh-root .vh-tools .vh-arrow,.vd .vh-root .vh-tools .vh-feat .vh-arrow{width:20px;height:20px;padding:0;background:transparent;color:#94A3B8;box-shadow:none}
+  .vd .vh-root .vh-tools>.vh-tile:hover .vh-arrow,.vd .vh-root .vh-tools>.vh-feat:hover .vh-arrow{background:transparent;color:var(--vh-teal);translate:-3px 0}
+}
+
+/* phone: stats = ONE card, two columns, hairlines (no box per number); shortcuts = ONE list card */
+@container pg (max-width:639px){
+  .vd .vh-root .vh-main{gap:12px}
+  .vd .vh-root .vh-top{gap:12px}
+  .vd .vh-root .vh-hi{font-size:23px}
+  .vd .vh-root .vh-hello{font-size:14px}
+  .vd .vh-root .vh-ch{padding:12px 12px 4px}
+  .vd .vh-root .vh-rows{padding:0 4px 6px}
+  .vd .vh-root .vh-row{padding:6px}
+  .vd .vh-root .vh-pa{width:36px;height:36px}
+  .vd .vh-root .vh-wa{width:40px;height:40px}
+  .vd .vh-root .vh-wa svg{width:19px;height:19px}
+  .vd .vh-root .vh-call .vh-sb,.vd .vh-root .vh-late .vh-sb{position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+  .vd .vh-root .vh-kpgrid,.vd .vh-root .vh-own,.vd .vh-root .vh-stf{grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;max-width:none;overflow:hidden;border-radius:16px;background:var(--vh-line);box-shadow:0 0 0 1px rgba(15,60,70,.08),0 1px 2px rgba(15,23,42,.04)}
+  .vd .vh-root .vh-own>.vh-kpi,.vd .vh-root .vh-stf>.vh-kpi{grid-column:auto;grid-row:auto;display:grid;grid-template-columns:minmax(0,1fr);align-content:center;padding:10px 16px 11px;border:0;border-radius:0;background:#fff;box-shadow:none}
+  .vd .vh-root a.vh-kpi:hover{background:#F6FBFA}
+  .vd .vh-root .vh-head>svg:first-child{display:none}
+  .vd .vh-root .vh-kv,.vd .vh-root .vh-kl,.vd .vh-root .vh-bar,.vd .vh-root .vh-ks{grid-column:1}
+  .vd .vh-root .vh-kvn{font-size:24px}
+  .vd .vh-root .vh-kl{margin-top:2px;font-size:12.5px;color:var(--vh-ink2)}
+  .vd .vh-root .vh-bar{margin-top:6px}
+  .vd .vh-root .vh-ks{margin-top:2px}
+  .vd .vh-root .vh-go{display:none}
+
+  .vd .vh-root .vh-tools{grid-template-columns:minmax(0,1fr)}
+  .vd .vh-root .vh-t1,.vd .vh-root .vh-t2,.vd .vh-root .vh-t3,.vd .vh-root .vh-t4{grid-column:auto}
+  .vd .vh-root .vh-tools>.vh-tile{min-height:52px;padding:6px 14px;gap:10px}
+  .vd .vh-root .vh-tin{gap:12px}
+  .vd .vh-root .vh-ti{width:34px;height:34px;border-radius:10px}
+  .vd .vh-root .vh-ti svg{width:19px;height:19px}
+  .vd .vh-root .vh-tin h3,.vd .vh-root .vh-feat h3{font-size:14.5px;line-height:1.35}
+}

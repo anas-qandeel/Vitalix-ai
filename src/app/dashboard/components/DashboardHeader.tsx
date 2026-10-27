@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase';
 import { getPharmacyId, getStaffName, getUserRole } from '@/lib/tenant';
 import { formatPharmacistName } from '@/lib/name-format';
 import { useOverdueRequests } from '@/lib/use-overdue-requests';
+import { USE_SIDEBAR } from './shell-config';
 import { Lightbulb, PlusCircle, Lightning, Bug, ChatCircleDots, CheckCircle, Megaphone, X } from '@phosphor-icons/react';
 
 const ROLE_LABELS: Record<string, string> = { owner: 'مالك', pharmacist: 'صيدلاني', assistant: 'مساعد', staff: 'موظف' };
@@ -241,6 +242,23 @@ export default function DashboardHeader({ breadcrumb, onBack }: DashboardHeaderP
   const initials = displayName.trim().split(' ').map((w: string) => w[0]).slice(0, 2).join('');
   const roleLabel = ROLE_LABELS[userRole] || '';
   const isExpiringSoon = daysLeft <= 14;
+
+  // القائمة الجانبية مفعّلة: تتولى هي التنقل والحساب، ويبقى هنا زر الرجوع وحده لصفحات breadcrumb (نفس كتلته حرفياً)
+  if (USE_SIDEBAR) {
+    if (!breadcrumb) return null;
+    return (
+      <div className="flex items-center gap-3 shrink-0">
+        <div className="hidden md:block w-px h-6 bg-slate-200 mx-1" />
+        <button onClick={onBack || (() => router.back())}
+          className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition-colors">
+          <svg className="w-4 h-4 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+        <span className="text-sm font-bold text-slate-800 truncate max-w-[200px]">{breadcrumb}</span>
+      </div>
+    );
+  }
 
   return (
     <>

@@ -81,7 +81,7 @@ interface SidebarProps {
 export function DashboardSidebar({ expanded, onToggle, drawerOpen, onCloseDrawer, closeRef }: SidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { pharmacyName, pharmacistName, pharmacyStatus, daysLeft } = usePharmacyInfo();
+  const { pharmacyName, pharmacistName, pharmacyStatus, daysLeft, loading } = usePharmacyInfo();
   const { count: overdueCount } = useOverdueRequests();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const { notice, setNotice } = useNotice();
@@ -205,18 +205,19 @@ export function DashboardSidebar({ expanded, onToggle, drawerOpen, onCloseDrawer
           </button>
         </div>
 
-        <div className="vd-ph" data-tip={pharmacyName}>
+        <div className="vd-ph" data-tip={loading ? undefined : pharmacyName}>
           <span className="vd-phi">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false"><path d="M9.4 4h5.2v5.4H20v5.2h-5.4V20H9.4v-5.4H4V9.4h5.4z" /></svg>
           </span>
-          <span className="vd-pht"><span className="vd-phn">{pharmacyName}</span></span>
-          <i className="vd-live" aria-hidden="true" />
+          <span className="vd-pht"><span className="vd-phn">{loading ? <span className="vd-skel" /> : pharmacyName}</span></span>
+          {/* كنقطة الهيدر: خضراء للحالة active، وعنبرية نابضة لغيرها */}
+          <i className={`vd-live${pharmacyStatus === 'active' ? '' : ' is-warn'}`} aria-hidden="true" />
         </div>
 
         <nav className="vd-nav" aria-label="التنقل الرئيسي">
           {NAV_LINKS.map(l => navItem(l.label, l.href, ICONS[l.href], l.exact))}
           <div className="vd-sep" />
-          {navItem('الكتالوجات والمنتجات', '/dashboard/pharmacy-catalog-manager', ICONS.catalog)}
+          {navItem('الكتالوج والمنتجات', '/dashboard/pharmacy-catalog-manager', ICONS.catalog)}
           {isOwner && navItem('سجل النشاط', '/dashboard/activity', ICONS.activity)}
           <div className="vd-sep is-end" />
           {navItem('دليل الاستخدام', '/help', ICONS.help)}
@@ -231,19 +232,22 @@ export function DashboardSidebar({ expanded, onToggle, drawerOpen, onCloseDrawer
           <button ref={accBtnRef} type="button" className="vd-accb" aria-haspopup="menu" aria-expanded={dropdownOpen} aria-label="قائمة الحساب"
             onClick={() => setDropdownOpen(v => !v)}>
             <span className="vd-ava">{ICONS.user}</span>
-            <span className="vd-acct"><div className="vd-an">{displayName}</div><div className="vd-as">{pharmacyName}</div></span>
+            <span className="vd-acct"><div className="vd-an">{displayName}</div><div className="vd-as">{loading ? <span className="vd-skel" /> : pharmacyName}</div></span>
             <svg className="vd-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false"><path d="m6 14.5 6-6 6 6" /></svg>
           </button>
           {dropdownOpen && (
             <div className="vd-pop" role="menu">
               <div className="vd-mh">
                 <span className="vd-ava">{ICONS.user}</span>
-                <div><div className="vd-mn">{displayName}</div><div className="vd-ms">{pharmacyName}</div></div>
+                <div><div className="vd-mn">{displayName}</div><div className="vd-ms">{loading ? <span className="vd-skel" /> : pharmacyName}</div></div>
               </div>
               {isOwner && (
                 <div className={`vd-sub${isExpiringSoon ? ' is-warn' : ''}`}>
                   <i />اشتراك {pharmacyStatus === 'active' ? 'نشط' : 'تجريبي'} ({pluralizeDays(daysLeft)})
                 </div>
+              )}
+              {isOwner && isExpiringSoon && (
+                <p className="vd-subnote">تنبيه: ينتهي اشتراكك خلال {pluralizeDays(daysLeft)}</p>
               )}
               <div className="vd-sep" />
               {isOwner && (

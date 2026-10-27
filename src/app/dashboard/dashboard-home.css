@@ -369,21 +369,22 @@
 .vd .vh-root .vh-feat:hover{box-shadow:0 0 0 1px rgba(15,118,110,.45),0 1px 2px rgba(15,23,42,.04)}
 .vd .vh-root .vh-feat:hover .vh-arrow{background:var(--vh-teal);color:#fff}
 
-/* laptop+ (sidebar with labels): only the main action stays, as one slim bar */
-@media (min-width:1280px){
-  .vd .vh-root .vh-tools>.vh-tile:not(.vh-feat){display:none}
-  .vd .vh-root .vh-t1{grid-column:span 12}
-  .vd .vh-root .vh-feat p{display:block;margin:1px 0 0;max-width:none;font-size:13px;line-height:1.5;color:var(--vh-mut)}
-}
-/* below laptop: the quick links are ONE card made of rows (hairline separators), not four boxes */
-@media (max-width:1279px){
-  .vd .vh-root .vh-t1,.vd .vh-root .vh-t2,.vd .vh-root .vh-t3,.vd .vh-root .vh-t4{grid-column:span 6}
-  .vd .vh-root .vh-tools{gap:1px;overflow:hidden;border-radius:16px;background:var(--vh-line);box-shadow:0 0 0 1px rgba(15,60,70,.08),0 1px 2px rgba(15,23,42,.04)}
-  .vd .vh-root .vh-tools>.vh-tile{min-height:58px;padding:8px 16px;border-radius:0;background:#fff;box-shadow:none}
-  .vd .vh-root .vh-tools>.vh-tile:hover{transform:none;background:#F6FBFA;box-shadow:none}
-  .vd .vh-root .vh-tools>.vh-feat{background:#F5FBF9}
-  .vd .vh-root .vh-tools .vh-arrow,.vd .vh-root .vh-tools .vh-feat .vh-arrow{width:20px;height:20px;padding:0;background:transparent;color:#94A3B8;box-shadow:none}
-  .vd .vh-root .vh-tools>.vh-tile:hover .vh-arrow,.vd .vh-root .vh-tools>.vh-feat:hover .vh-arrow{background:transparent;color:var(--vh-teal);translate:-3px 0}
+/* the four shortcuts are ONE card made of cells (hairline separators), never four boxes. All four stay at every width. */
+.vd .vh-root .vh-t1,.vd .vh-root .vh-t2,.vd .vh-root .vh-t3,.vd .vh-root .vh-t4{grid-column:span 6}
+.vd .vh-root .vh-tools{gap:1px;overflow:hidden;border-radius:16px;background:var(--vh-line);box-shadow:0 0 0 1px rgba(15,60,70,.08),0 1px 2px rgba(15,23,42,.04)}
+.vd .vh-root .vh-tools>.vh-tile{min-height:60px;padding:8px 16px;border-radius:0;background:#fff;box-shadow:none}
+.vd .vh-root .vh-tools>.vh-tile:hover{transform:none;background:#F6FBFA;box-shadow:none}
+.vd .vh-root .vh-tools>.vh-feat{background:#F5FBF9}
+.vd .vh-root .vh-tools .vh-arrow,.vd .vh-root .vh-tools .vh-feat .vh-arrow{width:20px;height:20px;padding:0;background:transparent;color:#94A3B8;box-shadow:none}
+.vd .vh-root .vh-tools>.vh-tile:hover .vh-arrow,.vd .vh-root .vh-tools>.vh-feat:hover .vh-arrow{background:transparent;color:var(--vh-teal);translate:-3px 0}
+/* wide content: 2x2 grid, each cell shows its one-line description */
+@container pg (min-width:900px){
+  .vd .vh-root .vh-tools>.vh-tile{min-height:76px;padding:12px 22px;gap:14px}
+  .vd .vh-root .vh-tin{gap:14px}
+  .vd .vh-root .vh-ti{width:44px;height:44px;border-radius:13px}
+  .vd .vh-root .vh-ti svg{width:22px;height:22px}
+  .vd .vh-root .vh-tin h3{font-size:15.5px}
+  .vd .vh-root .vh-tin p,.vd .vh-root .vh-feat p{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;margin:2px 0 0;max-width:none;overflow:hidden;white-space:normal;font-size:12.5px;line-height:1.55;color:var(--vh-mut)}
 }
 
 /* phone: stats = ONE card, two columns, hairlines (no box per number); shortcuts = ONE list card */

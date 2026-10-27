@@ -443,3 +443,292 @@
   .vd .vh-root .vh-ti svg{width:19px;height:19px}
   .vd .vh-root .vh-tin h3,.vd .vh-root .vh-feat h3{font-size:14.5px;line-height:1.35}
 }
+
+/* ---------- birthday card: calm, elegant confetti behind the content (pure CSS, no markup, no script) ----------
+   two soft layers drift down at different speeds; pieces are gradients in repeating columns, so each layer moves with a
+   single compositor transform. Decorative only: behind the text, never catches the pointer. The number of columns follows the
+   card width, so the density stays the same on a phone, a tablet and a wide screen. */
+.vd .vh-root .vh-bday{isolation:isolate}
+.vd .vh-root .vh-bday::before,.vd .vh-root .vh-bday::after{content:"";position:absolute;z-index:-1;left:-14px;right:-14px;bottom:0;pointer-events:none;background-repeat:repeat-y}
+.vd .vh-root .vh-bday::before{top:-260px;opacity:.7}
+.vd .vh-root .vh-bday::after{top:-200px;opacity:.9}
+.vd .vh-root .vh-bday::before{background-image:
+      linear-gradient(rgba(251,113,133,0.55) 0 8px,transparent 8px),
+      radial-gradient(circle at 50% 2px,rgba(243,182,63,0.7) 0 2px,transparent 2.7px),
+      linear-gradient(rgba(20,184,166,0.7) 0 8px,transparent 8px),
+      linear-gradient(rgba(243,182,63,0.55) 0 6px,transparent 6px),
+      linear-gradient(rgba(243,182,63,0.7) 0 8px,transparent 8px),
+      linear-gradient(rgba(251,113,133,0.55) 0 7px,transparent 7px),
+      radial-gradient(circle at 50% 2px,rgba(243,182,63,0.7) 0 2px,transparent 2.7px);
+    background-size:
+      3px 260px,
+      4px 260px,
+      3px 260px,
+      3px 260px,
+      3px 260px,
+      4px 260px,
+      4px 260px;
+    background-position:
+      6.7% 238px,
+      21.2% 95px,
+      31.6% 21px,
+      45.2% 32px,
+      65.3% 237px,
+      75.9% 150px,
+      94.4% 208px}
+.vd .vh-root .vh-bday::after{background-image:
+      linear-gradient(rgba(243,182,63,0.8) 0 16px,transparent 16px),
+      linear-gradient(rgba(20,184,166,0.8) 0 10px,transparent 10px),
+      linear-gradient(rgba(243,182,63,0.9) 0 16px,transparent 16px),
+      linear-gradient(rgba(20,184,166,0.8) 0 10px,transparent 10px),
+      linear-gradient(rgba(251,113,133,0.9) 0 8px,transparent 8px),
+      linear-gradient(rgba(245,158,11,0.8) 0 9px,transparent 9px),
+      linear-gradient(rgba(245,158,11,0.8) 0 16px,transparent 16px),
+      linear-gradient(rgba(245,158,11,0.9) 0 16px,transparent 16px);
+    background-size:
+      3px 200px,
+      6px 200px,
+      3px 200px,
+      6px 200px,
+      4px 200px,
+      5px 200px,
+      3px 200px,
+      3px 200px;
+    background-position:
+      6.4% 7px,
+      15.3% 74px,
+      26.9% 53px,
+      48.0% 101px,
+      54.2% 22px,
+      71.0% 30px,
+      77.4% 124px,
+      93.8% 187px}
+@container pg (min-width:640px){
+  .vd .vh-root .vh-bday::before{background-image:
+      radial-gradient(circle at 50% 2px,rgba(243,182,63,0.55) 0 2px,transparent 2.7px),
+      radial-gradient(circle at 50% 2px,rgba(245,158,11,0.55) 0 2px,transparent 2.7px),
+      linear-gradient(rgba(243,182,63,0.55) 0 8px,transparent 8px),
+      linear-gradient(rgba(20,184,166,0.7) 0 6px,transparent 6px),
+      radial-gradient(circle at 50% 3px,rgba(245,158,11,0.55) 0 3px,transparent 3.7px),
+      linear-gradient(rgba(251,113,133,0.7) 0 7px,transparent 7px),
+      linear-gradient(rgba(251,113,133,0.55) 0 6px,transparent 6px),
+      linear-gradient(rgba(243,182,63,0.55) 0 7px,transparent 7px),
+      linear-gradient(rgba(251,113,133,0.7) 0 7px,transparent 7px),
+      radial-gradient(circle at 50% 2px,rgba(251,113,133,0.55) 0 2px,transparent 2.7px),
+      radial-gradient(circle at 50% 3px,rgba(251,113,133,0.55) 0 3px,transparent 3.7px);
+    background-size:
+      4px 260px,
+      4px 260px,
+      3px 260px,
+      3px 260px,
+      6px 260px,
+      4px 260px,
+      3px 260px,
+      4px 260px,
+      4px 260px,
+      4px 260px,
+      6px 260px;
+    background-position:
+      7.2% 148px,
+      12.9% 183px,
+      19.6% 232px,
+      31.8% 10px,
+      42.7% 188px,
+      51.7% 188px,
+      57.0% 247px,
+      68.4% 100px,
+      74.3% 141px,
+      88.9% 156px,
+      93.0% 61px}
+  .vd .vh-root .vh-bday::after{background-image:
+      linear-gradient(rgba(243,182,63,0.9) 0 8px,transparent 8px),
+      linear-gradient(rgba(20,184,166,0.9) 0 9px,transparent 9px),
+      linear-gradient(rgba(243,182,63,0.8) 0 10px,transparent 10px),
+      linear-gradient(rgba(243,182,63,0.9) 0 8px,transparent 8px),
+      linear-gradient(rgba(243,182,63,0.9) 0 16px,transparent 16px),
+      linear-gradient(rgba(251,113,133,0.9) 0 9px,transparent 9px),
+      radial-gradient(circle at 50% 3px,rgba(245,158,11,0.8) 0 3px,transparent 3.7px),
+      linear-gradient(rgba(251,113,133,0.9) 0 16px,transparent 16px),
+      linear-gradient(rgba(20,184,166,0.8) 0 10px,transparent 10px),
+      radial-gradient(circle at 50% 3px,rgba(251,113,133,0.8) 0 3px,transparent 3.7px),
+      linear-gradient(rgba(243,182,63,0.9) 0 9px,transparent 9px),
+      linear-gradient(rgba(243,182,63,0.8) 0 10px,transparent 10px),
+      radial-gradient(circle at 50% 3px,rgba(251,113,133,0.8) 0 3px,transparent 3.7px),
+      linear-gradient(rgba(20,184,166,0.8) 0 9px,transparent 9px);
+    background-size:
+      4px 200px,
+      5px 200px,
+      6px 200px,
+      4px 200px,
+      3px 200px,
+      5px 200px,
+      6px 200px,
+      3px 200px,
+      6px 200px,
+      6px 200px,
+      5px 200px,
+      6px 200px,
+      6px 200px,
+      5px 200px;
+    background-position:
+      1.8% 190px,
+      13.1% 14px,
+      19.4% 175px,
+      27.2% 113px,
+      32.1% 9px,
+      39.5% 193px,
+      44.4% 135px,
+      53.2% 3px,
+      62.3% 157px,
+      66.8% 104px,
+      72.6% 35px,
+      84.4% 20px,
+      91.6% 115px,
+      94.0% 36px}
+}
+@container pg (min-width:900px){
+  .vd .vh-root .vh-bday::before{background-image:
+      linear-gradient(rgba(243,182,63,0.7) 0 13px,transparent 13px),
+      linear-gradient(rgba(251,113,133,0.7) 0 13px,transparent 13px),
+      linear-gradient(rgba(251,113,133,0.55) 0 6px,transparent 6px),
+      radial-gradient(circle at 50% 3px,rgba(243,182,63,0.7) 0 3px,transparent 3.7px),
+      linear-gradient(rgba(20,184,166,0.7) 0 6px,transparent 6px),
+      linear-gradient(rgba(243,182,63,0.55) 0 7px,transparent 7px),
+      linear-gradient(rgba(243,182,63,0.55) 0 8px,transparent 8px),
+      radial-gradient(circle at 50% 2px,rgba(251,113,133,0.55) 0 2px,transparent 2.7px),
+      radial-gradient(circle at 50% 3px,rgba(245,158,11,0.55) 0 3px,transparent 3.7px),
+      linear-gradient(rgba(251,113,133,0.55) 0 7px,transparent 7px),
+      radial-gradient(circle at 50% 2px,rgba(251,113,133,0.55) 0 2px,transparent 2.7px),
+      linear-gradient(rgba(243,182,63,0.55) 0 8px,transparent 8px),
+      linear-gradient(rgba(245,158,11,0.7) 0 6px,transparent 6px),
+      radial-gradient(circle at 50% 2px,rgba(20,184,166,0.55) 0 2px,transparent 2.7px),
+      linear-gradient(rgba(20,184,166,0.55) 0 13px,transparent 13px),
+      radial-gradient(circle at 50% 2px,rgba(20,184,166,0.55) 0 2px,transparent 2.7px),
+      radial-gradient(circle at 50% 3px,rgba(251,113,133,0.7) 0 3px,transparent 3.7px),
+      linear-gradient(rgba(20,184,166,0.7) 0 7px,transparent 7px);
+    background-size:
+      2px 260px,
+      2px 260px,
+      3px 260px,
+      6px 260px,
+      3px 260px,
+      4px 260px,
+      3px 260px,
+      4px 260px,
+      6px 260px,
+      4px 260px,
+      4px 260px,
+      3px 260px,
+      3px 260px,
+      4px 260px,
+      2px 260px,
+      4px 260px,
+      6px 260px,
+      4px 260px;
+    background-position:
+      3.5% 46px,
+      8.4% 55px,
+      15.7% 216px,
+      19.1% 147px,
+      25.8% 17px,
+      28.6% 184px,
+      35.5% 81px,
+      42.5% 116px,
+      48.1% 246px,
+      53.3% 224px,
+      58.9% 45px,
+      62.1% 76px,
+      68.6% 13px,
+      73.5% 84px,
+      78.9% 27px,
+      85.9% 34px,
+      90.6% 120px,
+      96.4% 20px}
+  .vd .vh-root .vh-bday::after{background-image:
+      linear-gradient(rgba(251,113,133,0.9) 0 8px,transparent 8px),
+      radial-gradient(circle at 50% 3px,rgba(243,182,63,0.8) 0 3px,transparent 3.7px),
+      linear-gradient(rgba(243,182,63,0.9) 0 10px,transparent 10px),
+      radial-gradient(circle at 50% 3px,rgba(243,182,63,0.9) 0 3px,transparent 3.7px),
+      linear-gradient(rgba(243,182,63,0.9) 0 8px,transparent 8px),
+      linear-gradient(rgba(245,158,11,0.9) 0 9px,transparent 9px),
+      linear-gradient(rgba(243,182,63,0.8) 0 8px,transparent 8px),
+      radial-gradient(circle at 50% 4px,rgba(243,182,63,0.8) 0 4px,transparent 4.7px),
+      linear-gradient(rgba(245,158,11,0.9) 0 16px,transparent 16px),
+      linear-gradient(rgba(243,182,63,0.9) 0 8px,transparent 8px),
+      linear-gradient(rgba(243,182,63,0.9) 0 16px,transparent 16px),
+      linear-gradient(rgba(243,182,63,0.9) 0 9px,transparent 9px),
+      radial-gradient(circle at 50% 3px,rgba(251,113,133,0.9) 0 3px,transparent 3.7px),
+      radial-gradient(circle at 50% 4px,rgba(245,158,11,0.8) 0 4px,transparent 4.7px),
+      linear-gradient(rgba(245,158,11,0.8) 0 16px,transparent 16px),
+      linear-gradient(rgba(243,182,63,0.8) 0 10px,transparent 10px),
+      linear-gradient(rgba(251,113,133,0.9) 0 9px,transparent 9px),
+      linear-gradient(rgba(243,182,63,0.9) 0 16px,transparent 16px),
+      linear-gradient(rgba(251,113,133,0.9) 0 10px,transparent 10px),
+      linear-gradient(rgba(20,184,166,0.9) 0 16px,transparent 16px),
+      linear-gradient(rgba(243,182,63,0.9) 0 9px,transparent 9px),
+      radial-gradient(circle at 50% 3px,rgba(20,184,166,0.9) 0 3px,transparent 3.7px),
+      linear-gradient(rgba(20,184,166,0.9) 0 16px,transparent 16px),
+      linear-gradient(rgba(251,113,133,0.8) 0 16px,transparent 16px);
+    background-size:
+      4px 200px,
+      6px 200px,
+      6px 200px,
+      6px 200px,
+      4px 200px,
+      5px 200px,
+      4px 200px,
+      8px 200px,
+      3px 200px,
+      4px 200px,
+      3px 200px,
+      5px 200px,
+      6px 200px,
+      8px 200px,
+      3px 200px,
+      6px 200px,
+      5px 200px,
+      3px 200px,
+      6px 200px,
+      3px 200px,
+      5px 200px,
+      6px 200px,
+      3px 200px,
+      3px 200px;
+    background-position:
+      2.3% 7px,
+      7.7% 158px,
+      11.4% 124px,
+      15.4% 183px,
+      18.7% 11px,
+      23.6% 44px,
+      26.1% 81px,
+      31.2% 25px,
+      34.0% 189px,
+      40.4% 19px,
+      43.0% 172px,
+      48.8% 42px,
+      51.1% 126px,
+      57.1% 28px,
+      60.4% 40px,
+      65.4% 20px,
+      69.1% 150px,
+      72.9% 72px,
+      78.1% 152px,
+      82.1% 157px,
+      86.5% 91px,
+      89.6% 110px,
+      93.6% 63px,
+      98.5% 36px}
+}
+@media (prefers-reduced-motion:no-preference){
+  .vd .vh-root .vh-bday::before{will-change:transform;animation:vh-cf-b 17s linear infinite,vh-sway-b 7s ease-in-out infinite alternate,vh-glint 5.5s ease-in-out infinite}
+  .vd .vh-root .vh-bday::after{will-change:transform;animation:vh-cf-f 11s linear infinite,vh-sway-f 4.6s ease-in-out infinite alternate,vh-glint 3.8s ease-in-out -1.2s infinite}
+  @keyframes vh-cf-b{to{transform:translate3d(0,260px,0)}}
+  @keyframes vh-cf-f{to{transform:translate3d(0,200px,0)}}
+  @keyframes vh-sway-b{from{translate:-5px 0}to{translate:5px 0}}
+  @keyframes vh-sway-f{from{translate:-9px 0}to{translate:9px 0}}
+  @keyframes vh-glint{0%,100%{opacity:.55}50%{opacity:.95}}
+}
+@media print{
+  .vd .vh-root .vh-bday::before,.vd .vh-root .vh-bday::after{display:none}
+}

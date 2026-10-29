@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import Toast, { useNotice } from '@/components/Toast';
@@ -9,7 +9,7 @@ import { getPharmacyId, getStaffName, getUserRole } from '@/lib/tenant';
 import { useOverdueRequests } from '@/lib/use-overdue-requests';
 import { Lightbulb, PlusCircle, Lightning, Bug, ChatCircleDots, CheckCircle, X } from '@phosphor-icons/react';
 import { usePharmacyInfo } from './DashboardHeader';
-import { OPEN_INVENTORY_EVENT } from '../chronic/inventory-link';
+import { OPEN_INVENTORY_EVENT, CLOSE_INVENTORY_EVENT, subscribeInventoryState, getInventoryOpen, requestInventoryOpen, cancelInventoryRequest } from '../chronic/inventory-link';
 
 // المنطق هنا منسوخ حرفياً من DashboardHeader.tsx (الهيدر نفسه لا يُمَس): الروابط، الشروط بحسب الدور،
 // الخروج، كلمة المرور، الملاحظات. النصوص نصوص الهيدر الحالي لا نصوص لوحات التصميم.
@@ -83,6 +83,8 @@ interface SidebarProps {
 export function DashboardSidebar({ expanded, onToggle, drawerOpen, onCloseDrawer, closeRef }: SidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
+  // هل تبويب «جهّز مخزونك» مفتوح الآن؟ (تنشره صفحة المزمنين)
+  const inventoryOpen = useSyncExternalStore(subscribeInventoryState, getInventoryOpen, () => false);
   const { pharmacyName, pharmacistName, pharmacyStatus, daysLeft, loading } = usePharmacyInfo();
   const { count: overdueCount } = useOverdueRequests();
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -177,16 +179,25 @@ export function DashboardSidebar({ expanded, onToggle, drawerOpen, onCloseDrawer
   const isOwner = userRole === 'owner';
 
   const isActive = (href: string, exact = false) => (exact ? pathname === href : pathname.startsWith(href));
-  const go = (href: string) => { router.push(href); onCloseDrawer(false); };
+  // «جهّز مخزونك» داخل صفحة المزمنين نفسها: حين يكون مفتوحاً يكون هو البند الحالي لا «المزمنون»
+  const onChronic = pathname.replace(/\/+$/, '') === '/dashboard/chronic';
+  const stockActive = onChronic && inventoryOpen;
+  const go = (href: string) => {
+    cancelInventoryRequest();
+    // الضغط على «المزمنون» ونحن فيها: الانتقال إلى الصفحة نفسها لا يغيّر شيئاً، فنطلب إغلاق «جهّز مخزونك» لنعود للقائمة
+    if (href === '/dashboard/chronic' && onChronic) window.dispatchEvent(new Event(CLOSE_INVENTORY_EVENT));
+    else router.push(href);
+    onCloseDrawer(false);
+  };
   // «جهّز مخزونك» تبويب داخل صفحة المزمنين: إن كانت مفتوحة نرسل لها حدثاً، وإلا ننتقل إليها برابط يفتحه
   const openInventory = () => {
-    if (pathname.startsWith('/dashboard/chronic')) window.dispatchEvent(new Event(OPEN_INVENTORY_EVENT));
-    else router.push('/dashboard/chronic?view=inventory');
+    if (onChronic) window.dispatchEvent(new Event(OPEN_INVENTORY_EVENT));
+    else { requestInventoryOpen(); router.push('/dashboard/chronic?view=inventory'); }
     onCloseDrawer(false);
   };
 
   const navItem = (label: string, href: string, icon: ReactNode, exact = false) => (
-    <button key={href} type="button" className="vd-ni" data-tip={label} aria-current={isActive(href, exact) ? 'page' : undefined}
+    <button key={href} type="button" className="vd-ni" data-tip={label} aria-current={isActive(href, exact) && !(stockActive && href === '/dashboard/chronic') ? 'page' : undefined}
       onClick={() => go(href)}>
       {icon}<span className="vd-lbl">{label}</span>
       {href === '/dashboard/requests' && overdueCount > 0 && (
@@ -224,7 +235,7 @@ export function DashboardSidebar({ expanded, onToggle, drawerOpen, onCloseDrawer
 
         <nav className="vd-nav" aria-label="التنقل الرئيسي">
           {NAV_LINKS.slice(0, 3).map(l => navItem(l.label, l.href, ICONS[l.href], l.exact))}
-          <button type="button" className="vd-ni is-stock" data-tip="جهّز مخزونك" onClick={openInventory}>
+          <button type="button" className="vd-ni is-stock" data-tip="جهّز مخزونك" aria-current={stockActive ? 'page' : undefined} onClick={openInventory}>
             {ICONS.stock}<span className="vd-lbl">جهّز مخزونك</span>
           </button>
           {NAV_LINKS.slice(3).map(l => navItem(l.label, l.href, ICONS[l.href], l.exact))}

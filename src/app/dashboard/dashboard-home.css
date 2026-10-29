@@ -286,11 +286,18 @@
 .vd .vh-root .vh-main{gap:14px;padding:22px 30px 30px}
 .vd .vh-root .vh-top,.vd .vh-root .vh-tools{gap:14px}
 
-/* hero: title only (the sidebar already shows the pharmacy icon + name) */
+/* hero: title only (the pharmacy icon stays hidden); the pharmacy name now lives only here, followed by its status dot */
 .vd .vh-root .vh-hero{gap:12px;padding:0 2px 2px}
 .vd .vh-root .vh-hero-ic{display:none}
 .vd .vh-root .vh-hi{font-size:27px;letter-spacing:-.3px}
 .vd .vh-root .vh-hello{margin-top:2px;font-size:15px}
+.vd .vh-root .vh-hi-row{display:flex;align-items:center;gap:12px;min-width:0}
+.vd .vh-root .vh-hi-row .vh-hi{min-width:0}
+/* status dot (moved here from the sidebar): green = active subscription, amber = anything else (trial) */
+.vd .vh-root .vh-live{position:relative;isolation:isolate;flex:none;width:12px;height:12px;border-radius:50%;background:#16A34A}
+.vd .vh-root .vh-live::after{content:'';position:absolute;inset:-5px;border-radius:50%;background:rgba(22,163,74,.3);z-index:-1}
+.vd .vh-root .vh-live.is-warn{background:#F59E0B}
+.vd .vh-root .vh-live.is-warn::after{background:rgba(245,158,11,.32)}
 
 /* flat cards: no glass blur, soft hairline, no coloured top strip, no tinted header */
 .vd .vh-root .vh-card{border-radius:16px;-webkit-backdrop-filter:none;backdrop-filter:none;background:#fff;box-shadow:0 0 0 1px rgba(15,60,70,.08),0 1px 2px rgba(15,23,42,.04)}
@@ -415,6 +422,8 @@
   .vd .vh-root .vh-main{gap:12px}
   .vd .vh-root .vh-top{gap:12px}
   .vd .vh-root .vh-hi{font-size:23px}
+  .vd .vh-root .vh-hi-row{gap:10px}
+  .vd .vh-root .vh-live{width:10px;height:10px}
   .vd .vh-root .vh-hello{font-size:14px}
   .vd .vh-root .vh-ch{padding:12px 12px 4px}
   .vd .vh-root .vh-rows{padding:0 4px 6px}
@@ -731,4 +740,8 @@
 }
 @media print{
   .vd .vh-root .vh-bday::before,.vd .vh-root .vh-bday::after{display:none}
+}
+@media (prefers-reduced-motion:no-preference){
+  .vd .vh-root .vh-live::after{animation:vh-ping 2.6s ease-out infinite}
+  @keyframes vh-ping{0%{transform:scale(.6);opacity:.95}100%{transform:scale(2);opacity:0}}
 }

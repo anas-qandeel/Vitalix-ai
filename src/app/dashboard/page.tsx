@@ -225,7 +225,7 @@ export default function PharmacistDashboard() {
   const [staffName, setStaffName] = useState<string | null>(null);
   const [userRole, setUserRole]   = useState('');
   const [greetedToday, setGreetedToday] = useState<Set<string>>(new Set());
-  const { pharmacyName } = usePharmacyInfo();
+  const { pharmacyName, pharmacyStatus } = usePharmacyInfo();
   const { requests: overdueRequests, settled: overdueSettled } = useOverdueRequests();
   const router = useRouter();
 
@@ -460,7 +460,12 @@ export default function PharmacistDashboard() {
               </svg>
             </span>
             <div className="vh-hero-tx">
-              {pharmacyName && <h1 className="vh-hi">{pharmacyName}</h1>}
+              {pharmacyName && (
+                <div className="vh-hi-row">
+                  <h1 className="vh-hi">{pharmacyName}</h1>
+                  <i className={`vh-live${pharmacyStatus === 'active' ? '' : ' is-warn'}`} aria-hidden="true" />
+                </div>
+              )}
               <p className="vh-hello">مرحباً بعودتك <span>{formattedDisplayName}</span></p>
             </div>
           </div>

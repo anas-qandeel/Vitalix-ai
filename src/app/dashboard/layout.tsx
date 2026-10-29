@@ -23,6 +23,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [checking, setChecking] = useState(true);
   const [subBanner, setSubBanner] = useState<{ status: 'grace' | 'expired'; until: string | null; name: string } | null>(null);
   const [subStatus, setSubStatus] = useState<string>('');
+  const [subExpiry, setSubExpiry] = useState<string | null>(null);
   const [noticeUser, setNoticeUser] = useState<{ id: string; login: string } | null>(null);
   const router = useRouter();
   const pathname = usePathname();
@@ -58,6 +59,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       }
 
       setSubStatus(pharmacy?.status ?? '');
+      setSubExpiry(pharmacy?.expiry_date ?? null);
       if (pharmacy?.status === 'grace' || pharmacy?.status === 'expired') {
         setSubBanner({ status: pharmacy.status, until: pharmacy.expiry_date ?? null, name: pharmacy.name ?? '' });
       } else {
@@ -131,7 +133,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <>
       <PullToRefresh />
-      <NotificationsRuntime subscription={{ status: subStatus, expiry: subBanner?.until ?? null }} />
+      <NotificationsRuntime subscription={{ status: subStatus, expiryDate: subExpiry }} />
       {!USE_SIDEBAR && subBannerEl}
       {noticeUser && <DateFormatNotice key={noticeUser.id} userId={noticeUser.id} loginStamp={noticeUser.login} />}
       <SubscriptionContext.Provider value={{ status: subStatus, readOnly: subStatus === 'expired' }}>

@@ -127,6 +127,11 @@ export interface NotifyContext {
   role: Role;
   /** هوية الموظف الحالي (لاستبعاد ملاحظاته هو). */
   staffId: string | null;
+  /**
+   * اسم الموظف الحالي — احتياط لحالة واحدة فقط: حساب بلا staffId (المالك غالباً) كتب ملاحظة بلا author_staff_id.
+   * يُقارَن بـauthorName عندما يكون staffId وauthorStaffId كلاهما null. لا أثر له إن عُرف staffId.
+   */
+  staffName?: string | null;
 }
 
 export interface Routes {
@@ -567,7 +572,7 @@ function requestLines(list: RequestAttention[], ctx: NotifyContext, cfg: NotifyC
       section: 'requests',
       severity: 'info',
       count: n,
-      badge: n,
+      badge: 0, // متابعة هادئة: طلب عند المورد ضمن مهلته، لا يملك الكادر ما يفعله فيه، فلا يدخل الأرقام ولا يطفئ «لا شيء ينتظركم»
       title: `${counted(n, REQUESTS)} ${verbThing(n, 'ينتظر', 'ينتظران', 'تنتظر')} المتابعة`,
       href: cfg.routes.requests,
       ...sample(follow.map((r) => nameOr(r.patientName, 'مريض'))),
@@ -711,6 +716,14 @@ function birthdayLines(list: BirthdayPatient[], cfg: NotifyConfig): Notification
   ];
 }
 
+/** ملاحظة كتبها الموظف الحالي نفسه: بالمعرّف، أو باسمه فقط حين لا معرّف لأيٍّ من الطرفين. */
+function isOwnNote(n: OpenNote, ctx: NotifyContext): boolean {
+  if (ctx.staffId !== null) return n.authorStaffId === ctx.staffId;
+  if (n.authorStaffId !== null) return false;
+  const me = (ctx.staffName ?? '').trim();
+  return me !== '' && (n.authorName ?? '').trim() === me;
+}
+
 function noteLines(list: OpenNote[], ctx: NotifyContext, cfg: NotifyConfig): NotificationLine[] {
   const seen = new Set<string>();
   const fresh: { n: OpenNote; age: number }[] = [];
@@ -718,7 +731,7 @@ function noteLines(list: OpenNote[], ctx: NotifyContext, cfg: NotifyConfig): Not
     if (!n || seen.has(n.id)) continue;
     seen.add(n.id);
     if (n.closedAt) continue;
-    if (ctx.staffId !== null && n.authorStaffId === ctx.staffId) continue;
+    if (isOwnNote(n, ctx)) continue;
     const age = daysSinceMs(parseMs(n.createdAt), ctx.now);
     if (age === null || age > cfg.noteMaxAgeDays) continue;
     fresh.push({ n, age });

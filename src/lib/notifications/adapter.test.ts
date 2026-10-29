@@ -16,6 +16,7 @@ import {
   type NoteRow,
   type OverdueReasonsFn,
   type PipelineRow,
+  type RequestItemRow,
   type RequestRow,
   type StockRow,
 } from './adapter.js';
@@ -253,11 +254,61 @@ test('requests: اسم المريض من كائن أو مصفوفة أو غائ�
   assert.deepEqual(out.map((r) => [r.id, r.patientName]), [['a', 'ليلى'], ['b', '']]);
 });
 
+/** يحاكي سبب «الاسترداد»: طلب غير مفتوح بعربون لم يُردّ ⇒ سبب واحد (ببنود الطلب أو بلا بنود) */
+const refundOverdue = (withIds: boolean): OverdueReasonsFn => (req) =>
+  req.status !== 'open' && (req.deposit ?? 0) > 0 && req.deposit_returned !== true
+    ? [{ itemIds: withIds ? req.items.map((it) => it.id ?? '') : [] }]
+    : [];
+
+test('requests: الملغى بعربون لم يُردّ يُحسب متأخراً (استرداد) وعمره من الإلغاء', () => {
+  const base = { status: 'cancelled', deposit: 20, deposit_returned: false, cancelled_at: '2026-10-20T08:00:00Z' };
+  assert.deepEqual(mapRequests([request('refund', [], base)], NOW, refundOverdue(false)), [
+    { id: 'refund', patientName: 'مريض refund', kind: 'overdue', ageDays: 9 },
+  ]);
+  // العربون رُدّ، أو لا عربون ⇒ لا شيء ينتظر
+  assert.deepEqual(mapRequests([request('paid', [], { ...base, deposit_returned: true })], NOW, refundOverdue(false)), []);
+  assert.deepEqual(mapRequests([request('nodep', [], { ...base, deposit: null })], NOW, refundOverdue(false)), []);
+  // العمر من الإلغاء لا من بنوده، حتى لو أشار السبب إلى بنود
+  const withItems = request('wi', [{ id: 'x1', stage: 'cancelled', at: '2026-10-27T08:00:00Z' }], base);
+  assert.equal(mapRequests([withItems], NOW, refundOverdue(true))[0].ageDays, 9);
+  // بلا cancelled_at: يُؤخذ من بنوده
+  const noDate = request('nd', [{ id: 'x2', stage: 'cancelled', at: '2026-10-27T08:00:00Z' }], { ...base, cancelled_at: null });
+  assert.equal(mapRequests([noDate], NOW, refundOverdue(true))[0].ageDays, 2);
+  // ملغى بلا سبب تأخر لا يتحوّل إلى «إجراء» ولو بقي فيه بند recorded
+  const ghost = request('ghost', [{ id: 'g', stage: 'recorded', at: '2026-10-28T08:00:00Z' }], { ...base, deposit_returned: true });
+  assert.deepEqual(mapRequests([ghost], NOW, refundOverdue(true)), []);
+});
+
+test('requests: وقت مستقبلي (فارق ساعة الأجهزة) لا يعطي عمراً سالباً', () => {
+  const out = mapRequests([request('f', [{ id: '1', stage: 'recorded', at: '2026-10-30T08:00:00Z' }])], NOW, fakeOverdue);
+  assert.equal(out[0].ageDays, 0);
+});
+
+test('requests: طلب مفتوح فيه cancelled_at قديم (أُعيد فتحه) يُقاس عمره من بنوده', () => {
+  const row = request('re', [{ id: 'o', stage: 'ordered', at: '2026-10-10T08:00:00Z' }], { cancelled_at: '2026-10-27T08:00:00Z' });
+  assert.deepEqual(mapRequests([row], NOW, fakeOverdue).map((r) => [r.kind, r.ageDays]), [['overdue', 19]]);
+});
+
+test('requests: لا تصل بنود null إلى دالة التأخر، وسبب بلا itemIds لا يكسر', () => {
+  const seen: unknown[] = [];
+  const spy: OverdueReasonsFn = (req) => {
+    seen.push(...req.items);
+    return [{ itemIds: undefined as unknown as string[] }];
+  };
+  const item: RequestItemRow = { id: '1', product_name: 'x', stage: 'ordered', stage_changed_at: '2026-10-26T08:00:00Z' };
+  const row: RequestRow = { ...request('n', []), items: [null as unknown as RequestItemRow, item] };
+  const out = mapRequests([row], NOW, spy);
+  assert.ok(seen.length === 1 && seen.every((x) => x !== null));
+  assert.deepEqual(out.map((r) => [r.kind, r.ageDays]), [['overdue', 3]]); // العمر من أقدم بند حيّ
+});
+
 // ───────────────────────── الكتالوج والاشتراك ─────────────────────────
 
 test('catalog: عدّاد فاشل ⇒ undefined، وإلا القيم كما هي', () => {
   assert.equal(mapCatalog(null, 3, null), undefined);
   assert.equal(mapCatalog(10, null, null), undefined);
+  assert.equal(mapCatalog(Number.NaN, 3, null), undefined);
+  assert.equal(mapCatalog(3, Number.NaN, null), undefined);
   assert.deepEqual(mapCatalog(0, 0, null), { totalProducts: 0, unconfirmed: 0, lastAddedAt: null });
   assert.deepEqual(mapCatalog(12, 4, '2026-10-01T08:00:00Z'), { totalProducts: 12, unconfirmed: 4, lastAddedAt: '2026-10-01T08:00:00Z' });
 });

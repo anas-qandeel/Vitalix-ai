@@ -5,55 +5,79 @@ import { usePathname } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { getTenantContext } from '@/lib/tenant';
 import { calcDaysLeft } from '@/lib/chronic';
-import { getOverdueReasons, OVERDUE_SUMMARY_SELECT, REQUESTS_CHANGED_EVENT } from '@/lib/request-overdue';
-import { computeNotifications, type NotifyInput, type Role } from './engine';
+import { getOverdueReasons, OPEN_REQUESTS_FILTER, OVERDUE_SUMMARY_SELECT, REQUESTS_CHANGED_EVENT } from '@/lib/request-overdue';
+import { computeNotifications, SECTION_KEYS, type NotifyInput, type Role } from './engine';
 import {
   mapBirthdays, mapCatalog, mapInventory, mapNotes, mapRefill, mapRequests, mapSubscription,
   type ChronicMedRow, type GreetingRow, type NoteRow, type PatientBirthRow, type RequestRow, type StockRow,
 } from './adapter';
-import { buildConfig, NOTIFICATIONS_ENABLED } from './config';
+import { buildConfig, NOTIFICATIONS_DEBUG, NOTIFICATIONS_ENABLED } from './config';
 import { setNotificationSummary } from './store';
 
 /**
  * مشغّل الإشعارات: لا يرسم شيئاً. يجلب بيانات الصيدلية (SELECT فقط، بجلسة المستخدم وRLS) ويحسب الملخص ويضعه في المتجر.
  * لا يكتب في القاعدة إطلاقاً — خصوصاً لا يستدعي upsertPipeline: مرحلة «بلا رد» يشتقّها المحرّك ولا تُحفظ من هنا.
  * الحالة كلها على مستوى الملف (لا useState) كي لا يضاعف React StrictMode الجلب ولا يتسرّب منه شيء.
+ * الاشتراك لا يُجلب: يُدمج لحظة الحساب (compute) من قيمة الـ layout، فلا سباق مع أول جلب ولا شبكة لتغيّره.
  */
 
 const DAY = 86_400_000;
 const ROLES: readonly string[] = ['owner', 'pharmacist', 'assistant', 'staff'];
 const SLOW_TICK_MS = 120_000;
+// حدّ PostgREST الافتراضي للصفوف: بلوغه يعني احتمال قطع القائمة، فلا نبني عليها عدّاً ناقصاً
+const ROW_CAP = 1000;
 
-interface SubscriptionProps { status: string; expiry: string | null }
+interface SubscriptionProps { status: string; expiryDate: string | null }
 
-let latestSub: SubscriptionProps = { status: '', expiry: null };
+interface Cache {
+  input: NotifyInput;
+  role: Role;
+  staffId: string | null;
+  staffName: string | null;
+  sources: Record<string, string>;
+}
+
+let latestSub: SubscriptionProps = { status: '', expiryDate: null };
+let cache: Cache | null = null;
+let mounts = 0; // عدد المشغّلات المركّبة؛ عند 0 يُفرَّغ المتجر فلا تبقى أرقام مستخدم سابق على جهاز مشترك
 let inflight = false;
 let queued = false;
 let lastStartAt = 0;
-let generation = 0; // يبطل أي جلب بدأ قبل تسجيل الخروج أو تغيّر المستخدم
+let generation = 0; // يبطل أي جلب بدأ قبل تسجيل الخروج (لا يُرفع عند unmount: StrictMode يركّب ويفكّ ويعيد فوراً)
 let ownerKey: string | null = null;
 
 interface Res { data: unknown; error: { code?: string; message?: string } | null; count?: number | null }
 
 const run = (b: PromiseLike<Res>): Promise<Res> => Promise.resolve(b);
 
-// فشل مصدر: تحذير بالرمز والرسالة فقط، بلا أي بيانات صفوف
-function ok(label: string, r: PromiseSettledResult<Res | null>): Res | null {
+/**
+ * نتيجة مصدر واحد أو null عند الفشل/التخطي. التحذير برمز الخطأ ورسالته فقط، بلا أي بيانات صفوف.
+ * kind 'list': بلوغ ROW_CAP صفاً = ناقص (لا نبني عليه). kind 'count': القيمة من count.
+ */
+function ok(label: string, r: PromiseSettledResult<Res | null>, kind: 'list' | 'count', sources: Record<string, string>): Res | null {
   if (r.status === 'rejected') {
     console.warn('[notifications]', label, 'rejected');
+    sources[label] = 'failed';
     return null;
   }
-  if (r.value === null) return null;
+  if (r.value === null) { sources[label] = 'skipped'; return null; }
   if (r.value.error) {
     console.warn('[notifications]', label, r.value.error.code ?? '', r.value.error.message ?? '');
+    sources[label] = 'failed';
     return null;
   }
+  if (kind === 'list' && Array.isArray(r.value.data) && r.value.data.length >= ROW_CAP) {
+    console.warn('[notifications]', label, 'row cap reached, treated as incomplete');
+    sources[label] = 'capped';
+    return null;
+  }
+  sources[label] = kind === 'count' ? `ok:${r.value.count ?? 0}` : `ok:${Array.isArray(r.value.data) ? r.value.data.length : 0}`;
   return r.value;
 }
 
 const rowsOf = <T,>(r: Res | null): T[] => (r && Array.isArray(r.data) ? (r.data as T[]) : []);
 
-async function loadInput(pid: string, role: Role, sub: SubscriptionProps, now: number): Promise<NotifyInput> {
+async function loadInput(pid: string, role: Role, now: number): Promise<{ input: NotifyInput; sources: Record<string, string> }> {
   const sees = role === 'owner' || role === 'pharmacist'; // الكتالوج لهما وحدهما (كما في المحرّك)
   // الاستعلام يجلب أدوية ≤ اليوم+15 (بتاريخ UTC) احتياطاً لفارق اليوم المحلي؛ المحوّل يطبّق calcDaysLeft ≤ 14 بدقة
   const medsLimit = new Date(now + 15 * DAY).toISOString().slice(0, 10);
@@ -72,8 +96,8 @@ async function loadInput(pid: string, role: Role, sub: SubscriptionProps, now: n
     // التأكيد الساري فقط (confirmed_at موجود وboxes_remaining > 0) — mirrors chronic/page.tsx:1309-1322
     run(supabase.from('inventory_stock').select('med_key, confirmed_at, boxes_remaining')
       .eq('pharmacy_id', pid).not('confirmed_at', 'is', null).gt('boxes_remaining', 0)),
-    // نفس حقول طلبات الرئيسية والقائمة، لكن للمفتوحة فقط
-    run(supabase.from('patient_requests').select(OVERDUE_SUMMARY_SELECT).eq('status', 'open')),
+    // الصفوف نفسها التي تعدّها شارة «طلبات المرضى» (use-overdue-requests.ts:57): المفتوحة + الملغاة بعربون لم يُرجَع
+    run(supabase.from('patient_requests').select(OVERDUE_SUMMARY_SELECT).or(OPEN_REQUESTS_FILTER)),
     // الكتالوج: العدد الكلي + أحدث إضافة باستعلام واحد، وغير المؤكَّد باستعلام عدّ — mirrors pharmacy-catalog-manager/page.tsx:66-87
     sees ? run(supabase.from('pharmacy_products').select('created_at', { count: 'exact' })
       .eq('pharmacy_id', pid).neq('review_status', notRejected).order('created_at', { ascending: false }).limit(1)) : Promise.resolve(null),
@@ -88,14 +112,15 @@ async function loadInput(pid: string, role: Role, sub: SubscriptionProps, now: n
       .is('closed_at', null).gte('created_at', notesSince).order('created_at', { ascending: false })),
   ]);
 
-  const medsRes = ok('chronic_medications', meds);
-  const stockRes = ok('inventory_stock', stock);
-  const reqsRes = ok('patient_requests', reqs);
-  const catARes = sees ? ok('pharmacy_products', catA) : null;
-  const catBRes = sees ? ok('pharmacy_products_unconfirmed', catB) : null;
-  const patsRes = ok('patients', pats);
-  const greetsRes = ok('birthday_greetings', greets);
-  const notesRes = ok('patient_notes', notes);
+  const sources: Record<string, string> = {};
+  const medsRes = ok('chronic_medications', meds, 'list', sources);
+  const stockRes = ok('inventory_stock', stock, 'list', sources);
+  const reqsRes = ok('patient_requests', reqs, 'list', sources);
+  const catARes = ok('pharmacy_products', catA, 'count', sources);
+  const catBRes = ok('pharmacy_products_unconfirmed', catB, 'count', sources);
+  const patsRes = ok('patients', pats, 'list', sources);
+  const greetsRes = ok('birthday_greetings', greets, 'list', sources);
+  const notesRes = ok('patient_notes', notes, 'list', sources);
 
   const input: NotifyInput = {};
   if (medsRes) {
@@ -108,30 +133,58 @@ async function loadInput(pid: string, role: Role, sub: SubscriptionProps, now: n
     const last = rowsOf<{ created_at: string }>(catARes)[0]?.created_at ?? null;
     input.catalog = mapCatalog(catARes.count ?? null, catBRes.count ?? null, last);
   }
-  if (role === 'owner') input.subscription = mapSubscription(sub.status, sub.expiry, now);
   if (patsRes && greetsRes) {
     input.birthdays = mapBirthdays(rowsOf<PatientBirthRow>(patsRes), rowsOf<GreetingRow>(greetsRes), device.getMonth() + 1, device.getDate());
   }
   if (notesRes) input.notes = mapNotes(rowsOf<NoteRow>(notesRes));
-  return input;
+  return { input, sources };
+}
+
+/** يدمج الاشتراك (بلا شبكة) مع آخر مدخلات مجلوبة ويكتب الملخص. الاشتراك غير المحمَّل لا يُحسب «نشطاً» أبداً. */
+function compute(): void {
+  if (!cache || mounts === 0) return;
+  const now = Date.now();
+  const input: NotifyInput = { ...cache.input };
+  if (cache.role === 'owner') {
+    const sub = mapSubscription(latestSub.status, latestSub.expiryDate, now);
+    if (sub) input.subscription = sub; else delete input.subscription;
+  }
+  const summary = computeNotifications(
+    input,
+    { now, role: cache.role, staffId: cache.staffId, staffName: cache.staffName },
+    buildConfig(),
+  );
+  setNotificationSummary(summary);
+  if (NOTIFICATIONS_DEBUG) {
+    // أرقام وحالات فقط: لا عناوين ولا تفاصيل ولا أسماء ولا معرّفات ولا أي بيانات صفوف
+    console.info('[notifications] debug', {
+      sources: cache.sources,
+      total: summary.total,
+      complete: summary.complete,
+      allClear: summary.allClear,
+      sections: Object.fromEntries(SECTION_KEYS.map((k) => [k, summary.bySection[k].badge])),
+      lines: summary.lines.map((l) => ({ kind: l.kind, count: l.count, badge: l.badge })),
+    });
+  }
 }
 
 async function refresh(): Promise<void> {
   const gen = generation;
   const tenant = await getTenantContext();
-  if (gen !== generation) return;
+  if (gen !== generation || mounts === 0) return;
   if (!tenant.pharmacyId || !ROLES.includes(tenant.role)) {
     ownerKey = null;
+    cache = null;
     setNotificationSummary(null);
     return;
   }
   const role = tenant.role as Role;
   const key = `${tenant.pharmacyId}:${tenant.staffId ?? ''}:${role}`;
-  if (key !== ownerKey) { ownerKey = key; setNotificationSummary(null); } // مستخدم مختلف: لا نُظهر أرقام من قبله
-  const now = Date.now();
-  const input = await loadInput(tenant.pharmacyId, role, latestSub, now);
-  if (gen !== generation) return;
-  setNotificationSummary(computeNotifications(input, { now, role, staffId: tenant.staffId }, buildConfig()));
+  if (key !== ownerKey) { ownerKey = key; cache = null; setNotificationSummary(null); } // مستخدم مختلف: لا أرقام من قبله
+  const { input, sources } = await loadInput(tenant.pharmacyId, role, Date.now());
+  if (gen !== generation || mounts === 0) return;
+  cache = { input, role, staffId: tenant.staffId, staffName: tenant.staffName ?? null, sources };
+  compute();
 }
 
 async function startRefresh(): Promise<void> {
@@ -163,14 +216,14 @@ function requestRefresh(minAgeMs: number): void {
 export default function NotificationsRuntime({ subscription }: { subscription?: SubscriptionProps }) {
   const pathname = usePathname();
   const status = subscription?.status ?? '';
-  const expiry = subscription?.expiry ?? null;
+  const expiryDate = subscription?.expiryDate ?? null;
 
-  // حالة الاشتراك من dashboard/layout.tsx (لا استعلام pharmacies هنا)؛ تغيّرها يعيد الحساب
+  // الاشتراك من dashboard/layout.tsx: يُدمج في الحساب فوراً، بلا جلب ولا تحديد معدّل
   useEffect(() => {
     if (!NOTIFICATIONS_ENABLED) return;
-    latestSub = { status, expiry };
-    requestRefresh(2000);
-  }, [status, expiry]);
+    latestSub = { status, expiryDate };
+    compute();
+  }, [status, expiryDate]);
 
   // عند التركيب وعند كل تنقل: بشرط مرور 10 ثوانٍ على آخر جلب
   useEffect(() => {
@@ -180,6 +233,7 @@ export default function NotificationsRuntime({ subscription }: { subscription?: 
 
   useEffect(() => {
     if (!NOTIFICATIONS_ENABLED) return;
+    mounts++;
     let timer: ReturnType<typeof setInterval> | undefined;
     const stopTimer = () => { if (timer !== undefined) { clearInterval(timer); timer = undefined; } };
     // لا مؤقت يعمل والتبويب مخفي
@@ -196,13 +250,14 @@ export default function NotificationsRuntime({ subscription }: { subscription?: 
     window.addEventListener('focus', onFocus);
     document.addEventListener('visibilitychange', onVisibility);
     window.addEventListener(REQUESTS_CHANGED_EVENT, onRequestsChanged);
-    // الخروج يفرّغ المتجر ويبطل أي جلب جارٍ
+    // الخروج يفرّغ المتجر والذاكرة ويبطل أي جلب جارٍ
     const { data: auth } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_OUT') {
         generation++;
         ownerKey = null;
         queued = false;
         lastStartAt = 0;
+        cache = null;
         setNotificationSummary(null);
       }
     });
@@ -212,6 +267,8 @@ export default function NotificationsRuntime({ subscription }: { subscription?: 
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener(REQUESTS_CHANGED_EVENT, onRequestsChanged);
       auth.subscription.unsubscribe();
+      mounts--;
+      if (mounts === 0) { cache = null; ownerKey = null; setNotificationSummary(null); }
     };
   }, []);
 

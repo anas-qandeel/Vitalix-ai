@@ -251,12 +251,32 @@ test('الطلبات: «لم يُتابَع» للمالك فقط، من 3 أي�
   assert.equal(n.count, 2);
   assert.equal(n.badge, 0);
   assert.equal(n.title, 'طلبان لم يُتابَعا منذ أكثر من 3 أيام');
-  assert.equal(own.total, 4); // متأخران + إجراء واحد + متابعة واحدة
+  assert.equal(own.total, 3); // متأخران + إجراء واحد (المتابعة هادئة: لا تُحسب)
   for (const role of ['pharmacist', 'assistant', 'staff'] as Role[]) {
     assert.ok(!ids(input, ctx(role)).includes('requests_neglected'), role);
   }
   assert.equal(only({ requests: [rq('1', 'overdue', 4)] }, 'requests_neglected').title, 'طلب واحد لم يُتابَع منذ أكثر من 3 أيام');
   assert.equal(only({ requests: [rq('1', 'overdue', 4), rq('2', 'overdue', 4), rq('3', 'overdue', 4)] }, 'requests_neglected').title, '3 طلبات لم تُتابَع منذ أكثر من 3 أيام');
+});
+
+test('الطلبات: المتابعة سطر هادئ — يظهر في اللوحة ولا يدخل الأرقام', () => {
+  const waiting = Array.from({ length: 7 }, (_, i) => rq(`f${i}`, 'follow_up', 1));
+  const s = run({ ...FULL_EMPTY, requests: waiting }, ctx('owner'));
+  const f = s.lines.find((l) => l.id === 'requests_follow_up');
+  assert.ok(f);
+  assert.equal(f.count, 7);
+  assert.equal(f.badge, 0);
+  assert.equal(f.title, '7 طلبات تنتظر المتابعة');
+  assert.equal(s.total, 0);
+  assert.equal(s.bySection.requests.badge, 0);
+  assert.equal(s.bySection.requests.severity, null);
+  assert.equal(s.topSeverity, null);
+  assert.equal(s.allClear, true); // طلبات عند المورد ضمن مهلتها لا تمنع «لا شيء ينتظركم»
+  // مع إجراء حقيقي: الرقم للإجراء وحده
+  const mixed = run({ ...FULL_EMPTY, requests: [...waiting, rq('a', 'action')] }, ctx('owner'));
+  assert.equal(mixed.bySection.requests.badge, 1);
+  assert.equal(mixed.total, 1);
+  assert.equal(mixed.allClear, false);
 });
 
 // ─────────────── الكتالوج ───────────────
@@ -393,6 +413,25 @@ test('الملاحظات: بلا هوية موظف تُحسب كل الملاح�
   assert.equal(run({ notes: [note('1', { authorStaffId: null })] }, ctx('owner', 's1')).total, 1);
 });
 
+test('الملاحظات: حساب بلا معرّف يستبعد ملاحظاته باسمه، وفي هذه الحالة وحدها', () => {
+  const owner: NotifyContext = { ...ctx('owner', null), staffName: ' المالك ' };
+  const mine = note('1', { authorStaffId: null, authorName: ' المالك ' });
+  const other = note('2', { authorStaffId: null, authorName: 'سمر' });
+  const withId = note('3', { authorStaffId: 's2', authorName: 'المالك' }); // لها معرّف: لا مقارنة بالاسم
+  assert.deepEqual(run({ notes: [mine, other, withId] }, owner).lines.map((l) => l.id).sort(), ['notes:2', 'notes:3']);
+  // لا اسم لدينا: لا استبعاد
+  assert.equal(run({ notes: [mine] }, ctx('owner', null)).total, 1);
+  assert.equal(run({ notes: [mine] }, { ...ctx('owner', null), staffName: '  ' }).total, 1);
+  // اسم كاتب فارغ لا يطابق اسماً فارغاً
+  assert.equal(run({ notes: [note('4', { authorStaffId: null, authorName: '' })] }, { ...ctx('owner', null), staffName: '' }).total, 1);
+  // من عُرف معرّفه: الاحتياط معطّل (ملاحظة قديمة بلا معرّف تظهر ولو بالاسم نفسه)
+  assert.equal(run({ notes: [mine] }, { ...ctx('owner', 's1'), staffName: 'المالك' }).total, 1);
+});
+
+test('نفد دواؤهم: عمر أقدم حالة يُقرَّب للأعلى', () => {
+  assert.equal(only({ refill: [rp('a', -1.5)] }, 'refill_ran_out').detail, 'منذ يومين');
+});
+
 test('الملاحظات: الأحدث أولاً، ولا يظهر نص الملاحظة في أي حقل', () => {
   const s = run({ notes: [note('old', { createdAt: at(5) }), note('new', { createdAt: at(0) })] });
   assert.deepEqual(s.lines.map((l) => l.id), ['notes:new', 'notes:old']);
@@ -453,7 +492,7 @@ test('الترتيب: الشدّة ثم الأولوية؛ والمجموع = م
     'birthdays',
     'catalog_idle',
   ]);
-  assert.equal(s.total, 10);
+  assert.equal(s.total, 9); // بلا المتابعة الهادئة وتلميح الكتالوج
   const sum = SECTION_KEYS.reduce((acc, k) => acc + s.bySection[k].badge, 0);
   assert.equal(sum, s.total);
   assert.equal(s.topSeverity, 'urgent');

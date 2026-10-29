@@ -15,7 +15,6 @@ import type {
   RefillPatient,
   RefillStage,
   RequestAttention,
-  RequestAttentionKind,
   SubscriptionInput,
 } from './engine';
 
@@ -240,46 +239,49 @@ export type OverdueReasonsFn = (
 ) => { itemIds: string[] }[];
 
 /**
- * تصنيف الطلبات المفتوحة (status = 'open' فقط؛ الملغى والمُسلَّم مستبعدان):
- *  1) أي بند متأخر بقواعد request-overdue.ts ⇒ overdue
- *  2) وإلا بند في recorded (لم يُطلب) أو arrived (لم يُسلَّم) ⇒ action
- *  3) وإلا بند في ordered (عند المورد ضمن المهلة) ⇒ follow_up
- * ageDays = أيام عمّان التقويمية منذ stage_changed_at لأقدم بند حسم الفئة.
+ * تصنيف الطلبات (الصفوف نفسها التي تجلبها شارة «طلبات المرضى» الحالية: المفتوحة، والملغاة بعربون لم يُردّ):
+ *  1) أي سبب تأخر تعيده getOverdueReasons ⇒ overdue، أياً كانت حالة الطلب (الملغى بعربون معلّق «استرداد» منها)
+ *  2) وإلا، لطلب مفتوح فقط: بند في recorded (لم يُطلب) أو arrived (لم يُسلَّم) ⇒ action
+ *  3) وإلا بند في ordered (عند المورد ضمن المهلة) ⇒ follow_up (سطر هادئ في المحرّك لا يدخل الأرقام)
+ * ageDays = أيام عمّان التقويمية: للملغى منذ cancelled_at، وللبقية منذ stage_changed_at لأقدم بند حسم الفئة.
  */
 export function mapRequests(rows: RequestRow[], now: number, overdueReasons: OverdueReasonsFn): RequestAttention[] {
   const out: RequestAttention[] = [];
+  const oldestAge = (list: RequestItemRow[]): number | null => {
+    let best: number | null = null;
+    for (const it of list) {
+      const age = ammanDaysSince(it.stage_changed_at, now);
+      if (age !== null && (best === null || age > best)) best = age;
+    }
+    return best;
+  };
   for (const r of rows) {
-    if (!r || r.status !== 'open') continue;
-    const items = (r.items ?? []).filter((it) => it && it.stage !== 'delivered' && it.stage !== 'cancelled');
+    if (!r) continue;
+    const all = (r.items ?? []).filter((it): it is RequestItemRow => !!it);
+    const live = all.filter((it) => it.stage !== 'delivered' && it.stage !== 'cancelled');
     const patientName = (first(r.patient)?.name ?? '').trim();
 
-    const oldestAge = (list: RequestItemRow[]): number => {
-      let best: number | null = null;
-      for (const it of list) {
-        const age = ammanDaysSince(it.stage_changed_at, now);
-        if (age !== null && (best === null || age > best)) best = age;
-      }
-      return best ?? 0;
-    };
-
     const reasons = overdueReasons(
-      { status: r.status, deposit: r.deposit, deposit_returned: r.deposit_returned, cancelled_at: r.cancelled_at, items: r.items ?? [] },
+      { status: r.status, deposit: r.deposit, deposit_returned: r.deposit_returned, cancelled_at: r.cancelled_at, items: all },
       new Date(now),
     );
-    let kind: RequestAttentionKind | null = null;
-    let deciding: RequestItemRow[] = [];
+
     if (reasons.length > 0) {
-      kind = 'overdue';
-      const ids = new Set(reasons.flatMap((x) => x.itemIds));
-      deciding = items.filter((it) => it.id !== undefined && ids.has(it.id));
-    } else {
-      const act = items.filter((it) => it.stage === 'recorded' || it.stage === 'arrived');
-      const wait = items.filter((it) => it.stage === 'ordered');
-      if (act.length > 0) { kind = 'action'; deciding = act; }
-      else if (wait.length > 0) { kind = 'follow_up'; deciding = wait; }
+      const ids = new Set(reasons.flatMap((x) => x.itemIds ?? []));
+      const deciding = all.filter((it) => it.id !== undefined && ids.has(it.id));
+      const sinceCancel = r.status !== 'open' ? ammanDaysSince(r.cancelled_at, now) : null;
+      out.push({ id: r.id, patientName, kind: 'overdue', ageDays: sinceCancel ?? oldestAge(deciding) ?? oldestAge(live) ?? 0 });
+      continue;
     }
-    if (kind === null) continue;
-    out.push({ id: r.id, patientName, kind, ageDays: oldestAge(deciding.length > 0 ? deciding : items) });
+
+    if (r.status !== 'open') continue; // الملغى والمُسلَّم بلا سبب تأخر: لا شيء ينتظر
+    const act = live.filter((it) => it.stage === 'recorded' || it.stage === 'arrived');
+    if (act.length > 0) {
+      out.push({ id: r.id, patientName, kind: 'action', ageDays: oldestAge(act) ?? 0 });
+      continue;
+    }
+    const wait = live.filter((it) => it.stage === 'ordered');
+    if (wait.length > 0) out.push({ id: r.id, patientName, kind: 'follow_up', ageDays: oldestAge(wait) ?? 0 });
   }
   return out;
 }
@@ -298,6 +300,7 @@ export function mapCatalog(total: number | null, unconfirmed: number | null, las
 /**
  * mirrors dashboard/layout.tsx:56-64 و DashboardHeader.tsx:121-128 و:428:
  *  active ⇒ نشط؛ grace/expired كما هما؛ أي حالة أخرى ⇒ «تجريبي».
+ *  expiry هو pharmacies.expiry_date نفسه (لا تاريخ شريط التنبيه)؛ ولا تستعمل grace/expired الأيام أصلاً.
  *  daysLeft = max(0, ceil((expiry − الآن) / يوم)) أو null إن لم يُعرف التاريخ.
  */
 export function mapSubscription(status: string | null | undefined, expiry: string | null | undefined, now: number): SubscriptionInput | undefined {

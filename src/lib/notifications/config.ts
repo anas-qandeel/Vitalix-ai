@@ -4,6 +4,9 @@ import { makeConfig, type NotifyConfig, type Routes } from './engine';
 // مغلق افتراضياً في كل مكان: يعمل فقط مع القائمة الجانبية ومتغير بيئة صريح (الصيغة حرفية كي يستبدلها Next.js وقت البناء)
 export const NOTIFICATIONS_ENABLED = USE_SIDEBAR && process.env.NEXT_PUBLIC_NOTIFICATIONS === 'true';
 
+// تسجيل تشخيصي اختياري (أرقام وحالات مصادر فقط، بلا أي بيانات) — لا يعمل إلا مع الميزة نفسها
+export const NOTIFICATIONS_DEBUG = NOTIFICATIONS_ENABLED && process.env.NEXT_PUBLIC_NOTIFICATIONS_DEBUG === 'true';
+
 // الروابط الفعلية التي تستعملها القائمة الجانبية والصفحات اليوم
 export const NOTIFICATION_ROUTES: Routes = {
   home: '/dashboard',

@@ -209,7 +209,7 @@ function requestRefresh(minAgeMs: number): void {
     if (minAgeMs === 0 || age >= minAgeMs) queued = true;
     return;
   }
-  if (age < minAgeMs) return;
+  if (age < minAgeMs && cache !== null) return; // بلا ذاكرة (مغادرة الداشبورد وعودة سريعة): لا نترك الجرس فارغاً بسبب المهلة
   void startRefresh();
 }
 

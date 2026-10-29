@@ -2133,7 +2133,11 @@ export default function ChronicPage() {
   const [showInventory, setShowInventory] = useState(false);
   const [showStats, setShowStats] = useState(false);
   // فتح «جهّز مخزونك» من القائمة الجانبية (رابط ?view=inventory أو حدث نافذة). لا أثر له دون القائمة الجديدة
-  useInventoryDeepLink(() => { setShowInventory(true); setShowStats(false); });
+  useInventoryDeepLink(
+    showInventory,
+    () => { setShowInventory(true); setShowStats(false); },
+    () => setShowInventory(false),
+  );
   const [showArchived, setShowArchived] = useState(false);
   const [addModal, setAddModal] = useState(false);
   const [medModal, setMedModal] = useState<{ patient: Patient; meds: ChronicMed[]; isNewPatient?: boolean } | null>(null);

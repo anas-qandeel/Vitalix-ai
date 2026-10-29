@@ -259,3 +259,16 @@ button.vd-x{background:rgba(15,60,70,.06)}
 
 /* الجولة 4.1: حين يكون «جهّز مخزونك» هو البند الحالي تبقى أيقونته بيضاء فوق التدرج الأخضر (قاعدة لون التيل لها الوزن نفسه وتأتي لاحقاً فكانت ستغلبها) */
 .vd-ni.is-stock[aria-current="page"] svg,.vd-ni.is-stock[aria-current="page"]:hover svg{color:#fff}
+
+/* ===== Round 4.3 (additive): the collapse / expand handle ===== */
+/* A tall teal tab straddling the sidebar's edge, centred vertically: big, always visible, and it says what it does (text on hover/focus).
+   It sits 10px outside the sidebar and 10px inside the sidebar's padding, so it never covers a menu item or page content. */
+button.vd-tg{top:50%;margin-top:-38px;inset-inline-end:-10px;width:20px;height:76px;border-radius:12px;color:#fff;background:linear-gradient(160deg,#139488,#0B5F58);box-shadow:0 12px 22px -10px rgba(11,95,88,.85),inset 0 1px 0 rgba(255,255,255,.22)}
+button.vd-tg svg{width:14px;height:14px}
+button.vd-tg:hover{transform:none;color:#fff;background:linear-gradient(160deg,#17A092,#0F766E)}
+button.vd-tg:focus-visible{outline:3px solid #0F2A33;outline-offset:2px}
+button.vd-tg::after{content:attr(data-tip);position:absolute;top:50%;right:calc(100% + 12px);transform:translate(8px,-50%);padding:7px 12px;border-radius:10px;background:#0F2A33;color:#fff;font-size:13px;font-weight:600;line-height:1.3;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .16s,transform .16s;box-shadow:0 12px 24px -10px rgba(8,33,42,.6)}
+button.vd-tg:hover::after,button.vd-tg:focus-visible::after{opacity:1;transform:translate(0,-50%)}
+@media (prefers-reduced-motion:reduce){
+  button.vd-tg::after{transition:none}
+}

@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { getPharmacyId, getUserRole } from '@/lib/tenant';
 import { SubscriptionContext } from '@/lib/subscription-state';
 import { prefetchOverdue } from '@/lib/use-overdue-requests';
+import NotificationsRuntime from '@/lib/notifications/NotificationsRuntime';
 import DateFormatNotice from '@/components/DateFormatNotice';
 import PullToRefresh from '@/components/PullToRefresh';
 import DashboardShell from './components/DashboardShell';
@@ -130,6 +131,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <>
       <PullToRefresh />
+      <NotificationsRuntime subscription={{ status: subStatus, expiry: subBanner?.until ?? null }} />
       {!USE_SIDEBAR && subBannerEl}
       {noticeUser && <DateFormatNotice key={noticeUser.id} userId={noticeUser.id} loginStamp={noticeUser.login} />}
       <SubscriptionContext.Provider value={{ status: subStatus, readOnly: subStatus === 'expired' }}>

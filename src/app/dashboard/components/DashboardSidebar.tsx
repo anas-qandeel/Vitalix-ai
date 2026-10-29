@@ -224,15 +224,6 @@ export function DashboardSidebar({ expanded, onToggle, drawerOpen, onCloseDrawer
           </button>
         </div>
 
-        <div className="vd-ph" data-tip={loading ? undefined : pharmacyName}>
-          <span className="vd-phi">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false"><path d="M9.4 4h5.2v5.4H20v5.2h-5.4V20H9.4v-5.4H4V9.4h5.4z" /></svg>
-          </span>
-          <span className="vd-pht"><span className="vd-phn">{loading ? <span className="vd-skel" /> : pharmacyName}</span></span>
-          {/* كنقطة الهيدر: خضراء للحالة active، وعنبرية نابضة لغيرها */}
-          <i className={`vd-live${pharmacyStatus === 'active' ? '' : ' is-warn'}`} aria-hidden="true" />
-        </div>
-
         <nav className="vd-nav" aria-label="التنقل الرئيسي">
           {NAV_LINKS.slice(0, 3).map(l => navItem(l.label, l.href, ICONS[l.href], l.exact))}
           <button type="button" className="vd-ni is-stock" data-tip="جهّز مخزونك" aria-current={stockActive ? 'page' : undefined} onClick={openInventory}>

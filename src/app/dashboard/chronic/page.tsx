@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { useInventoryDeepLink } from './inventory-link';
+import { useStageLink } from './stage-link';
 import DashboardHeader, { usePharmacyInfo } from '../components/DashboardHeader';
 import AppFooter from '../../components/AppFooter';
 import { CareStage, PipelineRecord, upsertPipeline } from '@/lib/pipeline';
@@ -2138,6 +2139,8 @@ export default function ChronicPage() {
     () => { setShowInventory(true); setShowStats(false); },
     () => setShowInventory(false),
   );
+  // فتح تبويب معيّن من مركز الإشعارات (?stage= عند الوصول، أو حدث نافذة والصفحة مفتوحة). لا أثر له دون ذلك
+  const getStageHint = useStageLink((s) => { setActiveTab(s); setShowInventory(false); setShowStats(false); });
   const [showArchived, setShowArchived] = useState(false);
   const [addModal, setAddModal] = useState(false);
   const [medModal, setMedModal] = useState<{ patient: Patient; meds: ChronicMed[]; isNewPatient?: boolean } | null>(null);
@@ -2212,12 +2215,16 @@ export default function ChronicPage() {
       if (preserveTab && list.some(c => c.stage === preserveTab)) {
         setActiveTab(preserveTab);
       } else {
-        const firstWithData = VISIBLE_STAGES.find(s => list.some(c => c.stage === s));
+        // تلميح التبويب القادم من مركز الإشعارات (عند التحميل الأول فقط): يُعتمد إن كان فيه بيانات، وإلا السلوك الافتراضي
+        const hinted = preserveTab ? null : getStageHint();
+        const firstWithData = hinted && list.some(c => c.stage === hinted)
+          ? hinted
+          : VISIBLE_STAGES.find(s => list.some(c => c.stage === s));
         if (firstWithData) setActiveTab(firstWithData);
       }
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
-  }, [router]);
+  }, [router, getStageHint]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 

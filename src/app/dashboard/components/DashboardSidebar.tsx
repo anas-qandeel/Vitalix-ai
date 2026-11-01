@@ -10,9 +10,10 @@ import { useOverdueRequests } from '@/lib/use-overdue-requests';
 import { Lightbulb, PlusCircle, Lightning, Bug, ChatCircleDots, CheckCircle, X } from '@phosphor-icons/react';
 import { usePharmacyInfo } from './DashboardHeader';
 import { OPEN_INVENTORY_EVENT, CLOSE_INVENTORY_EVENT, subscribeInventoryState, getInventoryOpen, requestInventoryOpen, cancelInventoryRequest } from '../chronic/inventory-link';
+import { OPEN_STAGE_EVENT, type StageHint } from '../chronic/stage-link';
 import { NOTIFICATIONS_ENABLED } from '@/lib/notifications/config';
 import { useNotifications } from '@/lib/notifications/store';
-import { formatBadge, type NotificationLine, type SectionKey } from '@/lib/notifications/engine';
+import { formatBadge, type LineKind, type NotificationLine, type SectionKey } from '@/lib/notifications/engine';
 import { toggleNotificationsPanel, closeNotificationsPanel, useNotificationsPanelOpen } from '@/lib/notifications/panel-store';
 import NotificationsPanel, { BellIcon, NotifBadge, notifLabel, useBellState, waitingText } from './NotificationsPanel';
 
@@ -50,6 +51,14 @@ const SECTION_OF_HREF: Record<string, SectionKey> = {
   '/dashboard/requests': 'requests',
   '/dashboard/patients': 'patients',
   '/dashboard/pharmacy-catalog-manager': 'catalog',
+};
+
+// أسطر مركز الإشعارات التي تخصّ تبويباً داخل صفحة المزمنين: كل سطر يفتح تبويبه لا التبويب الافتراضي
+const CHRONIC_STAGE_OF_KIND: Partial<Record<LineKind, StageHint>> = {
+  refill_ran_out: 'due',
+  refill_urgent: 'due',
+  refill_soon: 'due',
+  refill_no_response: 'no_response',
 };
 
 function Ico({ children }: { children: ReactNode }) {
@@ -214,10 +223,19 @@ export function DashboardSidebar({ expanded, onToggle, drawerOpen, onCloseDrawer
     else { requestInventoryOpen(); router.push('/dashboard/chronic?view=inventory'); }
     onCloseDrawer(false);
   };
-  // الضغط على سطر في مركز الإشعارات: يغلق اللوحة ثم ينتقل كما يفعل البند المقابل في القائمة (و«جهّز مخزونك» بمساره الخاص)
+  // تبويب داخل صفحة المزمنين: إن كانت مفتوحة نرسل لها حدثاً (فتغيّر التبويب وتغلق «جهّز مخزونك»)، وإلا ننتقل إليها برابط يحمل التبويب
+  const openChronicStage = (stage: StageHint) => {
+    cancelInventoryRequest();
+    if (onChronic) window.dispatchEvent(new CustomEvent(OPEN_STAGE_EVENT, { detail: stage }));
+    else router.push(`/dashboard/chronic?stage=${stage}`);
+    onCloseDrawer(false);
+  };
+  // الضغط على سطر في مركز الإشعارات: يغلق اللوحة ثم ينتقل كما يفعل البند المقابل في القائمة (و«جهّز مخزونك» والمزمنون بمسارَيهما الخاصَّين)
   const onNotifGo = (line: NotificationLine) => {
     closeNotificationsPanel(false);
+    const stage = CHRONIC_STAGE_OF_KIND[line.kind];
     if (line.kind === 'inventory') openInventory();
+    else if (stage) openChronicStage(stage);
     else go(line.href);
   };
   const sectionBadge = (key: SectionKey | undefined) => {

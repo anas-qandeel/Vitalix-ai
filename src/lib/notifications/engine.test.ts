@@ -298,18 +298,21 @@ test('الكتالوج: المراجعة تُحسب مهمة واحدة مهما
   assert.equal(only({ catalog: { totalProducts: 500, unconfirmed: 12, lastAddedAt: at(1) } }, 'catalog_review').title, '12 صنفاً بحاجة مراجعة');
 });
 
-test('الكتالوج: فارغ ثم يتقدّم نحو الهدف ثم يتحول لقاعدة الخمول', () => {
+test('الكتالوج: فارغ يُنبَّه بلا أرقام هدف، وما بعده لا سطر تقدّم ولا شارة', () => {
   const empty = only({ catalog: { totalProducts: 0, unconfirmed: 0, lastAddedAt: null } }, 'catalog_empty');
   assert.equal(empty.title, 'كتالوجكم فارغ');
-  assert.equal(empty.detail, 'أضفتم 0 من 20 منتجاً مبدئياً');
+  assert.equal(empty.detail, 'ابدؤوا بإضافة منتجاتكم الأولى');
   assert.equal(empty.badge, 1);
-  assert.deepEqual(empty.progress, { done: 0, goal: 20 });
-  const prog = only({ catalog: { totalProducts: 4, unconfirmed: 0, lastAddedAt: at(30) } }, 'catalog_progress');
-  assert.equal(prog.detail, '4 من 20 منتجاً');
-  assert.equal(prog.badge, 1);
-  assert.deepEqual(prog.progress, { done: 4, goal: 20 });
-  // عند الهدف بالضبط: لا تقدّم، ويعمل الخمول
-  assert.deepEqual(ids({ catalog: { totalProducts: 20, unconfirmed: 0, lastAddedAt: at(1) } }), []);
+  assert.equal(empty.severity, 'action');
+  assert.equal('progress' in empty, false);
+  // أي عدد من 1 إلى أكبر: لا سطر «واصلوا بناء كتالوجكم»، ولا أي سطر ما دامت الإضافة حديثة ولا مراجعة
+  for (const n of [1, 4, 19, 20, 21, 500]) {
+    assert.deepEqual(ids({ catalog: { totalProducts: n, unconfirmed: 0, lastAddedAt: at(1) } }), [], `n=${n}`);
+    const s = run({ catalog: { totalProducts: n, unconfirmed: 0, lastAddedAt: at(1) } });
+    assert.equal(s.bySection.catalog.badge, 0, `n=${n}`);
+    assert.equal(s.total, 0, `n=${n}`);
+  }
+  assert.ok(!ids({ catalog: { totalProducts: 4, unconfirmed: 0, lastAddedAt: at(30) } }).includes('catalog_progress'));
 });
 
 test('الكتالوج: الخمول يبدأ عند 14 يوماً، وهو تلميح لا يُحسب في الرقم', () => {
@@ -322,6 +325,20 @@ test('الكتالوج: الخمول يبدأ عند 14 يوماً، وهو تل
   assert.equal(s.bySection.catalog.severity, null);
   assert.equal(s.topSeverity, null);
   assert.deepEqual(ids({ catalog: { totalProducts: 100, unconfirmed: 0, lastAddedAt: null } }), []);
+});
+
+test('الكتالوج: الخمول يعمل لأي حجم، والصنف الواحد بحاجة مراجعة يعني شارة واحدة فقط', () => {
+  for (const n of [1, 5, 19, 20]) {
+    const l = only({ catalog: { totalProducts: n, unconfirmed: 0, lastAddedAt: at(30) } }, 'catalog_idle');
+    assert.equal(l.badge, 0, `n=${n}`);
+    assert.equal(l.title, 'لم تُضَف منتجات جديدة منذ 30 يوماً', `n=${n}`);
+  }
+  // حالة حقيقية: 19 صنفاً، واحد بحاجة مراجعة، آخر إضافة حديثة ⇒ سطر واحد وشارة واحدة
+  const s = run({ catalog: { totalProducts: 19, unconfirmed: 1, lastAddedAt: at(2) } });
+  assert.deepEqual(s.lines.map((l) => l.id), ['catalog_review']);
+  assert.equal(s.bySection.catalog.badge, 1);
+  assert.equal(s.total, 1);
+  assert.equal(s.lines[0].title, 'صنف واحد بحاجة مراجعة');
 });
 
 // ─────────────── الاشتراك ───────────────

@@ -72,7 +72,6 @@ const KIND_ICON: Record<LineKind, ReactNode> = {
   requests_neglected: <Svg><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3.2 1.8" /></Svg>,
   catalog_review: <Svg><path d="M12 3 4 7.5v9L12 21l8-4.5v-9z" /><path d="M4 7.5 12 12l8-4.5M12 12v9" /></Svg>,
   catalog_empty: <Svg><path d="M12 3 4 7.5v9L12 21l8-4.5v-9z" /><path d="M4 7.5 12 12l8-4.5M12 12v9" /></Svg>,
-  catalog_progress: <Svg><path d="M12 3 4 7.5v9L12 21l8-4.5v-9z" /><path d="M4 7.5 12 12l8-4.5M12 12v9" /></Svg>,
   catalog_idle: <Svg><path d="M12 3 4 7.5v9L12 21l8-4.5v-9z" /><path d="M4 7.5 12 12l8-4.5M12 12v9" /></Svg>,
   subscription: <Svg><rect x="3" y="5.5" width="18" height="13" rx="3" /><path d="M3 10h18M7 15h3" /></Svg>,
   birthdays: <Svg><rect x="3.5" y="9.5" width="17" height="11" rx="2" /><path d="M12 9.5V20.5M3.5 14h17" /><path d="M12 9.5C11 6 7 5.5 7 8c0 1.5 2 1.5 5 1.5zM12 9.5c1-3.5 5-4 5-1.5 0 1.5-2 1.5-5 1.5z" /></Svg>,
@@ -122,15 +121,6 @@ function Skeleton() {
   );
 }
 
-function Progress({ done, goal }: { done: number; goal: number }) {
-  const pct = goal > 0 ? Math.max(0, Math.min(100, Math.round((done / goal) * 100))) : 0;
-  return (
-    <span className="vd-npg" role="progressbar" aria-valuemin={0} aria-valuemax={goal} aria-valuenow={Math.min(done, goal)} aria-label={`${done} من ${goal}`}>
-      <i style={{ width: `${pct}%` }} />
-    </span>
-  );
-}
-
 function Line({ line, onGo }: { line: NotificationLine; onGo: (l: NotificationLine) => void }) {
   return (
     <li>
@@ -139,7 +129,6 @@ function Line({ line, onGo }: { line: NotificationLine; onGo: (l: NotificationLi
         <span className="vd-nlt">
           <span className="vd-nl1">{line.title}</span>
           {line.detail && <span className="vd-nl2">{line.detail}</span>}
-          {line.progress && <Progress done={line.progress.done} goal={line.progress.goal} />}
           {line.items && line.items.length > 0 && (
             <span className="vd-nch">
               {line.items.map((it, i) => <span key={`${i}-${it.label}`} className="vd-nc">{it.label}</span>)}

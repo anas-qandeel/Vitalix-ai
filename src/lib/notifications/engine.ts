@@ -33,7 +33,6 @@ export type LineKind =
   | 'requests_neglected'
   | 'catalog_review'
   | 'catalog_empty'
-  | 'catalog_progress'
   | 'catalog_idle'
   | 'subscription'
   | 'birthdays'
@@ -160,7 +159,6 @@ export interface Thresholds {
   inventoryUrgentDays: number;
   /** طلب متأخر/ينتظر إجراءً منذ هذه الأيام أو أكثر ⇒ يظهر للمالك كـ«لم يُتابَع». */
   neglectedAfterDays: number;
-  catalogTarget: number;
   catalogIdleDays: number;
   subscriptionWarnDays: number;
   subscriptionUrgentDays: number;
@@ -181,7 +179,6 @@ export const DEFAULT_THRESHOLDS: Omit<Thresholds, 'msgExpiryDays'> = {
   inventoryWindowDays: 14,
   inventoryUrgentDays: 7,
   neglectedAfterDays: 3,
-  catalogTarget: 20,
   catalogIdleDays: 14,
   subscriptionWarnDays: 14,
   subscriptionUrgentDays: 7,
@@ -217,8 +214,6 @@ export interface NotificationLine {
   href: string;
   items?: LineItem[];
   moreCount?: number;
-  /** للأسطر التي تعرض تقدّماً (الكتالوج). */
-  progress?: { done: number; goal: number };
   priority: number;
 }
 
@@ -630,26 +625,12 @@ function catalogLines(c: CatalogInput, ctx: NotifyContext, cfg: NotifyConfig): N
       count: 0,
       badge: 1,
       title: 'كتالوجكم فارغ',
-      detail: `أضفتم 0 من ${cfg.catalogTarget} منتجاً مبدئياً`,
+      detail: 'ابدؤوا بإضافة منتجاتكم الأولى',
       href: cfg.routes.catalog,
-      progress: { done: 0, goal: cfg.catalogTarget },
       priority: 74,
     });
-  } else if (total < cfg.catalogTarget) {
-    out.push({
-      id: 'catalog_progress',
-      kind: 'catalog_progress',
-      section: 'catalog',
-      severity: 'info',
-      count: total,
-      badge: 1,
-      title: 'واصلوا بناء كتالوجكم',
-      detail: `${total} من ${cfg.catalogTarget} منتجاً`,
-      href: cfg.routes.catalog,
-      progress: { done: total, goal: cfg.catalogTarget },
-      priority: 40,
-    });
   } else {
+    // خمول: يعمل لأي حجم كتالوج (لا هدف عددياً). تلميح هادئ يظهر في اللوحة ولا يُحسب في الرقم.
     const age = daysSinceMs(parseMs(c.lastAddedAt), ctx.now);
     if (age !== null && age >= cfg.catalogIdleDays) {
       out.push({
@@ -658,7 +639,7 @@ function catalogLines(c: CatalogInput, ctx: NotifyContext, cfg: NotifyConfig): N
         section: 'catalog',
         severity: 'info',
         count: 0,
-        badge: 0, // تلميح هادئ: يظهر في اللوحة ولا يُحسب في الرقم
+        badge: 0,
         title: `لم تُضَف منتجات جديدة ${ago(age)}`,
         detail: 'إضافة المزيد تجعل نتائج النظام أدق',
         href: cfg.routes.catalog,

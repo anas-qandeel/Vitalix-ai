@@ -10,6 +10,11 @@ import { useOverdueRequests } from '@/lib/use-overdue-requests';
 import { Lightbulb, PlusCircle, Lightning, Bug, ChatCircleDots, CheckCircle, X } from '@phosphor-icons/react';
 import { usePharmacyInfo } from './DashboardHeader';
 import { OPEN_INVENTORY_EVENT, CLOSE_INVENTORY_EVENT, subscribeInventoryState, getInventoryOpen, requestInventoryOpen, cancelInventoryRequest } from '../chronic/inventory-link';
+import { NOTIFICATIONS_ENABLED } from '@/lib/notifications/config';
+import { useNotifications } from '@/lib/notifications/store';
+import { formatBadge, type NotificationLine, type SectionKey } from '@/lib/notifications/engine';
+import { toggleNotificationsPanel, closeNotificationsPanel, useNotificationsPanelOpen } from '@/lib/notifications/panel-store';
+import NotificationsPanel, { BellIcon, NotifBadge, notifLabel, useBellState, waitingText } from './NotificationsPanel';
 
 // المنطق هنا منسوخ حرفياً من DashboardHeader.tsx (الهيدر نفسه لا يُمَس): الروابط، الشروط بحسب الدور،
 // الخروج، كلمة المرور، الملاحظات. النصوص نصوص الهيدر الحالي لا نصوص لوحات التصميم.
@@ -37,6 +42,15 @@ const NAV_LINKS = [
   { label: 'سجل الوصفات', href: '/dashboard/prescriptions', exact: false },
   { label: 'المرضى', href: '/dashboard/patients', exact: false },
 ];
+
+// القسم الذي يخصّه كل بند في القائمة (لشارات مركز الإشعارات)
+const SECTION_OF_HREF: Record<string, SectionKey> = {
+  '/dashboard': 'home',
+  '/dashboard/chronic': 'chronic',
+  '/dashboard/requests': 'requests',
+  '/dashboard/patients': 'patients',
+  '/dashboard/pharmacy-catalog-manager': 'catalog',
+};
 
 function Ico({ children }: { children: ReactNode }) {
   return (
@@ -87,6 +101,11 @@ export function DashboardSidebar({ expanded, onToggle, drawerOpen, onCloseDrawer
   const inventoryOpen = useSyncExternalStore(subscribeInventoryState, getInventoryOpen, () => false);
   const { pharmacyName, pharmacistName, pharmacyStatus, daysLeft, loading } = usePharmacyInfo();
   const { count: overdueCount } = useOverdueRequests();
+  // مركز الإشعارات: لا شيء من هذا يظهر ما لم يُفعَّل (NOTIFICATIONS_ENABLED)، ويبقى سلوك الشريط كما كان تماماً
+  const { summary: notif } = useNotifications();
+  const bySection = NOTIFICATIONS_ENABLED && notif ? notif.bySection : null;
+  const bell = useBellState();
+  const panelOpen = useNotificationsPanelOpen();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const { notice, setNotice } = useNotice();
   const [feedbackOpen, setFeedbackOpen] = useState(false);
@@ -195,14 +214,25 @@ export function DashboardSidebar({ expanded, onToggle, drawerOpen, onCloseDrawer
     else { requestInventoryOpen(); router.push('/dashboard/chronic?view=inventory'); }
     onCloseDrawer(false);
   };
+  // الضغط على سطر في مركز الإشعارات: يغلق اللوحة ثم ينتقل كما يفعل البند المقابل في القائمة (و«جهّز مخزونك» بمساره الخاص)
+  const onNotifGo = (line: NotificationLine) => {
+    closeNotificationsPanel(false);
+    if (line.kind === 'inventory') openInventory();
+    else go(line.href);
+  };
+  const sectionBadge = (key: SectionKey | undefined) => {
+    const b = key && bySection ? bySection[key] : null;
+    return b && b.badge > 0 ? <NotifBadge n={b.badge} severity={b.severity} label={notifLabel(b.badge)} /> : null;
+  };
+  const accountAlert = !!bySection && bySection.account.badge > 0;
 
   const navItem = (label: string, href: string, icon: ReactNode, exact = false) => (
     <button key={href} type="button" className="vd-ni" data-tip={label} aria-current={isActive(href, exact) && !(stockActive && href === '/dashboard/chronic') ? 'page' : undefined}
       onClick={() => go(href)}>
       {icon}<span className="vd-lbl">{label}</span>
-      {href === '/dashboard/requests' && overdueCount > 0 && (
+      {NOTIFICATIONS_ENABLED ? sectionBadge(SECTION_OF_HREF[href]) : (href === '/dashboard/requests' && overdueCount > 0 && (
         <span className="vd-bdg" aria-label={overdueAria(overdueCount)}>{overdueCount}</span>
-      )}
+      ))}
     </button>
   );
 
@@ -210,7 +240,7 @@ export function DashboardSidebar({ expanded, onToggle, drawerOpen, onCloseDrawer
 
   return (
     <>
-      <aside id="vd-side" className="vd-side" aria-label="القائمة الرئيسية">
+      <aside id="vd-side" className={NOTIFICATIONS_ENABLED ? 'vd-side vd-n' : 'vd-side'} aria-label="القائمة الرئيسية">
         <div className="vd-sh">
           <Link href="/dashboard" className="vd-brand" aria-label="Vitalix-ai" onClick={() => onCloseDrawer(false)}>
             {LOGO_TILE}
@@ -227,9 +257,18 @@ export function DashboardSidebar({ expanded, onToggle, drawerOpen, onCloseDrawer
         </button>
 
         <nav className="vd-nav" aria-label="التنقل الرئيسي">
+          {NOTIFICATIONS_ENABLED && (
+            <button type="button" className="vd-ni vd-bell" data-np-toggle data-tip={bell.total > 0 ? `الإشعارات (${formatBadge(bell.total)})` : 'الإشعارات'}
+              aria-haspopup="dialog" aria-expanded={panelOpen} aria-controls={panelOpen ? 'vd-np' : undefined}
+              onClick={(e) => toggleNotificationsPanel(e.currentTarget)}>
+              <BellIcon ringKey={bell.ringKey} /><span className="vd-lbl">الإشعارات</span>
+              {bell.total > 0 && <NotifBadge n={bell.total} severity={bell.severity} label={waitingText(bell.total)} />}
+            </button>
+          )}
           {NAV_LINKS.slice(0, 3).map(l => navItem(l.label, l.href, ICONS[l.href], l.exact))}
           <button type="button" className="vd-ni is-stock" data-tip="جهّز مخزونك" aria-current={stockActive ? 'page' : undefined} onClick={openInventory}>
             {ICONS.stock}<span className="vd-lbl">جهّز مخزونك</span>
+            {NOTIFICATIONS_ENABLED && sectionBadge('inventory')}
           </button>
           {NAV_LINKS.slice(3).map(l => navItem(l.label, l.href, ICONS[l.href], l.exact))}
           <div className="vd-sep" />
@@ -245,9 +284,9 @@ export function DashboardSidebar({ expanded, onToggle, drawerOpen, onCloseDrawer
         </nav>
 
         <div ref={dropdownRef} className="vd-acc" data-open={dropdownOpen}>
-          <button ref={accBtnRef} type="button" className="vd-accb" aria-haspopup="menu" aria-expanded={dropdownOpen} aria-label="قائمة الحساب"
+          <button ref={accBtnRef} type="button" className="vd-accb" aria-haspopup="menu" aria-expanded={dropdownOpen} aria-label={accountAlert ? 'قائمة الحساب — تنبيه بشأن الاشتراك' : 'قائمة الحساب'}
             onClick={() => setDropdownOpen(v => !v)}>
-            <span className="vd-ava">{ICONS.user}</span>
+            <span className="vd-ava">{ICONS.user}{accountAlert && <span className={`vd-dot is-${bySection?.account.severity ?? 'info'}`} aria-hidden="true" />}</span>
             <span className="vd-acct"><div className="vd-an">{displayName}</div><div className="vd-as">{loading ? <span className="vd-skel" /> : pharmacyName}</div></span>
             <svg className="vd-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false"><path d="m6 14.5 6-6 6 6" /></svg>
           </button>
@@ -313,6 +352,8 @@ export function DashboardSidebar({ expanded, onToggle, drawerOpen, onCloseDrawer
       </aside>
 
       <Toast notice={notice} />
+
+      {NOTIFICATIONS_ENABLED && <NotificationsPanel staffName={staffName} onGo={onNotifGo} />}
 
       {/* ════ Feedback Modal ════ */}
       {feedbackOpen && (
@@ -408,12 +449,21 @@ export function DashboardTopBar({ onOpen, burgerRef, drawerOpen }: {
   burgerRef: RefObject<HTMLButtonElement | null>;
   drawerOpen: boolean;
 }) {
+  const bell = useBellState();
+  const panelOpen = useNotificationsPanelOpen();
   return (
     <header className="vd-mtop">
       <Link href="/dashboard" className="vd-brand" aria-label="Vitalix-ai">
         {LOGO_TILE}
         <span className="vd-lock"><span className="vd-word">Vitalix<b>-ai</b></span></span>
       </Link>
+      {NOTIFICATIONS_ENABLED && (
+        <button type="button" className="vd-bgb vd-bellbtn" data-np-toggle aria-label={bell.total > 0 ? `الإشعارات، ${waitingText(bell.total)}` : 'الإشعارات'} aria-haspopup="dialog" aria-expanded={panelOpen} aria-controls={panelOpen ? 'vd-np' : undefined}
+          onClick={(e) => toggleNotificationsPanel(e.currentTarget)}>
+          <BellIcon ringKey={bell.ringKey} />
+          {bell.total > 0 && <NotifBadge n={bell.total} severity={bell.severity} label={waitingText(bell.total)} />}
+        </button>
+      )}
       <button ref={burgerRef} type="button" className="vd-bgb" aria-label="فتح القائمة" aria-expanded={drawerOpen} aria-controls="vd-side" onClick={onOpen}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
       </button>

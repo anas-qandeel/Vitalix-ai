@@ -272,3 +272,167 @@ button.vd-tg:hover::after,button.vd-tg:focus-visible::after{opacity:1;transform:
 @media (prefers-reduced-motion:reduce){
   button.vd-tg::after{transition:none}
 }
+
+/* ===== Round N3 (additive): notification center — bell, section badges, panel ===== */
+/* Nothing here applies unless the notification center is switched on (the markup it styles is not rendered otherwise). */
+
+/* badges: colour follows the most severe line behind the number (the old red-only badge keeps working as before) */
+.vd-bdg.is-urgent{background:#E11D48}
+.vd-bdg.is-action{background:#B45309}
+.vd-bdg.is-info{background:#0F766E}
+/* on the green "current page" gradient the amber / teal badges would sink into it: invert them */
+.vd-ni[aria-current="page"] .vd-bdg.is-info{background:#fff;color:#0B5F58}
+.vd-ni[aria-current="page"] .vd-bdg.is-action{background:#FDE68A;color:#78350F}
+.vd-ni[aria-current="page"] .vd-bdg.is-urgent{box-shadow:0 0 0 2px rgba(255,255,255,.92)}
+
+/* collapsed rail: smaller badge on the icon's outer corner, only for the severity badges (the old red one is untouched) */
+@media (min-width:1024px){
+  .vd[data-sb="rail"] .vd-ni .vd-bdg:is(.is-urgent,.is-action,.is-info){top:1px;inset-inline-start:33px;min-width:17px;height:17px;padding:0 4px;font-size:10.5px}
+}
+@media (min-width:1024px) and (max-width:1279px){
+  .vd[data-sb="auto"] .vd-ni .vd-bdg:is(.is-urgent,.is-action,.is-info){top:1px;inset-inline-start:33px;min-width:17px;height:17px;padding:0 4px;font-size:10.5px}
+}
+
+/* the bell: first item of the sidebar (hidden inside the mobile drawer — the top bar carries it there) */
+.vd-ni.vd-bell svg{color:var(--teal)}
+.vd-ni.vd-bell[aria-expanded="true"]{background:rgba(15,118,110,.12);color:var(--teald)}
+.vd .vd-ni.vd-bell[aria-expanded="true"]::after{display:none!important}
+.vd-bell svg.is-ring,.vd-bellbtn svg.is-ring{transform-origin:50% 8%}
+@media (prefers-reduced-motion:no-preference){
+  .vd-bell svg.is-ring,.vd-bellbtn svg.is-ring{animation:vd-ring .9s ease both}
+  @keyframes vd-ring{0%,100%{transform:rotate(0)}15%{transform:rotate(16deg)}30%{transform:rotate(-13deg)}45%{transform:rotate(9deg)}60%{transform:rotate(-6deg)}75%{transform:rotate(3deg)}}
+}
+
+/* account chip: a dot on the avatar when the subscription needs attention */
+.vd-accb .vd-ava{position:relative}
+.vd-dot{position:absolute;top:-2px;inset-inline-end:-2px;width:14px;height:14px;border-radius:50%;background:#E11D48;box-shadow:0 0 0 2px #fff}
+.vd-dot.is-action{background:#D97706}
+.vd-dot.is-info{background:#0F766E}
+
+/* mobile top bar: bell next to the menu button */
+.vd-bellbtn{position:relative}
+.vd-bellbtn svg{width:22px;height:22px;color:var(--teal)}
+.vd-bellbtn .vd-bdg{position:absolute;top:-6px;inset-inline-end:-6px;box-shadow:0 0 0 2px #fff}
+.vd-bellbtn[aria-expanded="true"]{background:#E6F6F3;box-shadow:0 0 0 1px rgba(15,118,110,.45)}
+.vd-mtop .vd-bellbtn{margin-inline-start:auto}
+.vd-mtop .vd-bellbtn + .vd-bgb{margin-inline-start:0}
+@media (max-width:1023px){
+  .vd-ni.vd-bell{display:none}
+}
+
+/* ---------- the panel ---------- */
+.vd-np,.vd-npscrim{font-family:'IBM Plex Sans Arabic',system-ui,sans-serif;-webkit-font-smoothing:antialiased;color:var(--ink)}
+.vd-np,.vd-np *,.vd-np *::before,.vd-np *::after{box-sizing:border-box}
+.vd-np{position:fixed;top:14px;right:calc(var(--sw) + 40px);z-index:55;width:min(420px,calc(100vw - var(--sw) - 64px));max-height:calc(100dvh - 28px);display:flex;flex-direction:column;border-radius:26px;background:rgba(255,255,255,.97);-webkit-backdrop-filter:blur(18px) saturate(1.5);backdrop-filter:blur(18px) saturate(1.5);box-shadow:0 0 0 1px rgba(15,60,70,.08),0 2px 4px rgba(15,23,42,.04),0 40px 80px -28px rgba(8,33,42,.55);outline:0}
+.vd-np :focus-visible{outline:3px solid #0D9488;outline-offset:2px}
+.vd-npscrim{display:none;position:fixed;inset:0;z-index:54;background:rgba(8,33,42,.4);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+
+.vd-nph{flex:none;display:flex;align-items:center;gap:12px;padding:16px 16px 12px 14px}
+.vd-nphi{flex:none;width:44px;height:44px;border-radius:14px;display:grid;place-items:center;background:linear-gradient(135deg,#139488,#0B5F58);color:#fff;box-shadow:0 12px 22px -12px rgba(11,95,88,.9),inset 0 1px 0 rgba(255,255,255,.24)}
+.vd-nphi svg{width:22px;height:22px}
+.vd-npht{min-width:0;flex:1}
+.vd-npht h2{margin:0;font-size:17px;font-weight:700;line-height:1.35}
+.vd-npsub{margin:1px 0 0;font-size:13px;line-height:1.4;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+button.vd-npx{flex:none;width:40px;height:40px;border:0;border-radius:12px;display:grid;place-items:center;background:rgba(15,60,70,.06);color:var(--ink2);cursor:pointer;font:inherit;transition:background .15s}
+button.vd-npx:hover{background:rgba(15,60,70,.11)}
+.vd-npx svg{width:19px;height:19px}
+
+.vd-nps{flex:none;display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 14px 6px;padding:10px 12px;border-radius:16px;background:#F3F8F8;box-shadow:inset 0 0 0 1px var(--line)}
+.vd-nps b{flex:0 0 100%;font-size:14.5px;font-weight:700;line-height:1.4}
+.vd-npp{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:99px;font-size:12.5px;font-weight:700;font-variant-numeric:tabular-nums}
+.vd-npp i{flex:none;width:7px;height:7px;border-radius:50%;background:currentColor}
+.vd-npp.is-urgent{background:#FEF0EF;color:#B42318}
+.vd-npp.is-action{background:#FEF6E3;color:#8A5A00}
+.vd-npp.is-info{background:#E6F6F3;color:#0B5F58}
+
+.vd-npb{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:2px 10px 14px;scrollbar-width:thin}
+.vd-ngh{display:flex;align-items:center;gap:10px;margin:12px 8px 6px;font-size:12.5px;font-weight:700;line-height:1.3;color:var(--mut)}
+.vd-ngh::after{content:'';flex:1;height:1px;background:var(--line)}
+.vd-ngh.is-urgent{color:#B42318}
+.vd-ngh.is-action{color:#8A5A00}
+.vd-ngh.is-info{color:#0B5F58}
+.vd-ng{margin:0;padding:0;list-style:none}
+
+button.vd-nl{position:relative;display:flex;align-items:flex-start;gap:12px;width:100%;margin:0 0 6px;padding:12px 12px 12px 10px;border:0;border-radius:18px;background:#fff;box-shadow:inset 0 0 0 1px var(--line);font:inherit;color:inherit;text-align:start;cursor:pointer;transition:background .15s,box-shadow .15s,transform .15s}
+button.vd-nl:hover{background:#F6FBFA;box-shadow:inset 0 0 0 1px rgba(15,118,110,.3)}
+button.vd-nl:active{transform:scale(.995)}
+button.vd-nl.is-urgent{box-shadow:inset 0 0 0 1px rgba(225,29,72,.22)}
+button.vd-nl.is-urgent:hover{box-shadow:inset 0 0 0 1px rgba(225,29,72,.42)}
+button.vd-nl.is-urgent::before{content:'';position:absolute;top:18px;bottom:18px;inset-inline-start:0;width:3px;background:#E11D48;border-start-end-radius:3px;border-end-end-radius:3px}
+.vd-nli{flex:none;width:40px;height:40px;border-radius:13px;display:grid;place-items:center}
+.vd-nli svg{width:21px;height:21px}
+.vd-nl.is-urgent .vd-nli{background:#FEF0EF;color:#B42318}
+.vd-nl.is-action .vd-nli{background:#FEF6E3;color:#8A5A00}
+.vd-nl.is-info .vd-nli{background:#E6F6F3;color:#0B5F58}
+.vd-nlt{min-width:0;flex:1;display:flex;flex-direction:column;gap:3px}
+.vd-nl1{font-size:14.5px;font-weight:700;line-height:1.5;color:var(--ink)}
+.vd-nl2{font-size:13px;line-height:1.45;color:var(--mut)}
+.vd-nlc{flex:none;align-self:center;width:18px;height:18px;color:#94A3B8;transition:transform .18s,color .18s}
+.vd-nl:hover .vd-nlc{color:var(--teal);transform:translateX(-3px)}
+.vd-nch{display:flex;flex-wrap:wrap;gap:6px;margin-top:5px}
+.vd-nc{max-width:100%;height:24px;padding:0 10px;border-radius:99px;background:rgba(15,60,70,.06);font-size:12.5px;font-weight:600;line-height:24px;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vd-nc.is-more{background:transparent;box-shadow:inset 0 0 0 1px var(--line);color:var(--mut)}
+.vd-npg{display:block;height:8px;margin-top:6px;border-radius:99px;background:rgba(15,60,70,.08);overflow:hidden}
+.vd-npg i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#14B8A6,#0F766E)}
+
+.vd-nok{display:flex;align-items:center;gap:14px;margin:4px 4px 8px;padding:18px 16px;border-radius:20px;background:linear-gradient(135deg,#E7F8F0,#EEF9F6);box-shadow:inset 0 0 0 1px #BFE9D6}
+.vd-nok-i{flex:none;width:52px;height:52px;border-radius:50%;display:grid;place-items:center;background:#fff;color:#0B6B4D;box-shadow:0 10px 20px -12px rgba(11,107,77,.7)}
+.vd-nok-i svg{width:28px;height:28px;stroke-width:2.2}
+.vd-nok b{display:block;font-size:15px;font-weight:700;line-height:1.5;color:#0B5F46}
+.vd-nok p{margin:2px 0 0;font-size:13px;line-height:1.5;color:#2F7A63}
+.vd-npe{margin:18px 10px;font-size:13.5px;line-height:1.6;text-align:center;color:var(--mut)}
+.vd-npw{display:flex;align-items:flex-start;gap:8px;margin:10px 6px 0;padding:10px 12px;border-radius:14px;background:#FEF6E3;box-shadow:inset 0 0 0 1px #F6DFA8;font-size:12.5px;font-weight:600;line-height:1.6;color:#8A5A00}
+.vd-npw svg{flex:none;width:18px;height:18px;margin-top:2px}
+
+.vd-nsk{display:flex;flex-direction:column;gap:8px;padding:6px 4px}
+.vd-nskr{display:flex;align-items:center;gap:12px;padding:12px 10px;border-radius:18px;box-shadow:inset 0 0 0 1px var(--line)}
+.vd-nski{flex:none;width:40px;height:40px;border-radius:13px;background:rgba(15,60,70,.07)}
+.vd-nskt{flex:1;display:flex;flex-direction:column;gap:8px}
+.vd-nskt i{display:block;height:11px;border-radius:99px;background:rgba(15,60,70,.07)}
+.vd-nskt i:last-child{width:55%}
+@media (prefers-reduced-motion:no-preference){
+  .vd-nski,.vd-nskt i{animation:vd-nsh 1.4s ease-in-out infinite}
+  @keyframes vd-nsh{50%{opacity:.45}}
+  .vd-np{animation:vd-npin .22s cubic-bezier(.2,.7,.2,1) both}
+  @keyframes vd-npin{from{opacity:0;transform:translateX(14px) scale(.985)}to{opacity:1;transform:none}}
+  .vd-npscrim{animation:vd-npfade .25s ease both}
+  @keyframes vd-npfade{from{opacity:0}}
+  .vd-nok-i path{stroke-dasharray:26;animation:vd-npdraw .6s .12s ease both}
+  @keyframes vd-npdraw{from{stroke-dashoffset:26}to{stroke-dashoffset:0}}
+}
+
+/* below 1024px the panel is a bottom sheet over a dim layer */
+@media (max-width:1023px){
+  .vd-npscrim{display:block}
+  .vd-np{top:auto;right:8px;left:8px;bottom:calc(8px + env(safe-area-inset-bottom,0px));width:auto;max-height:calc(100dvh - 24px - env(safe-area-inset-bottom,0px))}
+}
+@media (max-width:1023px) and (prefers-reduced-motion:no-preference){
+  .vd-np{animation-name:vd-npup}
+  @keyframes vd-npup{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
+}
+@media (prefers-reduced-transparency:reduce){
+  .vd-np,.vd-npscrim{-webkit-backdrop-filter:none;backdrop-filter:none}
+  .vd-np{background:#fff}
+}
+@media print{
+  .vd-np,.vd-npscrim{display:none!important}
+}
+
+/* ---------- 13 items instead of 12: the height bands move so nothing scrolls on common laptops ----------
+   (scoped to .vd-n, which exists only while the center is on: the flag-off sidebar keeps its exact thresholds)
+   measured: 44px items fit from ~861px, 41px from ~775px, 36px from ~653px, 34px (+1px gap) from ~616px of window height */
+@media (min-width:1024px) and (max-height:775px){
+  .vd-side.vd-n{padding:10px;gap:2px}
+  .vd-side.vd-n .vd-tile{width:40px;height:40px}
+  .vd-side.vd-n .vd-sh{height:44px}
+  .vd-side.vd-n .vd-tag{display:none}
+  .vd-side.vd-n .vd-nav{gap:2px;margin-top:0}
+  .vd-side.vd-n .vd-ni{height:36px;font-size:14px}
+  .vd-side.vd-n .vd-sep{margin:3px 10px}
+  .vd-side.vd-n .vd-acc{margin-top:2px}
+  .vd-side.vd-n .vd-accb{height:48px}
+}
+@media (min-width:1024px) and (max-height:655px){
+  .vd-side.vd-n .vd-nav{gap:1px}
+  .vd-side.vd-n .vd-ni{height:34px}
+}

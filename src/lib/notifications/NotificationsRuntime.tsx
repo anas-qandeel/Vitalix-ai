@@ -213,6 +213,11 @@ function requestRefresh(minAgeMs: number): void {
   void startRefresh();
 }
 
+/** يستدعيها مركز الإشعارات عند فتح اللوحة: جلب واحد إن مضى minAgeMs على آخر بدء، ويمرّ بالدمج والمنع الموجودين. */
+export function refreshNotifications(minAgeMs = 0): void {
+  requestRefresh(minAgeMs);
+}
+
 export default function NotificationsRuntime({ subscription }: { subscription?: SubscriptionProps }) {
   const pathname = usePathname();
   const status = subscription?.status ?? '';

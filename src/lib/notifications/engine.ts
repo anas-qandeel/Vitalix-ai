@@ -733,7 +733,9 @@ function noteLines(list: OpenNote[], ctx: NotifyContext, cfg: NotifyConfig): Not
   if (!fresh.length) return [];
   fresh.sort((a, b) => a.age - b.age || cmp(a.n.id, b.n.id));
 
-  if (fresh.length <= cfg.noteAggregateAbove) {
+  // السطر المجمَّع يفتح قائمة المرضى، وهي لا تعرض لغير المالك شيئاً قبل البحث (مبدأ الحاجة للمعرفة)، فيصل إلى صفحة فارغة.
+  // لذلك يُجمَّع للمالك وحده، ولكل غيره سطر لكل ملاحظة يفتح ملف مريضه مباشرة (الملف مفتوح لكل الأدوار). أي دور غير owner يأخذ هذا الطريق.
+  if (fresh.length <= cfg.noteAggregateAbove || !isOwner(ctx.role)) {
     return fresh.map(({ n, age }) => ({
       id: `notes:${n.id}`,
       kind: 'notes' as const,

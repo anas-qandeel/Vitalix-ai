@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { useInventoryDeepLink } from './inventory-link';
 import { useStageLink } from './stage-link';
+import { renewalDeductions, InventoryDeduction } from './renewal-deduction';
 import DashboardHeader, { usePharmacyInfo } from '../components/DashboardHeader';
 import AppFooter from '../../components/AppFooter';
 import { CareStage, PipelineRecord, upsertPipeline } from '@/lib/pipeline';
@@ -764,7 +765,7 @@ function MedModal({ patientId, pharmacyId, existingMeds, patientName, onClose, o
   patientId: string; pharmacyId: string;
   onNotesChange?: (patientId: string, openCount: number | null) => void;
   existingMeds: ChronicMed[]; patientName: string;
-  onClose: () => void; onSaved: () => void;
+  onClose: () => void; onSaved: (deductions: InventoryDeduction[]) => void;
   onBack?: () => void;
   isNewPatient?: boolean; // لإظهار banner تأكيد التسجيل
   drugAllergies?: string[] | null; // حساسية الأدوية — تنبيه في رأس النافذة
@@ -954,7 +955,8 @@ function MedModal({ patientId, pharmacyId, existingMeds, patientName, onClose, o
         const { error } = await supabase.from('chronic_medications').insert(rows);
         if (error) throw error;
       }
-      onSaved();
+      // يُسلَّم للصفحة ما يُطرح من المخزون: الأدوية المحدَّدة للتجديد فقط وبالعلب المُدخلة (لا كل أدوية المريض ولا العدد القديم المخزَّن)
+      onSaved(renewalDeductions(meds, isRenewal));
     } catch (e: any) { setErr(e.message || 'حدث خطأ'); setSaving(false); }
   };
 
@@ -2833,17 +2835,14 @@ export default function ChronicPage() {
             setAddModal(true);
             // searchPrefill يبقى كما هو — AddPatientModal سيقرأه
           } : undefined}
-          onSaved={async () => {
+          onSaved={async (deductions) => {
             const patientId = medModal.patient.id;
-            const savedMeds = medModal.meds;
             setMedModal(null);
             setMedModalFromSearch(false);
             setSearchPrefill(null);
-            // طرح أدوية هذا المريض من المخزون المؤكَّد
-            for (const med of savedMeds) {
-              const key = med.medication_name.trim().toLowerCase();
-              const boxes = Math.max(1, Number(med.boxes_count));
-              await deductFromInventory(pharmacyId, key, boxes);
+            // طرح ما صُرف فعلاً من المخزون المؤكَّد: الأدوية المحدَّدة للتجديد فقط وبالعلب التي أُدخلت في النافذة
+            for (const d of deductions) {
+              await deductFromInventory(pharmacyId, d.key, d.boxes);
             }
             const updated = await upsertPipeline(pharmacyId, patientId, 'renewed');
             showToast('تم الحفظ بنجاح ✓');

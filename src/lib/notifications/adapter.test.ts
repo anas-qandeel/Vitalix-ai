@@ -10,6 +10,7 @@ import {
   mapInventory,
   mapNotes,
   mapRefill,
+  mapRequestNotes,
   mapRequests,
   mapSubscription,
   type ChronicMedRow,
@@ -17,6 +18,7 @@ import {
   type OverdueReasonsFn,
   type PipelineRow,
   type RequestItemRow,
+  type RequestNoteRow,
   type RequestRow,
   type StockRow,
 } from './adapter.js';
@@ -379,6 +381,7 @@ test('integration: مخرجات المحوّلات تدخل المحرّك وت�
     requests: mapRequests([request('r1', [{ id: 'i1', stage: 'recorded', at: '2026-10-28T08:00:00Z' }])], NOW, fakeOverdue),
     birthdays: mapBirthdays([{ id: 'b', name: 'ب', birth_date: '1990-10-29' }], [], 10, 29),
     notes: mapNotes([]),
+    requestNotes: mapRequestNotes([]),
   };
   const s = computeNotifications(input, { now: NOW, role: 'staff', staffId: 's1' }, makeConfig(routes, 5));
   assert.equal(s.complete, true);
@@ -392,4 +395,57 @@ test('integration: مصدر ناقص (undefined) لا يعلن أن كل شيء 
   const s = computeNotifications({ refill: [], inventory: [], requests: [], notes: [] }, { now: NOW, role: 'staff', staffId: null }, makeConfig(routes, 5));
   assert.equal(s.complete, false);
   assert.equal(s.allClear, false);
+});
+
+// ───────────────────────── ملاحظات الطلبات ─────────────────────────
+
+const reqNoteRow = (id: string, o: Partial<RequestNoteRow> = {}): RequestNoteRow => ({
+  id,
+  request_id: `r${id}`,
+  staff_id: 's2',
+  created_at: '2026-10-29T05:00:00Z',
+  staff: { name: ' سمر ' },
+  patient_requests: { patient: { name: ' خالد ' } },
+  ...o,
+});
+
+test('ملاحظات الطلبات: التحويل ينظّف الأسماء ويقبل التضمين كائناً أو مصفوفة', () => {
+  const out = mapRequestNotes([
+    reqNoteRow('1'),
+    reqNoteRow('2', { staff: [{ name: 'ليلى' }], patient_requests: [{ patient: [{ name: 'نور' }] }] }),
+  ]);
+  assert.deepEqual(out[0], { id: '1', requestId: 'r1', patientName: 'خالد', authorStaffId: 's2', authorName: 'سمر', createdAt: '2026-10-29T05:00:00Z' });
+  assert.equal(out[1].authorName, 'ليلى');
+  assert.equal(out[1].patientName, 'نور');
+});
+
+test('ملاحظات الطلبات: صف بلا طلب مضمَّن أو بلا معرّف يُتجاهل، والكاتب المجهول لا يُسقطها', () => {
+  const out = mapRequestNotes([
+    reqNoteRow('1', { patient_requests: null }),
+    reqNoteRow('2', { patient_requests: [] }),
+    reqNoteRow('3', { request_id: '' }),
+    reqNoteRow('', { request_id: 'x' }),
+    reqNoteRow('4', { staff: null, staff_id: null, patient_requests: { patient: null } }),
+  ]);
+  assert.equal(out.length, 1);
+  assert.equal(out[0].id, '4');
+  assert.equal(out[0].authorName, '');
+  assert.equal(out[0].authorStaffId, null);
+  assert.equal(out[0].patientName, '');
+});
+
+test('ملاحظات الطلبات: لا نص ملاحظة في أي حقل من المخرجات', () => {
+  const row = { ...reqNoteRow('1'), body: 'نص سرّي' } as RequestNoteRow;
+  const out = mapRequestNotes([row]);
+  assert.equal(JSON.stringify(out).includes('سرّي'), false);
+  for (const n of out) assert.ok(!('body' in n), 'لا حقل body في مدخل الإشعار');
+});
+
+test('integration: ملاحظة زميلة داخل طلب تظهر في قسم الطلبات، وملاحظتي لا', () => {
+  const rows = [reqNoteRow('1'), reqNoteRow('2', { staff_id: 's1', staff: { name: 'أنا' } })];
+  const s = computeNotifications({ requestNotes: mapRequestNotes(rows) }, { now: NOW, role: 'staff', staffId: 's1' }, makeConfig(routes, 5));
+  assert.deepEqual(s.lines.map((l) => l.id), ['request_notes:1']);
+  assert.equal(s.lines[0].title, 'ملاحظة جديدة من سمر على طلب المريض خالد');
+  assert.equal(s.lines[0].href, '/dashboard/requests?open=r1');
+  assert.equal(s.bySection.requests.badge, 1);
 });

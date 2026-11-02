@@ -20,6 +20,7 @@ import {
   type RefillPatient,
   type RefillStage,
   type RequestAttention,
+  type RequestNote,
   type Role,
   type Routes,
   type SubscriptionInput,
@@ -65,12 +66,23 @@ const note = (id: string, o: Partial<OpenNote> = {}): OpenNote => ({
   ...o,
 });
 
+const rnote = (id: string, o: Partial<RequestNote> = {}): RequestNote => ({
+  id,
+  requestId: `r${id}`,
+  patientName: 'خالد',
+  authorStaffId: 's2',
+  authorName: 'سمر',
+  createdAt: at(0),
+  ...o,
+});
+
 const FULL_EMPTY: NotifyInput = {
   refill: [],
   inventory: [],
   requests: [],
   birthdays: [],
   notes: [],
+  requestNotes: [],
   catalog: { totalProducts: 500, unconfirmed: 0, lastAddedAt: at(1) },
   subscription: { phase: 'active', daysLeft: 200 },
 };
@@ -477,7 +489,7 @@ test('غير مكتمل: لا تهنئة قبل تحميل كل الأجزاء',
 });
 
 test('المكتمل يتبع الدور: الموظف لا ينتظر الكتالوج ولا الاشتراك', () => {
-  const noCatSub: NotifyInput = { refill: [], inventory: [], requests: [], birthdays: [], notes: [] };
+  const noCatSub: NotifyInput = { refill: [], inventory: [], requests: [], birthdays: [], notes: [], requestNotes: [] };
   assert.equal(run(noCatSub, ctx('staff')).complete, true);
   assert.equal(run(noCatSub, ctx('assistant')).complete, true);
   assert.equal(run(noCatSub, ctx('pharmacist')).complete, false); // ينتظر الكتالوج
@@ -623,4 +635,99 @@ test('عشوائي: الثوابت تصمد على 3000 حالة', () => {
       for (const l of s.lines) if (l.kind === 'notes') assert.ok(l.count >= 1);
     }
   }
+});
+
+// ─────────────── ملاحظات داخل الطلبات ───────────────
+
+test('ملاحظات الطلبات: سطر لكل ملاحظة حتى ثلاث، في قسم الطلبات، ويفتح الطلب نفسه', () => {
+  const one = only({ requestNotes: [rnote('1')] }, 'request_notes:1');
+  assert.equal(one.kind, 'request_notes');
+  assert.equal(one.title, 'ملاحظة جديدة من سمر على طلب المريض خالد');
+  assert.equal(one.detail, 'اليوم');
+  assert.equal(one.section, 'requests');
+  assert.equal(one.severity, 'action');
+  assert.equal(one.badge, 1);
+  assert.equal(one.href, '/dashboard/requests?open=r1');
+  assert.equal(run({ requestNotes: [rnote('1'), rnote('2'), rnote('3')] }).lines.length, 3);
+});
+
+test('ملاحظات الطلبات: معرّف الطلب يُشفَّر في الرابط', () => {
+  const l = only({ requestNotes: [rnote('1', { requestId: 'a b&c=1' })] }, 'request_notes:1');
+  assert.equal(l.href, '/dashboard/requests?open=a%20b%26c%3D1');
+});
+
+test('ملاحظات الطلبات: أكثر من ثلاث تُجمَّع في سطر واحد برقم العدد', () => {
+  const four = run({ requestNotes: [rnote('1'), rnote('2'), rnote('3', { createdAt: at(2) }), rnote('4', { createdAt: at(1) })] });
+  assert.equal(four.lines.length, 1);
+  const l = four.lines[0];
+  assert.equal(l.id, 'request_notes');
+  assert.equal(l.title, '4 ملاحظات جديدة على الطلبات');
+  assert.equal(l.detail, 'أحدثها اليوم');
+  assert.equal(l.href, '/dashboard/requests');
+  assert.equal(l.badge, 4);
+  assert.equal(four.total, 4);
+  assert.equal(four.bySection.requests.badge, 4);
+  assert.equal(l.items?.length, 3);
+  assert.equal(l.moreCount, 1);
+});
+
+test('ملاحظات الطلبات: ملاحظتي أنا والقديمة (أكثر من 7 أيام) والمكرَّرة مستثناة', () => {
+  const s = run({
+    requestNotes: [
+      rnote('1'),
+      rnote('2', { authorStaffId: 's1' }), // أنا
+      rnote('3', { createdAt: at(7) }), // عمرها 7: تبقى
+      rnote('4', { createdAt: at(8) }), // 8: تخرج
+      rnote('1'), // تكرار
+      rnote('5', { createdAt: 'تاريخ تالف' }), // وقت غير مفهوم: لا ننبّه به
+    ],
+  }, ctx('staff', 's1'));
+  assert.deepEqual(s.lines.map((l) => l.id).sort(), ['request_notes:1', 'request_notes:3']);
+  assert.equal(s.total, 2);
+});
+
+test('ملاحظات الطلبات: حساب بلا معرّف يستبعد ملاحظاته باسمه في هذه الحالة وحدها', () => {
+  const owner: NotifyContext = { ...ctx('owner', null), staffName: ' المالك ' };
+  const mine = rnote('1', { authorStaffId: null, authorName: ' المالك ' });
+  const other = rnote('2', { authorStaffId: null, authorName: 'سمر' });
+  const withId = rnote('3', { authorStaffId: 's2', authorName: 'المالك' });
+  assert.deepEqual(run({ requestNotes: [mine, other, withId] }, owner).lines.map((l) => l.id).sort(), ['request_notes:2', 'request_notes:3']);
+  assert.equal(run({ requestNotes: [mine] }, ctx('owner', null)).total, 1);
+});
+
+test('ملاحظات الطلبات: كل الأدوار ترى وتُحسب في المجموع، والأقدم يأتي بعد الأحدث', () => {
+  for (const role of ['owner', 'pharmacist', 'assistant', 'staff'] as Role[]) {
+    assert.deepEqual(ids({ requestNotes: [rnote('1')] }, ctx(role, 's9')), ['request_notes:1']);
+  }
+  const s = run({ requestNotes: [rnote('old', { createdAt: at(5) }), rnote('new', { createdAt: at(0) })] });
+  assert.deepEqual(s.lines.map((l) => l.id), ['request_notes:new', 'request_notes:old']);
+  assert.equal(JSON.stringify(s).includes('body'), false);
+});
+
+test('ملاحظات الطلبات: لا اسم كاتب أو مريض يعطي صياغة احتياطية بلا فراغات زائدة', () => {
+  const l = only({ requestNotes: [rnote('1', { authorName: '  ', patientName: '' })] }, 'request_notes:1');
+  assert.equal(l.title, 'ملاحظة جديدة من زميل على طلب المريض');
+  const agg = run({ requestNotes: [rnote('1', { authorName: '', patientName: '' }), rnote('2'), rnote('3'), rnote('4')] }).lines[0];
+  assert.ok(agg.items?.some((i) => i.label === 'زميل — مريض'));
+});
+
+test('ملاحظات الطلبات: مصدرها شرط للاكتمال، فلا «أحسنتم» قبل تحميله', () => {
+  const { requestNotes: _omit, ...rest } = FULL_EMPTY;
+  void _omit;
+  const s = run(rest);
+  assert.equal(s.complete, false);
+  assert.equal(s.allClear, false);
+  assert.equal(run(FULL_EMPTY).allClear, true);
+  // وجودها يُنهي «لا شيء ينتظركم»
+  const withNote = run({ ...FULL_EMPTY, requestNotes: [rnote('1')] });
+  assert.equal(withNote.allClear, false);
+  assert.equal(withNote.total, 1);
+  assert.equal(withNote.topSeverity, 'action');
+});
+
+test('ملاحظات الطلبات: تجتمع مع شارة الطلبات الأخرى في القسم نفسه', () => {
+  const s = run({ ...FULL_EMPTY, requests: [rq('1', 'overdue', 1), rq('2', 'action')], requestNotes: [rnote('1')] });
+  assert.equal(s.bySection.requests.badge, 3);
+  assert.equal(s.bySection.requests.severity, 'urgent');
+  assert.equal(s.total, 3);
 });

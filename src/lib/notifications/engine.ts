@@ -36,7 +36,8 @@ export type LineKind =
   | 'catalog_idle'
   | 'subscription'
   | 'birthdays'
-  | 'notes';
+  | 'notes'
+  | 'request_notes';
 
 // ───────────────────────── الإدخال (يجهّزه الـ adapter من بيانات النظام الحقيقية) ─────────────────────────
 
@@ -109,6 +110,17 @@ export interface OpenNote {
   closedAt: string | null;
 }
 
+/** ملاحظة كادر داخل طلب مريض (حدث kind='note' في سجل الطلب). */
+export interface RequestNote {
+  id: string;
+  requestId: string;
+  patientName: string;
+  authorStaffId: string | null;
+  authorName: string;
+  /** ISO */
+  createdAt: string;
+}
+
 /** أي جزء غير معرَّف = لم يُحمَّل بعد (لا أسطر له، ولا يُعلَن أن «كل شيء مُنجَز»). */
 export interface NotifyInput {
   refill?: RefillPatient[];
@@ -118,6 +130,7 @@ export interface NotifyInput {
   subscription?: SubscriptionInput;
   birthdays?: BirthdayPatient[];
   notes?: OpenNote[];
+  requestNotes?: RequestNote[];
 }
 
 export interface NotifyContext {
@@ -698,7 +711,7 @@ function birthdayLines(list: BirthdayPatient[], cfg: NotifyConfig): Notification
 }
 
 /** ملاحظة كتبها الموظف الحالي نفسه: بالمعرّف، أو باسمه فقط حين لا معرّف لأيٍّ من الطرفين. */
-function isOwnNote(n: OpenNote, ctx: NotifyContext): boolean {
+function isOwnNote(n: { authorStaffId: string | null; authorName: string }, ctx: NotifyContext): boolean {
   if (ctx.staffId !== null) return n.authorStaffId === ctx.staffId;
   if (n.authorStaffId !== null) return false;
   const me = (ctx.staffName ?? '').trim();
@@ -752,6 +765,56 @@ function noteLines(list: OpenNote[], ctx: NotifyContext, cfg: NotifyConfig): Not
   ];
 }
 
+/**
+ * ملاحظات الكادر داخل الطلبات: كل ما يلزم تصفيته قبل المحرّك (الطلب مفتوح، آخر 7 أيام) يتكفّل به الاستعلام؛
+ * هنا: استبعاد ملاحظاتي أنا، والعمر، والتكرار. لا إغلاق لهذه الملاحظات في النظام، فتخرج من الجرس بـ«رأيتُ» (خارج المحرّك) أو بعد noteMaxAgeDays.
+ */
+function requestNoteLines(list: RequestNote[], ctx: NotifyContext, cfg: NotifyConfig): NotificationLine[] {
+  const seen = new Set<string>();
+  const fresh: { n: RequestNote; age: number }[] = [];
+  for (const n of list) {
+    if (!n || seen.has(n.id)) continue;
+    seen.add(n.id);
+    if (isOwnNote(n, ctx)) continue;
+    const age = daysSinceMs(parseMs(n.createdAt), ctx.now);
+    if (age === null || age > cfg.noteMaxAgeDays) continue;
+    fresh.push({ n, age });
+  }
+  if (!fresh.length) return [];
+  fresh.sort((a, b) => a.age - b.age || cmp(a.n.id, b.n.id));
+
+  if (fresh.length <= cfg.noteAggregateAbove) {
+    return fresh.map(({ n, age }) => ({
+      id: `request_notes:${n.id}`,
+      kind: 'request_notes' as const,
+      section: 'requests' as const,
+      severity: 'action' as const,
+      count: 1,
+      badge: 1,
+      title: `ملاحظة جديدة من ${nameOr(n.authorName, 'زميل')} على طلب المريض ${nameOr(n.patientName, '')}`.trim(),
+      detail: ago(age),
+      href: `${cfg.routes.requests}?open=${encodeURIComponent(n.requestId)}`,
+      priority: 77 - Math.min(age, 7) * 0.1,
+    }));
+  }
+  const count = fresh.length;
+  return [
+    {
+      id: 'request_notes',
+      kind: 'request_notes',
+      section: 'requests',
+      severity: 'action',
+      count,
+      badge: count,
+      title: `${counted(count, NOTES)} جديدة على الطلبات`,
+      detail: `أحدثها ${ago(fresh[0].age)}`,
+      href: cfg.routes.requests,
+      ...sample(fresh.map(({ n }) => `${nameOr(n.authorName, 'زميل')} — ${nameOr(n.patientName, 'مريض')}`)),
+      priority: 77,
+    },
+  ];
+}
+
 // ───────────────────────── المحرّك ─────────────────────────
 
 export const ALL_CLEAR_TEXT = 'لا شيء ينتظركم الآن، أحسنتم';
@@ -767,6 +830,7 @@ export function computeNotifications(input: NotifyInput, ctx: NotifyContext, cfg
   if (input.subscription && isOwner(role)) lines.push(...subscriptionLines(input.subscription, cfg));
   if (input.birthdays) lines.push(...birthdayLines(input.birthdays, cfg));
   if (input.notes) lines.push(...noteLines(input.notes, ctx, cfg));
+  if (input.requestNotes) lines.push(...requestNoteLines(input.requestNotes, ctx, cfg));
 
   lines.sort(
     (a, b) =>
@@ -789,7 +853,7 @@ export function computeNotifications(input: NotifyInput, ctx: NotifyContext, cfg
     top = maxSeverity(top, l.severity);
   }
 
-  const needed: (keyof NotifyInput)[] = ['refill', 'inventory', 'requests', 'birthdays', 'notes'];
+  const needed: (keyof NotifyInput)[] = ['refill', 'inventory', 'requests', 'birthdays', 'notes', 'requestNotes'];
   if (canSeeCatalog(role)) needed.push('catalog');
   if (isOwner(role)) needed.push('subscription');
   const complete = needed.every((k) => input[k] !== undefined);

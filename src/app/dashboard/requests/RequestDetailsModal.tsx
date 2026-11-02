@@ -11,6 +11,7 @@ import type { ProductStat } from '@/lib/frequent-products';
 import { normalizePhone, validatePhone } from '@/lib/phone';
 import { getOverdueReasons, getItemOverdue, getExpectedChipLabel, notifyRequestsChanged } from '@/lib/request-overdue';
 import PatientNotesBanner from '@/components/PatientNotesBanner';
+import { markSeenIds } from '@/lib/notifications/mark-seen';
 import { Phone, Package, X, ArrowsClockwise, PencilSimple, Plus, WhatsappLogo, WarningCircle } from '@phosphor-icons/react';
 import {
   RequestRow, RequestStatus, RequestItem, ItemStage, STATUS_META, STAGE_META, STAGE_RANK, stageTime, requestTitle,
@@ -369,6 +370,12 @@ export default function RequestDetailsModal({ row, pharmacyName, suggestion, onC
 
   // التحميل الأول عبر callback (لا setState متزامن في جسم الـ effect)
   useEffect(() => { Promise.resolve().then(fetchAll); }, [fetchAll]);
+
+  // مركز الإشعارات: ظهور ملاحظات الطلب في السجل = «رأيتُ» (محلياً على هذا الجهاز، بلا كتابة في القاعدة). مغلق مع الميزة.
+  useEffect(() => {
+    if (loading || failed) return;
+    void markSeenIds('rn', events.filter((e) => e.kind === 'note').map((e) => e.id));
+  }, [events, loading, failed]);
 
   useEffect(() => {
     // Escape يغلق الطبقة العليا فقط: نافذة التأكيد ونافذة الإلغاء لهما معالجهما، فلا تُغلق التفاصيل معهما

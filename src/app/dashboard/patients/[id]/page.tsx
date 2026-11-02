@@ -15,6 +15,7 @@ import { useSubscriptionState, READ_ONLY_MESSAGE } from '@/lib/subscription-stat
 import DateField from '@/components/DateField';
 import PatientNotesBanner from '@/components/PatientNotesBanner';
 import PatientNotesHistory from '@/components/PatientNotesHistory';
+import { markPatientNotesSeen } from '@/lib/notifications/mark-seen';
 
 // ═══════════════════════════════════════════════════════
 // TYPES
@@ -422,6 +423,9 @@ export default function PatientCardPage({ params }: PageProps) {
   const [infoErr, setInfoErr] = useState('');
 
   useEffect(() => { fetchData(); }, [patientId]);
+
+  // مركز الإشعارات: فتح ملف المريض = «رأيتُ» ملاحظاته الحالية (محلياً على هذا الجهاز، بلا كتابة في القاعدة). مغلق مع الميزة.
+  useEffect(() => { void markPatientNotesSeen(patientId); }, [patientId, notesVersion]);
 
   const fetchData = async () => {
     try {

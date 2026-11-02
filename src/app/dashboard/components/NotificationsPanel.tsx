@@ -76,6 +76,7 @@ const KIND_ICON: Record<LineKind, ReactNode> = {
   subscription: <Svg><rect x="3" y="5.5" width="18" height="13" rx="3" /><path d="M3 10h18M7 15h3" /></Svg>,
   birthdays: <Svg><rect x="3.5" y="9.5" width="17" height="11" rx="2" /><path d="M12 9.5V20.5M3.5 14h17" /><path d="M12 9.5C11 6 7 5.5 7 8c0 1.5 2 1.5 5 1.5zM12 9.5c1-3.5 5-4 5-1.5 0 1.5-2 1.5-5 1.5z" /></Svg>,
   notes: <Svg><path d="M5 4.5h14A1.5 1.5 0 0 1 20.5 6v10a1.5 1.5 0 0 1-1.5 1.5H10L5.5 21v-3.5H5A1.5 1.5 0 0 1 3.5 16V6A1.5 1.5 0 0 1 5 4.5z" /><path d="M8 9.5h8M8 13h5" /></Svg>,
+  request_notes: <Svg><path d="M5 4.5h14A1.5 1.5 0 0 1 20.5 6v10a1.5 1.5 0 0 1-1.5 1.5H10L5.5 21v-3.5H5A1.5 1.5 0 0 1 3.5 16V6A1.5 1.5 0 0 1 5 4.5z" /><path d="M8 9.5h8M8 13h5" /></Svg>,
 };
 
 const CHEVRON = (

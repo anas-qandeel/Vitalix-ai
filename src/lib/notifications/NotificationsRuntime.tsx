@@ -8,11 +8,12 @@ import { calcDaysLeft } from '@/lib/chronic';
 import { getOverdueReasons, OPEN_REQUESTS_FILTER, OVERDUE_SUMMARY_SELECT, REQUESTS_CHANGED_EVENT } from '@/lib/request-overdue';
 import { computeNotifications, SECTION_KEYS, type NotifyInput, type Role } from './engine';
 import {
-  mapBirthdays, mapCatalog, mapInventory, mapNotes, mapRefill, mapRequests, mapSubscription,
-  type ChronicMedRow, type GreetingRow, type NoteRow, type PatientBirthRow, type RequestRow, type StockRow,
+  mapBirthdays, mapCatalog, mapInventory, mapNotes, mapRefill, mapRequestNotes, mapRequests, mapSubscription,
+  type ChronicMedRow, type GreetingRow, type NoteRow, type PatientBirthRow, type RequestNoteRow, type RequestRow, type StockRow,
 } from './adapter';
 import { buildConfig, NOTIFICATIONS_DEBUG, NOTIFICATIONS_ENABLED } from './config';
 import { setNotificationSummary } from './store';
+import { loadSeen, seenId, seenKeyOf, subscribeSeen } from './seen';
 
 /**
  * مشغّل الإشعارات: لا يرسم شيئاً. يجلب بيانات الصيدلية (SELECT فقط، بجلسة المستخدم وRLS) ويحسب الملخص ويضعه في المتجر.
@@ -34,6 +35,8 @@ interface Cache {
   role: Role;
   staffId: string | null;
   staffName: string | null;
+  /** مفتاح «رأيتُ» (الصيدلية + الموظف) — انظر seen.ts */
+  seenKey: string;
   sources: Record<string, string>;
 }
 
@@ -87,8 +90,8 @@ async function loadInput(pid: string, role: Role, now: number): Promise<{ input:
   const greetDate = device.toISOString().split('T')[0];
   const notRejected = 'rejected_medicine';
 
-  // 8 استعلامات كحدّ أقصى (المالك والصيدلاني)، و6 لبقية الأدوار
-  const [meds, stock, reqs, catA, catB, pats, greets, notes] = await Promise.allSettled<Res | null>([
+  // 9 استعلامات كحدّ أقصى (المالك والصيدلاني)، و7 لبقية الأدوار
+  const [meds, stock, reqs, catA, catB, pats, greets, notes, reqNotes] = await Promise.allSettled<Res | null>([
     // المزمنون + المخزون معاً: أدوية فعّالة ضمن النافذة مع مسار المريض النقدي (mirrors chronic/page.tsx:2159-2163)
     run(supabase.from('chronic_medications')
       .select('patient_id, medication_name, next_refill_date, patients!inner(name, refill_tracking_pipeline(payment_type, pipeline_stage, reminded_at, stage_changed_at))')
@@ -110,6 +113,12 @@ async function loadInput(pid: string, role: Role, now: number): Promise<{ input:
     run(supabase.from('patient_notes')
       .select('id, patient_id, author_staff_id, author_name, created_at, closed_at, patient:patients(name)')
       .is('closed_at', null).gte('created_at', notesSince).order('created_at', { ascending: false })),
+    // ملاحظات الطلبات (kind='note'): بلا body عمداً؛ الكاتب بتضمين pharmacy_staff (نفس قيد النافذة)، والطلب المفتوح بنفس تعريف شارة «طلبات المرضى»
+    run(supabase.from('patient_request_events')
+      .select('id, request_id, staff_id, created_at, staff:pharmacy_staff!patient_request_events_staff_id_fkey(name), patient_requests!inner(patient:patients(name))')
+      .eq('kind', 'note').gte('created_at', notesSince)
+      .or(OPEN_REQUESTS_FILTER, { referencedTable: 'patient_requests' })
+      .order('created_at', { ascending: false })),
   ]);
 
   const sources: Record<string, string> = {};
@@ -121,6 +130,7 @@ async function loadInput(pid: string, role: Role, now: number): Promise<{ input:
   const patsRes = ok('patients', pats, 'list', sources);
   const greetsRes = ok('birthday_greetings', greets, 'list', sources);
   const notesRes = ok('patient_notes', notes, 'list', sources);
+  const reqNotesRes = ok('patient_request_events', reqNotes, 'list', sources);
 
   const input: NotifyInput = {};
   if (medsRes) {
@@ -137,6 +147,7 @@ async function loadInput(pid: string, role: Role, now: number): Promise<{ input:
     input.birthdays = mapBirthdays(rowsOf<PatientBirthRow>(patsRes), rowsOf<GreetingRow>(greetsRes), device.getMonth() + 1, device.getDate());
   }
   if (notesRes) input.notes = mapNotes(rowsOf<NoteRow>(notesRes));
+  if (reqNotesRes) input.requestNotes = mapRequestNotes(rowsOf<RequestNoteRow>(reqNotesRes));
   return { input, sources };
 }
 
@@ -145,6 +156,10 @@ function compute(): void {
   if (!cache || mounts === 0) return;
   const now = Date.now();
   const input: NotifyInput = { ...cache.input };
+  // «رأيتُ» (لهذا الموظف على هذا الجهاز): ملاحظة فُتحت شاشتها لا تبقى في الجرس؛ الملاحظة نفسها لا تُمَسّ
+  const seen = loadSeen(cache.seenKey);
+  if (input.notes) input.notes = input.notes.filter((n) => !seen.has(seenId('pn', n.id)));
+  if (input.requestNotes) input.requestNotes = input.requestNotes.filter((n) => !seen.has(seenId('rn', n.id)));
   if (cache.role === 'owner') {
     const sub = mapSubscription(latestSub.status, latestSub.expiryDate, now);
     if (sub) input.subscription = sub; else delete input.subscription;
@@ -183,7 +198,7 @@ async function refresh(): Promise<void> {
   if (key !== ownerKey) { ownerKey = key; cache = null; setNotificationSummary(null); } // مستخدم مختلف: لا أرقام من قبله
   const { input, sources } = await loadInput(tenant.pharmacyId, role, Date.now());
   if (gen !== generation || mounts === 0) return;
-  cache = { input, role, staffId: tenant.staffId, staffName: tenant.staffName ?? null, sources };
+  cache = { input, role, staffId: tenant.staffId, staffName: tenant.staffName ?? null, seenKey: seenKeyOf(tenant), sources };
   compute();
 }
 
@@ -252,6 +267,7 @@ export default function NotificationsRuntime({ subscription }: { subscription?: 
     };
     const onRequestsChanged = () => requestRefresh(0);
     startTimer();
+    const unsubSeen = subscribeSeen(compute); // «رأيتُ» من هذا التبويب أو غيره: إعادة حساب فورية بلا جلب
     window.addEventListener('focus', onFocus);
     document.addEventListener('visibilitychange', onVisibility);
     window.addEventListener(REQUESTS_CHANGED_EVENT, onRequestsChanged);
@@ -268,6 +284,7 @@ export default function NotificationsRuntime({ subscription }: { subscription?: 
     });
     return () => {
       stopTimer();
+      unsubSeen();
       window.removeEventListener('focus', onFocus);
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener(REQUESTS_CHANGED_EVENT, onRequestsChanged);

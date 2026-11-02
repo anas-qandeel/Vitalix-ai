@@ -15,6 +15,7 @@ import type {
   RefillPatient,
   RefillStage,
   RequestAttention,
+  RequestNote,
   SubscriptionInput,
 } from './engine';
 
@@ -112,6 +113,19 @@ export interface NoteRow {
   created_at: string;
   closed_at: string | null;
   patient: Nested<{ name: string | null }>;
+}
+
+/**
+ * patient_request_events بـ kind='note': بلا عمود body عمداً (نص الملاحظة لا يُجلب للإشعارات).
+ * الكاتب بتضمين pharmacy_staff، والطلب (ومنه اسم المريض) بتضمين patient_requests!inner؛ الاستعلام يحصر المفتوحة وآخر 7 أيام.
+ */
+export interface RequestNoteRow {
+  id: string;
+  request_id: string;
+  staff_id: string | null;
+  created_at: string;
+  staff: Nested<{ name: string | null }>;
+  patient_requests: Nested<{ patient: Nested<{ name: string | null }> }>;
 }
 
 // ───────────────────────── المزمنون (قارب النفاذ + بلا رد) ─────────────────────────
@@ -331,6 +345,28 @@ export function mapBirthdays(patients: PatientBirthRow[], greeted: GreetingRow[]
 }
 
 // ───────────────────────── ملاحظات الكادر ─────────────────────────
+
+/**
+ * يحوّل ملاحظات الطلبات كما هي؛ المحرّك يصفّي بالعمر والكاتب نفسه. صف بلا طلب مضمَّن يُتجاهل:
+ * لا نتحقق أن الطلب مفتوح ولا نعرف اسم مريضه، فلا نُنبّه به. لا نص ملاحظة هنا إطلاقاً.
+ */
+export function mapRequestNotes(rows: RequestNoteRow[]): RequestNote[] {
+  const out: RequestNote[] = [];
+  for (const n of rows) {
+    if (!n || !n.id || !n.request_id) continue;
+    const req = first(n.patient_requests);
+    if (!req) continue;
+    out.push({
+      id: n.id,
+      requestId: n.request_id,
+      patientName: (first(req.patient)?.name ?? '').trim(),
+      authorStaffId: n.staff_id ?? null,
+      authorName: (first(n.staff)?.name ?? '').trim(),
+      createdAt: n.created_at,
+    });
+  }
+  return out;
+}
 
 /** يحوّل الصفوف كما هي؛ المحرّك يصفّي بالعمر والمُغلَق والكاتب نفسه. لا نص ملاحظة هنا إطلاقاً. */
 export function mapNotes(rows: NoteRow[]): OpenNote[] {

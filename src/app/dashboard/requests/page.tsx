@@ -772,6 +772,21 @@ export default function RequestsPage() {
             () => notFound());
   }, [loading, notify]);
 
+  // مركز الإشعارات: الصفحة مفتوحة أصلاً وضُغط سطر «ملاحظة على طلب» ⇒ يصل حدث vd:open-request (detail = معرّف الطلب) فيُفتح الطلب بالطريقة نفسها،
+  // لأن ?open= أعلاه لا يُقرأ إلا مرة عند التركيب. اسم الحدث ونمط المعرّف حرفيان هنا ومطابقان لـ requests/open-link.ts. لا يصل أي حدث مع الميزة مغلقة.
+  useEffect(() => {
+    const onOpenRequest = (e: Event) => {
+      const id = (e as CustomEvent<unknown>).detail;
+      if (typeof id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) return;
+      supabase.from('patient_requests').select(REQUEST_SELECT).eq('id', id)
+        .order('created_at', { referencedTable: 'patient_request_items', ascending: true }).maybeSingle()
+        .then(({ data }) => { if (data) setSelected(data as unknown as RequestRow); else notify('err', 'الطلب غير موجود.'); },
+              () => notify('err', 'الطلب غير موجود.'));
+    };
+    window.addEventListener('vd:open-request', onOpenRequest);
+    return () => window.removeEventListener('vd:open-request', onOpenRequest);
+  }, [notify]);
+
   // إغلاق التفاصيل يحدّث القائمة بصمت (بلا مؤشر تحميل) لأن الموظف قد يكون أضاف ملاحظة أو غيّر بيانات
   const closeDetails = () => {
     setSelected(null);

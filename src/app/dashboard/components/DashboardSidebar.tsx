@@ -11,6 +11,7 @@ import { Lightbulb, PlusCircle, Lightning, Bug, ChatCircleDots, CheckCircle, X }
 import { usePharmacyInfo } from './DashboardHeader';
 import { OPEN_INVENTORY_EVENT, CLOSE_INVENTORY_EVENT, subscribeInventoryState, getInventoryOpen, requestInventoryOpen, cancelInventoryRequest } from '../chronic/inventory-link';
 import { OPEN_STAGE_EVENT, type StageHint } from '../chronic/stage-link';
+import { OPEN_REQUEST_EVENT, requestIdOfHref } from '../requests/open-link';
 import { NOTIFICATIONS_ENABLED } from '@/lib/notifications/config';
 import { useNotifications } from '@/lib/notifications/store';
 import { formatBadge, type LineKind, type NotificationLine, type SectionKey } from '@/lib/notifications/engine';
@@ -209,6 +210,8 @@ export function DashboardSidebar({ expanded, onToggle, drawerOpen, onCloseDrawer
   const isActive = (href: string, exact = false) => (exact ? pathname === href : pathname.startsWith(href));
   // «جهّز مخزونك» داخل صفحة المزمنين نفسها: حين يكون مفتوحاً يكون هو البند الحالي لا «المزمنون»
   const onChronic = pathname.replace(/\/+$/, '') === '/dashboard/chronic';
+  // صفحة الطلبات مفتوحة أصلاً: ?open= لا تقرؤه إلا عند التركيب، فنرسل لها حدثاً بمعرّف الطلب بدل الانتقال
+  const onRequests = pathname.replace(/\/+$/, '') === '/dashboard/requests';
   const stockActive = onChronic && inventoryOpen;
   const go = (href: string) => {
     cancelInventoryRequest();
@@ -230,12 +233,20 @@ export function DashboardSidebar({ expanded, onToggle, drawerOpen, onCloseDrawer
     else router.push(`/dashboard/chronic?stage=${stage}`);
     onCloseDrawer(false);
   };
+  // طلب بعينه داخل صفحة الطلبات المفتوحة: نرسل لها الحدث فتفتحه (والانتقال إلى الرابط نفسه لا يغيّر شيئاً فيها)
+  const openRequest = (id: string) => {
+    cancelInventoryRequest();
+    window.dispatchEvent(new CustomEvent(OPEN_REQUEST_EVENT, { detail: id }));
+    onCloseDrawer(false);
+  };
   // الضغط على سطر في مركز الإشعارات: يغلق اللوحة ثم ينتقل كما يفعل البند المقابل في القائمة (و«جهّز مخزونك» والمزمنون بمسارَيهما الخاصَّين)
   const onNotifGo = (line: NotificationLine) => {
     closeNotificationsPanel(false);
     const stage = CHRONIC_STAGE_OF_KIND[line.kind];
+    const requestId = line.kind === 'request_notes' && onRequests ? requestIdOfHref(line.href) : null;
     if (line.kind === 'inventory') openInventory();
     else if (stage) openChronicStage(stage);
+    else if (requestId) openRequest(requestId);
     else go(line.href);
   };
   const sectionBadge = (key: SectionKey | undefined) => {

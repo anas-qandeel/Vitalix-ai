@@ -15,7 +15,7 @@ export function waLink(source: string): string {
 }
 
 // مشاركة الصفحة مع صاحب صيدلية: رابط wa.me بلا رقم يفتح اختيار جهة الاتصال داخل واتساب
-export const SHARE_URL = 'https://www.vitalix-ai.com/welcome';
+export const SHARE_URL = 'https://www.vitalix-ai.com/welcome?src=share';
 export function shareLink(): string {
   const text = `اطّلع على هذا النظام لمتابعة المرضى المزمنين في الصيدلية: ${SHARE_URL}`;
   return `https://wa.me/?text=${encodeURIComponent(text)}`;

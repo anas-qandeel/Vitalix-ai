@@ -681,3 +681,34 @@ html:has(.vx-welcome){scroll-behavior:smooth}
 .vx-ask-note{font-size:11px;color:#8A7442;line-height:1.5}
 .vx-readings-demo .vx-pdf td.vx-sym{font-size:9.5px;line-height:1.5;color:#3C555D;white-space:normal}
 .vx-readings-demo .vx-pdf td.vx-sym-none{color:#8CA0A6}
+
+/* ===== إعادة الكتابة (v3): الرأس والواجهة والأقسام 2–3. تعلو القواعد القديمة بخصوصية .vx-welcome ===== */
+.vx-header-tag{font-size:14px;color:#CFDEE1;font-weight:500;padding-inline-start:14px;margin-inline-start:2px;border-inline-start:1px solid rgba(202,240,236,.25);white-space:nowrap;line-height:1.2}
+.vx-welcome .vx-hero h1{font-size:clamp(29px,7.4vw,50px);line-height:1.35;margin-bottom:18px;letter-spacing:0}
+.vx-welcome .vx-hero h1 .vx-h1-q{color:#5EEAD4;display:block;margin-top:6px}
+.vx-welcome .vx-hero-grid{min-height:0}
+.vx-share-link{display:inline-block;margin-top:16px;min-height:44px;line-height:44px;font-size:13px;color:#A9D6D2!important;text-decoration:underline!important;text-underline-offset:4px;text-decoration-color:rgba(169,214,210,.5)!important}
+.vx-share-link:hover{color:#fff!important}
+.vx-trust{margin-top:2px!important;font-size:13px;color:#BFD6D8;line-height:1.8}
+.vx-sec{padding:clamp(48px,7vw,96px) 0}
+.vx-sec h2{font-size:clamp(25px,4.4vw,44px);line-height:1.4;max-width:860px;letter-spacing:0;text-wrap:balance}
+.vx-lead{margin-top:16px;font-size:clamp(16px,2vw,20px);line-height:1.9;color:#42535C;max-width:720px}
+.vx-rival{background:#F0EFE8}
+.vx-rival-list{list-style:none;padding:0;margin:30px 0 0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.vx-rival-list .vx-why-item{display:block;min-height:0;padding:22px}
+.vx-rival-list .vx-why-item p{font-size:16px;line-height:1.9;color:#243842;font-weight:500}
+.vx-rival-close{margin-top:32px;font-size:clamp(22px,3.6vw,34px);font-weight:700;line-height:1.5;color:#0F766E;border-inline-start:4px solid #0D9488;padding-inline-start:16px}
+.vx-feature.vx-solo{padding:clamp(48px,7vw,96px) 0}
+.vx-feature-copy>h2{font-size:clamp(25px,4.2vw,40px);line-height:1.4;margin-bottom:22px;max-width:620px;letter-spacing:0;text-wrap:balance}
+.vx-steps{list-style:none;margin:0 0 26px;padding:0;display:grid;gap:14px}
+.vx-steps li{display:flex;gap:14px;align-items:flex-start}
+.vx-steps .vx-step-circ{flex:0 0 34px;width:34px;height:34px;display:grid;place-items:center;border-radius:50%;background:rgba(94,234,212,.16);color:#7BEBD9;font:600 14px var(--vx-mono),monospace}
+.vx-steps p{font-size:15px;line-height:1.9;color:#E3F0F0;margin:0!important;padding-top:3px}
+.vx-feature-foot{max-width:1440px;margin:28px auto 0;padding-inline:clamp(22px,5vw,80px)}
+.vx-feature-foot p{font-size:clamp(16px,2.2vw,21px);font-weight:700;line-height:1.7;color:#7BEBD9;border-inline-start:4px solid #5EEAD4;padding-inline-start:16px}
+@media (max-width:640px){
+ .vx-rival-list{grid-template-columns:1fr}
+ .vx-header-tag{font-size:12px;padding-inline-start:10px}
+ .vx-welcome .vx-hero-grid{padding-top:26px}
+ .vx-feature-foot{padding-inline:19px}
+}

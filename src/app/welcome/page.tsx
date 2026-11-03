@@ -3,7 +3,7 @@ import { IBM_Plex_Mono } from 'next/font/google';
 import './welcome.css';
 import WelcomeEffects from './WelcomeEffects';
 import { WELCOME_MARKUP } from './welcomeMarkup';
-import { SALES_EMAIL, SOCIAL_LINKS, WHATSAPP_NUMBER, PHONE_DISPLAY, waLink } from '@/lib/contact';
+import { SALES_EMAIL, SOCIAL_LINKS, WHATSAPP_NUMBER, PHONE_DISPLAY, waLink, shareLink } from '@/lib/contact';
 
 // صفحة تسويقية عامة: خارج /dashboard عمداً كي لا ترث حارس تسجيل الدخول
 
@@ -18,10 +18,10 @@ const plexMono = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   title: 'Vitalix-ai | تابع مرضاك بذكاء',
-  description: 'Vitalix-ai برنامج تستخدمه أنت وفريقك في الصيدلية، يضمّ أدوات مستقلة لمتابعة مرضاك.',
+  description: 'Vitalix-ai يحسب متى ينفد دواء كل مريض مزمن، وينبّهك قبلها بثلاثة أيام، فتذكّره برسالة واتساب باسم صيدليتك. 29 دينارًا شهريًا، كل الأدوات.',
   openGraph: {
     title: 'Vitalix-ai | تابع مرضاك بذكاء',
-    description: 'Vitalix-ai برنامج تستخدمه أنت وفريقك في الصيدلية، يضمّ أدوات مستقلة لمتابعة مرضاك.',
+    description: 'Vitalix-ai يحسب متى ينفد دواء كل مريض مزمن، وينبّهك قبلها بثلاثة أيام، فتذكّره برسالة واتساب باسم صيدليتك. 29 دينارًا شهريًا، كل الأدوات.',
     locale: 'ar_JO',
     type: 'website',
     url: 'https://www.vitalix-ai.com/welcome',
@@ -30,7 +30,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'Vitalix-ai | تابع مرضاك بذكاء',
-    description: 'Vitalix-ai برنامج تستخدمه أنت وفريقك في الصيدلية، يضمّ أدوات مستقلة لمتابعة مرضاك.',
+    description: 'Vitalix-ai يحسب متى ينفد دواء كل مريض مزمن، وينبّهك قبلها بثلاثة أيام، فتذكّره برسالة واتساب باسم صيدليتك. 29 دينارًا شهريًا، كل الأدوات.',
     images: ['https://www.vitalix-ai.com/welcome/og.jpg'],
   },
 };
@@ -59,10 +59,12 @@ export default async function WelcomePage({
       ).join('')}</span>`
     : '';
   const html = WELCOME_MARKUP
-    .replace('{{WA_head}}', waLink(`${src}-head`))
     .replace('{{WA_hero}}', waLink(`${src}-hero`))
     .replace('{{WA_offer}}', waLink(`${src}-offer`))
+    .replace('{{WA_start}}', waLink(`${src}-start`))
     .replace('{{WA_float}}', waLink(`${src}-float`))
+    // زر المشاركة يظهر مرتين (أعلى الصفحة وآخرها) ورابطه واحد لا يحمل وسم مصدر
+    .split('{{WA_share}}').join(shareLink())
     .replace('{{PHONE_DISPLAY}}', PHONE_DISPLAY)
     .replace('tel:+{{WHATSAPP_NUMBER}}', `tel:+${WHATSAPP_NUMBER}`)
     .replace('mailto:{{SALES_EMAIL}}', `mailto:${SALES_EMAIL}`)

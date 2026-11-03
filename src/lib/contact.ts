@@ -10,6 +10,13 @@ export const SOCIAL_LINKS: { label: string; href: string }[] = [];
 
 // المصدر يُلحق بنص الرسالة نفسها كي يعرف فريق المبيعات من أين جاء المهتم دون أي أداة قياس
 export function waLink(source: string): string {
-  const text = `مرحباً، شاهدت صفحة Vitalix-ai وأودّ الاستفسار عن عرض الإطلاق.\nالمصدر: ${source}`;
+  const text = `مرحباً، شاهدت صفحة Vitalix-ai وأودّ الاستفسار عن عرض أول 100 صيدلية.\nالمصدر: ${source}`;
   return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`;
+}
+
+// مشاركة الصفحة مع صاحب صيدلية: رابط wa.me بلا رقم يفتح اختيار جهة الاتصال داخل واتساب
+export const SHARE_URL = 'https://www.vitalix-ai.com/welcome';
+export function shareLink(): string {
+  const text = `اطّلع على هذا النظام لمتابعة المرضى المزمنين في الصيدلية: ${SHARE_URL}`;
+  return `https://wa.me/?text=${encodeURIComponent(text)}`;
 }

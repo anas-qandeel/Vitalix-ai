@@ -712,3 +712,21 @@ html:has(.vx-welcome){scroll-behavior:smooth}
  .vx-welcome .vx-hero-grid{padding-top:26px}
  .vx-feature-foot{padding-inline:19px}
 }
+
+/* ===== v3: التبويبات (قسم 4) وسجل الوصفات والموظفين (5–6) ===== */
+.vx-remember{background:#F6F8FA}
+.vx-tabs{margin-top:28px}
+.vx-tablist{display:none;gap:8px;overflow-x:auto;padding:2px 0 14px;scrollbar-width:none}
+.vx-tablist::-webkit-scrollbar{display:none}
+.vx-tabs-on .vx-tablist{display:flex}
+.vx-tab{flex:0 0 auto;min-height:44px;padding:8px 16px;border:1px solid #B7CBCC;background:#fff;border-radius:99px;color:#35525D;font-size:14px;font-weight:600;transition:background .2s,color .2s,border-color .2s}
+.vx-tab:hover{border-color:#0D766E}
+.vx-tab.is-on{background:#0D766E;border-color:#0D766E;color:#fff}
+.vx-tab-panel{padding:clamp(24px,4vw,48px) 0!important;border:1px solid #DCE5E7;border-radius:20px;overflow:hidden;scroll-margin-top:90px}
+.vx-tab-panel+.vx-tab-panel{margin-top:14px}
+.vx-tabs-on .vx-tab-panel:not(.is-on){display:none}
+.vx-tab-panel .vx-feature-wrap{padding-inline:clamp(16px,3.5vw,44px)}
+.vx-tab-panel .vx-feature-copy>h3{font-size:clamp(22px,3vw,30px);margin-bottom:14px;line-height:1.4}
+.vx-solo .vx-bullets li{font-size:15px}
+.vx-feature-6 .vx-bullets li,.vx-feature-7 .vx-bullets li{color:#243842}
+@media (max-width:640px){.vx-tab-panel{border-radius:16px}}

@@ -410,8 +410,39 @@ function boot(): () => void {
     });
   });
 
+  /* ---- Tabs (قسم «ما يجعل المريض يتذكّر»): لوحة واحدة ظاهرة، وبلا JS تظهر كل اللوحات متتالية ---- */
+  function setupTabs() {
+    const list = $('.vx-tablist');
+    if (!list) return;
+    const tabs = $$('[role="tab"]', list);
+    const panels = tabs.map(t => $('#' + t.getAttribute('aria-controls')));
+    root.classList.add('vx-tabs-on');
+    function select(i, focus) {
+      tabs.forEach((t, k) => {
+        const on = k === i;
+        t.classList.toggle('is-on', on);
+        t.setAttribute('aria-selected', String(on));
+        t.tabIndex = on ? 0 : -1;
+        if (panels[k]) panels[k].classList.toggle('is-on', on);
+      });
+      if (focus) tabs[i].focus();
+    }
+    tabs.forEach((t, i) => {
+      t.addEventListener('click', () => select(i));
+      t.addEventListener('keydown', (e) => {
+        // الاتجاه RTL: السهم الأيسر هو «التالي»
+        const step = e.key === 'ArrowLeft' ? 1 : e.key === 'ArrowRight' ? -1 : 0;
+        if (!step) return;
+        e.preventDefault();
+        select((i + step + tabs.length) % tabs.length, true);
+      });
+    });
+    select(0);
+  }
+
   /* ---- Boot ---- */
   setupDemos();
+  setupTabs();
   if (HAS_IO) setupReveals();
   heroPaths();
   const heroCount = $('[data-count]');

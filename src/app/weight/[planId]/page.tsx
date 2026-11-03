@@ -394,7 +394,7 @@ export default function WeightPlanPage({ params }: PageProps) {
           <p className="text-xs text-slate-600 mb-3">
             أُعدّت نتائج التحليل بواسطة {pharmacyName}{performedBy ? `، ${formatPharmacistName(performedBy)}` : ''}
           </p>
-          <AppFooter hidePrivacy />
+          <AppFooter hidePrivacy hideBrand />
         </div>
       </main>
     </div>

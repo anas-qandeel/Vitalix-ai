@@ -977,7 +977,7 @@ export default function SingleVitalViewPage({ params }: PageProps) {
           <p style={{ fontSize: 12, color: '#475569', marginBottom: 12 }}>
             أُعدّت نتائج التحليل بواسطة {displayPharmacyName}{performedBy ? `، ${formatPharmacistName(performedBy)}` : ''}
           </p>
-          <AppFooter hidePrivacy />
+          <AppFooter hidePrivacy hideBrand />
         </div>
       </main>
 

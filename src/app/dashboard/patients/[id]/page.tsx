@@ -338,17 +338,8 @@ async function renderHistoryTableToPdf(
       pdf.setFontSize(6.8); pdf.setTextColor(100, 116, 139);
       pdf.text(disclaimerText, pageWidth / 2, pageHeight - 22, { align: 'center' });
       pdf.setFontSize(6.2); pdf.setTextColor(148, 163, 184);
-      // فصل المقطع العربي عن اسم المنصة اللاتيني لتفادي انقلاب ترتيبهما في السطر المختلط
-      const sigArabic = `وثِّق عبر ${pharmacyName} — مصدر عبر منصة `;
-      const sigLatin = 'Vitalix-ai';
-      const sigGap = 1.2; // مسافة صريحة بالمليمتر بين المقطع العربي واسم المنصة
-      const sigArabicW = pdf.getTextWidth(sigArabic);
-      const sigLatinW = pdf.getTextWidth(sigLatin);
-      const sigTotalW = sigArabicW + sigGap + sigLatinW;
-      const sigStartX = (pageWidth - sigTotalW) / 2;
-      // العربي يُرسم أولاً من يمين مساحته، ثم اللاتيني يليه يساراً
-      pdf.text(sigArabic, sigStartX + sigTotalW, pageHeight - 6, { align: 'right' });
-      pdf.text(sigLatin, sigStartX, pageHeight - 6, { align: 'left' });
+      // التوقيع بهوية الصيدلية وحدها — الملف موجّه للمريض فلا يُذكر اسم المنصة
+      pdf.text(`وثِّق عبر ${pharmacyName}`, pageWidth / 2, pageHeight - 6, { align: 'center' });
     },
   });
 
@@ -554,7 +545,7 @@ export default function PatientCardPage({ params }: PageProps) {
         <div style="font-size: 10px; color: #64748B; line-height: 1.65;">
           هذا السجل توثيق آلي للقراءات الحيوية كما أُدخلت في نقطة الرعاية، ويُقدَّم لغرض المتابعة والاطلاع فقط. لا يشكّل هذا المستند تشخيصاً طبياً، ولا يغني عن الفحص السريري أو استشارة الطبيب المختص. تظل مسؤولية التفسير الطبي والقرار العلاجي بالكامل بيد الطبيب المعالج.
         </div>
-        <div style="font-size: 9.5px; color: #94A3B8; margin-top: 8px;">وثِّق عبر ${pharmacyName} — مصدر عبر منصة Vitalix-ai</div>
+        <div style="font-size: 9.5px; color: #94A3B8; margin-top: 8px;">وثِّق عبر ${pharmacyName}</div>
       </div>
     `;
 

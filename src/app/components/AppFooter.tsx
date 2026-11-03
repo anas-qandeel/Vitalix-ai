@@ -2,14 +2,17 @@
 
 // فوتر موحّد لكل صفحات النظام (لوحة الصيدلية، الأدمن، وصفحات المريض العامة) — مصدر واحد
 // لرقم الإصدار وسنة الحقوق، بدل تكراره يدوياً في كل صفحة واحتمال اختلافه بينها
-export default function AppFooter({ className = '', hidePrivacy = false }: { className?: string; hidePrivacy?: boolean }) {
+// hideBrand: لصفحات المريض العامة — يخفي اسم المنصة والإصدار كي لا يرى المريض إلا هوية صيدليته
+export default function AppFooter({ className = '', hidePrivacy = false, hideBrand = false }: { className?: string; hidePrivacy?: boolean; hideBrand?: boolean }) {
   return (
     <footer className={`text-center flex flex-col items-center justify-center gap-2 ${className}`}>
       <p className="text-[11px] text-slate-400 font-medium flex items-center justify-center gap-1.5 flex-wrap">
-        <span style={{ direction: 'ltr', unicodeBidi: 'bidi-override' }}>
-          Vitalix<span className="text-slate-900">-ai</span> — v1.4.0
-        </span>
-        <span>· © {new Date().getFullYear()} جميع الحقوق محفوظة</span>
+        {!hideBrand && (
+          <span style={{ direction: 'ltr', unicodeBidi: 'bidi-override' }}>
+            Vitalix<span className="text-slate-900">-ai</span> — v1.4.0
+          </span>
+        )}
+        <span>{hideBrand ? '' : '· '}© {new Date().getFullYear()} جميع الحقوق محفوظة</span>
         {!hidePrivacy && (
           <>
             <span>·</span>

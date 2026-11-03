@@ -245,25 +245,6 @@ function boot(): () => void {
     $$('.vx-stack, .vx-protocol, .vx-start-list, .vx-boundary').forEach(el => playIO.observe(el));
   }
 
-  /* ---- Scene buttons: switch the highlighted panel, replay a soft pulse ---- */
-  $$('.vx-feature').forEach(section => {
-    const demo = $('.vx-stack', section);
-    const buttons = $$('.vx-switch', section);
-    if (!demo || !buttons.length) return;
-    demo.dataset.focus = buttons[0].dataset.scene;
-    buttons.forEach(button => button.addEventListener('click', () => {
-      const next = button.dataset.scene;
-      demo.dataset.focus = next;
-      buttons.forEach(b => {
-        const pressed = b === button;
-        b.classList.toggle('is-current', pressed);
-        b.setAttribute('aria-pressed', String(pressed));
-      });
-      const panel = $('[data-target="' + next + '"]', demo);
-      if (panel) { panel.classList.remove('vx-flash'); void panel.offsetWidth; panel.classList.add('vx-flash'); setTimeout(() => panel.classList.remove('vx-flash'), 1100); }
-    }));
-  });
-
   /* ---- Hero: patients travel their path into the pharmacy; the matching row lights up ---- */
   function heroPaths() {
     const map = $$('.vx-map').find(m => m.offsetParent !== null);
@@ -410,39 +391,32 @@ function boot(): () => void {
     });
   });
 
-  /* ---- Tabs (قسم «ما يجعل المريض يتذكّر»): لوحة واحدة ظاهرة، وبلا JS تظهر كل اللوحات متتالية ---- */
-  function setupTabs() {
-    const list = $('.vx-tablist');
-    if (!list) return;
-    const tabs = $$('[role="tab"]', list);
-    const panels = tabs.map(t => $('#' + t.getAttribute('aria-controls')));
-    root.classList.add('vx-tabs-on');
-    function select(i, focus) {
-      tabs.forEach((t, k) => {
-        const on = k === i;
-        t.classList.toggle('is-on', on);
-        t.setAttribute('aria-selected', String(on));
-        t.tabIndex = on ? 0 : -1;
-        if (panels[k]) panels[k].classList.toggle('is-on', on);
-      });
-      if (focus) tabs[i].focus();
+  /* ---- الخدمات الخمس (قسم «خدمات تجعل المريض يعود إليك»): مثال واحد مفتوح في كل مرة، وبلا JS تظهر كلها مفتوحة ---- */
+  function setupServices() {
+    const items = $$('.vx-svc');
+    if (!items.length) return;
+    root.classList.add('vx-svc-on');
+    function set(item, open) {
+      item.classList.toggle('is-open', open);
+      const btn = $('.vx-eg', item);
+      btn.setAttribute('aria-expanded', String(open));
+      $('.vx-eg-t', btn).textContent = open ? 'إخفاء المثال' : 'شاهد المثال';
     }
-    tabs.forEach((t, i) => {
-      t.addEventListener('click', () => select(i));
-      t.addEventListener('keydown', (e) => {
-        // الاتجاه RTL: السهم الأيسر هو «التالي»
-        const step = e.key === 'ArrowLeft' ? 1 : e.key === 'ArrowRight' ? -1 : 0;
-        if (!step) return;
-        e.preventDefault();
-        select((i + step + tabs.length) % tabs.length, true);
+    items.forEach((item, i) => {
+      set(item, i === 0);
+      $('.vx-eg', item).addEventListener('click', () => {
+        const open = !item.classList.contains('is-open');
+        // فتح مثال يغلق ما قبله؛ التمرير بعد الإغلاق كي يُحسب موضع العنوان على التخطيط الجديد
+        if (open) items.forEach(o => { if (o !== item) set(o, false); });
+        set(item, open);
+        if (open) item.scrollIntoView({ behavior: RM.matches ? 'auto' : 'smooth', block: 'start' });
       });
     });
-    select(0);
   }
 
   /* ---- Boot ---- */
   setupDemos();
-  setupTabs();
+  setupServices();
   if (HAS_IO) setupReveals();
   heroPaths();
   const heroCount = $('[data-count]');

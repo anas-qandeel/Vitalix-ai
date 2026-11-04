@@ -112,6 +112,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           return (
             <button key={item.href} onClick={() => router.push(item.href)}
               className={`py-3 border-b-2 cursor-pointer whitespace-nowrap inline-flex items-center gap-1.5 ${isActive ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-900'}`}>
+              {item.icon && <item.icon size={16} weight="bold" aria-hidden="true" />}
               {item.label}
               {item.href === '/admin/feedback' && unread > 0 && (
                 <span className="relative inline-flex" aria-label={`${unread} اقتراح غير مقروء`}>

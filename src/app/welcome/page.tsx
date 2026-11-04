@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { IBM_Plex_Mono } from 'next/font/google';
 import './welcome.css';
 import WelcomeEffects from './WelcomeEffects';
+import WelcomeBeacon from './WelcomeBeacon';
 import { WELCOME_MARKUP } from './welcomeMarkup';
 import { SALES_EMAIL, SOCIAL_LINKS, WHATSAPP_NUMBER, PHONE_DISPLAY, waLink, shareLink } from '@/lib/contact';
 
@@ -75,6 +76,7 @@ export default async function WelcomePage({
     <div className={plexMono.variable} style={{ display: 'contents' }}>
       <div style={{ display: 'contents' }} dangerouslySetInnerHTML={{ __html: html }} />
       <WelcomeEffects />
+      <WelcomeBeacon src={src} />
     </div>
   );
 }

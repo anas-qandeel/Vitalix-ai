@@ -389,7 +389,7 @@ export default function AdsPage() {
                         return (
                           <tr key={v.ref + v.created_at} className={`border-t ${wa ? 'bg-teal-50 border-teal-100' : 'border-slate-100'}`}>
                             <td className="py-2 pe-3 align-top"><div className="text-slate-900">{e.date}</div><div className="text-slate-500 tabular-nums"><bdi>{e.time}</bdi></div><div className="text-[10px] text-slate-400 tabular-nums" dir="ltr">{v.ref}</div></td>
-                            <td className="py-2 pe-3 align-top text-slate-900" dir="ltr">{v.src}</td>
+                            <td className="py-2 pe-6 align-top"><span dir="ltr" className="inline-block rounded-md bg-slate-100 border border-slate-200 px-2 py-0.5 font-bold text-slate-900">{v.src}</span></td>
                             <td className="py-2 pe-3 align-top text-slate-700">{DEVICE_LABEL[v.device || ''] || '—'}</td>
                             <td className="py-2 pe-3 align-top tabular-nums text-slate-900"><bdi>{fmtSecs(v.active_seconds)}</bdi></td>
                             <td className="py-2 pe-3 align-top tabular-nums text-slate-900"><bdi>{fmtSecs((new Date(v.updated_at).getTime() - new Date(v.created_at).getTime()) / 1000)}</bdi></td>

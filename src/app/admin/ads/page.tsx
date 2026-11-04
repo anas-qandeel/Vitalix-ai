@@ -1,22 +1,18 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { ArrowClockwise, Warning } from '@phosphor-icons/react';
+import { ArrowClockwise, FileXls, Warning } from '@phosphor-icons/react';
+import Toast, { useNotice } from '@/components/Toast';
 import { adminFetch } from '@/lib/admin-fetch';
+import {
+  type FunnelRow, SECTION_NAMES, BUTTON_ORDER, BUTTON_LABEL, TABLE_SRCS,
+  fmtMedian, fmtSecs, waText, verdict, reached, biggestDrop, mobileShare,
+} from '@/lib/welcome-stats';
 
 // الإعلانات — نتائج عدّاد /welcome. للمالك فقط: القيد في ROUTE_ROLES (admin-context) وفي /api/admin/welcome-stats.
 
 type Period = 'today' | 'last_7_days' | 'all_time';
 
-interface FunnelRow {
-  period: string;
-  src: string;
-  visits: number;
-  median_active_seconds: number | null;
-  wa_visits: number;
-  wa_pct: number | null;
-  [k: string]: string | number | null;
-}
 interface Stats {
   generated_at: string;
   funnel: FunnelRow[];
@@ -30,11 +26,6 @@ const PERIODS: { v: Period; label: string }[] = [
   { v: 'all_time', label: 'منذ البداية' },
 ];
 
-// أسماء الأقسام العشرة بترتيبها في /welcome (مشتقة من عناوينها الفعلية)
-const SECTION_NAMES = [
-  'العنوان الرئيسي', 'سبب الانتقال', 'التنبيه قبل النفاد', 'الصندوق اليومي', 'خدمات العودة',
-  'سجل الوصفات', 'متابعة الموظفين', 'أسئلة الاشتراك', 'العرض والسعر', 'ابدأ اليوم',
-];
 interface Visit {
   ref: string;
   created_at: string;
@@ -48,21 +39,8 @@ interface Visit {
 interface VisitsPage { total: number; page: number; page_size: number; visits: Visit[] }
 
 const SRC_FILTERS = ['all', 'fb-a', 'fb-b', 'ig', 'web'];
-const BUTTON_ORDER = ['hero', 'offer', 'start', 'float'];
-const BUTTON_LABEL: Record<string, string> = { hero: 'الرئيسي', offer: 'العرض', start: 'ابدأ اليوم', float: 'العائم' };
-const TABLE_SRCS = ['fb-a', 'fb-b', 'ig', 'web'];
-
 const fmtNum = (n: number) => n.toLocaleString('en-US');
 const fmtPct = (n: number | null | undefined) => (n == null ? '—' : `${Number(n).toFixed(1)}%`);
-const fmtMedian = (s: number | null | undefined) => {
-  if (s == null) return '—';
-  const sec = Math.round(Number(s));
-  return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
-};
-const fmtSecs = (sec: number) => {
-  const s = Math.max(0, Math.round(sec));
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-};
 // وقت الدخول: اليوم والتاريخ والساعة بتوقيت عمّان
 const fmtEntry = (iso: string) => {
   const d = new Date(iso);
@@ -77,37 +55,10 @@ function filterBtn(active: boolean): string {
   return `h-8 px-3 rounded-lg text-xs font-bold cursor-pointer flex items-center gap-1.5 ${active ? 'bg-slate-900 text-white' : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'}`;
 }
 
-// اختبار نسبتين: يرجع اسم الإعلان المتفوّق، أو null إن لم يثبت فرق، أو 'small' إن كانت العينة صغيرة
-function verdict(a: FunnelRow | undefined, b: FunnelRow | undefined): { kind: 'small' | 'none' | 'win'; winner?: string } {
-  const n1 = a?.visits ?? 0, n2 = b?.visits ?? 0, x1 = a?.wa_visits ?? 0, x2 = b?.wa_visits ?? 0;
-  if (n1 < 30 || n2 < 30 || x1 + x2 < 10) return { kind: 'small' };
-  const pooled = (x1 + x2) / (n1 + n2);
-  const se = Math.sqrt(pooled * (1 - pooled) * (1 / n1 + 1 / n2));
-  if (se === 0) return { kind: 'none' };
-  const z = (x1 / n1 - x2 / n2) / se;
-  if (Math.abs(z) >= 1.96) return { kind: 'win', winner: z > 0 ? 'fb-a' : 'fb-b' };
-  return { kind: 'none' };
-}
-
-function reached(row: FunnelRow | undefined, n: number): number {
-  return row ? Number(row[`reached_${n}_pct`] ?? 0) : 0;
-}
-// القسم الذي ينتهي عنده أكبر هبوط بين قسمين متتاليين (فهرس 1..9)، أو null إن لم يكن هناك هبوط
-function biggestDrop(row: FunnelRow | undefined): number | null {
-  if (!row) return null;
-  let best = 0, at: number | null = null;
-  for (let n = 2; n <= 10; n++) {
-    const drop = reached(row, n - 1) - reached(row, n);
-    if (drop > best) { best = drop; at = n; }
-  }
-  return at;
-}
-
 const EMPTY = 'لا زيارات في هذه الفترة بعد';
 const Empty = () => <p className="text-xs text-slate-400 py-6 text-center">{EMPTY}</p>;
 
 const DEVICE_LABEL: Record<string, string> = { mobile: 'جوال', desktop: 'حاسوب' };
-const waText = (clicks: string[]) => (clicks.length ? clicks.map(t => BUTTON_LABEL[t] || t).join('، ') : 'لم يضغط');
 
 // أعمق قسم وصل إليه الزائر: رقمه واسمه مع شريط من 10 خانات
 function DepthCell({ n }: { n: number }) {
@@ -137,6 +88,30 @@ export default function AdsPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const reqId = useRef(0);
+  const { notice, setNotice } = useNotice();
+  const [exporting, setExporting] = useState(false);
+
+  // تنزيل Excel للفترة المختارة: نقرأ الاسم من ترويسة الرد ثم نُنزّل الملف عبر رابط مؤقت
+  const downloadExcel = async () => {
+    setExporting(true);
+    try {
+      const res = await adminFetch(`/api/admin/welcome-export?period=${period}`);
+      if (!res.ok) throw new Error();
+      const name = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') || '')?.[1] || 'vitalix-ads.xlsx';
+      const url = URL.createObjectURL(await res.blob());
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      setNotice({ kind: 'err', text: 'تعذّر تنزيل ملف Excel' });
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const [srcFilter, setSrcFilter] = useState('all');
   const [pageNo, setPageNo] = useState(1);
@@ -190,11 +165,7 @@ export default function AdsPage() {
   const v = verdict(a, b);
   const dropA = biggestDrop(a), dropB = biggestDrop(b);
 
-  const mobilePct = (src: string) => {
-    const d = data?.devices[src];
-    const total = (d?.mobile ?? 0) + (d?.desktop ?? 0);
-    return total ? fmtPct((100 * (d?.mobile ?? 0)) / total) : '—';
-  };
+  const mobilePct = (src: string) => fmtPct(mobileShare(data?.devices[src]));
 
   const tags = data
     ? [...BUTTON_ORDER, ...Object.keys(data.buttons).filter(t => !BUTTON_ORDER.includes(t)).sort()]
@@ -253,11 +224,18 @@ export default function AdsPage() {
             {data && <> آخر تحديث <span className="tabular-nums"><bdi>{fmtTime(data.generated_at)}</bdi></span></>}
           </p>
         </div>
+        <div className="flex gap-1.5 shrink-0">
+          <button type="button" onClick={downloadExcel} disabled={exporting}
+            className="h-8 px-3 rounded-lg text-xs font-bold cursor-pointer flex items-center gap-1.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed">
+            <FileXls size={14} weight="bold" aria-hidden="true" />
+            {exporting ? 'جارٍ التوليد…' : 'تنزيل Excel'}
+          </button>
         <button type="button" onClick={() => { setRefreshing(true); load(period); loadVisits(period, srcFilter, pageNo); }} disabled={refreshing}
-          className="h-8 px-3 rounded-lg text-xs font-bold cursor-pointer flex items-center gap-1.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-50 shrink-0">
+          className="h-8 px-3 rounded-lg text-xs font-bold cursor-pointer flex items-center gap-1.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-50 ">
           <ArrowClockwise size={14} weight="bold" aria-hidden="true" />
           تحديث
         </button>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-1.5 mb-4">
@@ -434,6 +412,7 @@ export default function AdsPage() {
           </div>
         )}
       </Card>
+      <Toast notice={notice} />
     </div>
   );
 }

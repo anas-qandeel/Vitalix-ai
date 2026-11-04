@@ -25,3 +25,12 @@ export function sinceFor(period: Period): string | null {
   if (period === 'last_7_days') return new Date(now.getTime() - 7 * 86400_000).toISOString();
   return null;
 }
+
+// الوقت الجداري بتوقيت عمّان لأي لحظة (للتقارير: خلايا Excel لا تحمل منطقة زمنية فنكتب ما يراه القارئ في عمّان)
+export function ammanWall(d: Date) {
+  const p = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Amman', year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
+  }).formatToParts(d).reduce<Record<string, string>>((acc, x) => { acc[x.type] = x.value; return acc; }, {});
+  return { y: +p.year, mo: +p.month, d: +p.day, h: +p.hour, mi: +p.minute, s: +p.second };
+}

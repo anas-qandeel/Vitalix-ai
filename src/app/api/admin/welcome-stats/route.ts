@@ -1,36 +1,11 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { verifyPlatformAdmin } from '@/lib/verify-admin';
+import { PERIODS, sinceFor, type Period } from '@/lib/welcome-period';
 
 // نتائج عدّاد /welcome لمالك المنصة فقط. القراءة من welcome_funnel وwelcome_visits (جدولان للخادم فقط)،
 // ولا يخرج من هنا أي صف خام: التجميع كله في السيرفر.
-const PERIODS = ['today', 'last_7_days', 'all_time'] as const;
-type Period = typeof PERIODS[number];
 const PAGE = 1000;
-
-const ammanParts = (d: Date) =>
-  new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Amman', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23',
-  }).formatToParts(d).reduce<Record<string, string>>((acc, p) => { acc[p.type] = p.value; return acc; }, {});
-
-// منتصف ليل اليوم بتوقيت عمّان، مطابقاً لتعريف الـview (date_trunc بتوقيت Asia/Amman)؛
-// نجرّب الإزاحتين الممكنتين بدل تثبيت +3 كي لا ينكسر إن عاد التوقيت الصيفي
-function ammanMidnight(now: Date): Date {
-  const p = ammanParts(now);
-  for (const offsetH of [3, 2]) {
-    const guess = new Date(Date.UTC(+p.year, +p.month - 1, +p.day) - offsetH * 3600_000);
-    const g = ammanParts(guess);
-    if (g.hour === '00' && g.day === p.day) return guess;
-  }
-  return new Date(Date.UTC(+p.year, +p.month - 1, +p.day) - 3 * 3600_000);
-}
-
-function sinceFor(period: Period): string | null {
-  const now = new Date();
-  if (period === 'today') return ammanMidnight(now).toISOString();
-  if (period === 'last_7_days') return new Date(now.getTime() - 7 * 86400_000).toISOString();
-  return null;
-}
 
 export async function GET(request: Request) {
   const auth = await verifyPlatformAdmin(request, ['owner']);

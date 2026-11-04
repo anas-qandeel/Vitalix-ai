@@ -35,6 +35,19 @@ const SECTION_NAMES = [
   'العنوان الرئيسي', 'سبب الانتقال', 'التنبيه قبل النفاد', 'الصندوق اليومي', 'خدمات العودة',
   'سجل الوصفات', 'متابعة الموظفين', 'أسئلة الاشتراك', 'العرض والسعر', 'ابدأ اليوم',
 ];
+interface Visit {
+  ref: string;
+  created_at: string;
+  updated_at: string;
+  src: string;
+  device: string | null;
+  active_seconds: number;
+  max_section: number;
+  wa_clicks: string[];
+}
+interface VisitsPage { total: number; page: number; page_size: number; visits: Visit[] }
+
+const SRC_FILTERS = ['all', 'fb-a', 'fb-b', 'ig', 'web'];
 const BUTTON_ORDER = ['hero', 'offer', 'start', 'float'];
 const BUTTON_LABEL: Record<string, string> = { hero: 'الرئيسي', offer: 'العرض', start: 'ابدأ اليوم', float: 'العائم' };
 const TABLE_SRCS = ['fb-a', 'fb-b', 'ig', 'web'];
@@ -45,6 +58,17 @@ const fmtMedian = (s: number | null | undefined) => {
   if (s == null) return '—';
   const sec = Math.round(Number(s));
   return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+};
+const fmtSecs = (sec: number) => {
+  const s = Math.max(0, Math.round(sec));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+};
+// وقت الدخول: اليوم والتاريخ والساعة بتوقيت عمّان
+const fmtEntry = (iso: string) => {
+  const d = new Date(iso);
+  const date = d.toLocaleDateString('ar-EG', { weekday: 'long', day: 'numeric', month: 'numeric', year: 'numeric', numberingSystem: 'latn', timeZone: 'Asia/Amman' });
+  const time = d.toLocaleTimeString('ar-EG', { hour: 'numeric', minute: '2-digit', hour12: true, numberingSystem: 'latn', timeZone: 'Asia/Amman' });
+  return { date, time };
 };
 const fmtTime = (iso: string) =>
   new Date(iso).toLocaleTimeString('ar-EG', { hour: 'numeric', minute: '2-digit', hour12: true, numberingSystem: 'latn', timeZone: 'Asia/Amman' });
@@ -82,6 +106,21 @@ function biggestDrop(row: FunnelRow | undefined): number | null {
 const EMPTY = 'لا زيارات في هذه الفترة بعد';
 const Empty = () => <p className="text-xs text-slate-400 py-6 text-center">{EMPTY}</p>;
 
+const DEVICE_LABEL: Record<string, string> = { mobile: 'جوال', desktop: 'حاسوب' };
+const waText = (clicks: string[]) => (clicks.length ? clicks.map(t => BUTTON_LABEL[t] || t).join('، ') : 'لم يضغط');
+
+// أعمق قسم وصل إليه الزائر: رقمه واسمه مع شريط من 10 خانات
+function DepthCell({ n }: { n: number }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-slate-900">{n > 0 ? <><span className="tabular-nums"><bdi>{n}</bdi></span> · {SECTION_NAMES[n - 1]}</> : <span className="text-slate-400">لم يصل إلى أي قسم</span>}</p>
+      <div className="flex gap-0.5 mt-1 w-28" dir="ltr" aria-hidden="true">
+        {SECTION_NAMES.map((_, i) => <span key={i} className={`h-1.5 flex-1 rounded-sm ${i < n ? 'bg-teal-600' : 'bg-slate-200'}`} />)}
+      </div>
+    </div>
+  );
+}
+
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="bg-white rounded-2xl border border-slate-200 p-4 mb-4">
@@ -98,6 +137,28 @@ export default function AdsPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const reqId = useRef(0);
+
+  const [srcFilter, setSrcFilter] = useState('all');
+  const [pageNo, setPageNo] = useState(1);
+  const [visits, setVisits] = useState<VisitsPage | null>(null);
+  const [visitsLoading, setVisitsLoading] = useState(true);
+  const [visitsError, setVisitsError] = useState('');
+  const visitsReq = useRef(0);
+
+  const loadVisits = async (p: Period, src: string, page: number) => {
+    const id = ++visitsReq.current;
+    try {
+      const res = await adminFetch(`/api/admin/welcome-visits?period=${p}&src=${encodeURIComponent(src)}&page=${page}`);
+      if (id !== visitsReq.current) return;
+      if (!res.ok) throw new Error();
+      setVisits(await res.json());
+      setVisitsError('');
+    } catch {
+      if (id === visitsReq.current) setVisitsError('تعذّر تحميل الزيارات');
+    } finally {
+      if (id === visitsReq.current) setVisitsLoading(false);
+    }
+  };
 
   const load = async (p: Period) => {
     const id = ++reqId.current;
@@ -118,6 +179,11 @@ export default function AdsPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     load(period);
   }, [period]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadVisits(period, srcFilter, pageNo);
+  }, [period, srcFilter, pageNo]);
 
   const row = (src: string) => data?.funnel.find(f => f.src === src);
   const a = row('fb-a'), b = row('fb-b');
@@ -167,12 +233,13 @@ export default function AdsPage() {
     );
   };
 
-  const bar = (pct: number, color: string) => (
+  // إعلان بلا زيارات في الفترة: «—» بلا شريط (0.0% توحي بأن الزوار غادروا وهم لم يأتوا أصلاً)
+  const bar = (r: FunnelRow | undefined, n: number, color: string) => (
     <div className="flex items-center gap-2">
       <div className="flex-1 h-2 rounded-full bg-slate-100 overflow-hidden" dir="ltr">
-        <div className={`h-full rounded-full ${color}`} style={{ width: `${Math.min(100, Math.max(0, pct))}%` }} />
+        {r && <div className={`h-full rounded-full ${color}`} style={{ width: `${Math.min(100, Math.max(0, reached(r, n)))}%` }} />}
       </div>
-      <span className="w-12 text-[11px] text-slate-600 tabular-nums text-end"><bdi>{fmtPct(pct)}</bdi></span>
+      <span className="w-12 text-[11px] text-slate-600 tabular-nums text-end"><bdi>{r ? fmtPct(reached(r, n)) : '—'}</bdi></span>
     </div>
   );
 
@@ -186,7 +253,7 @@ export default function AdsPage() {
             {data && <> آخر تحديث <span className="tabular-nums"><bdi>{fmtTime(data.generated_at)}</bdi></span></>}
           </p>
         </div>
-        <button type="button" onClick={() => { setRefreshing(true); load(period); }} disabled={refreshing}
+        <button type="button" onClick={() => { setRefreshing(true); load(period); loadVisits(period, srcFilter, pageNo); }} disabled={refreshing}
           className="h-8 px-3 rounded-lg text-xs font-bold cursor-pointer flex items-center gap-1.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-50 shrink-0">
           <ArrowClockwise size={14} weight="bold" aria-hidden="true" />
           تحديث
@@ -195,7 +262,7 @@ export default function AdsPage() {
 
       <div className="flex flex-wrap gap-1.5 mb-4">
         {PERIODS.map(p => (
-          <button key={p.v} type="button" onClick={() => { if (p.v !== period) { setLoading(true); setPeriod(p.v); } }} className={filterBtn(period === p.v)}>{p.label}</button>
+          <button key={p.v} type="button" onClick={() => { if (p.v !== period) { setLoading(true); setVisitsLoading(true); setPageNo(1); setPeriod(p.v); } }} className={filterBtn(period === p.v)}>{p.label}</button>
         ))}
       </div>
 
@@ -241,8 +308,8 @@ export default function AdsPage() {
                           {dropB === n && <span className="text-[10px] font-bold text-orange-700 bg-orange-50 border border-orange-200 rounded-full px-2">fb-b: أكبر خسارة هنا</span>}
                         </p>
                         <div className="space-y-1">
-                          {bar(reached(a, n), 'bg-teal-600')}
-                          {bar(reached(b, n), 'bg-slate-400')}
+                          {bar(a, n, 'bg-teal-600')}
+                          {bar(b, n, 'bg-slate-400')}
                         </div>
                       </div>
                     );
@@ -283,6 +350,90 @@ export default function AdsPage() {
           </Card>
         </div>
       )}
+
+      <Card title="كل الزيارات">
+        <div className="flex flex-wrap gap-1.5 mb-3">
+          {SRC_FILTERS.map(f => (
+            <button key={f} type="button"
+              onClick={() => { if (f !== srcFilter) { setVisitsLoading(true); setPageNo(1); setSrcFilter(f); } }}
+              className={filterBtn(srcFilter === f)}>
+              {f === 'all' ? 'الكل' : <span dir="ltr">{f}</span>}
+            </button>
+          ))}
+        </div>
+        {visitsError && (
+          <div className="bg-rose-50 border border-rose-200 text-rose-700 rounded-xl p-3 text-xs mb-3 flex items-center gap-2">
+            <Warning size={16} weight="bold" aria-hidden="true" />{visitsError}
+          </div>
+        )}
+        {visitsLoading && !visits ? (
+          <div className="flex justify-center py-10">
+            <div className="w-8 h-8 border-4 border-slate-200 border-t-teal-600 rounded-full animate-spin" role="status" aria-label="جارٍ التحميل" />
+          </div>
+        ) : visits && (
+          <div className={visitsLoading ? 'opacity-60 transition-opacity' : 'transition-opacity'}>
+            <p className="text-xs text-slate-600 mb-3">عدد الزيارات: <b className="text-slate-900 tabular-nums"><bdi>{fmtNum(visits.total)}</bdi></b></p>
+            {visits.visits.length === 0 ? <Empty /> : (
+              <>
+                <div className="hidden md:block">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="text-slate-500">
+                        {['وقت الدخول', 'المصدر', 'الجهاز', 'الوقت الفعلي', 'مدة الفتح', 'أعمق قسم', 'واتساب'].map(h => <th key={h} className="py-2 pe-3 font-bold text-start">{h}</th>)}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {visits.visits.map(v => {
+                        const e = fmtEntry(v.created_at);
+                        const wa = v.wa_clicks.length > 0;
+                        return (
+                          <tr key={v.ref + v.created_at} className={`border-t ${wa ? 'bg-teal-50 border-teal-100' : 'border-slate-100'}`}>
+                            <td className="py-2 pe-3 align-top"><div className="text-slate-900">{e.date}</div><div className="text-slate-500 tabular-nums"><bdi>{e.time}</bdi></div><div className="text-[10px] text-slate-400 tabular-nums" dir="ltr">{v.ref}</div></td>
+                            <td className="py-2 pe-3 align-top text-slate-900" dir="ltr">{v.src}</td>
+                            <td className="py-2 pe-3 align-top text-slate-700">{DEVICE_LABEL[v.device || ''] || '—'}</td>
+                            <td className="py-2 pe-3 align-top tabular-nums text-slate-900"><bdi>{fmtSecs(v.active_seconds)}</bdi></td>
+                            <td className="py-2 pe-3 align-top tabular-nums text-slate-900"><bdi>{fmtSecs((new Date(v.updated_at).getTime() - new Date(v.created_at).getTime()) / 1000)}</bdi></td>
+                            <td className="py-2 pe-3 align-top"><DepthCell n={v.max_section} /></td>
+                            <td className={`py-2 align-top ${wa ? 'font-bold text-teal-700' : 'text-slate-400'}`}>{waText(v.wa_clicks)}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="md:hidden space-y-2">
+                  {visits.visits.map(v => {
+                    const e = fmtEntry(v.created_at);
+                    const wa = v.wa_clicks.length > 0;
+                    return (
+                      <div key={v.ref + v.created_at} className={`rounded-xl border p-3 text-xs ${wa ? 'bg-teal-50 border-teal-200' : 'bg-white border-slate-200'}`}>
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <div><div className="font-bold text-slate-900">{e.date}</div><div className="text-slate-500 tabular-nums"><bdi>{e.time}</bdi></div></div>
+                          <div className="text-end"><div className="font-bold text-slate-900" dir="ltr">{v.src}</div><div className="text-slate-500">{DEVICE_LABEL[v.device || ''] || '—'}</div></div>
+                        </div>
+                        <dl className="space-y-1.5">
+                          <div className="flex justify-between gap-2"><dt className="text-slate-500">الوقت الفعلي</dt><dd className="font-bold text-slate-900 tabular-nums"><bdi>{fmtSecs(v.active_seconds)}</bdi></dd></div>
+                          <div className="flex justify-between gap-2"><dt className="text-slate-500">مدة فتح الصفحة</dt><dd className="font-bold text-slate-900 tabular-nums"><bdi>{fmtSecs((new Date(v.updated_at).getTime() - new Date(v.created_at).getTime()) / 1000)}</bdi></dd></div>
+                          <div><dt className="text-slate-500 mb-1">أعمق قسم</dt><dd><DepthCell n={v.max_section} /></dd></div>
+                          <div className="flex justify-between gap-2"><dt className="text-slate-500">واتساب</dt><dd className={wa ? 'font-bold text-teal-700' : 'text-slate-400'}>{waText(v.wa_clicks)}</dd></div>
+                        </dl>
+                        <p className="text-[10px] text-slate-400 mt-2 tabular-nums" dir="ltr">{v.ref}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="flex items-center justify-between gap-2 mt-4">
+                  <button type="button" disabled={pageNo <= 1 || visitsLoading} onClick={() => { setVisitsLoading(true); setPageNo(pageNo - 1); }}
+                    className="h-8 px-3 rounded-lg text-xs font-bold cursor-pointer bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed">السابق</button>
+                  <span className="text-xs text-slate-600">صفحة <b className="tabular-nums"><bdi>{pageNo}</bdi></b> من <b className="tabular-nums"><bdi>{Math.max(1, Math.ceil(visits.total / visits.page_size))}</bdi></b></span>
+                  <button type="button" disabled={pageNo >= Math.ceil(visits.total / visits.page_size) || visitsLoading} onClick={() => { setVisitsLoading(true); setPageNo(pageNo + 1); }}
+                    className="h-8 px-3 rounded-lg text-xs font-bold cursor-pointer bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed">التالي</button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </Card>
     </div>
   );
 }

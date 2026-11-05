@@ -8,7 +8,6 @@ const ENDPOINT = '/api/welcome-beacon';
 const TAG_RE = /^[a-z0-9-]{1,24}$/;
 const MAX_SECONDS = 1800;
 const SEND_EVERY_MS = 20000;
-const SECTION_THRESHOLDS = [0, 0.05, 0.1, 0.2, 0.3, 0.4, 0.6, 0.8, 1];
 // ترتيب الأقسام العشرة كما في الصفحة؛ يُحسب الفهرس n ابتداءً من 1
 const SECTION_SELECTORS = [
   '.vx-hero', '#rival', '#demo', '#inbox', '#remember', '#rx', '#staff', '#faq', '#contact', '#start',
@@ -51,7 +50,7 @@ export default function WelcomeBeacon({ src: pageSrc }: { src: string }) {
     const send = () => {
       const payload = {
         visit_id: visitId, src, device,
-        active_seconds: activeSeconds(), max_section: maxSection, wa_clicks: [...waClicks],
+        active_seconds: activeSeconds(), max_section: maxSection, max_scroll_pct: maxScrollPct, wa_clicks: [...waClicks],
       };
       const key = JSON.stringify({ ...payload, visit_id: undefined });
       if (key === lastSent) return;
@@ -71,20 +70,32 @@ export default function WelcomeBeacon({ src: pageSrc }: { src: string }) {
       }
     };
 
-    // القسم الأطول من شاشتين ونصف لا يبلغ 40% من نفسه، فيُحتسب أيضاً إن غطّى 40% من الشاشة
-    const observer = new IntersectionObserver((entries) => {
-      for (const e of entries) {
-        const n = SECTION_SELECTORS.findIndex((s) => document.querySelector(s) === e.target) + 1;
-        if (n === 0 || n <= maxSection) continue;
-        if (e.intersectionRatio >= 0.4 || e.intersectionRect.height >= 0.4 * window.innerHeight) {
-          maxSection = n;
-        }
+    // القسم n «وصل» حين يظهر منه 40% من ارتفاعه أو 40% من ارتفاع الشاشة أيهما أصغر.
+    // نحسبه من الإحداثيات عند كل تمرير: IntersectionObserver لا يستدعي إلا عند عبور عتبات نسبية ثابتة،
+    // فلا يلتقط الأقسام الطويلة جداً (نسبة الظهور فيها تبقى دون العتبة التالية).
+    const sections = SECTION_SELECTORS.map((s) => document.querySelector(s));
+    let maxScrollPct = 0;
+    let frame = 0;
+    const measure = () => {
+      frame = 0;
+      const vh = window.innerHeight;
+      for (let i = maxSection; i < sections.length; i++) {
+        const el = sections[i];
+        if (!el) continue;
+        const r = el.getBoundingClientRect();
+        const visible = Math.min(r.bottom, vh) - Math.max(r.top, 0);
+        if (visible >= Math.min(0.4 * r.height, 0.4 * vh) && visible > 0) maxSection = i + 1;
       }
-    }, { threshold: SECTION_THRESHOLDS });
-    SECTION_SELECTORS.forEach((s) => {
-      const el = document.querySelector(s);
-      if (el) observer.observe(el);
-    });
+      const doc = document.documentElement.scrollHeight;
+      if (doc > 0) {
+        const pct = Math.round(((window.scrollY + vh) / doc) * 100);
+        maxScrollPct = Math.max(maxScrollPct, Math.min(100, Math.max(0, pct)));
+      }
+    };
+    const onScroll = () => { if (!frame) frame = requestAnimationFrame(measure); };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll, { passive: true });
+    measure();
 
     const onClick = (ev: MouseEvent) => {
       const target = ev.target instanceof Element ? ev.target : null;
@@ -97,8 +108,9 @@ export default function WelcomeBeacon({ src: pageSrc }: { src: string }) {
         const m = (url.searchParams.get('text') || '').match(/المصدر:\s*([a-z0-9_-]+)/i);
         if (!m) return;
         const full = m[1].toLowerCase();
-        const idx = full.indexOf('-');
-        const tag = idx >= 0 ? full.slice(idx + 1) : '';
+        // المصدر نفسه قد يحوي شرطة (fb-b-float)، فنزيل البادئة الكاملة لا ما قبل أول شرطة
+        const prefix = `${pageSrc.toLowerCase()}-`;
+        const tag = full.startsWith(prefix) ? full.slice(prefix.length) : '';
         if (!TAG_RE.test(tag) || (waClicks.size >= 10 && !waClicks.has(tag))) return;
         waClicks.add(tag);
         send();
@@ -131,7 +143,9 @@ export default function WelcomeBeacon({ src: pageSrc }: { src: string }) {
     return () => {
       clearTimeout(first);
       clearInterval(interval);
-      observer.disconnect();
+      if (frame) cancelAnimationFrame(frame);
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
       document.removeEventListener('click', onClick, true);
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('pagehide', onPageHide);

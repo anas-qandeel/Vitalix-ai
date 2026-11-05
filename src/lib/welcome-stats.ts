@@ -84,3 +84,11 @@ export function tallyVisit(
     b[v.src] = (b[v.src] || 0) + 1;
   }
 }
+
+// وسيط قائمة أرقام (null إن كانت فارغة)
+export function median(values: number[]): number | null {
+  if (!values.length) return null;
+  const v = [...values].sort((x, y) => x - y);
+  const mid = Math.floor(v.length / 2);
+  return v.length % 2 ? v[mid] : (v[mid - 1] + v[mid]) / 2;
+}

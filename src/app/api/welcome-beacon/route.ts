@@ -58,7 +58,9 @@ export async function POST(request: Request) {
 
     const activeSeconds = intInRange(body.active_seconds, 0, 1800);
     const maxSection = intInRange(body.max_section, 0, 10);
-    if (activeSeconds === null || maxSection === null) return done();
+    // مرسِل قديم (صفحة مفتوحة قبل النشر) لا يرسل النزول: نعامله كـ0 بدل رفض الإشارة كلها
+    const maxScrollPct = body.max_scroll_pct === undefined ? 0 : intInRange(body.max_scroll_pct, 0, 100);
+    if (activeSeconds === null || maxSection === null || maxScrollPct === null) return done();
 
     const src = typeof body.src === 'string' && TAG_RE.test(body.src) ? body.src : 'web';
     const device = body.device === 'mobile' || body.device === 'desktop' ? body.device : null;
@@ -75,6 +77,7 @@ export async function POST(request: Request) {
       p_active_seconds: activeSeconds,
       p_max_section: maxSection,
       p_wa_clicks: waClicks,
+      p_max_scroll_pct: maxScrollPct,
     });
   } catch {
     // الصمت مقصود: العدّاد لا يجوز أن يُظهر خطأً أو يؤثر على الزائر

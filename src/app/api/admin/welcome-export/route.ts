@@ -5,7 +5,7 @@ import { verifyPlatformAdmin } from '@/lib/verify-admin';
 import { PERIODS, sinceFor, ammanWall, type Period } from '@/lib/welcome-period';
 import {
   type FunnelRow, type DeviceTally, SECTION_NAMES, BUTTON_ORDER, BUTTON_LABEL, TABLE_SRCS,
-  verdict, verdictText, reached, mobileShare, tallyVisit, waText,
+  verdict, verdictText, reached, mobileShare, tallyVisit, waText, median,
 } from '@/lib/welcome-stats';
 import { fetchAllVisits } from '@/lib/welcome-visits-server';
 
@@ -49,8 +49,10 @@ export async function GET(request: Request) {
     const devices: Record<string, DeviceTally> = {};
     const buttons: Record<string, Record<string, number>> = {};
     const reachedCount: Record<string, number[]> = {};
+    const scrollBySrc: Record<string, number[]> = {};
     for (const v of visits) {
       tallyVisit(v, devices, buttons);
+      (scrollBySrc[v.src] ||= []).push(v.max_scroll_pct);
       const r = (reachedCount[v.src] ||= Array(10).fill(0));
       for (let n = 1; n <= Math.min(10, v.max_section); n++) r[n - 1]++;
     }
@@ -66,8 +68,8 @@ export async function GET(request: Request) {
 
     // ورقة 1: ملخص (الصف الأول عناوين جدول المصادر، ثم بيانات التقرير تحتها)
     const s1 = sheet(wb, 'ملخص',
-      ['المصدر', 'الزيارات', 'وسيط الوقت الفعلي (ثانية)', 'وسيط الوقت (د:ث)', 'زيارات واتساب', 'نسبة واتساب', 'نسبة الجوال', 'نسبة الحاسوب'],
-      [18, 12, 18, 16, 14, 14, 14, 14]);
+      ['المصدر', 'الزيارات', 'وسيط الوقت الفعلي (ثانية)', 'وسيط الوقت (د:ث)', 'زيارات واتساب', 'نسبة واتساب', 'نسبة الجوال', 'نسبة الحاسوب', 'وسيط أقصى نزول %'],
+      [18, 12, 18, 16, 14, 14, 14, 14, 16]);
     for (const src of srcs) {
       const f = row(src);
       const share = mobileShare(devices[src]);
@@ -75,9 +77,11 @@ export async function GET(request: Request) {
         src, f?.visits ?? 0, f?.median_active_seconds != null ? Number(f.median_active_seconds) : null,
         mmss(f?.median_active_seconds), f?.wa_visits ?? 0, f?.wa_pct != null ? Number(f.wa_pct) / 100 : null,
         share == null ? null : share / 100, share == null ? null : 1 - share / 100,
+        median(scrollBySrc[src] || []),
       ]);
       r.getCell(4).numFmt = '[m]:ss';
       [6, 7, 8].forEach(c => { r.getCell(c).numFmt = '0.0%'; });
+      r.getCell(9).numFmt = '0.#';
     }
     s1.addRow([]);
     const sinceIso = sinceFor(period);
@@ -125,8 +129,8 @@ export async function GET(request: Request) {
     // ورقة 4: كل الزيارات (الأحدث أولاً)
     const s4 = sheet(wb, 'كل الزيارات',
       ['الرقم المرجعي', 'تاريخ الدخول', 'وقت الدخول', 'المصدر', 'الجهاز', 'الوقت الفعلي (ثانية)', 'الوقت الفعلي (د:ث)',
-        'مدة فتح الصفحة (ثانية)', 'مدة فتح الصفحة (د:ث)', 'أعمق قسم (رقم)', 'أعمق قسم', 'أزرار واتساب', 'ضغط واتساب؟'],
-      [14, 14, 14, 12, 10, 16, 16, 18, 18, 12, 22, 24, 12]);
+        'مدة فتح الصفحة (ثانية)', 'مدة فتح الصفحة (د:ث)', 'أعمق قسم (رقم)', 'أعمق قسم', 'أقصى نزول %', 'أزرار واتساب', 'ضغط واتساب؟'],
+      [14, 14, 14, 12, 10, 16, 16, 18, 18, 12, 22, 14, 24, 12]);
     for (const v of visits) {
       const created = new Date(v.created_at);
       const open = Math.max(0, Math.round((new Date(v.updated_at).getTime() - created.getTime()) / 1000));
@@ -135,6 +139,7 @@ export async function GET(request: Request) {
         v.device === 'mobile' ? 'جوال' : v.device === 'desktop' ? 'حاسوب' : '—',
         v.active_seconds, v.active_seconds / DAY, open, open / DAY,
         v.max_section, v.max_section > 0 ? SECTION_NAMES[v.max_section - 1] : 'لم يصل إلى أي قسم',
+        v.max_scroll_pct,
         v.wa_clicks.length ? waText(v.wa_clicks) : 'لم يضغط', v.wa_clicks.length ? 'نعم' : 'لا',
       ]);
       r.getCell(2).numFmt = 'yyyy-mm-dd';
@@ -142,7 +147,7 @@ export async function GET(request: Request) {
       r.getCell(7).numFmt = '[m]:ss';
       r.getCell(9).numFmt = '[m]:ss';
     }
-    s4.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: 13 } };
+    s4.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: 14 } };
 
     const buf = await wb.xlsx.writeBuffer();
     const w = ammanWall(now);
